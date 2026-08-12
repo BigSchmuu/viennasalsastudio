@@ -15,7 +15,7 @@
 
 | ID | Feature | Status | Spec | Created |
 |----|---------|--------|------|---------|
-| PROJ-1 | Supabase Infrastructure Setup | Approved | [PROJ-1](../features/PROJ-1-supabase-infrastructure-setup.md) | 2026-08-12 |
+| PROJ-1 | Supabase Infrastructure Setup | Deployed | [PROJ-1](../features/PROJ-1-supabase-infrastructure-setup.md) | 2026-08-12 |
 | PROJ-2 | Auth & Kundenprofil | Roadmap | — | 2026-08-12 |
 | PROJ-3 | Admin: Kurse, Levels, Locations & Lehrer verwalten | Roadmap | — | 2026-08-12 |
 | PROJ-4 | Admin: Kunden-/Mitgliederverwaltung | Roadmap | — | 2026-08-12 |

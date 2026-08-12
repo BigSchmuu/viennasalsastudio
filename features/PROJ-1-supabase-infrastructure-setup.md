@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-12
 **Last Updated:** 2026-08-12
 
@@ -296,4 +296,20 @@ Migration `proj1_fix_bug1_bug2_role_bootstrap_and_anon_access`:
 - **Recommendation:** Deploy-bereit für den aktuellen Scope (reines Datenfundament, keine UI). Empfehlung aus dem vorigen Durchgang bleibt bestehen: `SUPABASE_SERVICE_ROLE_KEY` ergänzen, sobald automatisierte Auth-Tests mit echten Testnutzern gebraucht werden (aktuell manuell via SQL simuliert).
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-12
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-1
+**Commit:** 11c825a
+
+**Notes:**
+- Erster Deploy des Projekts — Vercel-Projekt neu mit GitHub-Repo `BigSchmuu/viennasalsastudio` verbunden, Auto-Deploy auf `main` aktiv
+- Env-Vars in Vercel gesetzt: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- Produktions-URL antwortet mit HTTP 200; da PROJ-1 keine UI liefert, zeigt die Startseite noch das Next.js-Standard-Template — kein sichtbarer Unterschied erwartet, bis PROJ-2/PROJ-3 UI hinzufügen
+- Middleware lief ohne Fehler (bestätigt korrekte Supabase-Env-Var-Konfiguration in Vercel)
+- Datenbank-Migrationen liegen bereits live in Supabase (nicht Teil des Vercel-Deploys)
+
+**Bekannte offene Punkte (kein Blocker für diesen Deploy):**
+- `npm run lint` ist im Template aktuell kaputt (`next lint` wirft einen Verzeichnisfehler) — vorbestehend, nicht durch PROJ-1 verursacht
+- Next.js 16 meldet `middleware`-Konvention als deprecated zugunsten von `proxy` — funktioniert noch, sollte aber bei Gelegenheit migriert werden
+- `SUPABASE_SERVICE_ROLE_KEY` fehlt noch für automatisierte Auth-Tests (siehe QA-Notizen)
