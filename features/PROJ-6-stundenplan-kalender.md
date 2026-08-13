@@ -1,6 +1,6 @@
 # PROJ-6: Stundenplan & Kalender
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-14
 **Last Updated:** 2026-08-14
 
@@ -249,4 +249,23 @@ Fokus: Schema/RLS/Server Actions wurden bereits im `/frontend`-Durchgang umgeset
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-14
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-6
+**Commit:** de6d38a
+
+**Pre-Deployment Checks:**
+- `npm run build`: erfolgreich (inkl. TypeScript-Check), neue Route `/stundenplan` vorhanden
+- `npm run lint`: weiterhin nicht ausführbar — bekanntes, bereits bei PROJ-3 dokumentiertes repo-weites Problem, durch PROJ-6 nicht verschlimmert
+- QA: Approved (9/9 AC, 7/7 E2E-Tests, Security Audit clean)
+- Migrationen: bereits während `/frontend`/`/backend` angewendet (`course_schedule`, `course_schedule_pauses` inkl. Constraints)
+- Keine Secrets im Commit
+
+**Post-Deployment Verification (Production):**
+- `/stundenplan` lädt korrekt (Leerzustand, da noch kein echter Kurs des Nutzers einen Termin hatte), keine Console-Errors
+- Live mit dem echten Kurs „Salsa Beginner 1" verifiziert: Wochentermin (Montag 18:00–19:00) angelegt, sofort korrekt auf `/stundenplan` sichtbar — danach zu Testzwecken wieder entfernt, damit die Produktionsdaten des Nutzers unverändert bleiben
+
+**Bekannte offene Punkte (nicht blockierend):**
+- BUG-1 aus QA (kein Rate-Limiting auf der öffentlichen Route) — Low
+- ESLint-Flat-Config-Migration weiterhin ausstehend (repo-weit, siehe PROJ-3-Deployment-Notiz)
