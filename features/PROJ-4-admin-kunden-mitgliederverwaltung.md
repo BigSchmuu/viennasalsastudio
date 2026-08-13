@@ -164,6 +164,19 @@ _Added by /frontend, 2026-08-13_
 
 **Noch nicht umgesetzt:** Eigene E2E-Testdatei für PROJ-4 (folgt in `/qa`).
 
+## Backend Review (2026-08-13)
+_Added by /backend_
+
+Fokus: Da Schema, RLS und Server Actions bereits im `/frontend`-Durchgang umgesetzt wurden (analog zu PROJ-3/23) — inklusive des dort bereits gefundenen und gefixten kritischen NULL-Vergleichsfehlers — bestand dieser Durchgang aus einer zusätzlichen, unabhängigen Sicherheitsrunde.
+
+- **Codebase-weite Suche nach demselben Bug-Muster:** Geprüft, ob `!= 'admin'`/`= 'admin'`-Vergleiche mit `current_role()` noch an anderer Stelle vorkommen. Einziger weiterer Treffer ist der bereits aus PROJ-1/2 bestehende Trigger `prevent_role_self_escalation`, der korrekt `is distinct from` verwendet — der Bug in `admin_list_customer_emails()` war ein Einzelfall, jetzt behoben und konsistent mit dem Rest der Codebase.
+- **`subscriptions`-RLS live mit zwei echten Kundenkonten gegeneinander getestet:** Kunde A sieht sein eigenes Abo (1 Zeile), Kunde B sieht Kunde As Abo nicht (0 Zeilen) — Lesezugriff korrekt auf den eigenen Datensatz beschränkt.
+- **Schreibschutz für Kunden bestätigt:** Ein Kunde, der versucht, den Status seines eigenen Abos direkt per SQL zu ändern, wird von RLS lautlos blockiert (0 betroffene Zeilen, Status bleibt unverändert) — nur Admins dürfen laut Policy schreiben, passend zur Spec (kein Self-Service in PROJ-4, das kommt erst mit PROJ-9).
+- **`admin_list_customer_emails()` erneut gegen alle drei Rollen verifiziert:** `anon` → `access denied`, authentifizierter Kunde → `access denied`, Admin → vollständige Liste. Security-Advisor listet die Funktion weiterhin als „von anon aufrufbar" (RPC-Endpunkt technisch erreichbar), was aber durch die interne, jetzt korrekte NULL-sichere Prüfung abgefangen wird — identisches, bereits akzeptiertes Muster wie bei `current_role()` selbst.
+- **Server-Actions-Review:** Alle drei neuen/geänderten Dateien (`customers.ts`, `subscriptions.ts`) rufen `requireAdmin()` als erste Zeile auf. `updateCustomerProfile` hat zusätzlich einen `.eq("role","customer")`-Guard, der verhindert, dass über diesen Weg versehentlich ein Lehrer- oder Admin-Profil verändert wird.
+- **Security-Advisor final geprüft:** Keine neuen, unerwarteten Findings — nur die bereits bekannten, akzeptierten Hinweise aus PROJ-1/2 plus das oben eingeordnete `admin_list_customer_emails()`-Ergebnis.
+- `npx tsc --noEmit`, `npm test` (15/15) und `npm run build` laufen fehlerfrei.
+
 ## QA Test Results
 _To be added by /qa_
 
