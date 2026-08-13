@@ -21,6 +21,7 @@
 - Stundenplan/Termine (`class_sessions`) — PROJ-6
 - Warteliste, Buchungslogik — PROJ-8/PROJ-12
 - Suche/Pagination in Listen — bei erwarteter kleiner Datenmenge im MVP nicht nötig
+- Strukturiertes Lektions-/Video-Management (mehrere Lektionen mit je 1-n Videos pro Videosatz) — eigenes Feature PROJ-23, siehe Refinement vom 2026-08-13
 
 ## Acceptance Criteria
 
@@ -65,6 +66,7 @@
 | Kursinhalt-Video-Link optional | Nicht jeder Kurs hat von Anfang an Lehrmaterial | 2026-08-13 |
 | Lehrer-Zuordnung nutzt bestehende Profile, keine Lehrer-Erstellung in PROJ-3 | Gehört zu PROJ-22 | 2026-08-13 |
 | Keine Suche/Pagination in Listen im MVP | Erwartete Datenmenge macht das unnötig | 2026-08-13 |
+| Einzelnes Kursinhalt-Video-Link-Feld (`course_materials.content_video_url`) wird durch strukturierte Videosätze ersetzt, ausgelagert in neues Feature PROJ-23 | Realer Bedarf nach Live-Test: Kurse haben mehrere Lektionen mit je 1-n Videos, fest an Level-Inhalte gekoppelt — ein einzelner Link reicht nicht | 2026-08-13 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -284,3 +286,15 @@ Fokus: RLS-/Datenintegritäts-Review der im Frontend-Durchgang direkt umgesetzte
 
 **BUG-3: Raumverwaltung nicht auffindbar.** Nutzer meldete nach eigenem Test in Produktion: „Es gibt momentan keine Möglichkeit, einen Raum anzulegen." Ursache: Der Zugang zur Raumverwaltung eines Standorts war einzig über einen Klick auf den Standort-**Namen** in der Tabelle möglich (reiner Text-Link, keine erkennbare Schaltfläche) — funktional korrekt, aber nicht auffindbar. **Fix:** Zusätzlicher, klar sichtbarer „Räume verwalten"-Button in der Aktionen-Spalte der Standorttabelle (`src/components/admin/locations/location-manager.tsx`), verlinkt auf dieselbe Detailseite. Verifiziert: 7/8 E2E-Tests grün plus manueller Check gegen echte Produktionsdaten (Standorte „leOrama"/„Good Energy", vom Nutzer selbst angelegt) — Button sichtbar, Navigation und „Neuer Raum"-Button funktionieren. Der 8. Test („Leerer Zustand") schlägt seither strukturell fehl, da Dev und Produktion dieselbe Supabase-Instanz teilen und der Nutzer inzwischen echte Standorte/Tanzstile angelegt hat — kein App-Bug, sondern eine Einschränkung der gemeinsam genutzten Test-Datenbank.
 **Commit:** 2492cf1
+
+## Refinement (2026-08-13): Video-Content-Struktur ausgelagert nach PROJ-23
+
+**Auslöser:** Nutzer meldete nach eigenem Live-Test einen echten Bedarf, der über das einfache `content_video_url`-Feld hinausgeht: Kurse haben mehrere Lektionen/Einheiten (z. B. 8), jede Lektion hat 1-n Lehrmaterial-Videos, inhaltlich an das Level gekoppelt. Gewünscht: Auswahl eines vorbereiteten „Videosatzes" per Dropdown beim Kurs-Erstellen, plus eigenes Verwaltungsformular zur Pflege der Videosätze.
+
+**Entscheidung (Path 3 — Fundamental Challenge, siehe `/refine`-Interview):**
+- Wird als eigenständiges neues Feature **PROJ-23** umgesetzt, nicht als PROJ-3-Erweiterung (analog zur PROJ-22-Abspaltung)
+- Betrifft **internes Lehrmaterial** (Admin/Lehrer), nicht die kundenseitigen „Beispiel-Videos" aus PROJ-11 (Roadmap) — beide Features bleiben getrennt
+- Das bisherige `course_materials.content_video_url`-Feld aus PROJ-3 wird durch eine optionale `courses.video_set_id`-Referenz auf PROJ-23 ersetzt (siehe Decision Log oben)
+- PROJ-3s AC-8 („leeres Video-Feld verhindert Kurs-Anlage nicht") und die zugehörige `content_video_url`-Funktionalität gelten als durch PROJ-23 abgelöst, sobald PROJ-23 deployed ist — bis dahin bleibt das bestehende Feld aktiv nutzbar
+
+**Nächster Schritt:** `/write-spec PROJ-23`
