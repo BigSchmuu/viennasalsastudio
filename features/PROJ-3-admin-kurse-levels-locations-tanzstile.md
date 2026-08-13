@@ -279,3 +279,8 @@ Fokus: RLS-/Datenintegritäts-Review der im Frontend-Durchgang direkt umgesetzte
 **Bekannte offene Punkte (nicht blockierend):**
 - ESLint-Migration auf Flat Config steht noch aus (repo-weit, nicht PROJ-3-spezifisch)
 - BUG-2 aus QA (kein Rate-Limiting auf Admin-Actions) — Low, vor PROJ-8/PROJ-9 nachholen
+
+### Post-Deployment Fix (2026-08-13)
+
+**BUG-3: Raumverwaltung nicht auffindbar.** Nutzer meldete nach eigenem Test in Produktion: „Es gibt momentan keine Möglichkeit, einen Raum anzulegen." Ursache: Der Zugang zur Raumverwaltung eines Standorts war einzig über einen Klick auf den Standort-**Namen** in der Tabelle möglich (reiner Text-Link, keine erkennbare Schaltfläche) — funktional korrekt, aber nicht auffindbar. **Fix:** Zusätzlicher, klar sichtbarer „Räume verwalten"-Button in der Aktionen-Spalte der Standorttabelle (`src/components/admin/locations/location-manager.tsx`), verlinkt auf dieselbe Detailseite. Verifiziert: 7/8 E2E-Tests grün plus manueller Check gegen echte Produktionsdaten (Standorte „leOrama"/„Good Energy", vom Nutzer selbst angelegt) — Button sichtbar, Navigation und „Neuer Raum"-Button funktionieren. Der 8. Test („Leerer Zustand") schlägt seither strukturell fehl, da Dev und Produktion dieselbe Supabase-Instanz teilen und der Nutzer inzwischen echte Standorte/Tanzstile angelegt hat — kein App-Bug, sondern eine Einschränkung der gemeinsam genutzten Test-Datenbank.
+**Commit:** (folgt)

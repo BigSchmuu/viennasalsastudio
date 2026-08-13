@@ -92,6 +92,9 @@ export function LocationManager({ locations }: { locations: LocationRow[] }) {
                 <TableCell>{location.address || "—"}</TableCell>
                 <TableCell>{location.roomCount}</TableCell>
                 <TableCell className="text-right space-x-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/admin/standorte/${location.id}`}>Räume verwalten</Link>
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setEditing(location)}>
                     Bearbeiten
                   </Button>
