@@ -1,6 +1,6 @@
 # PROJ-5: Kurskatalog (Browsing & Filter)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-13
 **Last Updated:** 2026-08-13
 
@@ -223,4 +223,24 @@ Fokus: Der `teacher_directory`-View wurde bereits im `/frontend`-Durchgang angel
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-14
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-5
+**Commit:** b2369ab
+
+**Pre-Deployment Checks:**
+- `npm run build`: erfolgreich (inkl. TypeScript-Check), neue Route `/kurse` vorhanden
+- `npm run lint`: weiterhin nicht ausführbar — bekanntes, bereits bei PROJ-3 dokumentiertes repo-weites Problem, durch PROJ-5 nicht verschlimmert
+- QA: Approved (9/9 AC, 8/8 E2E-Tests, Security Audit clean)
+- Migrationen: bereits während `/frontend`/`/backend` angewendet (`teacher_directory`-View inkl. Rechte-Fix)
+- Keine Secrets im Commit
+
+**Post-Deployment Verification (Production):**
+- `/kurse` lädt korrekt mit echten Kursdaten (Name, Tanzstil, Level, Standort), keine Console-Errors
+- „Jetzt buchen"-Toast funktioniert live
+- Sicherheits-Fix erneut in Produktion bestätigt: `INSERT` als `anon` auf `teacher_directory` liefert korrekt `42501 permission denied`
+
+**Bekannte offene Punkte (nicht blockierend):**
+- BUG-1 aus QA (kein Rate-Limiting auf der öffentlichen Route) — Low
+- ESLint-Flat-Config-Migration weiterhin ausstehend (repo-weit, siehe PROJ-3-Deployment-Notiz)
