@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { levelValues } from "@/lib/constants/levels";
+import { subscriptionStatusValues } from "@/lib/constants/subscription-status";
 
 export const locationSchema = z.object({
   name: z.string().trim().min(1, "Name ist erforderlich").max(200),
@@ -41,3 +42,13 @@ export const lessonSchema = z.object({
   video_urls: z.array(z.string().trim().url("Bitte eine gültige URL eingeben")),
 });
 export type LessonInput = z.infer<typeof lessonSchema>;
+
+export const subscriptionSchema = z.object({
+  name: z.string().trim().min(1, "Name ist erforderlich").max(200),
+  price: z
+    .number({ message: "Bitte einen gültigen Preis eingeben" })
+    .min(0, "Preis darf nicht negativ sein")
+    .max(100000, "Preis ist zu hoch"),
+  status: z.enum(subscriptionStatusValues, { message: "Bitte einen Status wählen" }),
+});
+export type SubscriptionInput = z.infer<typeof subscriptionSchema>;

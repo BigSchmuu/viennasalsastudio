@@ -9,6 +9,7 @@ const links = [
   { href: "/admin/tanzstile", label: "Tanzstile" },
   { href: "/admin/kurse", label: "Kurse" },
   { href: "/admin/videosaetze", label: "Videosätze" },
+  { href: "/admin/kunden", label: "Kunden" },
 ];
 
 export function AdminNav() {

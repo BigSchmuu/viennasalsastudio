@@ -1,6 +1,6 @@
 # PROJ-4: Admin — Kunden-/Mitgliederverwaltung
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-13
 **Last Updated:** 2026-08-13
 
@@ -138,6 +138,31 @@ aus PROJ-1 und wird unverändert weiterverwendet.
 
 ### D) Dependencies
 - Keine neuen npm-Pakete — nutzt ausschließlich bereits vorhandene shadcn/ui-Bausteine (Table, Dialog, AlertDialog, Select, Input, Button, Badge für Status-Anzeige), gleiches Muster wie PROJ-3/PROJ-23.
+
+## Implementation Notes
+_Added by /frontend, 2026-08-13_
+
+**Datenbank-Migration** (`proj4_subscriptions_name_price_and_admin_email_lookup`): `subscriptions` bekommt neue Spalten `name` (text) und `price` (numeric); der Status-Constraint auf aktiv/pausiert/gekündigt existierte bereits unverändert aus PROJ-1. Neue Funktion `admin_list_customer_emails()` (SECURITY DEFINER, nur Rolle „admin") liefert ausschließlich `id`+`email` aus dem Auth-Bereich — keine sonstigen Auth-internen Felder.
+
+**Seiten:** `/admin/kunden` (Liste mit Client-seitiger Suche nach Name/E-Mail), `/admin/kunden/[id]` (Profil-Formular + Abo-Verwaltung) — beide über den bestehenden `requireAdmin()`-Layout-Check geschützt. Admin-Nav um „Kunden" ergänzt.
+
+**Server Actions** (`src/lib/actions/admin/{customers,subscriptions}.ts`): `updateCustomerProfile` (mit `.eq("role","customer")`-Guard, damit versehentlich keine Lehrer-/Admin-Profile über diesen Weg verändert werden können), `createSubscription`/`updateSubscription`/`deleteSubscription`.
+
+**Komponenten** (`src/components/admin/customers/`): `CustomerList` (Tabelle + Suchfeld, kein Dialog nötig), `CustomerProfileForm` (wiederverwendet `profileSchema`/`genderOptions` aus PROJ-2 1:1), `SubscriptionManager` (Tabelle + Dialog + AlertDialog, gleiches Muster wie bisher).
+
+### Kritischer Sicherheitsfund während der eigenen Entwicklung (vor jeglichem Deploy)
+
+**Bug: NULL-Vergleichsfehler in `admin_list_customer_emails()` gab anfangs echte Kunden-E-Mails an nicht-eingeloggte Nutzer frei.** Die erste Fassung der Funktion prüfte `if "current_role"() != 'admin' then raise exception ...`. `current_role()` liefert bei nicht eingeloggten Nutzern `NULL` (kein `auth.uid()`, daher keine passende Zeile in `profiles`). In SQL ergibt `NULL != 'admin'` den Wert `NULL`, nicht `TRUE` — und `IF NULL THEN ...` wird in PL/pgSQL als falsch behandelt, wodurch die Prüfung stillschweigend übersprungen und **alle Kunden-E-Mails an die `anon`-Rolle zurückgegeben wurden**. Live mit `set role anon; select * from admin_list_customer_emails();` entdeckt — echte E-Mail-Adressen wurden zurückgegeben. **Fix:** NULL-sicherer Vergleich mit `is distinct from` statt `!=`. Sofort erneut live verifiziert: `anon` und ein Kunden-Account bekommen jetzt korrekt einen `access denied`-Fehler, ein Admin-Account weiterhin die vollständigen Daten.
+
+**Einordnung:** Dieser Fehler wurde innerhalb weniger Minuten während der eigenen Entwicklung entdeckt und behoben, bevor die Funktion in irgendeiner Form ins Frontend eingebunden oder deployed wurde — zu keinem Zeitpunkt war er über die laufende Produktions-App erreichbar. Trotzdem: ein wichtiger Reminder, `current_role()`-Vergleiche in neuen SECURITY-DEFINER-Funktionen künftig direkt mit `is distinct from` statt `!=`/`=` zu schreiben, um genau diese NULL-Falle zu vermeiden.
+
+**Zod/react-hook-form-Bug (bereits aus PROJ-3 bekanntes Muster):** `z.coerce.number()` für das Preis-Feld erzeugte denselben Input/Output-Typkonflikt wie das `teacher_ids`-Feld in PROJ-3. Behoben durch Verzicht auf `z.coerce` im Schema (reines `z.number()`) und manuelle `Number(...)`-Konvertierung im Server Action beim Parsen der `FormData`; im Formular liefert das Zahlenfeld über `valueAsNumber` direkt einen echten `number`-Wert.
+
+**Live end-to-end getestet** (Playwright, echte Supabase-Instanz): Kundenliste mit Suche, Profil bearbeiten, mehrere unabhängige Abos anlegen, Status ändern, Abo löschen, Pflichtfeld-Validierung, Zugriffskontrolle (Kunde wird von `/admin/kunden` weggeleitet), RLS-Sicherheitsfund samt Fix (siehe oben).
+
+**Regressionsprüfung:** `npm test` 15/15 grün, `npm run build` fehlerfrei.
+
+**Noch nicht umgesetzt:** Eigene E2E-Testdatei für PROJ-4 (folgt in `/qa`).
 
 ## QA Test Results
 _To be added by /qa_

@@ -270,18 +270,24 @@ export type Database = {
           created_at: string
           customer_id: string
           id: string
+          name: string | null
+          price: number | null
           status: string
         }
         Insert: {
           created_at?: string
           customer_id: string
           id?: string
+          name?: string | null
+          price?: number | null
           status?: string
         }
         Update: {
           created_at?: string
           customer_id?: string
           id?: string
+          name?: string | null
+          price?: number | null
           status?: string
         }
         Relationships: [
@@ -384,6 +390,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_list_customer_emails: {
+        Args: never
+        Returns: {
+          email: string
+          id: string
+        }[]
+      }
       current_role: { Args: never; Returns: string }
     }
     Enums: {
