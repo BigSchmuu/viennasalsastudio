@@ -136,6 +136,18 @@ _Added by /frontend, 2026-08-14_
 
 **Noch nicht umgesetzt:** Eigene E2E-Testdatei für PROJ-5 (folgt in `/qa`).
 
+## Backend Review (2026-08-14)
+_Added by /backend_
+
+Fokus: Der `teacher_directory`-View wurde bereits im `/frontend`-Durchgang angelegt, ist aber der bisher heikelste Datenbank-Zugriffsmechanismus im Projekt (bewusst RLS-umgehend) — dieser Durchgang war entsprechend eine besonders gründliche Sicherheitsrunde statt einer reinen Bestätigung.
+
+- **Kritischer Fund: View hatte volle Schreibrechte für `anon`/`authenticated`.** Der Security-Advisor stufte den View korrekt als „Security Definer View" mit **ERROR**-Level ein (höher als die bisherigen WARN-Funde zu `current_role()`/`admin_list_customer_emails()`). Bei der Live-Prüfung stellte sich heraus: Supabase vergibt für neue Relationen im `public`-Schema standardmäßig breite Rechte (INSERT/UPDATE/DELETE/TRUNCATE/...) an `anon`/`authenticated`, da normalerweise RLS allein als Schutz reicht. Für einen RLS-umgehenden View ist das gefährlich — ein `INSERT`/`UPDATE`/`DELETE` als `anon` direkt gegen `teacher_directory` wurde tatsächlich bis zur zugrundeliegenden `profiles`-Tabelle durchgereicht (blockiert nur zufällig durch einen Fremdschlüssel-Constraint, nicht durch eine bewusste Zugriffssperre). **Fix:** `revoke all on teacher_directory from anon, authenticated;` gefolgt von `grant select` — live erneut verifiziert: INSERT/UPDATE/DELETE als `anon` liefern jetzt korrekt `42501 permission denied`, SELECT funktioniert weiterhin.
+- **Security-Definer-Verhalten explizit gemacht:** `alter view teacher_directory set (security_invoker = false);` ergänzt, damit die Absicht (bewusstes Umgehen der `profiles`-RLS, eng begrenzt auf `id`+`full_name` bei `role = 'teacher'`) für künftige Entwickler unmissverständlich im Schema dokumentiert ist, statt sich auf das implizite Standardverhalten zu verlassen.
+- **Vollständigkeitsprüfung:** `teacher_directory` ist aktuell der einzige View im `public`-Schema — keine weiteren Stellen mit demselben Risiko-Muster im Projekt.
+- **Bestätigt:** `profiles` selbst bleibt für `anon` bei direktem Zugriff weiterhin komplett gesperrt (0 Zeilen) — die bestehende RLS aus PROJ-1/2 wurde durch PROJ-5 nicht verändert oder aufgeweicht.
+- **Verbleibendes, bewusst akzeptiertes Finding:** Der Security-Advisor zeigt weiterhin „Security Definer View" (ERROR) für `teacher_directory` — das ist kein Bug, sondern der Zweck des Views selbst (ohne dieses Verhalten könnte `anon` keine Lehrer-Namen sehen). Akzeptiert unter der Bedingung, dass der View strikt auf zwei Spalten und nur-lesenden Zugriff beschränkt bleibt, was jetzt zusätzlich live verifiziert und explizit im Schema festgehalten ist.
+- `npx tsc --noEmit`, `npm test` (15/15) und `npm run build` laufen fehlerfrei.
+
 ## QA Test Results
 _To be added by /qa_
 
