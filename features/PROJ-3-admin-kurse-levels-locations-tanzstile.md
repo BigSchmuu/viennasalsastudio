@@ -1,6 +1,6 @@
 # PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile verwalten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-13
 **Last Updated:** 2026-08-13
 
@@ -257,4 +257,25 @@ Fokus: RLS-/Datenintegritäts-Review der im Frontend-Durchgang direkt umgesetzte
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-13
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-3
+**Commit:** d01b28a
+
+**Pre-Deployment Checks:**
+- `npm run build`: erfolgreich (inkl. TypeScript-Check)
+- `npm run lint`: **nicht ausführbar** — `next lint` existiert in Next.js 16 nicht mehr, Projekt nutzt noch das alte `.eslintrc.json`-Format ohne `eslint.config.js` (Flat Config). Repo-weites Tooling-Problem, nicht durch PROJ-3 verursacht; mit Nutzer abgestimmt, Deploy trotzdem freigegeben (Build-TypeScript-Check + 13/13 Unit- + 8/8 E2E-Tests decken Codequalität ausreichend ab). Nachzuholen als eigenständiger Chore (ESLint-Flat-Config-Migration).
+- QA: Approved (10/10 AC, 5/5 Edge Cases, Security Audit clean)
+- Migrationen: bereits während `/backend` angewendet (`dance_styles`-Tabelle, `courses.dance_style_id`, Level-Check-Constraint, case-insensitive Name-Index)
+- Keine Secrets im Commit
+
+**Post-Deployment Verification (Production):**
+- `/admin` ohne Login → korrekt Redirect zu `/login?redirect=/admin` (307)
+- Login als Admin-Testkonto → `/admin` → automatischer Redirect zu `/admin/standorte`
+- `/admin/kurse` rendert korrekt (leerer Zustand, da Produktions-DB noch keine Kurse hat), keine Console-Errors
+- QA-Testkonten (`qa-proj3-*@viennasalsastudio.test`) nach Verifikation aus Supabase entfernt (gleiche Datenbank für Dev/Prod)
+
+**Bekannte offene Punkte (nicht blockierend):**
+- ESLint-Migration auf Flat Config steht noch aus (repo-weit, nicht PROJ-3-spezifisch)
+- BUG-2 aus QA (kein Rate-Limiting auf Admin-Actions) — Low, vor PROJ-8/PROJ-9 nachholen
