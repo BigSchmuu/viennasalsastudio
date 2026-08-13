@@ -1,6 +1,6 @@
 # PROJ-4: Admin — Kunden-/Mitgliederverwaltung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-13
 **Last Updated:** 2026-08-13
 
@@ -256,4 +256,24 @@ Fokus: Da Schema, RLS und Server Actions bereits im `/frontend`-Durchgang umgese
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-13
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-4
+**Commit:** 59319b6
+
+**Pre-Deployment Checks:**
+- `npm run build`: erfolgreich (inkl. TypeScript-Check), alle neuen Routen (`/admin/kunden`, `/admin/kunden/[id]`) vorhanden
+- `npm run lint`: weiterhin nicht ausführbar — bekanntes, bereits bei PROJ-3 dokumentiertes repo-weites Problem, durch PROJ-4 nicht verschlimmert
+- QA: Approved (9/9 AC, 6/6 E2E-Tests, Security Audit clean)
+- Migrationen: bereits während `/frontend` angewendet (`subscriptions.name`/`price`, `admin_list_customer_emails()`)
+- Keine Secrets im Commit
+
+**Post-Deployment Verification (Production):**
+- Login als Admin-Testkonto → `/admin/kunden` erreichbar, Kundenliste zeigt echten Kunden (Name/E-Mail/Abos-Spalten korrekt)
+- Keine Console-/Page-Errors
+- Test-Account nach Verifikation aus Supabase entfernt (gleiche Datenbank für Dev/Prod)
+
+**Bekannte offene Punkte (nicht blockierend):**
+- BUG-1 aus QA (kein Rate-Limiting auf Admin-Actions) — Low, identisch zu PROJ-3/23, vor PROJ-8/PROJ-9 nachholen
+- ESLint-Flat-Config-Migration weiterhin ausstehend (repo-weit, siehe PROJ-3-Deployment-Notiz)
