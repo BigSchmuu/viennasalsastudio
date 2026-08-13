@@ -71,12 +71,51 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Neue RLS-Policy: Lehrer-Profile (Name) öffentlich lesbar, Kunden-Profile bleiben privat | PROJ-5 braucht Lehrer-Namen ohne Login; bestehende `profiles`-Policy erlaubt aktuell nur eigene/Admin-Zugriffe | 2026-08-13 |
+| Serverseitiger Einmal-Abruf, clientseitige Filterung (kein erneuter Server-Roundtrip pro Filteränderung) | Ausreichend bei erwartet kleiner Kursanzahl, konsistent mit PROJ-4s Kundensuche | 2026-08-13 |
+| Sonner-Toast (`src/components/ui/sonner.tsx`) erstmals in den Root-Layout eingebunden | Bereits im Projekt vorhanden, aber ungenutzt; wird für die „Jetzt buchen"-Hinweismeldung gebraucht | 2026-08-13 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure
+```
+App
+└── /kurse (öffentliche Route, kein Login nötig)
+    ├── Filterleiste (Tanzstil-Dropdown, Level-Dropdown, Standort-Dropdown,
+    │   „Filter zurücksetzen"-Button)
+    ├── Kurs-Kachel-Grid
+    │   └── Kurs-Kachel (Name, Tanzstil-Badge, Level-Badge, Standort,
+    │       Lehrer-Namen, „Jetzt buchen"-Button)
+    └── Leerer Zustand („Keine Kurse gefunden" bei aktiven Filtern ohne
+        Treffer, „Noch keine Kurse vorhanden" wenn der Katalog ganz leer ist)
+```
+
+### B) Data Model (plain language)
+```
+Keine neue Tabelle nötig — der Katalog liest ausschließlich aus bereits
+bestehenden Tabellen aus PROJ-1/PROJ-3: Kurse, Tanzstile, Standorte/Räume,
+Lehrer-Zuordnungen.
+
+Wichtiger Fund: Lehrer-Namen sind aktuell NICHT öffentlich lesbar. Die
+„profiles"-Tabelle (enthält u. a. die Namen) ist bisher nur für den
+jeweiligen Nutzer selbst oder für Admins einsehbar — das reicht für PROJ-5
+nicht aus, da auch nicht eingeloggte Besucher Lehrer-Namen sehen sollen
+sollen.
+```
+
+**Neue, gezielte Zugriffsregel nötig:** Lehrer-Profile (Name) werden öffentlich lesbar gemacht — aber ausdrücklich nur für Profile mit der Rolle „Lehrer", nicht für Kunden-Profile. Das ist bewusst anders als der eng begrenzte E-Mail-Lookup aus PROJ-4 (dort ging es um private Kundendaten) — Lehrer-Namen sind für eine Tanzschul-Website typischerweise ohnehin öffentliche Marketing-Information.
+
+### C) Tech Decisions (justified for PM)
+- **Serverseitig einmal laden, dann clientseitig filtern** — bei der erwarteten kleinen Kursanzahl (siehe Spec, keine Pagination) reicht ein einmaliger Datenabruf beim Seitenaufruf; die Filter wirken danach sofort ohne weitere Serveranfragen, genau wie bei der Kundensuche aus PROJ-4.
+- **Neue, öffentliche Lese-Regel nur für Lehrer-Profile** (Name), nicht für Kunden-Profile — ermöglicht die Lehrer-Anzeige im Katalog, ohne die bestehende Kundendaten-Absicherung aus PROJ-1/PROJ-2 aufzuweichen.
+- **Toast-Hinweismeldung für den „Jetzt buchen"-Platzhalter** — die dafür vorgesehene shadcn-Komponente (Sonner) ist im Projekt bereits vorhanden, aber noch nirgends eingebunden; wird für PROJ-5 erstmals in der App aktiviert.
+- **Keine neuen Server Actions nötig** — der Katalog ist rein lesend, keine Formulare oder Mutationen.
+
+### D) Dependencies
+- Keine neuen npm-Pakete — nutzt ausschließlich bereits vorhandene shadcn/ui-Bausteine (Card, Badge, Select, Button, Sonner-Toast).
 
 ## QA Test Results
 _To be added by /qa_
