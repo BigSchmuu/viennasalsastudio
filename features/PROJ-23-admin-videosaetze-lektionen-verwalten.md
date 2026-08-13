@@ -85,12 +85,77 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Drei verschachtelte Tabellen (Videosätze → Lektionen → Videos) statt Text-Array-Spalte | Erlaubt individuelle Validierung/Löschung jedes Video-Links, konsistent mit bestehendem Tabellen-Muster (Standorte → Räume) | 2026-08-13 |
+| Reihenfolge der Lektionen über einfache Positions-Nummer statt Drag-and-Drop-Bibliothek | Deckt Auf/Ab-Anforderung ab ohne neue Abhängigkeit | 2026-08-13 |
+| Fremdschlüssel-Schutz (RESTRICT) von `courses` auf Videosätze | Konsistentes, bewährtes Löschschutz-Muster aus PROJ-1/PROJ-3 | 2026-08-13 |
+| Kaskadierendes Löschen von Lektionen/Videos beim Löschen eines (unbenutzten) Videosatzes | Vermeidet verwaiste Datensätze ohne zusätzlichen Aufräum-Code | 2026-08-13 |
+| Case-insensitiver Unique-Index auf Videosatz-Namen | Gleiches Muster wie der Tanzstile-Fix aus PROJ-3, verhindert Duplikate | 2026-08-13 |
+| RLS-Lesezugriff für Lehrer nur über Join auf `course_teachers` (kein direktes Rollenfeld auf Videosätzen) | Gleiches, bereits etabliertes Muster wie beim bisherigen `course_materials`-Zugriff aus PROJ-3 | 2026-08-13 |
+| `course_materials`-Tabelle wird entfernt statt migriert | Keine produktiven Daten vorhanden (siehe Out of Scope); vermeidet zwei parallele Wege für Kurs-Videomaterial | 2026-08-13 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure
+```
+App
+└── /admin (Admin-Bereich — geschützt: nur Rolle „admin")
+    ├── AdminNav (Standorte | Tanzstile | Kurse | Videosätze)
+    ├── /admin/videosaetze
+    │   ├── Videosatz-Liste (Name, Level-Tag, Anzahl Lektionen, Aktionen)
+    │   ├── Videosatz anlegen/bearbeiten (Formular: Name, optionales Level)
+    │   └── /admin/videosaetze/[id] — Lektions-Verwaltung für diesen Videosatz
+    │       ├── Lektions-Liste (Titel, Anzahl Videos, Auf/Ab-Reihenfolge, Aktionen)
+    │       ├── Lektion anlegen/bearbeiten (Formular: Titel)
+    │       └── Video-Link-Verwaltung je Lektion (Liste von URLs,
+    │           hinzufügen/entfernen direkt im Lektions-Formular)
+    └── /admin/kurse
+        └── Kurs-Formular bekommt zusätzliches Feld:
+            „Videosatz" (optionale Dropdown-Auswahl aus bestehenden Videosätzen,
+            ersetzt das bisherige einzelne „Kursinhalt-Video-Link"-Feld aus PROJ-3)
+```
+
+### B) Data Model (plain language)
+```
+Neue Tabelle: Videosätze
+├── Name (eindeutig, unabhängig von Groß-/Kleinschreibung)
+├── Level (optional, dieselben 5 festen Werte wie bei Kursen)
+└── vom Admin über die neue Verwaltungsseite gepflegt
+
+Neue Tabelle: Lektionen
+├── Gehört zu genau einem Videosatz
+├── Titel
+└── Reihenfolge-Nummer (für Auf/Ab-Sortierung)
+
+Neue Tabelle: Videos (pro Lektion)
+├── Gehört zu genau einer Lektion
+└── Video-Link (URL)
+
+Bestehende Tabelle „courses" (aus PROJ-1/PROJ-3) wird angepasst:
+└── Neues Feld „Videosatz": optionaler Verweis auf die neue Videosätze-Tabelle
+
+Entfernt: die bisherige Tabelle „course_materials" (enthielt nur das
+einzelne Kursinhalt-Video-Link-Feld aus PROJ-3) — wird durch die neue,
+strukturierte Videosatz-Zuordnung ersetzt. Keine produktiven Daten
+vorhanden, daher keine Migration nötig.
+```
+
+**Löschregel für Videosätze:** Ein Videosatz, der noch bei einem Kurs zugeordnet ist, kann nicht gelöscht werden (gleiches Muster wie Standorte/Räume/Tanzstile aus PROJ-3). Wird ein Videosatz gelöscht, der von keinem Kurs mehr verwendet wird, werden seine Lektionen und Video-Links automatisch mitgelöscht (sie ergeben ohne den Videosatz keinen Sinn mehr).
+
+**Zugriffsregel:** Nur Admins dürfen Videosätze/Lektionen/Videos anlegen, bearbeiten oder löschen. Lesen dürfen Admins uneingeschränkt sowie Lehrer, aber nur für Videosätze, die einem ihrer eigenen zugeordneten Kurse zugewiesen sind — gleiches Prinzip wie beim bisherigen `course_materials`-Zugriff aus PROJ-3.
+
+### C) Tech Decisions (justified for PM)
+- **Drei neue, verschachtelte Tabellen (Videosätze → Lektionen → Videos)** statt einer einzelnen Tabelle mit Textliste — erlaubt saubere Validierung jedes einzelnen Video-Links und einfaches gezieltes Löschen/Bearbeiten einzelner Einträge, konsistent mit dem bestehenden Tabellen-Muster der App (z. B. Standorte → Räume aus PROJ-3).
+- **Next.js Server Actions** (wie bei PROJ-2/PROJ-3) statt eigener API-Routen — konsistent mit dem Rest der App.
+- **Auf/Ab-Reihenfolge über eine einfache Positions-Nummer** statt Drag-and-Drop-Bibliothek — deckt die Anforderung ab, ohne neue Abhängigkeit einzuführen.
+- **Datenbank verhindert unerlaubtes Löschen** von Videosätzen, die noch verwendet werden (Fremdschlüssel-Schutz wie in PROJ-1/PROJ-3) statt eigener Prüf-Logik im Code.
+- **Automatisches Mitlöschen von Lektionen/Videos** beim Löschen eines (nicht mehr verwendeten) Videosatzes — vermeidet verwaiste Datensätze ohne zusätzlichen Aufräum-Code.
+- **Alte `course_materials`-Tabelle wird entfernt statt parallel weitergeführt** — vermeidet zwei parallele, verwirrende Wege, Kurs-Videomaterial zu pflegen.
+
+### D) Dependencies
+- Keine neuen npm-Pakete — nutzt ausschließlich bereits vorhandene shadcn/ui-Bausteine (Table, Dialog, AlertDialog, Select, Input, Button), gleiches Muster wie PROJ-3.
 
 ## QA Test Results
 _To be added by /qa_
