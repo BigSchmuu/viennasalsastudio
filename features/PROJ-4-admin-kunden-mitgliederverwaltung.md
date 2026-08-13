@@ -59,7 +59,7 @@
 - [x] Darf Admin Kundenprofile bearbeiten? → Ja (2026-08-13)
 - [x] Suche in der Kundenliste? → Ja, nach Name/E-Mail (2026-08-13)
 - [x] Konto löschen/deaktivieren? → Nicht im MVP (2026-08-13)
-- [ ] Genaue Preis-Formatierung (Cent-genau, Rundung, Währungssymbol-Anzeige) — wird in `/architecture` festgelegt
+- [x] Genaue Preis-Formatierung → Dezimalzahl in Euro (Cent-genau, z. B. 135,00), Anzeige mit €-Symbol und deutscher Locale-Formatierung (2026-08-13)
 
 ## Decision Log
 <!-- Record of conscious decisions made and why. Added to by /write-spec and /architecture. -->
@@ -79,12 +79,65 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Schmaler, admin-only E-Mail-Lookup (nur ID + E-Mail) statt direktem Zugriff auf den Auth-Bereich | `profiles` speichert keine E-Mail; Auth-Bereich enthält sensible Felder, die nicht breit zugänglich sein dürfen | 2026-08-13 |
+| Preis als Dezimalzahl (Euro) auf `subscriptions` | Einfache manuelle Admin-Eingabe, ausreichend für Übergangslösung vor PROJ-7 | 2026-08-13 |
+| Abo-Status per Constraint auf aktiv/pausiert/gekündigt beschränkt | Gleiches Muster wie Kurs-Level aus PROJ-3, drei feste Werte brauchen keine eigene Tabelle | 2026-08-13 |
+| Kein Löschschutz für Abos | Keine andere Tabelle verweist aktuell auf `subscriptions` | 2026-08-13 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure
+```
+App
+└── /admin (Admin-Bereich — geschützt: nur Rolle „admin")
+    ├── AdminNav (Standorte | Tanzstile | Kurse | Videosätze | Kunden)
+    └── /admin/kunden
+        ├── Kunden-Liste (Name, E-Mail, Anzahl Abos, Suchfeld nach Name/E-Mail)
+        └── /admin/kunden/[id] — Kundendetailseite
+            ├── Profil-Bereich (Name, Telefon, Geburtsdatum, Geschlecht) —
+            │   bearbeitbares Formular, direkt speicherbar
+            └── Abo-Verwaltung (Tabelle: Name, Preis, Status, Aktionen)
+                └── Abo anlegen/bearbeiten (Formular: Name, Preis,
+                    Status-Auswahl aktiv/pausiert/gekündigt)
+```
+
+### B) Data Model (plain language)
+```
+Kundenliste basiert auf der bestehenden Tabelle „profiles" (alle Zeilen mit
+Rolle „customer") — keine neue Tabelle für Kundendaten nötig.
+
+Neu: ein schmaler, nur für Admins zugänglicher E-Mail-Lookup
+├── E-Mail-Adressen liegen im separaten, geschützten Auth-Bereich der
+│   Datenbank (nicht in „profiles"), auf den normale Tabellen-Anfragen
+│   keinen Zugriff haben
+├── Der Lookup gibt ausschließlich Kunden-ID + E-Mail zurück — keine
+│   Passwort-Hashes oder sonstigen internen Auth-Daten
+└── Nur für die Rolle „admin" nutzbar, identisches Schutzprinzip wie
+    die bestehenden Admin-Funktionen
+
+Bestehende Tabelle „subscriptions" (aus PROJ-1) wird erweitert:
+├── Name (neu, z. B. „Flatrate Studierende")
+├── Preis in Euro (neu)
+└── Status: bereits vorhandenes Feld, Wertebereich wird auf die 3 festen
+    Werte beschränkt (aktiv / pausiert / gekündigt)
+
+Die Verknüpfung zwischen Kunde und Abo (customer_id) existiert bereits
+aus PROJ-1 und wird unverändert weiterverwendet.
+```
+
+### C) Tech Decisions (justified for PM)
+- **Schmaler, admin-only E-Mail-Lookup statt direktem Zugriff auf den Auth-Bereich:** Der Auth-Bereich der Datenbank enthält sensible interne Felder (u. a. Passwort-Hashes), die niemals über normale Datenbank-Anfragen erreichbar sein sollen. Ein gezielter, eng begrenzter Lookup (nur ID + E-Mail, nur für Admins) ist der sichere Weg, Name und E-Mail gemeinsam anzuzeigen.
+- **Preis als Dezimalzahl in Euro** statt Ganzzahl in Cent — einfacher für die manuelle Admin-Eingabe, ausreichend genau für diese Übergangslösung vor der echten Stripe-Integration (PROJ-7).
+- **Abo-Status per Datenbank-Constraint auf die 3 festen Werte beschränkt** (gleiches Muster wie Kurs-Level aus PROJ-3) — keine eigene Verwaltungsseite nötig, da sich diese drei Werte nicht ändern werden.
+- **Kein Löschschutz beim Löschen eines Abos** — anders als bei Standorten/Kursen verweist aktuell keine andere Tabelle auf ein Abo, ein einfaches Löschen ist unproblematisch.
+- **Next.js Server Actions** (wie bei PROJ-2/3/23) statt eigener API-Routen — konsistent mit dem Rest der App.
+- **Admin-Zugriffsschutz über den bestehenden gemeinsamen Layout-Check** (`/admin/layout.tsx`), keine neue Schutzlogik nötig.
+
+### D) Dependencies
+- Keine neuen npm-Pakete — nutzt ausschließlich bereits vorhandene shadcn/ui-Bausteine (Table, Dialog, AlertDialog, Select, Input, Button, Badge für Status-Anzeige), gleiches Muster wie PROJ-3/PROJ-23.
 
 ## QA Test Results
 _To be added by /qa_
