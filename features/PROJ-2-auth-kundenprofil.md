@@ -1,6 +1,6 @@
 # PROJ-2: Auth & Kundenprofil
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-12
 **Last Updated:** 2026-08-13
 
@@ -297,4 +297,21 @@ _Added by /frontend_
 - **Recommendation:** Deploy-bereit. Offene, nicht-blockierende Punkte bleiben wie zuvor dokumentiert: „Confirm signup"-Link noch nicht live end-to-end getestet (nur „Reset Password"), Leaked-Password-Protection im Dashboard aktivieren, Spam-Ordner-Deliverability beobachten.
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-13
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-2
+**Commit:** 30d2641
+
+**Notes:**
+- Auto-Deploy über GitHub-Push auf `main` (Vercel-Projekt bestand bereits seit PROJ-1)
+- Neue Routen live verifiziert: `/login`, `/registrieren`, `/passwort-vergessen`, `/passwort-zuruecksetzen`, `/profil` (Middleware-Schutz bestätigt, Redirect zu `/login?redirect=/profil`)
+- **Echter Login-Flow live gegen Produktion getestet** (Playwright, `javaScriptEnabled` Standard): Login mit Testkonto erfolgreich, Weiterleitung zu `/profil`, korrekte E-Mail-Anzeige
+- **Bug beim ersten Deploy gefunden und behoben:** `NEXT_PUBLIC_SITE_URL` fehlte initial in den Vercel-Umgebungsvariablen — dadurch zeigten Bestätigungs-/Reset-Mail-Links auf `localhost:3000` statt auf die Produktions-Domain (verifiziert über den `referer` in den Supabase-Auth-Logs). Nutzer hat die Variable ergänzt (`https://viennasalsastudio.vercel.app`) und einen Redeploy ausgelöst — mit erneutem Live-Test bestätigt: Links zeigen jetzt korrekt auf die Produktions-Domain
+- Kein sichtbarer Unterschied auf der Startseite `/` (weiterhin Next.js-Standard-Template) — PROJ-2 betrifft nur die neuen Auth-Routen
+
+**Bekannte offene Punkte (kein Blocker für diesen Deploy):**
+- „Confirm signup"-Link (Registrierung) noch nicht live end-to-end mit echter E-Mail-Zustellung getestet (nur „Reset Password" wurde vollständig durchgetestet, nutzt aber denselben Mechanismus)
+- „Leaked Password Protection" im Supabase Dashboard noch nicht aktiviert
+- Deliverability-Risiko (Spam-Ordner) bei Strato-Mail weiterhin zu beobachten
+- `npm run lint` weiterhin vorbestehend kaputt (nicht durch PROJ-1/PROJ-2 verursacht)
