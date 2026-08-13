@@ -79,12 +79,67 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Neue Tabellen für Wochentermine/Pausen statt Wiederverwendung von `class_sessions` | `class_sessions` bildet einzelne datierte Termine ab (für PROJ-8 vorgesehen), PROJ-6 braucht ein datumsloses Wochenmuster — getrennte Konzepte vermeiden Verwechslung | 2026-08-14 |
+| Ein Wochentermin pro Kurs per Datenbank-Constraint erzwungen | Verhindert versehentliche Mehrfachtermine, nicht nur clientseitig geprüft | 2026-08-14 |
+| Pausierte Wochen als eigene Tabelle statt Freitextfeld | Erlaubt mehrere Pausen und sauberes Nachschlagen beim Laden des Stundenplans | 2026-08-14 |
+| Öffentlicher Lesezugriff, Schreibzugriff nur Admin | Gleiches Muster wie Kurse/Tanzstile/Standorte aus PROJ-1/PROJ-3 | 2026-08-14 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure
+```
+Admin-Seite (erweitert das bestehende Kurs-Formular aus PROJ-3)
+Kurs-Formular
+└── Neuer Abschnitt „Wochentermin" (optional)
+    ├── Wochentag-Auswahl (Montag–Sonntag)
+    ├── Startzeit
+    ├── Endzeit
+    └── Pausierte Wochen
+        ├── Liste bereits pausierter Termine (mit Datum, löschbar)
+        └── „Woche pausieren" (Datumsauswahl)
+
+App
+└── /stundenplan (öffentliche Route, kein Login nötig)
+    └── Wochen-Agenda (Wochentage nebeneinander, auf schmalen
+        Bildschirmen swipebar/durchblätterbar)
+        └── pro Wochentag: Liste der Termine (Uhrzeit, Kursname,
+            Tanzstil, Level, Standort, Lehrer)
+            oder Leerzustand „Keine Kurse an diesem Tag"
+```
+
+### B) Data Model (plain language)
+```
+Neue Tabelle: Wochentermine
+├── Gehört zu genau einem Kurs (ein Wochentermin pro Kurs, wie in der
+│   Spec festgelegt — ein Kurs kann nicht zwei Wochentermine haben)
+├── Wochentag (Montag–Sonntag)
+├── Startzeit
+└── Endzeit
+
+Neue Tabelle: Pausierte Wochen
+├── Gehört zu einem Wochentermin
+└── Datum der konkreten Woche, die ausgesetzt wird
+
+Die bestehende Tabelle „class_sessions" aus PROJ-1 (einzelne, datierte
+Termine) wird von PROJ-6 bewusst NICHT verwendet — sie ist für später
+gedacht (PROJ-8, konkrete buchbare Termine mit festem Datum). PROJ-6
+bildet dagegen ein wiederkehrendes Wochenmuster ohne Datumsbezug ab.
+Beide Konzepte bleiben getrennt, bis PROJ-8 klärt, wie aus dem
+Wochenmuster konkrete buchbare Termine werden.
+```
+
+### C) Tech Decisions (justified for PM)
+- **Neue, von `class_sessions` getrennte Datenstruktur:** `class_sessions` ist für einzelne, datierte Termine gedacht (relevant für spätere Buchungen in PROJ-8). PROJ-6 braucht dagegen ein wiederkehrendes Wochenmuster ohne festes Datum — beides zu vermischen würde das Datenmodell verwirrend machen.
+- **Ein Wochentermin pro Kurs wird auf Datenbankebene erzwungen** (nicht nur im Formular geprüft), damit die Regel „genau ein Termin pro Kurs" nicht versehentlich verletzt werden kann.
+- **Pausierte Wochen als eigene, kleine Tabelle statt Freitextfeld:** ermöglicht mehrere Pausen gleichzeitig und ein sauberes Nachschlagen „ist die aktuell angezeigte Woche pausiert?" beim Laden des Stundenplans.
+- **Öffentlicher Lesezugriff auf Wochentermine und Pausen**, Schreibzugriff nur für Admin — gleiches, bereits etabliertes Muster wie bei Kursen/Tanzstilen/Standorten aus PROJ-1/PROJ-3.
+- **Keine neuen npm-Pakete:** Die für die swipebare Wochenansicht benötigte Tabs-Komponente ist im Projekt bereits installiert.
+
+### D) Dependencies
+- Keine neuen npm-Pakete — nutzt die bereits vorhandene shadcn/ui-Tabs-Komponente für die Wochentag-Navigation sowie Input/Select/Button/Card für Formular und Anzeige.
 
 ## QA Test Results
 _To be added by /qa_
