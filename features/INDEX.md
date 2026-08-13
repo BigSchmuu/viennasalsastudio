@@ -20,7 +20,7 @@
 | PROJ-3 | Admin: Kurse, Levels, Locations & Tanzstile verwalten | Deployed | [PROJ-3](../features/PROJ-3-admin-kurse-levels-locations-tanzstile.md) | 2026-08-13 |
 | PROJ-4 | Admin: Kunden-/Mitgliederverwaltung | Deployed | [PROJ-4](../features/PROJ-4-admin-kunden-mitgliederverwaltung.md) | 2026-08-12 |
 | PROJ-5 | Kurskatalog (Browsing & Filter) | Deployed | [PROJ-5](../features/PROJ-5-kurskatalog-browsing-filter.md) | 2026-08-12 |
-| PROJ-6 | Stundenplan & Kalender | In Progress | [PROJ-6](../features/PROJ-6-stundenplan-kalender.md) | 2026-08-12 |
+| PROJ-6 | Stundenplan & Kalender | Approved | [PROJ-6](../features/PROJ-6-stundenplan-kalender.md) | 2026-08-12 |
 | PROJ-7 | Stripe-Zahlungsinfrastruktur (SEPA-Mandate, Kreditkarte) | Roadmap | — | 2026-08-12 |
 | PROJ-8 | Kursbuchung (buchen, stornieren, umbuchen, Probestunde, Drop-in) | Roadmap | — | 2026-08-12 |
 | PROJ-9 | Abo-Verwaltung (Self-Service Pause/Kündigung) | Roadmap | — | 2026-08-12 |

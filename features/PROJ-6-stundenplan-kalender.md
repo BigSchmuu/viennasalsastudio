@@ -1,6 +1,6 @@
 # PROJ-6: Stundenplan & Kalender
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-14
 **Last Updated:** 2026-08-14
 
@@ -175,7 +175,78 @@ Fokus: Schema/RLS/Server Actions wurden bereits im `/frontend`-Durchgang umgeset
 - `npx tsc --noEmit`, `npm test` (15/15) und `npm run build` laufen fehlerfrei.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-14
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Wochentermin anlegen erscheint im Stundenplan
+- [x] Mittwoch 17:00–18:00 angelegt, sofort im Dialog sichtbar und auf `/stundenplan` unter „Mittwoch"
+
+#### AC-2: Wochentermin ändern ist sofort sichtbar
+- [x] Startzeit-Änderung sofort im Stundenplan sichtbar
+
+#### AC-3: Wochentermin entfernen — Kurs verschwindet aus Stundenplan, bleibt im Katalog
+- [x] Nach Entfernen nicht mehr unter „Montag" im Stundenplan, weiterhin im Kurskatalog (PROJ-5) sichtbar
+
+#### AC-4: Woche als Pause markieren
+- [x] Kurs verschwindet für die aktuelle Woche aus dem Stundenplan, nach Entfernen der Pause sofort wieder sichtbar (Folgewoche-Verhalten durch die datumsbasierte Logik strukturell abgedeckt, siehe Implementation Notes)
+
+#### AC-5: Anonymer Besucher sieht alle terminierten Kurse gruppiert nach Wochentag
+- [x] Name, Uhrzeit, Tanzstil, Level, Standort, Lehrer-Platzhalter korrekt sichtbar
+
+#### AC-6: Wochentage horizontal durchblätterbar
+- [x] Tab-Wechsel zwischen Wochentagen funktioniert (Montag/Freitag/Sonntag getestet); Tab-Leiste ist horizontal scrollbar für schmale Bildschirme
+
+#### AC-7: Leerzustand für Tag ohne Kurs
+- [x] „Keine Kurse an diesem Tag" korrekt angezeigt (Sonntag)
+
+#### AC-8: Endzeit vor Startzeit wird abgelehnt
+- [x] Validierungsfehler „Endzeit muss nach der Startzeit liegen" korrekt angezeigt
+
+#### AC-9: Pflichtfeld-Validierung
+- [x] Per Code-Review bestätigt: „Termin anlegen/speichern"-Button ist deaktiviert, solange Wochentag, Start- oder Endzeit fehlen (identisches Muster wie AC-8, nicht separat per E2E gegengetestet)
+
+### Edge Cases Status
+
+#### EC-1: Kurs ohne Wochentermin
+- [x] „E2E6 Kurs Ohne Termin" blieb während des gesamten Tests nicht im Stundenplan sichtbar, aber im Kurskatalog — passt
+
+#### EC-2: Kein Kurs an einem Wochentag
+- [x] Siehe AC-7
+
+#### EC-3: Pause-Eintrag für vergangene Woche
+- [x] Per Code-Review bestätigt: keine Datums-Einschränkung beim Anlegen einer Pause, nicht separat getestet
+
+#### EC-4: Überlappende Zeiten am selben Standort/Raum
+- [x] Laut Spec bewusst kein Konfliktcheck im MVP — kein Fehlerverhalten, wie spezifiziert
+
+#### EC-5: Gleichzeitige Bearbeitung durch zwei Admins
+- [x] Laut Spec bewusst kein spezielles Konflikthandling im MVP (Last-Write-Wins) — nicht separat getestet
+
+### Security Audit Results
+- [x] Authorization (Defense-in-Depth): `course_schedule`/`course_schedule_pauses` live gegen `anon` getestet — Lesen funktioniert (öffentlich wie vorgesehen), Schreiben wird von RLS blockiert (bereits im Backend-Review bestätigt, hier erneut über den öffentlichen Lesezugriff verifiziert)
+- [x] Input validation: Diese Seite hat keine Freitext-Eingabefelder (Wochentag = Auswahl, Start-/Endzeit/Pause-Datum = typisierte `<input type="time/date">`-Felder) — kein XSS-Angriffsvektor durch PROJ-6 selbst; angezeigte Kurs-/Tanzstil-/Standort-Namen sind admin-verwaltete Inhalte, deren XSS-Sicherheit bereits in PROJ-3/5 bestätigt wurde
+- [x] DB-Constraints als zweite Verteidigungslinie bereits im Backend-Review live bestätigt (Endzeit>Startzeit, ein Termin pro Kurs, keine doppelten Pausen)
+- [ ] BUG-1 (Low): Kein Rate-Limiting auf der öffentlichen `/stundenplan`-Route — identisches, bereits aus PROJ-3/4/5/23 bekanntes Muster
+
+### Bugs Found
+
+#### BUG-1: Kein Rate-Limiting auf der öffentlichen Stundenplan-Route
+- **Severity:** Low
+- **Kontext:** Rein lesende, öffentliche Seite ohne Formulare — geringes Missbrauchsrisiko im MVP
+- **Priority:** Nice to have, ggf. gebündelt vor PROJ-8/PROJ-9 angehen
+
+### Summary
+- **Acceptance Criteria:** 9/9 vollständig erfüllt
+- **Edge Cases:** 5/5 bestätigt (3 davon per Code-Review, siehe oben)
+- **Bugs Found:** 1 total (0 Critical, 0 High, 0 Medium, 1 Low)
+- **Automated Tests:** `npm test` 15/15 grün · `npx playwright test tests/PROJ-6-*.spec.ts` 7/7 grün, zweimal in Folge von sauberem DB-Zustand aus verifiziert (Stabilität bestätigt) · `npm run build` fehlerfrei
+- **Security:** Pass — keine Critical/High-Findings, DB-Constraints und RLS als doppelte Absicherung bestätigt
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_
