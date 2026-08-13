@@ -1,6 +1,6 @@
 # PROJ-5: Kurskatalog (Browsing & Filter)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-13
 **Last Updated:** 2026-08-13
 
@@ -116,6 +116,25 @@ sollen.
 
 ### D) Dependencies
 - Keine neuen npm-Pakete — nutzt ausschließlich bereits vorhandene shadcn/ui-Bausteine (Card, Badge, Select, Button, Sonner-Toast).
+
+## Implementation Notes
+_Added by /frontend, 2026-08-14_
+
+**Datenbank-Migration** (`proj5_public_teacher_directory`): neuer View `teacher_directory` (nur `id`+`full_name`, gefiltert auf `role = 'teacher'`), öffentlich lesbar für `anon`/`authenticated`. Bewusst als View statt als RLS-Policy-Änderung auf `profiles` umgesetzt — eine direkte Policy auf Zeilenebene hätte die komplette Zeile (inkl. Telefonnummer, Geburtsdatum) für alle Lehrer-Profile offengelegt, da Postgres-RLS spaltenweise keine Einschränkung erlaubt. Die bestehende `profiles`-RLS bleibt unverändert; der View läuft mit den Rechten seines Eigentümers und umgeht damit gezielt nur für diese zwei Spalten die sonst geltende Sperre.
+
+**Seite:** `/kurse` (öffentlich, kein Login nötig, kein `requireAdmin()`-Check). Lädt Kurse einmal serverseitig (inkl. Tanzstil/Standort/Lehrer-Auflösung über `teacher_directory`), Filterung läuft danach rein clientseitig ohne weitere Serveranfragen.
+
+**Komponente** (`src/components/catalog/course-catalog.tsx`): Filterleiste (3 Selects: Tanzstil/Level/Standort, AND-verknüpft) + Kachel-Grid mit Card-Komponenten. „Jetzt buchen" löst einen Sonner-Toast aus („Buchung ... ist bald verfügbar").
+
+**Sonner-Toaster erstmals aktiviert:** `<Toaster />` in `src/app/layout.tsx` ergänzt — die Komponente existierte im Projekt bereits (`src/components/ui/sonner.tsx`), wurde aber bisher nirgends gemountet.
+
+**Live-Sicherheitstest:** Temporären Lehrer-Testaccount angelegt, einem Kurs zugeordnet, live gegen `anon`-Rolle per SQL geprüft — `teacher_directory` liefert korrekt nur `id`+`full_name`, keine anderen Spalten; direkter Zugriff auf `profiles` bleibt für `anon` weiterhin bei 0 Zeilen (Regressionscheck der bestehenden PROJ-1/2-Absicherung).
+
+**Live end-to-end getestet** (Playwright, echte Supabase-Instanz, echte Produktionsdaten des Nutzers): Katalogseite lädt mit echtem Kurs, Tanzstil-Filter funktioniert, Filter-ohne-Treffer zeigt Leerzustand korrekt, „Jetzt buchen"-Toast erscheint, Lehrer-Name erscheint korrekt nach Zuordnung (vorher „Lehrer wird noch bekanntgegeben").
+
+**Regressionsprüfung:** `npm test` 15/15 grün, `npm run build` fehlerfrei, `/kurse`-Route korrekt in der Routenliste.
+
+**Noch nicht umgesetzt:** Eigene E2E-Testdatei für PROJ-5 (folgt in `/qa`).
 
 ## QA Test Results
 _To be added by /qa_
