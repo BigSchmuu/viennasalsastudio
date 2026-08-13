@@ -26,7 +26,18 @@ export async function updateSession(request: NextRequest) {
 
   // Do not add logic between createServerClient and getUser() — refreshing
   // the session here is what keeps users from being randomly logged out.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const protectedPaths = ["/profil"];
+  const isProtected = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path));
+
+  if (isProtected && !user) {
+    const redirectUrl = new URL("/login", request.url);
+    redirectUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
 
   return supabaseResponse;
 }

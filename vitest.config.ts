@@ -11,6 +11,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Playwright E2E specs live in tests/*.spec.ts — scope Vitest to its own
+    // *.test.ts files only (default `exclude` for node_modules etc. still
+    // applies; see playwright.config.ts for the mirrored testMatch
+    // restricting Playwright to *.spec.ts only).
+    include: ['**/*.test.ts?(x)'],
   },
   resolve: {
     alias: {

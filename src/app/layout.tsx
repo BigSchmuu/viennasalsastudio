@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { Inter, Raleway } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const raleway = Raleway({ subsets: ["latin"], variable: "--font-raleway" });
+
 export const metadata: Metadata = {
-  title: "AI Coding Starter Kit",
-  description: "Built with AI Agent Team System",
+  title: "Vienna Salsa Studio",
+  description: "Kurse buchen, Abo verwalten und Beispiel-Videos ansehen.",
 };
 
 export default function RootLayout({
@@ -12,8 +16,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="de">
+      <body className={`${inter.variable} ${raleway.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>
