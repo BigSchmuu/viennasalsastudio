@@ -178,6 +178,19 @@ _Added by /frontend, 2026-08-13_
 
 **Noch nicht umgesetzt:** Eigene E2E-Testdatei für PROJ-23 (folgt in `/qa`), Cross-Browser/Responsive-Tests (folgt in `/qa`).
 
+## Backend Review (2026-08-13)
+_Added by /backend_
+
+Fokus: Da Datenbank-Schema, RLS und Server Actions bereits im `/frontend`-Durchgang mechanisch nach dem in `/architecture` abgenommenen Muster umgesetzt wurden (analog zu PROJ-3), bestand dieser Durchgang aus einer gezielten Sicherheits- und Datenintegritäts-Review statt Neuimplementierung.
+
+- **RLS-Policies aller drei neuen Tabellen live geprüft** (`pg_policies`-Abfrage): Schreiben (INSERT/UPDATE/DELETE) ausnahmslos auf `current_role() = 'admin'` beschränkt; Lesen für Admin oder für Lehrer mit passendem `course_teachers`-Eintrag über den jeweiligen Join-Pfad (Video → Lektion → Videosatz → Kurs → Lehrer-Zuordnung) — Policy-Definitionen stimmen exakt mit der Migration überein.
+- **Live-Sicherheitstest (nicht nur Code-Review):** Ein temporärer Videosatz mit Lektion und Video wurde angelegt und geprüft, dass sowohl anonyme (`anon`-Rolle) als auch authentifizierte Kunden-Accounts (`role = 'customer'`) **0 Zeilen** sehen — die interne Natur des Lehrmaterials ist RLS-seitig durchgesetzt, nicht nur durch fehlende UI. Ein direkter INSERT-Versuch als Kunden-Account wurde von Postgres mit `42501 row-level security policy violation` korrekt abgelehnt.
+- **Server-Actions-Review:** Alle Mutationen (`video-sets.ts`, `lessons.ts`, angepasste `courses.ts`) rufen `requireAdmin()` als erste Zeile auf — Verteidigung in der Anwendungsschicht zusätzlich zur RLS, konsistent mit PROJ-3.
+- **`video_set_id` bei Kursen benötigt keine zusätzliche Existenz-Validierung** (anders als `teacher_ids` in PROJ-3): Der Fremdschlüssel-Constraint auf `video_sets(id)` reicht aus, da es — anders bei Lehrern — keine Rollen-Einschränkung gibt, die die Datenbank nicht bereits über den Constraint selbst abdeckt.
+- **`moveLessonUp`/`moveLessonDown` geprüft:** Eine nicht zum übergebenen Videosatz gehörende Lektions-ID führt zu einem sicheren No-op (`findIndex` liefert `-1`), keine fehlerhafte Positions-Vertauschung möglich.
+- **Security-Advisor erneut geprüft:** Keine neuen Findings durch die PROJ-23-Schema-Änderungen. Verbleibende Hinweise sind weiterhin die bekannten, bewusst akzeptierten aus PROJ-1/PROJ-2.
+- `npx tsc --noEmit`, `npm test` (13/13) und `npm run build` laufen fehlerfrei.
+
 ## QA Test Results
 _To be added by /qa_
 
