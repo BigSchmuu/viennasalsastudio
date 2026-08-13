@@ -1,6 +1,6 @@
 # PROJ-6: Stundenplan & Kalender
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-14
 **Last Updated:** 2026-08-14
 
@@ -140,6 +140,27 @@ Wochenmuster konkrete buchbare Termine werden.
 
 ### D) Dependencies
 - Keine neuen npm-Pakete — nutzt die bereits vorhandene shadcn/ui-Tabs-Komponente für die Wochentag-Navigation sowie Input/Select/Button/Card für Formular und Anzeige.
+
+## Implementation Notes
+_Added by /frontend, 2026-08-14_
+
+**Datenbank-Migration** (`proj6_course_schedule_and_pauses`): neue Tabellen `course_schedule` (mit `unique(course_id)` — erzwingt „genau ein Termin pro Kurs" auf DB-Ebene, plus Check-Constraint `end_time > start_time`) und `course_schedule_pauses` (mit `unique(schedule_id, pause_date)` gegen doppelte Pause-Einträge). RLS: öffentlich lesbar, Schreiben nur Admin — identisches Muster wie `courses`/`dance_styles` aus PROJ-1/3.
+
+**Seiten:** `/stundenplan` (öffentlich, kein Login nötig) mit Wochentag-Tabs (shadcn Tabs, horizontal scrollbar für die geforderte swipebare Wochenansicht), Standard-Tab = heutiger Wochentag. Wochentermin-Verwaltung direkt im bestehenden Kurs-Formular aus PROJ-3 (`CourseScheduleSection`), nur sichtbar beim Bearbeiten eines bestehenden Kurses (nicht bei der Neuanlage, da noch keine `course_id` existiert).
+
+**Server Actions** (`src/lib/actions/admin/course-schedule.ts`): `upsertCourseSchedule`, `deleteCourseSchedule`, `addSchedulePause`, `deleteSchedulePause` — alle mit `requireAdmin()`-Check.
+
+**Pausenlogik:** Für die aktuell angezeigte Woche wird pro Wochentag das konkrete Kalenderdatum berechnet (Montag der laufenden Woche + Offset) und mit den hinterlegten `pause_date`-Einträgen abgeglichen. Ein pausierter Kurs verschwindet nur für diese eine Woche aus dem Stundenplan, taucht aber automatisch in der Folgewoche wieder auf (kein manuelles Zurücksetzen nötig, da die Pause an ein festes Datum gebunden ist).
+
+### Bugs gefunden und behoben (eigene Tests vor QA-Übergabe)
+
+- **Bug: Wochentermin/Pausen erschienen nach dem Speichern nicht im offenen Dialog.** Die erste Fassung von `CourseScheduleSection` rief nur `router.refresh()` nach dem Speichern auf — das aktualisiert zwar die serverseitig geladenen Daten der Seite, aber nicht den bereits im Speicher gehaltenen `editing`-State des übergeordneten `CourseManager` (eine React-`useState`-Referenz auf das beim Öffnen des Dialogs erfasste Kurs-Objekt), da ein Server-Re-Render nicht automatisch in bereits gemountete Client-Komponenten-States zurückfließt. Live reproduziert: Termin wurde korrekt in der Datenbank gespeichert (beim Schließen und erneuten Öffnen des Dialogs sichtbar), aber im selben Dialog-Durchlauf blieb die Ansicht auf dem alten Stand („Termin anlegen" statt „Termin speichern", keine „Pausierte Wochen"-Sektion). **Fix:** Die Server Actions geben jetzt die gespeicherten Datensätze direkt zurück; `CourseScheduleSection` hält Termin und Pausen in eigenem lokalen State, der direkt aus den Aktions-Ergebnissen aktualisiert wird, unabhängig vom Prop-Refresh der Elternkomponente. Live erneut verifiziert: Termin- und Pause-Anlage/-Löschung wirken jetzt sofort im selben Dialog-Durchlauf.
+
+**Live end-to-end getestet** (Playwright, echte Supabase-Instanz, echter Kurs des Nutzers): Wochentermin anlegen (Freitag 19:00–20:00) und sofort im Dialog sichtbar, Woche pausieren und sofortiges Verschwinden aus dem heutigen Stundenplan-Tab, Pause entfernen und Kurs erscheint wieder korrekt mit Uhrzeit, Wochentag-Tabs wechseln (Montag zeigt Leerzustand, Freitag zeigt den Kurs), Endzeit-vor-Startzeit-Validierung, Wochentermin komplett entfernen → verschwindet aus `/stundenplan`, bleibt aber weiterhin im Kurskatalog aus PROJ-5 sichtbar (AC explizit bestätigt).
+
+**Regressionsprüfung:** `npm test` 15/15 grün, `npm run build` fehlerfrei, `/stundenplan`-Route korrekt in der Routenliste.
+
+**Noch nicht umgesetzt:** Eigene E2E-Testdatei für PROJ-6 (folgt in `/qa`).
 
 ## QA Test Results
 _To be added by /qa_

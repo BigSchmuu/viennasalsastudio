@@ -86,6 +86,70 @@ export type Database = {
           },
         ]
       }
+      course_schedule: {
+        Row: {
+          course_id: string
+          created_at: string
+          end_time: string
+          id: string
+          start_time: string
+          weekday: number
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          end_time: string
+          id?: string
+          start_time: string
+          weekday: number
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          end_time?: string
+          id?: string
+          start_time?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_schedule_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_schedule_pauses: {
+        Row: {
+          created_at: string
+          id: string
+          pause_date: string
+          schedule_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pause_date: string
+          schedule_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pause_date?: string
+          schedule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_schedule_pauses_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "course_schedule"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_teachers: {
         Row: {
           course_id: string

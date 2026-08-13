@@ -15,7 +15,7 @@ export default async function CoursesPage() {
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name)"
+        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date))"
       )
       .order("created_at", { ascending: true }),
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
@@ -52,6 +52,18 @@ export default async function CoursesPage() {
     teacherNames: c.course_teachers.map((ct) => ct.profiles?.full_name || "Unbenannter Lehrer"),
     videoSetId: c.video_set_id,
     videoSetName: c.video_sets?.name ?? null,
+    schedule: c.course_schedule
+      ? {
+          id: c.course_schedule.id,
+          weekday: c.course_schedule.weekday,
+          startTime: c.course_schedule.start_time,
+          endTime: c.course_schedule.end_time,
+        }
+      : null,
+    pauses: (c.course_schedule?.course_schedule_pauses ?? []).map((p) => ({
+      id: p.id,
+      pauseDate: p.pause_date,
+    })),
   }));
 
   return (

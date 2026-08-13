@@ -45,6 +45,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { TeacherMultiSelect, type TeacherOption } from "@/components/admin/courses/teacher-multi-select";
+import {
+  CourseScheduleSection,
+  type ScheduleData,
+  type PauseData,
+} from "@/components/admin/courses/course-schedule-section";
 
 export type CourseRow = {
   id: string;
@@ -60,6 +65,8 @@ export type CourseRow = {
   teacherNames: string[];
   videoSetId: string | null;
   videoSetName: string | null;
+  schedule: ScheduleData | null;
+  pauses: PauseData[];
 };
 
 export type SimpleOption = { id: string; name: string };
@@ -459,6 +466,10 @@ function CourseFormDialog({
             </DialogFooter>
           </form>
         </Form>
+
+        {course && (
+          <CourseScheduleSection courseId={course.id} schedule={course.schedule} pauses={course.pauses} />
+        )}
       </DialogContent>
     </Dialog>
   );
