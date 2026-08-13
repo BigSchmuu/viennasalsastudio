@@ -162,6 +162,18 @@ _Added by /frontend, 2026-08-14_
 
 **Noch nicht umgesetzt:** Eigene E2E-Testdatei für PROJ-6 (folgt in `/qa`).
 
+## Backend Review (2026-08-14)
+_Added by /backend_
+
+Fokus: Schema/RLS/Server Actions wurden bereits im `/frontend`-Durchgang umgesetzt — dieser Durchgang war eine gezielte Verifikation der Datenbank-Constraints und Zugriffsrechte, inklusive der aus PROJ-5 gelernten Lehre (Standard-Rechte bei neuen Relationen genau prüfen).
+
+- **Alle drei DB-Constraints live getestet, nicht nur die Zod-Validierung im Formular:** `end_time > start_time`-Check-Constraint lehnt einen direkten SQL-Insert mit vertauschten Zeiten korrekt ab (`23514`); `unique(course_id)` auf `course_schedule` verhindert einen zweiten Wochentermin für denselben Kurs auch bei direktem SQL-Insert (`23505`); `unique(schedule_id, pause_date)` verhindert doppelte Pause-Einträge für dasselbe Datum (`23505`) — alle drei Regeln greifen unabhängig vom Frontend, nicht nur clientseitig.
+- **Schreibschutz für `anon` live bestätigt:** `UPDATE`/`INSERT` auf `course_schedule` als `anon` werden von RLS korrekt verhindert (0 betroffene Zeilen bzw. `42501`), Lesezugriff funktioniert weiterhin für beide neuen Tabellen.
+- **Kein Wiederauftreten des PROJ-5-Fehlers:** Anders als der `teacher_directory`-View sind `course_schedule`/`course_schedule_pauses` normale Tabellen mit aktivierter RLS — dort ist das Standard-Grant-Verhalten von Supabase (breite Rechte + RLS als alleiniger Gatekeeper) korrekt und unproblematisch, das Risiko betraf spezifisch Views mit implizitem `SECURITY DEFINER`-Verhalten. Zur Sicherheit trotzdem gegengeprüft — keine überschüssigen Rechte gefunden.
+- **Server-Actions-Review:** Alle vier Funktionen in `course-schedule.ts` rufen `requireAdmin()` als erste Zeile auf.
+- **Security-Advisor geprüft:** Keine neuen Findings durch die PROJ-6-Schema-Änderungen — nur die bereits bekannten, akzeptierten Hinweise aus PROJ-1/2/5.
+- `npx tsc --noEmit`, `npm test` (15/15) und `npm run build` laufen fehlerfrei.
+
 ## QA Test Results
 _To be added by /qa_
 
