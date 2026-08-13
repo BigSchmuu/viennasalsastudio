@@ -37,7 +37,7 @@
 | PROJ-20 | Gamification (Badges, Streaks, Level) | Roadmap | — | 2026-08-12 |
 | PROJ-21 | Affiliate-System, Rollen & Dokumente/Verträge | Roadmap | — | 2026-08-12 |
 | PROJ-22 | Admin: Lehrer-Rollen verwalten | Roadmap | — | 2026-08-13 |
-| PROJ-23 | Admin: Videosätze & Lektionen verwalten (internes Lehrmaterial) | Approved | [PROJ-23](../features/PROJ-23-admin-videosaetze-lektionen-verwalten.md) | 2026-08-13 |
+| PROJ-23 | Admin: Videosätze & Lektionen verwalten (internes Lehrmaterial) | Deployed | [PROJ-23](../features/PROJ-23-admin-videosaetze-lektionen-verwalten.md) | 2026-08-13 |
 
 <!-- Add features above this line -->
 
