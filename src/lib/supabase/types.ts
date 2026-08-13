@@ -79,32 +79,6 @@ export type Database = {
           },
         ]
       }
-      course_materials: {
-        Row: {
-          content_video_url: string | null
-          course_id: string
-          updated_at: string
-        }
-        Insert: {
-          content_video_url?: string | null
-          course_id: string
-          updated_at?: string
-        }
-        Update: {
-          content_video_url?: string | null
-          course_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_materials_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: true
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       course_teachers: {
         Row: {
           course_id: string
@@ -146,6 +120,7 @@ export type Database = {
           level: string | null
           name: string
           room_id: string
+          video_set_id: string | null
         }
         Insert: {
           created_at?: string
@@ -154,6 +129,7 @@ export type Database = {
           level?: string | null
           name: string
           room_id: string
+          video_set_id?: string | null
         }
         Update: {
           created_at?: string
@@ -162,6 +138,7 @@ export type Database = {
           level?: string | null
           name?: string
           room_id?: string
+          video_set_id?: string | null
         }
         Relationships: [
           {
@@ -176,6 +153,13 @@ export type Database = {
             columns: ["room_id"]
             isOneToOne: false
             referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_video_set_id_fkey"
+            columns: ["video_set_id"]
+            isOneToOne: false
+            referencedRelation: "video_sets"
             referencedColumns: ["id"]
           },
         ]
@@ -309,6 +293,91 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      video_set_lesson_videos: {
+        Row: {
+          created_at: string
+          id: string
+          lesson_id: string
+          position: number
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lesson_id: string
+          position?: number
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          position?: number
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_set_lesson_videos_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "video_set_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_set_lessons: {
+        Row: {
+          created_at: string
+          id: string
+          position: number
+          title: string
+          video_set_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position?: number
+          title: string
+          video_set_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position?: number
+          title?: string
+          video_set_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_set_lessons_video_set_id_fkey"
+            columns: ["video_set_id"]
+            isOneToOne: false
+            referencedRelation: "video_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_sets: {
+        Row: {
+          created_at: string
+          id: string
+          level: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string | null
+          name?: string
+        }
+        Relationships: []
       }
     }
     Views: {

@@ -122,7 +122,7 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
     await expect(page.getByText("Name ist erforderlich")).toBeVisible();
   });
 
-  test("Kurs anlegen mit Lehrer und Video-Link; Kurs ohne Video bearbeiten möglich", async ({ page }) => {
+  test("Kurs anlegen mit Lehrer; Kurs ohne Videosatz bearbeiten möglich", async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto("/admin/kurse");
     await page.getByRole("button", { name: "Neuer Kurs" }).click();
@@ -145,22 +145,20 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
     await page.getByText("QA Lehrer Eins").click();
     await page.keyboard.press("Escape");
 
-    // Video-Link bewusst leer lassen (optional)
+    // Videosatz bewusst nicht zuweisen (optional, siehe PROJ-23)
     await page.getByRole("button", { name: "Speichern" }).click();
     await page.waitForTimeout(1000);
 
     await expect(page.getByText("E2E Salsa Kurs")).toBeVisible();
     await expect(page.getByText("QA Lehrer Eins")).toBeVisible();
-  });
 
-  test("Ungültiger Video-Link wird abgelehnt", async ({ page }) => {
-    await loginAsAdmin(page);
-    await page.goto("/admin/kurse");
+    // Bestehenden Kurs ohne Videosatz weiterhin bearbeiten können
     await page.getByRole("row", { name: /E2E Salsa Kurs/ }).getByRole("button", { name: "Bearbeiten" }).click();
     await page.waitForTimeout(500);
-    await page.getByLabel(/Kursinhalt-Video/).fill("nicht-eine-url");
+    await page.getByLabel("Name").fill("E2E Salsa Kurs (bearbeitet)");
     await page.getByRole("button", { name: "Speichern" }).click();
-    await expect(page.getByText("Bitte eine gültige URL eingeben")).toBeVisible();
+    await page.waitForTimeout(1000);
+    await expect(page.getByText("E2E Salsa Kurs (bearbeitet)")).toBeVisible();
   });
 
   test("Tanzstil und Raum, die noch von einem Kurs verwendet werden, können nicht gelöscht werden", async ({

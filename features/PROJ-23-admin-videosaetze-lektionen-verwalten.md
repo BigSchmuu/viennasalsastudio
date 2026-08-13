@@ -1,6 +1,6 @@
 # PROJ-23: Admin — Videosätze & Lektionen verwalten (internes Lehrmaterial)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-13
 **Last Updated:** 2026-08-13
 
@@ -156,6 +156,27 @@ vorhanden, daher keine Migration nötig.
 
 ### D) Dependencies
 - Keine neuen npm-Pakete — nutzt ausschließlich bereits vorhandene shadcn/ui-Bausteine (Table, Dialog, AlertDialog, Select, Input, Button), gleiches Muster wie PROJ-3.
+
+## Implementation Notes
+_Added by /frontend, 2026-08-13_
+
+**Datenbank-Migration** (`proj23_video_sets_lessons_videos`): drei neue Tabellen `video_sets`, `video_set_lessons`, `video_set_lesson_videos` mit RLS (Schreiben nur Admin; Lesen Admin oder über `course_teachers` zugeordneter Lehrer, per Join von Lektion/Video zurück auf Videosatz → Kurs → Lehrer-Zuordnung). `courses.video_set_id` neu (nullable, `ON DELETE RESTRICT`). Case-insensitiver Unique-Index auf `video_sets.name` direkt von Anfang an korrekt gesetzt (Lehre aus dem Tanzstile-Bug in PROJ-3). Alte Tabelle `course_materials` entfernt.
+
+**Seiten:** `/admin/videosaetze` (Liste), `/admin/videosaetze/[id]` (Lektionsverwaltung) — beide über den bestehenden `requireAdmin()`-Layout-Check geschützt. Admin-Nav um „Videosätze" ergänzt.
+
+**Server Actions** (`src/lib/actions/admin/{video-sets,lessons}.ts`): CRUD für Videosätze und Lektionen inkl. Video-Link-Synchronisierung (Lösch-und-Neuanlage-Muster wie `syncTeachers` aus PROJ-3) und Auf/Ab-Sortierung per Positions-Swap. `courses.ts` angepasst: `content_video_url`-Logik entfernt, `video_set_id` ergänzt.
+
+**Komponenten:** `VideoSetManager`, `LessonManager` (`src/components/admin/video-sets/`) nach etabliertem Tabelle+Dialog-Formular+Lösch-Bestätigung-Muster. `CourseManager` um „Videosatz"-Dropdown erweitert (ersetzt das alte Video-Link-Feld).
+
+### Bugs gefunden und behoben (eigene Tests vor QA-Übergabe)
+- **Bug: `useFormField should be used within <FormField>`-Crash beim Öffnen des Lektions-Formulars.** Die „Video-Links"-Sektionsüberschrift nutzte `FormLabel` außerhalb eines `FormField`-Kontexts (identisches Muster wie der bekannte PROJ-3-Bug). Behoben durch einfaches `Label` statt `FormLabel`.
+- **Bug: Neue Lektion übernahm fälschlich Video-Links der zuvor bearbeiteten Lektion.** `LessonFormDialog` war (anders als `CourseFormDialog` in PROJ-3) nicht bedingt gerendert, wodurch `useFieldArray` beim Öffnen für eine neue/andere Lektion nicht zuverlässig zurückgesetzt wurde. Behoben durch bedingtes Rendern (`{editing !== null && <LessonFormDialog .../>}`), erzwingt einen sauberen Remount pro Dialog-Öffnung. Live verifiziert: zwei nacheinander angelegte Lektionen mit unterschiedlichen Video-Zahlen zeigen jetzt korrekt getrennte Video-Listen.
+
+**Live end-to-end getestet** (Playwright, echte Supabase-Instanz): Videosatz anlegen inkl. Duplikat-Namens-Ablehnung, Lektionen mit mehreren Video-Links anlegen/bearbeiten, Auf/Ab-Sortierung, Kurs-Zuweisung eines Videosatzes, Löschschutz für zugewiesene Videosätze, RLS-Zugriffsprüfung direkt per SQL (zugeordneter Lehrer sieht Lektionen, nicht zugeordneter Lehrer sieht keine).
+
+**Regressionsprüfung:** `npm test` 13/13 grün, `npm run build` fehlerfrei, PROJ-3-E2E-Suite 6/7 grün (siehe Nachtrag in PROJ-3-Spec zur notwendigen Testanpassung wegen des entfernten Video-Link-Felds; die 7. bekannte Einschränkung ist vorbestehend und unabhängig von PROJ-23).
+
+**Noch nicht umgesetzt:** Eigene E2E-Testdatei für PROJ-23 (folgt in `/qa`), Cross-Browser/Responsive-Tests (folgt in `/qa`).
 
 ## QA Test Results
 _To be added by /qa_

@@ -24,12 +24,20 @@ export const courseSchema = z.object({
   dance_style_id: z.string().uuid("Bitte einen Tanzstil wählen"),
   level: z.enum(levelValues, { message: "Bitte ein Level wählen" }),
   room_id: z.string().uuid("Bitte einen Raum wählen"),
-  content_video_url: z
-    .string()
-    .trim()
-    .url("Bitte eine gültige URL eingeben")
-    .optional()
-    .or(z.literal("")),
+  video_set_id: z.string().uuid("Ungültiger Videosatz").optional().or(z.literal("")),
   teacher_ids: z.array(z.string().uuid()),
 });
 export type CourseInput = z.infer<typeof courseSchema>;
+
+export const videoSetSchema = z.object({
+  name: z.string().trim().min(1, "Name ist erforderlich").max(200),
+  level: z.enum(levelValues).optional().or(z.literal("")),
+});
+export type VideoSetInput = z.infer<typeof videoSetSchema>;
+
+export const lessonSchema = z.object({
+  title: z.string().trim().min(1, "Titel ist erforderlich").max(200),
+  video_set_id: z.string().uuid("Ungültiger Videosatz"),
+  video_urls: z.array(z.string().trim().url("Bitte eine gültige URL eingeben")),
+});
+export type LessonInput = z.infer<typeof lessonSchema>;

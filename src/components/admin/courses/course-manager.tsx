@@ -58,7 +58,8 @@ export type CourseRow = {
   locationName: string;
   teacherIds: string[];
   teacherNames: string[];
-  videoUrl: string | null;
+  videoSetId: string | null;
+  videoSetName: string | null;
 };
 
 export type SimpleOption = { id: string; name: string };
@@ -70,12 +71,14 @@ export function CourseManager({
   locations,
   rooms,
   teachers,
+  videoSets,
 }: {
   courses: CourseRow[];
   danceStyles: SimpleOption[];
   locations: SimpleOption[];
   rooms: RoomOption[];
   teachers: TeacherOption[];
+  videoSets: SimpleOption[];
 }) {
   const [editing, setEditing] = useState<CourseRow | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<CourseRow | null>(null);
@@ -122,6 +125,7 @@ export function CourseManager({
               <TableHead>Level</TableHead>
               <TableHead>Standort / Raum</TableHead>
               <TableHead>Lehrer</TableHead>
+              <TableHead>Videosatz</TableHead>
               <TableHead className="text-right">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
@@ -139,6 +143,7 @@ export function CourseManager({
                   {course.locationName} / {course.roomName}
                 </TableCell>
                 <TableCell>{course.teacherNames.join(", ") || "—"}</TableCell>
+                <TableCell>{course.videoSetName || "—"}</TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button variant="outline" size="sm" onClick={() => setEditing(course)}>
                     Bearbeiten
@@ -169,6 +174,7 @@ export function CourseManager({
           locations={locations}
           rooms={rooms}
           teachers={teachers}
+          videoSets={videoSets}
         />
       )}
 
@@ -210,6 +216,7 @@ function CourseFormDialog({
   locations,
   rooms,
   teachers,
+  videoSets,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -218,6 +225,7 @@ function CourseFormDialog({
   locations: SimpleOption[];
   rooms: RoomOption[];
   teachers: TeacherOption[];
+  videoSets: SimpleOption[];
 }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -230,7 +238,7 @@ function CourseFormDialog({
       dance_style_id: course?.danceStyleId ?? "",
       level: (course?.level as CourseInput["level"]) ?? undefined,
       room_id: course?.roomId ?? "",
-      content_video_url: course?.videoUrl ?? "",
+      video_set_id: course?.videoSetId ?? "",
       teacher_ids: course?.teacherIds ?? [],
     },
   });
@@ -246,7 +254,7 @@ function CourseFormDialog({
       formData.set("dance_style_id", values.dance_style_id);
       formData.set("level", values.level);
       formData.set("room_id", values.room_id);
-      formData.set("content_video_url", values.content_video_url ?? "");
+      formData.set("video_set_id", values.video_set_id ?? "");
       (values.teacher_ids ?? []).forEach((id) => formData.append("teacher_ids", id));
 
       const result = course
@@ -413,13 +421,24 @@ function CourseFormDialog({
 
             <FormField
               control={form.control}
-              name="content_video_url"
+              name="video_set_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Kursinhalt-Video (optional, nur für Lehrer sichtbar)</FormLabel>
-                  <FormControl>
-                    <Input type="url" placeholder="https://youtube.com/…" {...field} />
-                  </FormControl>
+                  <FormLabel>Videosatz (optional, nur für Lehrer sichtbar)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Kein Videosatz" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {videoSets.map((videoSet) => (
+                        <SelectItem key={videoSet.id} value={videoSet.id}>
+                          {videoSet.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

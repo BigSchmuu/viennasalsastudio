@@ -11,7 +11,7 @@ function parseCourseFormData(formData: FormData) {
     dance_style_id: formData.get("dance_style_id"),
     level: formData.get("level"),
     room_id: formData.get("room_id"),
-    content_video_url: formData.get("content_video_url"),
+    video_set_id: formData.get("video_set_id"),
     teacher_ids: formData.getAll("teacher_ids"),
   });
 }
@@ -45,20 +45,6 @@ async function syncTeachers(
   return {};
 }
 
-async function syncMaterial(
-  supabase: Awaited<ReturnType<typeof requireAdmin>>["supabase"],
-  courseId: string,
-  videoUrl: string
-) {
-  if (videoUrl) {
-    await supabase
-      .from("course_materials")
-      .upsert({ course_id: courseId, content_video_url: videoUrl });
-  } else {
-    await supabase.from("course_materials").delete().eq("course_id", courseId);
-  }
-}
-
 export async function createCourse(formData: FormData): Promise<ActionResult> {
   const parsed = parseCourseFormData(formData);
   if (!parsed.success) {
@@ -73,6 +59,7 @@ export async function createCourse(formData: FormData): Promise<ActionResult> {
       dance_style_id: parsed.data.dance_style_id,
       level: parsed.data.level,
       room_id: parsed.data.room_id,
+      video_set_id: parsed.data.video_set_id || null,
     })
     .select("id")
     .single();
@@ -85,7 +72,6 @@ export async function createCourse(formData: FormData): Promise<ActionResult> {
   if (teacherResult.error) {
     return { error: teacherResult.error };
   }
-  await syncMaterial(supabase, data.id, parsed.data.content_video_url ?? "");
 
   revalidatePath("/admin/kurse");
   return { success: true };
@@ -105,6 +91,7 @@ export async function updateCourse(id: string, formData: FormData): Promise<Acti
       dance_style_id: parsed.data.dance_style_id,
       level: parsed.data.level,
       room_id: parsed.data.room_id,
+      video_set_id: parsed.data.video_set_id || null,
     })
     .eq("id", id);
 
@@ -116,7 +103,6 @@ export async function updateCourse(id: string, formData: FormData): Promise<Acti
   if (teacherResult.error) {
     return { error: teacherResult.error };
   }
-  await syncMaterial(supabase, id, parsed.data.content_video_url ?? "");
 
   revalidatePath("/admin/kurse");
   return { success: true };

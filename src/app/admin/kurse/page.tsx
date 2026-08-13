@@ -5,17 +5,18 @@ import type { TeacherOption } from "@/components/admin/courses/teacher-multi-sel
 export default async function CoursesPage() {
   const supabase = await createClient();
 
-  const [coursesRes, danceStylesRes, locationsRes, roomsRes, teachersRes] = await Promise.all([
+  const [coursesRes, danceStylesRes, locationsRes, roomsRes, teachersRes, videoSetsRes] = await Promise.all([
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), course_materials(content_video_url)"
+        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name)"
       )
       .order("created_at", { ascending: true }),
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
     supabase.from("locations").select("id, name").order("name", { ascending: true }),
     supabase.from("rooms").select("id, name, location_id").order("name", { ascending: true }),
     supabase.from("profiles").select("id, full_name").eq("role", "teacher"),
+    supabase.from("video_sets").select("id, name").order("name", { ascending: true }),
   ]);
 
   const danceStyles: SimpleOption[] = danceStylesRes.data ?? [];
@@ -29,6 +30,7 @@ export default async function CoursesPage() {
     id: t.id,
     label: t.full_name || "Unbenannter Lehrer",
   }));
+  const videoSets: SimpleOption[] = videoSetsRes.data ?? [];
 
   const courses: CourseRow[] = (coursesRes.data ?? []).map((c) => ({
     id: c.id,
@@ -42,7 +44,8 @@ export default async function CoursesPage() {
     locationName: c.rooms?.locations?.name ?? "—",
     teacherIds: c.course_teachers.map((ct) => ct.teacher_id),
     teacherNames: c.course_teachers.map((ct) => ct.profiles?.full_name || "Unbenannter Lehrer"),
-    videoUrl: c.course_materials?.content_video_url ?? null,
+    videoSetId: c.video_set_id,
+    videoSetName: c.video_sets?.name ?? null,
   }));
 
   return (
@@ -52,6 +55,7 @@ export default async function CoursesPage() {
       locations={locations}
       rooms={rooms}
       teachers={teachers}
+      videoSets={videoSets}
     />
   );
 }

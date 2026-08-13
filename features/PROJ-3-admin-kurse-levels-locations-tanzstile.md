@@ -298,3 +298,7 @@ Fokus: RLS-/Datenintegritäts-Review der im Frontend-Durchgang direkt umgesetzte
 - PROJ-3s AC-8 („leeres Video-Feld verhindert Kurs-Anlage nicht") und die zugehörige `content_video_url`-Funktionalität gelten als durch PROJ-23 abgelöst, sobald PROJ-23 deployed ist — bis dahin bleibt das bestehende Feld aktiv nutzbar
 
 **Nächster Schritt:** `/write-spec PROJ-23`
+
+### Nachtrag (2026-08-13, PROJ-23-Frontend): Feld tatsächlich ersetzt
+
+Mit der `/frontend`-Umsetzung von PROJ-23 wurde `course_materials.content_video_url` produktiv entfernt (Migration `proj23_video_sets_lessons_videos`, keine Datenverluste da keine produktiven Werte vorhanden) und durch `courses.video_set_id` ersetzt. Das Kurs-Formular zeigt jetzt eine „Videosatz"-Dropdown statt des freien Video-Link-Felds. `tests/PROJ-3-admin-kurse-levels-locations-tanzstile.spec.ts` wurde entsprechend angepasst: Der Test „Ungültiger Video-Link wird abgelehnt" wurde entfernt (Feld existiert nicht mehr; URL-Validierung wird jetzt in PROJ-23 für Lektions-Video-Links getestet), der verbleibende Test umbenannt und um eine Bearbeitungs-Prüfung ergänzt. Regressionslauf: 6/7 grün (die 8. bekannte Einschränkung „Leerer Zustand" bleibt bestehen, siehe Post-Deployment-Fix-Eintrag oben, unverändert durch PROJ-23).
