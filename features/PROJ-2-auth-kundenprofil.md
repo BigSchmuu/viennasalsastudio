@@ -311,7 +311,24 @@ _Added by /frontend_
 - Kein sichtbarer Unterschied auf der Startseite `/` (weiterhin Next.js-Standard-Template) — PROJ-2 betrifft nur die neuen Auth-Routen
 
 **Bekannte offene Punkte (kein Blocker für diesen Deploy):**
-- „Confirm signup"-Link (Registrierung) noch nicht live end-to-end mit echter E-Mail-Zustellung getestet (nur „Reset Password" wurde vollständig durchgetestet, nutzt aber denselben Mechanismus)
 - „Leaked Password Protection" im Supabase Dashboard noch nicht aktiviert
 - Deliverability-Risiko (Spam-Ordner) bei Strato-Mail weiterhin zu beobachten
 - `npm run lint` weiterhin vorbestehend kaputt (nicht durch PROJ-1/PROJ-2 verursacht)
+
+### Nachtrag (2026-08-13): „Confirm signup"-Link führte zu „Seite konnte nicht gefunden werden"
+
+**Vorfall:** Nutzer meldete, dass der Bestätigungslink aus der Registrierungs-E-Mail auf eine nicht erreichbare Seite führte. Live mit einer echten Test-Mailbox (Mailinator) nachvollzogen — der tatsächliche Link lautete:
+```
+http://localhost:3000/auth/confirm?token_hash=pkce_...&type=&next=https://viennasalsastudio.vercel.app/profil
+```
+Zwei Probleme gleichzeitig: (1) `{{ .SiteURL }}` löste zu `localhost:3000` auf statt zur Produktions-Domain, (2) `type=` war leer. Beides sind **Supabase-Dashboard-Einstellungen** (Authentication → URL Configuration → Site URL; Authentication → Email Templates → „Confirm signup"), die unabhängig von der App-Umgebungsvariable `NEXT_PUBLIC_SITE_URL` und unabhängig vom App-Code sind — ich habe dafür keinen Tool-Zugriff. Nutzer hat „Site URL" auf `https://viennasalsastudio.vercel.app` korrigiert und im „Confirm signup"-Template `type=signup` fest eingetragen (nicht `{{ .Type }}`, siehe unten). Live erneut mit echter Test-Mailbox verifiziert: Link zeigt jetzt korrekt auf die Produktions-Domain mit `type=signup`, Klick darauf bestätigt die E-Mail und leitet korrekt zu `/profil` weiter (`email_confirmed_at` in der Datenbank bestätigt gesetzt).
+
+**Warum das zweimal passiert ist:** Der ursprüngliche PROJ-2-Fix (siehe Eintrag oben) hat nur die Vercel-Umgebungsvariable `NEXT_PUBLIC_SITE_URL` korrigiert. Die *separate* Supabase Auth „Site URL"-Einstellung, aus der `{{ .SiteURL }}` in den E-Mail-Vorlagen gespeist wird, blieb dabei unangetastet bzw. wurde nicht dauerhaft auf Produktion gesetzt.
+
+**Dauerhafter Hinweis für zukünftige Deploys/Änderungen an Supabase Auth:** Nach jedem Zurücksetzen/Neuanlegen des Supabase-Projekts oder größeren Änderungen an den Auth-Einstellungen immer prüfen:
+1. Authentication → URL Configuration → **Site URL** = `https://viennasalsastudio.vercel.app` (nicht `localhost`)
+2. Authentication → URL Configuration → **Redirect URLs** enthält `https://viennasalsastudio.vercel.app/**`
+3. Authentication → Email Templates → **„Confirm signup"** verlinkt auf `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup&next=/profil` (mit fest eingetragenem `type=signup`, nicht `{{ .Type }}` — diese Variable liefert bei Supabase keinen Wert)
+4. Authentication → Email Templates → **„Reset Password"** verlinkt entsprechend mit `type=recovery&next=/passwort-zuruecksetzen`
+
+Diese vier Punkte sind rein Dashboard-seitig und werden von keinem Git-Commit/Deploy abgedeckt — sie können bei einem Supabase-Projekt-Reset oder manueller Fehlkonfiguration jederzeit wieder auf die (falschen) Standardwerte zurückfallen.
