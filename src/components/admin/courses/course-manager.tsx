@@ -64,6 +64,9 @@ export type CourseRow = {
 
 export type SimpleOption = { id: string; name: string };
 export type RoomOption = { id: string; name: string; locationId: string };
+export type VideoSetOption = { id: string; name: string; level: string | null };
+
+const NO_VIDEO_SET = "__none__";
 
 export function CourseManager({
   courses,
@@ -78,7 +81,7 @@ export function CourseManager({
   locations: SimpleOption[];
   rooms: RoomOption[];
   teachers: TeacherOption[];
-  videoSets: SimpleOption[];
+  videoSets: VideoSetOption[];
 }) {
   const [editing, setEditing] = useState<CourseRow | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<CourseRow | null>(null);
@@ -225,7 +228,7 @@ function CourseFormDialog({
   locations: SimpleOption[];
   rooms: RoomOption[];
   teachers: TeacherOption[];
-  videoSets: SimpleOption[];
+  videoSets: VideoSetOption[];
 }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -425,16 +428,21 @@ function CourseFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Videosatz (optional, nur für Lehrer sichtbar)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || undefined}>
+                  <Select
+                    onValueChange={(value) => field.onChange(value === NO_VIDEO_SET ? "" : value)}
+                    value={field.value || NO_VIDEO_SET}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Kein Videosatz" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value={NO_VIDEO_SET}>Kein Videosatz</SelectItem>
                       {videoSets.map((videoSet) => (
                         <SelectItem key={videoSet.id} value={videoSet.id}>
                           {videoSet.name}
+                          {videoSet.level ? ` (${levelLabel(videoSet.level)})` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>

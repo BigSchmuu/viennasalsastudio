@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { CourseManager, type CourseRow, type RoomOption, type SimpleOption } from "@/components/admin/courses/course-manager";
+import {
+  CourseManager,
+  type CourseRow,
+  type RoomOption,
+  type SimpleOption,
+  type VideoSetOption,
+} from "@/components/admin/courses/course-manager";
 import type { TeacherOption } from "@/components/admin/courses/teacher-multi-select";
 
 export default async function CoursesPage() {
@@ -16,7 +22,7 @@ export default async function CoursesPage() {
     supabase.from("locations").select("id, name").order("name", { ascending: true }),
     supabase.from("rooms").select("id, name, location_id").order("name", { ascending: true }),
     supabase.from("profiles").select("id, full_name").eq("role", "teacher"),
-    supabase.from("video_sets").select("id, name").order("name", { ascending: true }),
+    supabase.from("video_sets").select("id, name, level").order("name", { ascending: true }),
   ]);
 
   const danceStyles: SimpleOption[] = danceStylesRes.data ?? [];
@@ -30,7 +36,7 @@ export default async function CoursesPage() {
     id: t.id,
     label: t.full_name || "Unbenannter Lehrer",
   }));
-  const videoSets: SimpleOption[] = videoSetsRes.data ?? [];
+  const videoSets: VideoSetOption[] = videoSetsRes.data ?? [];
 
   const courses: CourseRow[] = (coursesRes.data ?? []).map((c) => ({
     id: c.id,

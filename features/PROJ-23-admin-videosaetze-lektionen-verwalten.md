@@ -207,7 +207,7 @@ Fokus: Da Datenbank-Schema, RLS und Server Actions bereits im `/frontend`-Durchg
 
 #### AC-3: Level-Zuordnung wird angezeigt
 - [x] Level als Badge in der Videosatz-Liste sichtbar
-- [ ] BUG-2 (Low): Level wird in der Videosatz-Dropdown im Kurs-Formular NICHT angezeigt, nur der Name — AC verlangt Sichtbarkeit an beiden Stellen
+- [x] Level wird seit BUG-2-Fix auch in der Videosatz-Dropdown im Kurs-Formular angezeigt (z. B. „FixVerify Videosatz (Beginner)")
 
 #### AC-4: Lektion anlegen erscheint am Ende der Lektionsliste
 - [x] Neue Lektion erscheint korrekt in der Liste des Videosatzes
@@ -268,36 +268,39 @@ Fokus: Da Datenbank-Schema, RLS und Server Actions bereits im `/frontend`-Durchg
 
 #### BUG-1: Zugewiesener Videosatz kann bei einem Kurs nicht mehr entfernt werden
 - **Severity:** Medium
+- **Status:** Fixed (2026-08-13, noch vor Deploy)
 - **Steps to Reproduce:**
   1. Kurs mit zugewiesenem Videosatz anlegen
   2. Kurs bearbeiten, versuchen die Videosatz-Zuordnung zu entfernen
   3. Expected: Eine Möglichkeit, „kein Videosatz" auszuwählen (Feld ist laut AC-11 optional)
-  4. Actual: Die Dropdown zeigt nur existierende Videosätze zur Auswahl, keine Option zum Zurücksetzen auf „kein Videosatz" — `SelectContent` in `course-manager.tsx` enthält nur `videoSets.map(...)`, keinen leeren Eintrag
-- **Workaround:** Kurs löschen und neu anlegen, oder Videosatz-Zuordnung bei Erstellung von vornherein weglassen
-- **Priority:** Vor Deploy nachbessern empfohlen, aber nicht blockierend (Erstellung mit/ohne Videosatz funktioniert einwandfrei)
+  4. Actual: Die Dropdown zeigte nur existierende Videosätze zur Auswahl, keine Option zum Zurücksetzen auf „kein Videosatz" — `SelectContent` in `course-manager.tsx` enthielt nur `videoSets.map(...)`, keinen leeren Eintrag
+- **Fix:** Sentinel-Wert (`__none__`) als erste, explizite „Kein Videosatz"-Option in der Dropdown ergänzt, wird beim Absenden auf einen leeren String gemappt (Radix `Select` erlaubt keine leeren String-Werte für Items). Live verifiziert: Zuordnung setzen, Kurs bearbeiten, „Kein Videosatz" wählen, speichern → Kursliste zeigt korrekt „—" statt des vorherigen Videosatz-Namens.
+- **Priority:** Fix before deployment
 
-#### BUG-2: Level eines Videosatzes wird im Kurs-Formular-Dropdown nicht angezeigt
+#### BUG-2: Level eines Videosatzes wurde im Kurs-Formular-Dropdown nicht angezeigt
 - **Severity:** Low
+- **Status:** Fixed (2026-08-13, noch vor Deploy)
 - **Steps to Reproduce:**
   1. Videosatz mit Level „Beginner" anlegen
   2. Kurs-Formular öffnen, Videosatz-Dropdown aufklappen
   3. Expected (laut AC-3): Level wird auch hier sichtbar angezeigt
-  4. Actual: Nur der Name des Videosatzes wird angezeigt, kein Level-Badge
-- **Priority:** Nice to have
+  4. Actual: Nur der Name des Videosatzes wurde angezeigt, kein Level-Hinweis
+- **Fix:** `video_sets`-Query um `level` erweitert, neuer `VideoSetOption`-Typ (statt des generischen `SimpleOption`) mit `level`-Feld, Dropdown-Einträge zeigen jetzt z. B. „Videosatz Beginner (Beginner)". Live verifiziert.
+- **Priority:** Fix before deployment
 
 #### BUG-3: Kein Rate-Limiting auf Admin-Server-Actions
 - **Severity:** Low
 - **Kontext:** Identisch zu BUG-2 aus der PROJ-3-QA — admin-only Fläche, geringes Risiko im MVP
-- **Priority:** Vor kundenseitigen Actions (PROJ-8/PROJ-9) nachholen
+- **Priority:** Vor kundenseitigen Actions (PROJ-8/PROJ-9) nachholen — bewusst nicht jetzt gefixt
 
 ### Summary
-- **Acceptance Criteria:** 12/13 vollständig erfüllt, 1 mit Low-Abweichung (AC-3, siehe BUG-2)
+- **Acceptance Criteria:** 13/13 vollständig erfüllt (nach BUG-1/BUG-2-Fix)
 - **Edge Cases:** 6/6 passed
-- **Bugs Found:** 3 total (0 Critical, 0 High, 1 Medium [BUG-1], 2 Low [BUG-2, BUG-3])
-- **Automated Tests:** `npm test` 15/15 grün (inkl. neuem RLS-Integrationstest) · `npx playwright test tests/PROJ-23-*.spec.ts` 7/7 grün, zweimal in Folge von sauberem DB-Zustand aus verifiziert (Stabilität bestätigt) · PROJ-3-Regressionssuite weiterhin kompatibel (bereits im Backend-Review-Schritt bestätigt, keine PROJ-23-Änderungen seitdem)
-- **Security:** Pass — keine Critical/High-Findings, ein Medium- (BUG-1, UX-Lücke, keine Sicherheitslücke) und zwei Low-Findings
+- **Bugs Found:** 3 total (0 Critical, 0 High, 1 Medium [BUG-1, gefixt], 2 Low [BUG-2 gefixt, BUG-3 offen/akzeptiert])
+- **Automated Tests:** `npm test` 15/15 grün · `npx playwright test tests/PROJ-23-*.spec.ts` 7/7 grün, nach den Fixes erneut zweimal in Folge von sauberem DB-Zustand aus verifiziert (Stabilität bestätigt) · `npm run build` fehlerfrei · PROJ-3-Regressionssuite weiterhin kompatibel
+- **Security:** Pass — keine Critical/High-Findings, ein akzeptiertes Low-Finding (BUG-3)
 - **Production Ready:** YES
-- **Recommendation:** Deploy; BUG-1 zeitnah als kleinen Nachbesserungs-Fix einplanen (fehlende „Kein Videosatz"-Option im Select), BUG-2/BUG-3 können warten
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_
