@@ -141,7 +141,7 @@ export type Database = {
       courses: {
         Row: {
           created_at: string
-          dance_style: string | null
+          dance_style_id: string | null
           id: string
           level: string | null
           name: string
@@ -149,7 +149,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          dance_style?: string | null
+          dance_style_id?: string | null
           id?: string
           level?: string | null
           name: string
@@ -157,13 +157,20 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          dance_style?: string | null
+          dance_style_id?: string | null
           id?: string
           level?: string | null
           name?: string
           room_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "courses_dance_style_id_fkey"
+            columns: ["dance_style_id"]
+            isOneToOne: false
+            referencedRelation: "dance_styles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "courses_room_id_fkey"
             columns: ["room_id"]
@@ -172,6 +179,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dance_styles: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       locations: {
         Row: {
