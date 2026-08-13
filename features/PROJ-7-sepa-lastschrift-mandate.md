@@ -52,8 +52,8 @@
 - Compliance: Mandatstext muss die verkürzte Vorabankündigungsfrist explizit enthalten und vom Kunden aktiv bestätigt werden (Zeitstempel der Zustimmung wird gespeichert)
 
 ## Open Questions
-- [ ] Der genaue Wortlaut des SEPA-Mandatstexts (inkl. verkürzter Vorabankündigungsfrist) sollte vor dem Launch von einem Steuerberater oder der kontoführenden Bank geprüft werden — ich kann die rechtliche Korrektheit des Texts nicht verifizieren
-- [ ] Auf wie viele Tage soll die verkürzte Vorabankündigungsfrist im Mandatstext festgelegt werden (z. B. 2, 5 Tage)? Wird in `/architecture` oder spätestens vor Launch final entschieden
+- [ ] Der genaue Wortlaut des SEPA-Mandatstexts (inkl. verkürzter Vorabankündigungsfrist von 5 Tagen) sollte vor dem Launch von einem Steuerberater oder der kontoführenden Bank geprüft werden — ich kann die rechtliche Korrektheit des Texts nicht verifizieren
+- [x] Auf wie viele Tage soll die verkürzte Vorabankündigungsfrist im Mandatstext festgelegt werden? → 5 Tage (2026-08-14)
 
 ## Decision Log
 
@@ -70,11 +70,93 @@
 | Lastschriftläufe werden als Datensatz mit enthaltenen Kunden gespeichert, inkl. manueller „rückgebucht"-Markierung | Verhindert versehentlichen Doppel-Einzug im selben Zeitraum; da keine Bank-Anbindung existiert, ist eine manuelle Rückmeldung die einzig mögliche Lösung für PROJ-7 | 2026-08-14 |
 | Mandat-Entfernung ändert Abo-Status nicht automatisch, nur In-App-Hinweis für Admin | Abo-Status bleibt bewusst admin-gepflegt wie in PROJ-4 etabliert; echte E-Mail-Benachrichtigung wäre verfrühter Vorgriff auf PROJ-16 | 2026-08-14 |
 
+### Technical Decisions
+<!-- Added by /architecture -->
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Mandat-Wechsel = altes Mandat widerrufen + neues mit frischer Mandatsreferenz anlegen (nicht überschreiben) | Bewahrt die Historie widerrufener Mandate für die SEPA-Aufbewahrungspflicht (mind. 14 Monate nach letzter Nutzung); „nur ein aktives Mandat" wird über eine Datenbankregel erzwungen, die pro Kunde höchstens ein nicht-widerrufenes Mandat zulässt | 2026-08-14 |
+| Betrag, IBAN, Kontoinhaber und Mandatsreferenz werden pro Kunde als Momentaufnahme in der jeweiligen Lastschriftposition gespeichert, nicht live aus Mandat/Abo nachgeladen | Ein Lastschriftlauf muss dauerhaft exakt widerspiegeln, was zum Erzeugungszeitpunkt tatsächlich eingezogen wurde — auch wenn der Kunde sein Mandat später ändert oder der Abo-Preis sich ändert (siehe Edge Case „Mandat-Änderung nach Export") | 2026-08-14 |
+| SEPA-XML-Datei wird bei Bedarf aus den gespeicherten Momentaufnahme-Daten neu generiert statt als Datei-Blob abgelegt | Erzeugung ist deterministisch aus den gespeicherten Positionsdaten; spart Speicherplatz und vermeidet eine zusätzliche Datei-Storage-Anbindung für ein Feature, das ohnehin nur lokal heruntergeladen wird | 2026-08-14 |
+| Doppel-Lauf-Warnung als weiche Prüfung (Abfrage auf existierende Läufe mit demselben Fälligkeitsdatum), kein harter Datenbank-Constraint | Spec verlangt explizit, dass der Admin einen zweiten Lauf für dasselbe Datum bestätigt bekommen, aber notfalls trotzdem auslösen kann (z. B. Korrekturlauf) | 2026-08-14 |
+| „Mandat entfernt — Abo prüfen"-Hinweis wird live berechnet (aktives Abo ohne aktives Mandat), keine eigene Flag-Spalte | Vermeidet eine zusätzliche Zustandsquelle, die aus dem Takt geraten könnte; der Hinweis ist bei jedem Seitenaufruf automatisch korrekt | 2026-08-14 |
+| IBAN-Validierung über Standard-Prüfsummenalgorithmus (ISO 7064 MOD 97-10), client- und serverseitig, ohne zusätzliches Fremdpaket | Ausreichend zuverlässig für Formatprüfung, keine zusätzliche Abhängigkeit nötig | 2026-08-14 |
+| Vorabankündigungsfrist im Mandatstext auf 5 Tage festgelegt | Nutzerentscheidung im Architektur-Interview; schließt die zuvor offene Frage aus dem Spec-Interview | 2026-08-14 |
+
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Komponentenstruktur
+
+**Kundenseite — Erweiterung von `/profil`:**
+```
+/profil
+└── Zahlungsmethode (neue Sektion)
+    ├── Kein Mandat hinterlegt
+    │   └── Mandats-Formular (IBAN, Kontoinhaber, Mandatstext + Zustimmungs-Checkbox)
+    └── Mandat vorhanden
+        ├── Anzeige: maskierte IBAN, Kontoinhaber, hinterlegt seit
+        └── "Mandat entfernen"-Button (mit Bestätigungsdialog)
+```
+
+**Admin — Erweiterung von `/admin/kunden/[id]` (aus PROJ-4):**
+```
+Kundendetailseite
+└── Zahlungsmethoden-Status (read-only Badge)
+    ├── "SEPA-Mandat hinterlegt seit [Datum]"
+    ├── "Kein Mandat hinterlegt"
+    └── "Mandat entfernt — Abo prüfen" (wenn aktives Abo ohne Mandat)
+```
+
+**Admin — neue Seite `/admin/lastschriften`:**
+```
+/admin/lastschriften
+├── "Neuen Lauf erstellen"
+│   ├── Fälligkeitsdatum-Auswahl
+│   └── Warnhinweis + Bestätigung bei Datums-Kollision
+├── Lauf-Historie (Tabelle: Fälligkeitsdatum, Anzahl Kunden, Gesamtbetrag, erstellt am)
+└── Lauf-Detail
+    ├── Positionsliste (Kunde, Abo, Betrag, Status offen/rückgebucht)
+    ├── "Als rückgebucht markieren"-Aktion pro Position
+    └── "SEPA-XML herunterladen"-Button
+```
+Admin-Nav wird um „Lastschriften" ergänzt.
+
+### B) Datenmodell (fachlich)
+
+**SEPA-Mandat** — pro Kunde höchstens ein aktives Mandat gleichzeitig:
+- Zugehöriger Kunde
+- IBAN
+- Name des Kontoinhabers
+- Eindeutige Mandatsreferenz (automatisch vergeben)
+- Zeitpunkt der Zustimmung zum Mandatstext
+- Widerrufszeitpunkt (leer, solange das Mandat aktiv ist — beim Ersetzen durch ein neues Mandat wird das alte widerrufen statt gelöscht, damit die SEPA-Aufbewahrungspflicht eingehalten wird)
+
+**Lastschriftlauf** — ein Sammel-Einzug zu einem Fälligkeitsdatum:
+- Fälligkeitsdatum
+- Zeitpunkt der Erstellung
+
+**Lastschriftposition** — eine einzelne Buchung innerhalb eines Laufs (ein Kunde kann mehrere Positionen haben, wenn er mehrere aktive Abos hat):
+- Zugehöriger Lauf
+- Zugehöriger Kunde
+- Zugehöriges Abo (aus PROJ-4)
+- Betrag (Momentaufnahme des damaligen Abo-Preises)
+- IBAN, Kontoinhaber, Mandatsreferenz (Momentaufnahme des damaligen Mandats)
+- Rückbuchungs-Status (offen / rückgebucht) inkl. Zeitpunkt der Markierung
+
+Gespeichert in: Supabase/PostgreSQL, wie alle bisherigen Features. Zugriff ausschließlich per Server Actions, kein REST-API-Layer.
+
+### C) Tech-Entscheidungen (Begründung)
+
+- **Mandat wird bei Ersetzung widerrufen statt gelöscht:** SEPA verlangt, Mandatsdaten mindestens 14 Monate nach letzter Nutzung aufzubewahren. Ein hartes Löschen würde diese Nachweispflicht verletzen. „Nur ein aktives Mandat pro Kunde" wird trotzdem sauber erzwungen, indem pro Kunde nur ein nicht-widerrufenes Mandat gleichzeitig existieren darf.
+- **Lastschriftpositionen speichern eine Momentaufnahme, keine Live-Referenz:** Ändert ein Kunde später sein Mandat oder der Admin den Abo-Preis, darf sich ein bereits erzeugter Lastschriftlauf rückwirkend nicht mehr verändern — genau das verlangt der in der Spec dokumentierte Edge Case.
+- **Kein Datei-Storage für die XML-Datei:** Da die Positionsdaten vollständig gespeichert sind, kann die SEPA-XML jederzeit deterministisch neu erzeugt werden. Das spart eine zusätzliche Storage-Anbindung für eine Datei, die ohnehin nur einmalig heruntergeladen und ins Online-Banking hochgeladen wird.
+- **Doppel-Lauf-Prüfung als weicher Hinweis, kein Constraint:** Die Spec verlangt eine Warnung mit Bestätigungsmöglichkeit, keinen harten Stopp — ein Admin muss z. B. einen Korrekturlauf für dasselbe Datum auslösen können.
+- **IBAN-Prüfsummenvalidierung ohne Fremdpaket:** Der IBAN-Prüfsummenalgorithmus (ISO 7064 MOD 97-10) ist ein öffentlich standardisierter, kurzer Algorithmus — eine zusätzliche Abhängigkeit dafür ist nicht nötig.
+
+### D) Abhängigkeiten (Pakete)
+Keine neuen Fremdpakete nötig. Die SEPA-XML-Erzeugung (ISO-20022-Format „pain.008") wird als einfache Textvorlage serverseitig zusammengesetzt; IBAN-Prüfsummenvalidierung ist ein kurzer Standardalgorithmus ohne externe Bibliothek. Bestehende Werkzeuge (Zod, Supabase, shadcn/ui) decken den Rest ab.
 
 ## QA Test Results
 _To be added by /qa_
