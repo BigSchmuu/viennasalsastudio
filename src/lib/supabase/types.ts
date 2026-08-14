@@ -343,6 +343,158 @@ export type Database = {
           },
         ]
       }
+      sepa_collection_items: {
+        Row: {
+          account_holder_name: string
+          amount: number
+          bounced_at: string | null
+          created_at: string
+          customer_id: string
+          iban: string
+          id: string
+          mandate_reference: string
+          run_id: string
+          subscription_id: string
+        }
+        Insert: {
+          account_holder_name: string
+          amount: number
+          bounced_at?: string | null
+          created_at?: string
+          customer_id: string
+          iban: string
+          id?: string
+          mandate_reference: string
+          run_id: string
+          subscription_id: string
+        }
+        Update: {
+          account_holder_name?: string
+          amount?: number
+          bounced_at?: string | null
+          created_at?: string
+          customer_id?: string
+          iban?: string
+          id?: string
+          mandate_reference?: string
+          run_id?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sepa_collection_items_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sepa_collection_items_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sepa_collection_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "sepa_collection_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sepa_collection_items_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sepa_collection_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sepa_collection_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sepa_collection_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sepa_mandates: {
+        Row: {
+          account_holder_name: string
+          consented_at: string
+          created_at: string
+          customer_id: string
+          iban: string
+          id: string
+          mandate_reference: string
+          revoked_at: string | null
+        }
+        Insert: {
+          account_holder_name: string
+          consented_at?: string
+          created_at?: string
+          customer_id: string
+          iban: string
+          id?: string
+          mandate_reference: string
+          revoked_at?: string | null
+        }
+        Update: {
+          account_holder_name?: string
+          consented_at?: string
+          created_at?: string
+          customer_id?: string
+          iban?: string
+          id?: string
+          mandate_reference?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sepa_mandates_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sepa_mandates_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           created_at: string

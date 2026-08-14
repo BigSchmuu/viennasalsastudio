@@ -5,6 +5,7 @@ import { CustomerProfileForm } from "@/components/admin/customers/customer-profi
 import { SubscriptionManager, type SubscriptionRow } from "@/components/admin/customers/subscription-manager";
 import type { ProfileInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export default async function CustomerDetailPage({
   params,
@@ -25,16 +26,24 @@ export default async function CustomerDetailPage({
     notFound();
   }
 
-  const [emailsRes, subscriptionsRes] = await Promise.all([
+  const [emailsRes, subscriptionsRes, mandateRes] = await Promise.all([
     supabase.rpc("admin_list_customer_emails"),
     supabase
       .from("subscriptions")
       .select("id, name, price, status")
       .eq("customer_id", id)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("sepa_mandates")
+      .select("consented_at")
+      .eq("customer_id", id)
+      .is("revoked_at", null)
+      .maybeSingle(),
   ]);
 
   const email = (emailsRes.data ?? []).find((e) => e.id === id)?.email ?? "—";
+  const hasActiveSubscription = (subscriptionsRes.data ?? []).some((s) => s.status === "active");
+  const mandate = mandateRes.data;
 
   const defaultValues: ProfileInput = {
     full_name: profile.full_name ?? "",
@@ -58,6 +67,17 @@ export default async function CustomerDetailPage({
         </Button>
         <h2 className="font-heading text-xl font-bold">{profile.full_name || "Unbenannt"}</h2>
         <p className="text-sm text-muted-foreground">{email}</p>
+        <div className="mt-2">
+          {mandate ? (
+            <Badge variant="secondary">
+              SEPA-Mandat hinterlegt seit {new Date(mandate.consented_at).toLocaleDateString("de-AT")}
+            </Badge>
+          ) : hasActiveSubscription ? (
+            <Badge style={{ backgroundColor: "#e63946", color: "white" }}>Mandat entfernt — Abo prüfen</Badge>
+          ) : (
+            <Badge variant="outline">Kein Mandat hinterlegt</Badge>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3">

@@ -1,6 +1,6 @@
 # PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-14
 **Last Updated:** 2026-08-14
 
@@ -157,6 +157,22 @@ Gespeichert in: Supabase/PostgreSQL, wie alle bisherigen Features. Zugriff aussc
 
 ### D) Abhängigkeiten (Pakete)
 Keine neuen Fremdpakete nötig. Die SEPA-XML-Erzeugung (ISO-20022-Format „pain.008") wird als einfache Textvorlage serverseitig zusammengesetzt; IBAN-Prüfsummenvalidierung ist ein kurzer Standardalgorithmus ohne externe Bibliothek. Bestehende Werkzeuge (Zod, Supabase, shadcn/ui) decken den Rest ab.
+
+## Implementation Notes (Frontend)
+
+**Datenbank-Migration** (`proj7_sepa_mandates_and_collection_runs`): Drei neue Tabellen — `sepa_mandates` (unique partial index sorgt dafür, dass pro Kunde höchstens eine nicht-widerrufene Zeile existiert), `sepa_collection_runs`, `sepa_collection_items` (Momentaufnahme von Betrag/IBAN/Kontoinhaber/Mandatsreferenz). RLS: Kunden lesen/schreiben nur ihr eigenes Mandat (Insert/Update, kein Delete — Widerruf per Update auf `revoked_at`); Admin hat nur Lesezugriff auf Mandate (keine Schreibrechte, ein Mandat ist eine Zustimmung des Kunden, kein Admin-Datensatz). Lastschriftläufe/-positionen sind vollständig admin-only.
+
+**Neue Bausteine** (`src/lib/sepa/`): `iban.ts` (ISO 7064 MOD 97-10-Prüfsumme + SEPA-Länderprüfung + Maskierung, ohne Fremdpaket), `mandate-reference.ts` (eindeutige Mandatsreferenz-Generierung), `xml.ts` (pain.008.001.02-Generator, gruppiert Positionen nach FRST/RCUR — FRST für die erste Verwendung einer Mandatsreferenz über alle Läufe hinweg, sonst RCUR, live berechnet aus den vorhandenen Positionsdaten statt einer eigenen Spalte), `mandate-text.ts` (Mandatstext-Platzhalter mit 5-Tage-Frist, siehe offene Rechtsprüfung).
+
+**Server Actions:** `src/lib/actions/mandate.ts` (`upsertMandate` widerruft ein bestehendes Mandat und legt direkt danach das neue an, `revokeMandate`), `src/lib/actions/admin/sepa-collections.ts` (`createCollectionRun` mit weicher Doppel-Lauf-Prüfung, sammelt aktive Abos mit Mandat per In-Memory-Join, snapshot-basiert; `generateRunXml` liest die SEPA-Gläubigerdaten aus `SEPA_CREDITOR_*`-Umgebungsvariablen; `markItemBounced`).
+
+**Seiten/Komponenten:** `/profil` um „Zahlungsmethode"-Sektion erweitert (`PaymentMethodSection`, hält lokalen State analog zum PROJ-6-Muster, damit Änderungen ohne Reload sofort sichtbar sind); `/admin/kunden/[id]` zeigt einen Mandat-Status-Badge (hinterlegt / kein Mandat / „Mandat entfernt — Abo prüfen" bei aktivem Abo ohne Mandat); neue Seiten `/admin/lastschriften` (Lauf-Liste + Erstellung) und `/admin/lastschriften/[id]` (Positionsliste, Rückbuchungs-Markierung, XML-Download als Client-seitiger Blob-Download); Admin-Nav um „Lastschriften" ergänzt.
+
+**Live end-to-end getestet** (Playwright, echte Supabase-Instanz, Testkonten danach gelöscht): ungültige IBAN-Prüfziffer abgelehnt, gültiges Mandat gespeichert und angezeigt, Mandat-Ersetzung (altes verschwindet, neues erscheint), Mandat-Entfernung zeigt Formular wieder + Admin-Warnbadge bei aktivem Abo; Admin-Lauf-Erstellung inkl. Navigation zur Detailseite, korrekter Kunde/Abo/Betrag in der Positionsliste, XML-Download enthält korrekte Debitor-/Kreditor-IBAN, Betrag und `SeqTp=FRST` bei erster Mandatsnutzung, Rückbuchungs-Markierung, Doppel-Lauf-Warndialog bei gleichem Fälligkeitsdatum.
+
+**RLS live gegengetestet:** Als Kunde direkt per SQL (`set role authenticated` + JWT-Claim) versucht, `sepa_collection_runs`/`sepa_collection_items` zu lesen → 0 Zeilen (korrekt blockiert); eigene Mandate sichtbar (2 Zeilen inkl. widerrufenem), fremde Mandate 0 Zeilen; Insert-Versuch eines Mandats mit fremder `customer_id` → `42501 permission denied`.
+
+**Nicht in dieser Session final geklärt:** `SEPA_CREDITOR_*`-Umgebungsvariablen sind lokal mit Test-Platzhaltern befüllt — vor dem ersten echten Lauf müssen die realen Studio-Werte (IBAN, Gläubiger-ID) gesetzt werden. Mandatstext-Wortlaut weiterhin ungeprüft (siehe Open Questions).
 
 ## QA Test Results
 _To be added by /qa_
