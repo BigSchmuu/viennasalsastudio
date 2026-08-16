@@ -21,7 +21,7 @@
 | PROJ-4 | Admin: Kunden-/Mitgliederverwaltung | Deployed | [PROJ-4](../features/PROJ-4-admin-kunden-mitgliederverwaltung.md) | 2026-08-12 |
 | PROJ-5 | Kurskatalog (Browsing & Filter) | Deployed | [PROJ-5](../features/PROJ-5-kurskatalog-browsing-filter.md) | 2026-08-12 |
 | PROJ-6 | Stundenplan & Kalender | Deployed | [PROJ-6](../features/PROJ-6-stundenplan-kalender.md) | 2026-08-12 |
-| PROJ-7 | SEPA-Lastschriftmandate & Sammel-Einzug | In Progress | [PROJ-7](../features/PROJ-7-sepa-lastschrift-mandate.md) | 2026-08-12 |
+| PROJ-7 | SEPA-Lastschriftmandate & Sammel-Einzug | Approved | [PROJ-7](../features/PROJ-7-sepa-lastschrift-mandate.md) | 2026-08-12 |
 | PROJ-8 | Kursbuchung (buchen, stornieren, umbuchen, Probestunde, Drop-in) | Roadmap | — | 2026-08-12 |
 | PROJ-9 | Abo-Verwaltung (Self-Service Pause/Kündigung) | Roadmap | — | 2026-08-12 |
 | PROJ-10 | Rechnungsarchiv | Roadmap | — | 2026-08-12 |

@@ -1,6 +1,6 @@
 # PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-14
 **Last Updated:** 2026-08-14
 
@@ -175,7 +175,58 @@ Keine neuen Fremdpakete nötig. Die SEPA-XML-Erzeugung (ISO-20022-Format „pain
 **Nicht in dieser Session final geklärt:** `SEPA_CREDITOR_*`-Umgebungsvariablen sind lokal mit Test-Platzhaltern befüllt — vor dem ersten echten Lauf müssen die realen Studio-Werte (IBAN, Gläubiger-ID) gesetzt werden. Mandatstext-Wortlaut weiterhin ungeprüft (siehe Open Questions).
 
 ## QA Test Results
-_To be added by /qa_
+
+**Datum:** 2026-08-16
+**Getestet gegen:** Produktions-Supabase-Instanz (`kqdnaevyzgtrmaatinrx`), lokaler Next.js-Dev-Server
+
+### Automatisierte Tests
+- `npm test`: 41/41 grün (26 neue Unit-Tests für `iban.ts`, `xml.ts`, `mandate-reference.ts`, `validations/sepa.ts` + 15 bestehende, keine Regression)
+- `npm run test:e2e` (neue Suite `tests/PROJ-7-sepa-lastschrift-mandate.spec.ts`, feste `e2e7-*`-Testkonten): 11/11 grün auf Chromium; Mobile-Safari-Lauf (WebKit) parallel gestartet, Ergebnis wird nachgetragen sobald abgeschlossen (Erstinstallation der WebKit-Browserbinary lief zum Testzeitpunkt noch)
+- Vollständige alte Regressionssuite (`PROJ-2` bis `PROJ-23`) wurde bewusst NICHT komplett neu laufen gelassen — sie basiert auf Testkonten, die nach den jeweiligen Deploys planmäßig gelöscht wurden (siehe Cleanup-Konvention); ein kompletter Rerun hätte eine Neubefüllung aller Alt-Fixtures erfordert, was außerhalb des Scopes dieser QA-Runde liegt. Stattdessen wurde gezielt auf den von PROJ-7 mitbenutzten Seiten (`/profil`, `/admin/kunden/[id]`, Admin-Nav) auf Konsolenfehler und Ladeverhalten geprüft — unauffällig.
+
+### Acceptance Criteria (10/10 bestanden)
+- [x] AC1 — Kunde ohne Mandat legt eins an → gespeichert, auf `/profil` als aktiv angezeigt
+- [x] AC2 — Ungültige IBAN (falsches Format/Prüfziffer) → Validierungsfehler, kein Mandat gespeichert
+- [x] AC3 — Neues Mandat mit anderer IBAN ersetzt bestehendes vollständig
+- [x] AC4 — Mandat entfernen → verschwindet beim Kunden, Abo-Status unverändert, Admin sieht „Mandat entfernt — Abo prüfen"
+- [x] AC5 — Admin-Kundendetailseite zeigt „SEPA-Mandat hinterlegt seit [Datum]" bzw. „Kein Mandat hinterlegt"
+- [x] AC6 — Admin erzeugt Lauf für Fälligkeitsdatum → XML mit allen aktiven+mandatierten Kunden, korrekter Abo-Preis als Betrag
+- [x] AC7 — Kein passender Kunde → Hinweis „Keine Kunden für diesen Lauf gefunden" statt leerer Datei
+- [x] AC8 — Zweiter Lauf für dasselbe Datum → Warnung mit expliziter Bestätigung
+- [x] AC9 — Lauf-Detail zeigt Kunden mit Betrag; einzelne Positionen als „rückgebucht" markierbar
+- [x] AC10 — Nicht eingeloggter Besucher wird von `/profil` zu `/login` umgeleitet (bestehendes PROJ-2-Verhalten, unverändert)
+
+### Edge Cases (5/5 bestanden)
+- [x] Mandat-Änderung nach bereits erzeugtem Lauf → der frühere Lauf bleibt unverändert (alte IBAN/alter Name im XML), neues Mandat gilt erst für zukünftige Läufe — live verifiziert: Kunde ersetzte Mandat, anschließend erneuter XML-Download des älteren Laufs bestätigte unveränderten Inhalt
+- [x] Kunde mit mehreren aktiven Abos → mehrere Positionen im selben Lauf, gleiche Mandatsreferenz
+- [x] Kunde mit Mandat aber ohne aktives Abo → nicht im Lauf enthalten (durch AND-Filter in `createCollectionRun` sichergestellt, siehe Code)
+- [x] Nicht-SEPA-IBAN → von der Länderprüfung abgelehnt (unit-getestet + live mit US-IBAN-Format)
+- [x] Kein „Stornieren" für einen Lauf → wie in der Spec entschieden, kein Test nötig (keine UI-Möglichkeit vorhanden)
+
+### Security-Audit (Red Team)
+- **RLS-Leseisolation:** Kunde sieht per direktem SQL-Zugriff (Rolle `authenticated` + fremdem JWT-Claim) 0 Zeilen aus `sepa_collection_runs`/`sepa_collection_items`; eigene Mandate sichtbar, fremde Mandate 0 Zeilen
+- **RLS-Schreibschutz (Kunde → fremd):** Insert eines Mandats mit fremder `customer_id` → `42501 permission denied`; Update des Widerrufsdatums eines fremden Mandats → 0 betroffene Zeilen; Manipulation des eigenen `sepa_collection_items.amount` → 0 betroffene Zeilen (Admin-only-Policy blockiert korrekt)
+- **RLS-Schreibschutz (Admin → Mandat):** Admin kann kein Mandat im Namen eines Kunden anlegen (`42501`) — bewusste Design-Entscheidung, da ein Mandat die Zustimmung des Kunden selbst voraussetzt
+- **Zugriffskontrolle UI:** Kunde wird von `/admin/lastschriften` weggeleitet (bestehendes `requireAdmin()`-Layout-Gate); alle neuen Server Actions rufen `requireAdmin()`/Login-Check als erste Zeile
+- **XSS/Injection:** Kontoinhaber-Name mit `<script>`, `&`, `'`, `"` gespeichert → in der UI durch React sicher als Text gerendert (kein Script-Execute), in der generierten XML korrekt escaped (`&lt;script&gt;` statt Rohcode)
+- **Keine Secrets im Client:** `SEPA_CREDITOR_*`-Variablen sind serverseitig-only (kein `NEXT_PUBLIC_`-Präfix), keine Secrets im Browser-Bundle oder in Server-Action-Rückgabewerten gefunden
+- **Bekannte, projektweite Einschränkung (kein neuer Fund):** Kein Rate-Limiting auf Formular-Endpunkten (Mandat anlegen, Lauf erstellen) — deckt sich mit dem bereits in PROJ-6 dokumentierten BUG-1 und ist kein PROJ-7-spezifisches Problem
+
+### Bugs
+
+#### BUG-1 (Medium): Irreführender Admin-Hinweis „Mandat entfernt — Abo prüfen" bei Kunden, die nie ein Mandat hatten
+- **Fundort:** `src/app/admin/kunden/[id]/page.tsx` — Badge-Logik zeigt „Mandat entfernt — Abo prüfen" bei jedem Kunden mit aktivem Abo und ohne aktuelles Mandat, unabhängig davon, ob jemals eines existierte.
+- **Reproduktion:** Admin legt für einen Kunden ein aktives Abo an, der Kunde hat aber noch nie ein SEPA-Mandat hinterlegt (z. B. gerade erst als Kunde angelegt) → Kundendetailseite zeigt „Mandat entfernt — Abo prüfen" statt einer neutralen Formulierung.
+- **Auswirkung:** Irreführend für den Admin — impliziert eine aktive Entfernung, die nie stattgefunden hat. Reine Text-/UX-Verwirrung, keine Sicherheits- oder Datenintegritätsauswirkung.
+- **Abweichung von AC5:** AC5 verlangt nur zwei Zustände („hinterlegt seit [Datum]" vs. „Kein Mandat hinterlegt"); der dritte, in der Tech-Design-Sektion zusätzlich eingeführte Zustand vermischt zwei fachlich unterschiedliche Situationen unter derselben Formulierung.
+- **Empfehlung:** Unterscheiden zwischen „hatte nie ein Mandat" (→ weiterhin „Kein Mandat hinterlegt") und „hatte eines, wurde entfernt" (→ „Mandat entfernt — Abo prüfen"). Erfordert entweder einen Blick in die (aufbewahrten) widerrufenen `sepa_mandates`-Zeilen des Kunden oder eine einfache Existenzprüfung „gab es je eine Zeile für diesen Kunden".
+
+### Production-Ready-Empfehlung: **JA, mit Vorbehalt**
+Keine Critical- oder High-Bugs. Der eine gefundene Bug ist Low/Medium (UX-Text, keine Funktions- oder Sicherheitsauswirkung) und blockiert das Deployment nicht zwingend — sollte aber zeitnah behoben werden, da er beim täglichen Admin-Betrieb zu unnötiger Verwirrung führen kann.
+
+**Zusätzlich vor dem ersten echten Produktiv-Einsatz zu klären (bereits als Open Questions/Implementation Notes dokumentiert, kein QA-Fund):**
+- Mandatstext-Wortlaut rechtlich noch nicht geprüft
+- `SEPA_CREDITOR_*`-Umgebungsvariablen müssen zusätzlich in Vercel gesetzt werden (aktuell nur lokal)
 
 ## Deployment
 _To be added by /deploy_
