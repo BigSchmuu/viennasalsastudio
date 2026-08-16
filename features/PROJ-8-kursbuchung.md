@@ -1,6 +1,6 @@
 # PROJ-8: Kursbuchung (Buchungsanfrage, Probestunde & Drop-in)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-16
 
@@ -257,4 +257,27 @@ Keine gefunden. (Mehrere Fehlschläge während der E2E-Testentwicklung stellten 
 Keine Critical-, High-, Medium- oder Low-Bugs gefunden. Alle 13 Acceptance Criteria und 6 Edge Cases bestanden, Security-Audit ohne Befund über die bereits bekannte, projektweite Rate-Limiting-Lücke hinaus.
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-16
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-8
+**Commit:** 975205b
+
+**Pre-Deployment Checks:**
+- `npm run build` erfolgreich
+- `npm test`: 64/64 grün
+- E2E-Suite (`tests/PROJ-8-kursbuchung.spec.ts`): 13/13 grün auf Chromium (zweimal stabil)
+- QA-Status: Approved, keine offenen Bugs
+- DB-Migration (`proj8_course_bookings_entry_dates_dropin_pricing`) bereits während `/frontend` auf die Produktions-Supabase-Instanz angewendet
+- Keine Secrets im Git-Repo; keine neuen Umgebungsvariablen nötig (Drop-in-Bezahlung läuft weiterhin bar/SumUp außerhalb der App, wie in PROJ-7 entschieden)
+- `npm run lint`: weiterhin repo-weit defekt (Next.js 16), unverändert seit PROJ-3-Deploy
+
+**Post-Deployment-Verifikation (Produktion):**
+- `/admin/buchungen` lädt korrekt (Drop-in-Preise-Sektion sichtbar), keine Konsolen-/Seitenfehler
+- Kompletter Buchungsablauf live in Produktion durchgespielt: Kunde bucht Probestunde inkl. erstmaliger Akquisitionskanal-Abfrage → sofort automatisch bestätigt, auf `/profil` sichtbar; danach Testbuchung wieder entfernt und Kundendaten zurückgesetzt
+- Keine `pageerror`-Events in beiden Verifikationsläufen
+
+**Bekannte offene Punkte (nicht blockierend):**
+- Kein Rate-Limiting auf den neuen Formular-Endpunkten — deckt sich mit dem bereits in PROJ-6 dokumentierten BUG-1
+- Mobile-Safari/WebKit-E2E-Lauf weiterhin nicht möglich (siehe QA-Notizen)
+- Repo-weiter ESLint-Ausfall (Next.js 16), unverändert seit PROJ-3
