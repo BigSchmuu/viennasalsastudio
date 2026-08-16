@@ -26,7 +26,7 @@ export default async function CustomerDetailPage({
     notFound();
   }
 
-  const [emailsRes, subscriptionsRes, mandateRes] = await Promise.all([
+  const [emailsRes, subscriptionsRes, mandateRes, mandateHistoryRes] = await Promise.all([
     supabase.rpc("admin_list_customer_emails"),
     supabase
       .from("subscriptions")
@@ -39,11 +39,16 @@ export default async function CustomerDetailPage({
       .eq("customer_id", id)
       .is("revoked_at", null)
       .maybeSingle(),
+    supabase
+      .from("sepa_mandates")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", id),
   ]);
 
   const email = (emailsRes.data ?? []).find((e) => e.id === id)?.email ?? "—";
   const hasActiveSubscription = (subscriptionsRes.data ?? []).some((s) => s.status === "active");
   const mandate = mandateRes.data;
+  const hadMandateBefore = (mandateHistoryRes.count ?? 0) > 0;
 
   const defaultValues: ProfileInput = {
     full_name: profile.full_name ?? "",
@@ -72,7 +77,7 @@ export default async function CustomerDetailPage({
             <Badge variant="secondary">
               SEPA-Mandat hinterlegt seit {new Date(mandate.consented_at).toLocaleDateString("de-AT")}
             </Badge>
-          ) : hasActiveSubscription ? (
+          ) : hadMandateBefore && hasActiveSubscription ? (
             <Badge style={{ backgroundColor: "#e63946", color: "white" }}>Mandat entfernt — Abo prüfen</Badge>
           ) : (
             <Badge variant="outline">Kein Mandat hinterlegt</Badge>

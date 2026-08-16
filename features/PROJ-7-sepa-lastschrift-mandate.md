@@ -214,15 +214,15 @@ Keine neuen Fremdpakete nötig. Die SEPA-XML-Erzeugung (ISO-20022-Format „pain
 
 ### Bugs
 
-#### BUG-1 (Medium): Irreführender Admin-Hinweis „Mandat entfernt — Abo prüfen" bei Kunden, die nie ein Mandat hatten
-- **Fundort:** `src/app/admin/kunden/[id]/page.tsx` — Badge-Logik zeigt „Mandat entfernt — Abo prüfen" bei jedem Kunden mit aktivem Abo und ohne aktuelles Mandat, unabhängig davon, ob jemals eines existierte.
-- **Reproduktion:** Admin legt für einen Kunden ein aktives Abo an, der Kunde hat aber noch nie ein SEPA-Mandat hinterlegt (z. B. gerade erst als Kunde angelegt) → Kundendetailseite zeigt „Mandat entfernt — Abo prüfen" statt einer neutralen Formulierung.
-- **Auswirkung:** Irreführend für den Admin — impliziert eine aktive Entfernung, die nie stattgefunden hat. Reine Text-/UX-Verwirrung, keine Sicherheits- oder Datenintegritätsauswirkung.
-- **Abweichung von AC5:** AC5 verlangt nur zwei Zustände („hinterlegt seit [Datum]" vs. „Kein Mandat hinterlegt"); der dritte, in der Tech-Design-Sektion zusätzlich eingeführte Zustand vermischt zwei fachlich unterschiedliche Situationen unter derselben Formulierung.
-- **Empfehlung:** Unterscheiden zwischen „hatte nie ein Mandat" (→ weiterhin „Kein Mandat hinterlegt") und „hatte eines, wurde entfernt" (→ „Mandat entfernt — Abo prüfen"). Erfordert entweder einen Blick in die (aufbewahrten) widerrufenen `sepa_mandates`-Zeilen des Kunden oder eine einfache Existenzprüfung „gab es je eine Zeile für diesen Kunden".
+#### BUG-1 (Medium) — BEHOBEN: Irreführender Admin-Hinweis „Mandat entfernt — Abo prüfen" bei Kunden, die nie ein Mandat hatten
+- **Fundort:** `src/app/admin/kunden/[id]/page.tsx` — Badge-Logik zeigte „Mandat entfernt — Abo prüfen" bei jedem Kunden mit aktivem Abo und ohne aktuelles Mandat, unabhängig davon, ob jemals eines existierte.
+- **Reproduktion:** Admin legt für einen Kunden ein aktives Abo an, der Kunde hat aber noch nie ein SEPA-Mandat hinterlegt (z. B. gerade erst als Kunde angelegt) → Kundendetailseite zeigte „Mandat entfernt — Abo prüfen" statt einer neutralen Formulierung.
+- **Auswirkung:** Irreführend für den Admin — implizierte eine aktive Entfernung, die nie stattgefunden hat. Reine Text-/UX-Verwirrung, keine Sicherheits- oder Datenintegritätsauswirkung.
+- **Fix:** Zusätzliche Zählabfrage auf `sepa_mandates` (alle Zeilen des Kunden, unabhängig vom Widerrufsstatus) unterscheidet jetzt „hatte nie ein Mandat" (→ „Kein Mandat hinterlegt") von „hatte eines, wurde widerrufen" (→ „Mandat entfernt — Abo prüfen"). Da widerrufene Mandate aus Compliance-Gründen ohnehin nie gelöscht werden (siehe Tech Design), reicht ein reiner Zeilen-Count ohne neue Spalte.
+- **Verifiziert:** Live mit einem frischen Testkunden (aktives Abo, nie ein Mandat) → zeigt jetzt korrekt „Kein Mandat hinterlegt"; mit dem E2E-Testkunden, der sein Mandat tatsächlich entfernt hat → zeigt weiterhin korrekt „Mandat entfernt — Abo prüfen". `npm run build`, `npm test` (41/41) und die volle E2E-Suite (11/11, zweimal gegen zurückgesetzte Fixtures) bleiben grün.
 
-### Production-Ready-Empfehlung: **JA, mit Vorbehalt**
-Keine Critical- oder High-Bugs. Der eine gefundene Bug ist Low/Medium (UX-Text, keine Funktions- oder Sicherheitsauswirkung) und blockiert das Deployment nicht zwingend — sollte aber zeitnah behoben werden, da er beim täglichen Admin-Betrieb zu unnötiger Verwirrung führen kann.
+### Production-Ready-Empfehlung: **JA**
+Keine Critical-, High- oder offenen Bugs mehr.
 
 **Zusätzlich vor dem ersten echten Produktiv-Einsatz zu klären (bereits als Open Questions/Implementation Notes dokumentiert, kein QA-Fund):**
 - Mandatstext-Wortlaut rechtlich noch nicht geprüft
