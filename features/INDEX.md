@@ -22,7 +22,7 @@
 | PROJ-5 | Kurskatalog (Browsing & Filter) | Deployed | [PROJ-5](../features/PROJ-5-kurskatalog-browsing-filter.md) | 2026-08-12 |
 | PROJ-6 | Stundenplan & Kalender | Deployed | [PROJ-6](../features/PROJ-6-stundenplan-kalender.md) | 2026-08-12 |
 | PROJ-7 | SEPA-Lastschriftmandate & Sammel-Einzug | Deployed | [PROJ-7](../features/PROJ-7-sepa-lastschrift-mandate.md) | 2026-08-12 |
-| PROJ-8 | Kursbuchung (buchen, stornieren, umbuchen, Probestunde, Drop-in) | Roadmap | — | 2026-08-12 |
+| PROJ-8 | Kursbuchung (Buchungsanfrage, Probestunde & Drop-in) | Planned | [PROJ-8](../features/PROJ-8-kursbuchung.md) | 2026-08-12 |
 | PROJ-9 | Abo-Verwaltung (Self-Service Pause/Kündigung) | Roadmap | — | 2026-08-12 |
 | PROJ-10 | Rechnungsarchiv | Roadmap | — | 2026-08-12 |
 | PROJ-11 | Beispiel-Videos (YouTube-Einbettung) | Roadmap | — | 2026-08-12 |

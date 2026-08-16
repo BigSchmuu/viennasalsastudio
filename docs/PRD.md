@@ -14,7 +14,8 @@ Vienna Salsa Studio App ist eine Kunden-Self-Service-Plattform für die Tanzschu
 |---|---|---|
 | P0 (MVP) | Supabase Infrastructure Setup | Deployed |
 | P0 (MVP) | Auth & Mitgliederbereich ("Mein Tanzbereich") | Deployed |
-| P0 (MVP) | Kurskatalog & Buchung | Deployed |
+| P0 (MVP) | Kurskatalog (Browsing & Filter) | Deployed |
+| P0 (MVP) | Kursbuchung (Buchungsanfrage, Probestunde & Drop-in) | Planned |
 | P0 (MVP) | Abo-Verwaltung (Pause/Kündigung Self-Service) | Roadmap |
 | P0 (MVP) | Stundenplan & Kalender | Deployed |
 | P0 (MVP) | SEPA-Lastschriftmandate & Sammel-Einzug | Deployed |
