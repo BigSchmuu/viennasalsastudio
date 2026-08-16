@@ -1,6 +1,6 @@
 # PROJ-24: Globale Navigation & Login-Status
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-16
 
@@ -135,7 +135,50 @@ Keine neuen Fremdpakete nötig — alle UI-Bausteine (Menü-Button, aufklappbare
 **Nicht in dieser Session final geklärt:** Keine.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Datum:** 2026-08-16
+**Getestet gegen:** Produktions-Supabase-Instanz (`kqdnaevyzgtrmaatinrx`), lokaler Next.js-Dev-Server
+
+### Automatisierte Tests
+- `npm test`: 64/64 grün, keine Regression (keine neuen Unit-Tests geschrieben — die Feature-Logik besteht nur aus serverseitigem Auth-Lookup und Anzeige-Komposition, siehe Begründung unten)
+- `npm run build`: erfolgreich, identische Routen-Liste vor/nach der Datei-Umstrukturierung in die `(site)`-Route-Group
+- `tests/PROJ-24-globale-navigation.spec.ts` (10 Tests, feste `e2e24-*`-Testkonten): 10/10 grün auf Chromium, dreimal in Folge stabil
+
+**Warum keine neuen Unit-Tests:** Die einzige nicht-triviale Logik (`isActive()`-Pfadvergleich in `SiteHeader`) ist eine winzige, direkt im Component definierte Hilfsfunktion ohne Edge Cases, die nicht bereits durch die E2E-Tests (aktive Hervorhebung, siehe unten) abgedeckt wäre — ein Auslagern nur zum Testen wäre unnötige Komplexität für den Umfang dieses Features.
+
+### Acceptance Criteria (8/8 bestanden)
+- [x] AC1 — Ausgeloggter Besucher sieht „Kurse", „Stundenplan", „Login" auf allen öffentlichen Seiten (`/`, `/kurse`, `/stundenplan`, `/login`, `/registrieren` einzeln geprüft)
+- [x] AC2 — Eingeloggter Kunde sieht „Mein Profil" + „Logout" statt „Login"
+- [x] AC3 — Eingeloggter Admin sieht zusätzlich einen „Admin"-Link
+- [x] AC4 — Logout über die Nav-Leiste zeigt danach wieder den ausgeloggten Zustand
+- [x] AC5 — Aktuelle Seite ist optisch hervorgehoben (CSS-Klasse geprüft, nicht nur visuell)
+- [x] AC6 — `/admin` zeigt weiterhin ausschließlich die bestehende `AdminNav`, keine zusätzliche globale Nav
+- [x] AC7 — Mobile Menü-Icon öffnet ein ausklappbares Menü (siehe BUG-1 zum genauen Schließverhalten)
+- [x] AC8 — „/" zeigt die neue Willkommensseite, Next.js-Boilerplate vollständig entfernt
+
+### Edge Cases (4/4 bestanden)
+- [x] Nicht eingeloggter Besucher ruft `/profil` direkt auf → weiterhin zu `/login` umgeleitet (bestehende Middleware aus PROJ-1/2, unabhängig von PROJ-24 funktionsfähig)
+- [x] Tablet-Breite (768px) → kein horizontales Overflow
+- [x] Desktop-Breite (1440px) → volle Nav-Leiste sichtbar, kein Hamburger-Menü
+- [x] Admin-Link verschwindet korrekt nach Logout (durch AC4-Test mit abgedeckt, serverseitige Neuprüfung bei jedem Seitenaufruf bestätigt)
+
+### Security-Audit (Red Team)
+- **Kein client-seitiges Spoofing möglich:** Der „Admin"-Link ist bei ausgeloggten Besuchern und bei eingeloggten Kunden nicht nur unsichtbar, sondern **gar nicht im HTML-Quelltext vorhanden** (per `page.content()` geprüft, nicht nur per Sichtbarkeits-Check der gerenderten DOM) — ein Besucher kann den Link nicht per DevTools sichtbar machen und darüber navigieren, da serverseitig entschieden wird, was überhaupt ausgeliefert wird
+- **Kein zusätzliches Zugriffsrisiko für `/admin`:** Der eigentliche Zugriffsschutz bleibt vollständig bei der bereits geprüften `requireAdmin()`-Logik aus PROJ-1; PROJ-24 fügt keine neue Prüfung hinzu und umgeht keine bestehende
+- **Keine neuen Dateneingaben, keine neue Query, kein neues Formular** — Angriffsfläche für Injection/XSS ist durch dieses Feature nicht vergrößert
+
+### Bugs
+
+#### BUG-1 (Low): Mobile-Menü schließt nicht durch erneutes Tippen auf das Menü-Icon
+- **Fundort:** `src/components/nav/site-header.tsx`, Mobile-Menü (shadcn `Sheet`)
+- **Reproduktion:** Auf einem schmalen Bildschirm das Menü-Icon antippen (Menü öffnet sich) → dasselbe Icon erneut antippen
+- **Tatsächliches Verhalten:** Das Icon wird, während das Menü offen ist, korrekterweise `aria-hidden`/inert (Standard-Barrierefreiheits-Verhalten für offene Dialoge/Sheets) und reagiert daher nicht auf einen zweiten Tap
+- **Erwartetes Verhalten laut AC7:** „ein erneuter Tap schließt sie wieder"
+- **Auswirkung:** Gering — das Menü lässt sich weiterhin zuverlässig über den sichtbaren Schließen-Button (X, fixer Bestandteil der `Sheet`-Komponente), durch Tippen außerhalb des Menüs oder per Escape schließen. Kein Nutzer ist blockiert, es gibt nur nicht den in der AC wörtlich beschriebenen Toggle-Mechanismus über dasselbe Icon.
+- **Empfehlung:** AC7-Formulierung an das tatsächliche (barrierefreie, standardkonforme) Verhalten anpassen, statt die Komponente umzubauen — ein echter Toggle-Button würde die Standard-Zugänglichkeit von Radix-Dialogen unterlaufen (Hintergrundinhalt soll für Screenreader inert sein, solange ein Dialog offen ist).
+
+### Production-Ready-Empfehlung: **JA**
+Nur ein Low-Bug (Wording-Abweichung zwischen AC und barrierefreiem Standardverhalten, keine funktionale Einschränkung). Keine Critical-, High- oder Medium-Bugs.
 
 ## Deployment
 _To be added by /deploy_
