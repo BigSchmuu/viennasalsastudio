@@ -38,7 +38,8 @@
 | PROJ-21 | Affiliate-System, Rollen & Dokumente/Verträge | Roadmap | — | 2026-08-12 |
 | PROJ-22 | Admin: Lehrer-Rollen verwalten | Roadmap | — | 2026-08-13 |
 | PROJ-23 | Admin: Videosätze & Lektionen verwalten (internes Lehrmaterial) | Deployed | [PROJ-23](../features/PROJ-23-admin-videosaetze-lektionen-verwalten.md) | 2026-08-13 |
+| PROJ-24 | Globale Navigation & Login-Status | Planned | [PROJ-24](../features/PROJ-24-globale-navigation.md) | 2026-08-16 |
 
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-24
+## Next Available ID: PROJ-25
