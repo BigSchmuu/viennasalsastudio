@@ -1,6 +1,6 @@
 # PROJ-24: Globale Navigation & Login-Status
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-16
 
@@ -181,4 +181,27 @@ Keine neuen Fremdpakete nötig — alle UI-Bausteine (Menü-Button, aufklappbare
 Nur ein Low-Bug (Wording-Abweichung zwischen AC und barrierefreiem Standardverhalten, keine funktionale Einschränkung). Keine Critical-, High- oder Medium-Bugs.
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-16
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-24
+**Commit:** 24f5dac
+
+**Pre-Deployment Checks:**
+- `npm run build` erfolgreich
+- `npm test`: 64/64 grün
+- E2E-Suite (`tests/PROJ-24-globale-navigation.spec.ts`): 10/10 grün auf Chromium (dreimal stabil)
+- QA-Status: Approved, nur 1 Low-Bug (AC-Formulierung, keine Funktionseinschränkung)
+- Keine neuen Umgebungsvariablen, keine Secrets, keine DB-Migration nötig (reine Datei-Umstrukturierung + neue Komponenten)
+- `npm run lint`: weiterhin repo-weit defekt (Next.js 16), unverändert seit PROJ-3-Deploy
+
+**Post-Deployment-Verifikation (Produktion):**
+- Startseite zeigt korrekt die neue Willkommensseite (nicht mehr das Next.js-Boilerplate), Nav-Leiste mit Kurse/Stundenplan/Login
+- Eingeloggter Admin sieht den zusätzlichen „Admin"-Link live in Produktion
+- `/admin` zeigt weiterhin nur die bestehende `AdminNav`, keine doppelte Navigation
+- Ein erster Verifikationsversuch direkt nach dem Deploy zeigte kurzzeitig falsche Ergebnisse (Cold-Start-Timing-Artefakt der Vercel-Funktion, nicht der App) — per `curl` der tatsächlich ausgelieferten HTML sowie einem zweiten Playwright-Lauf mit `networkidle` bestätigt, dass die Seite von Anfang an korrekt ausgeliefert wurde
+- Keine `pageerror`-Events
+
+**Bekannte offene Punkte (nicht blockierend):**
+- BUG-1 aus QA (Mobile-Menü schließt nicht durch erneuten Tap auf dasselbe Icon, schließt aber zuverlässig über X/Klick-daneben/Escape) — Empfehlung: AC-Formulierung anpassen, kein Code-Fix nötig
+- Repo-weiter ESLint-Ausfall (Next.js 16), unverändert seit PROJ-3
