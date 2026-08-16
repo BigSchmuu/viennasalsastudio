@@ -10,6 +10,7 @@ const links = [
   { href: "/admin/kurse", label: "Kurse" },
   { href: "/admin/videosaetze", label: "Videosätze" },
   { href: "/admin/kunden", label: "Kunden" },
+  { href: "/admin/buchungen", label: "Buchungen" },
   { href: "/admin/lastschriften", label: "Lastschriften" },
 ];
 

@@ -1,11 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
-
-// Weekday convention across the app: 0=Montag ... 6=Sonntag.
-// JS Date.getDay() uses 0=Sonntag ... 6=Samstag, so it needs remapping.
-function jsDayToWeekday(jsDay: number): number {
-  return jsDay === 0 ? 6 : jsDay - 1;
-}
+import { jsDayToWeekday, formatDateLocal } from "@/lib/scheduling/dates";
 
 function currentWeekDates(): string[] {
   const now = new Date();
@@ -15,7 +10,7 @@ function currentWeekDates(): string[] {
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    dates.push(d.toISOString().slice(0, 10));
+    dates.push(formatDateLocal(d));
   }
   return dates;
 }

@@ -1,6 +1,6 @@
 # PROJ-8: Kursbuchung (Buchungsanfrage, Probestunde & Drop-in)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-16
 
@@ -187,6 +187,24 @@ Gespeichert in: Supabase/PostgreSQL, wie alle bisherigen Features. Zugriff aussc
 
 ### D) Abhängigkeiten (Pakete)
 Keine neuen Fremdpakete nötig — Terminberechnung folgt demselben Muster wie `/stundenplan` (PROJ-6), UI-Bausteine kommen vollständig aus den bereits installierten shadcn/ui-Komponenten.
+
+## Implementation Notes (Frontend)
+
+**Datenbank-Migration** (`proj8_course_bookings_entry_dates_dropin_pricing`): `profiles.referral_source` (Check-Constraint auf die 6 festen Werte), `course_entry_dates` (öffentlich lesbar, admin-only Insert/Delete), `dropin_pricing` (Singleton-Zeile, öffentlich lesbar, admin-only Update), `course_bookings` (vereinte Tabelle für alle drei Buchungsarten). RLS für `course_bookings`: Kunden lesen/erstellen nur eigene Zeilen; eigenes Update ist per `WITH CHECK` strikt auf `status = 'cancelled'` beschränkt (kein Self-Confirm möglich); Admin hat vollen Lesezugriff und darf per separater Policy den Status auf `confirmed`/`rejected` setzen.
+
+**Kritischer Bug gefunden und behoben (noch während der eigenen Live-Tests, nicht erst in `/qa`):** Der ursprüngliche Terminberechnungs-Code (`upcomingOccurrences`, aus dem bereits deployten `/stundenplan`-Muster übernommen) nutzte `date.toISOString().slice(0, 10)`, um ein Datum in einen String umzuwandeln. `toISOString()` rechnet dabei zuerst auf UTC um — in der Zeitzone Europe/Vienna (UTC+2 im Sommer) verschiebt das ein lokal um Mitternacht gesetztes Datum auf den **Vortag**. Ergebnis: Ein Montags-Kurs zeigte in der Terminauswahl fälschlich Sonntage an. Behoben durch einen neuen `formatDateLocal()`-Helfer (nutzt lokale `getFullYear/getMonth/getDate` statt UTC-Konvertierung) in der neu extrahierten, gemeinsamen Datei `src/lib/scheduling/dates.ts`. **Dieselbe fehlerhafte Logik existierte unverändert im bereits produktiven `/stundenplan` (PROJ-6)** — beim Extrahieren der gemeinsamen Terminlogik wurde `/stundenplan` ebenfalls auf den korrigierten Helfer umgestellt und damit derselbe latente Fehler dort mitbehoben (Auswirkung dort: pausierte Wochen (`course_schedule_pauses`) konnten am Datums-Randfall falsch/nicht greifen). Live verifiziert: Terminauswahl zeigt jetzt korrekt Montage für einen Montags-Kurs; `/stundenplan` weiterhin fehlerfrei getestet.
+
+**Neue Bausteine:** `src/lib/scheduling/dates.ts` (`jsDayToWeekday`, `formatDateLocal`, `upcomingOccurrences`, `daysUntil` — von `/stundenplan` und PROJ-8 gemeinsam genutzt), `src/lib/constants/booking.ts`, `src/lib/validations/booking.ts`.
+
+**Server Actions:** `src/lib/actions/booking.ts` (`createBooking` validiert Mandat-Voraussetzung/Einstiegstermin-Gültigkeit/Terminzugehörigkeit serverseitig neu, statt dem Client zu vertrauen; `cancelBooking`/`rebookBooking` prüfen die 1-Tages-Frist serverseitig über `daysUntil`), `src/lib/actions/admin/course-entry-dates.ts`, `src/lib/actions/admin/bookings.ts` (`confirmRegularBooking` legt das Abo in `subscriptions` an und verknüpft es atomar mit der Buchung), `src/lib/actions/admin/dropin-pricing.ts`.
+
+**Seiten/Komponenten:** `/kurse` (PROJ-5) erweitert: „Jetzt buchen" öffnet bei eingeloggten Kunden `BookingDialog` (Tabs für die drei Buchungsarten), bei nicht eingeloggten Besuchern direkter Redirect zu `/login`; `/profil` um „Meine Buchungen" ergänzt (`MyBookingsSection`, Stornieren/Umbuchen); bestehendes PROJ-3-Kursformular um `CourseEntryDatesSection` ergänzt (gleiches Einbettungsmuster wie PROJ-6); neue Seite `/admin/buchungen` (`BookingManager` + `DropinPricingForm`); Admin-Nav um „Buchungen" ergänzt.
+
+**Live end-to-end getestet** (Playwright, echte Supabase-Instanz, dedizierter Testkurs + Testkonten danach vollständig gelöscht): anonymer Besucher → Login-Redirect; erste Buchung erzwingt Akquisitionskanal-Auswahl, spätere Buchungen nicht mehr; ungültige/doppelte reguläre Anfrage abgelehnt; Probestunde sofort automatisch bestätigt; Drop-in mit live aktualisiertem Studierendenpreis; Admin bestätigt reguläre Anfrage inkl. Abo-Anlage (live in `subscriptions` verifiziert) und Drop-in; Admin lehnt ab; Kunde storniert; RLS-Sicherheitstests (siehe unten).
+
+**RLS live gegengetestet:** Leseisolation zwischen Kunden bestätigt (0 fremde Zeilen sichtbar); Insert-Versuch mit fremder `customer_id` → `42501`; Update-Versuch, den eigenen Status direkt auf `confirmed` zu setzen (Selbst-Freigabe-Versuch) → `42501` (erster Testlauf lieferte einen falschen Verdacht auf eine Sicherheitslücke, der sich bei genauerer Prüfung als eigener Testaufbau-Fehler herausstellte — keine `open`-Zeile mehr vorhanden, siehe unten); `course_entry_dates`/`dropin_pricing`-Schreibversuche als Kunde → beide `42501` bzw. 0 betroffene Zeilen.
+
+**Nicht in dieser Session final geklärt:** Keine.
 
 ## QA Test Results
 _To be added by /qa_

@@ -86,6 +86,109 @@ export type Database = {
           },
         ]
       }
+      course_bookings: {
+        Row: {
+          chosen_date: string
+          course_id: string
+          created_at: string
+          customer_id: string
+          desired_plan: string | null
+          id: string
+          note: string | null
+          price: number | null
+          status: string
+          subscription_id: string | null
+          type: string
+          wants_student_price: boolean | null
+        }
+        Insert: {
+          chosen_date: string
+          course_id: string
+          created_at?: string
+          customer_id: string
+          desired_plan?: string | null
+          id?: string
+          note?: string | null
+          price?: number | null
+          status?: string
+          subscription_id?: string | null
+          type: string
+          wants_student_price?: boolean | null
+        }
+        Update: {
+          chosen_date?: string
+          course_id?: string
+          created_at?: string
+          customer_id?: string
+          desired_plan?: string | null
+          id?: string
+          note?: string | null
+          price?: number | null
+          status?: string
+          subscription_id?: string | null
+          type?: string
+          wants_student_price?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_bookings_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_bookings_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_bookings_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_bookings_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_entry_dates: {
+        Row: {
+          course_id: string
+          created_at: string
+          entry_date: string
+          id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          entry_date: string
+          id?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          entry_date?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_entry_dates_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_schedule: {
         Row: {
           course_id: string
@@ -260,6 +363,27 @@ export type Database = {
         }
         Relationships: []
       }
+      dropin_pricing: {
+        Row: {
+          id: string
+          normal_price: number
+          student_price: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          normal_price: number
+          student_price: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          normal_price?: number
+          student_price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           address: string | null
@@ -292,6 +416,7 @@ export type Database = {
           gender: string | null
           id: string
           phone: string | null
+          referral_source: string | null
           role: string
         }
         Insert: {
@@ -301,6 +426,7 @@ export type Database = {
           gender?: string | null
           id: string
           phone?: string | null
+          referral_source?: string | null
           role?: string
         }
         Update: {
@@ -310,6 +436,7 @@ export type Database = {
           gender?: string | null
           id?: string
           phone?: string | null
+          referral_source?: string | null
           role?: string
         }
         Relationships: []

@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { levelOptions, levelLabel, levelColor } from "@/lib/constants/levels";
+import { BookingDialog } from "@/components/booking/booking-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -25,6 +26,9 @@ export type CatalogCourseRow = {
   locationId: string;
   locationName: string;
   teacherNames: string[];
+  nextOccurrenceDates: string[];
+  entryDates: string[];
+  hasOpenRegularBooking: boolean;
 };
 
 export type SimpleOption = { id: string; name: string };
@@ -33,14 +37,24 @@ export function CourseCatalog({
   courses,
   danceStyles,
   locations,
+  isLoggedIn,
+  hasMandate,
+  hasReferralSource,
+  dropinPricing,
 }: {
   courses: CatalogCourseRow[];
   danceStyles: SimpleOption[];
   locations: SimpleOption[];
+  isLoggedIn: boolean;
+  hasMandate: boolean;
+  hasReferralSource: boolean;
+  dropinPricing: { normal: number; student: number };
 }) {
+  const router = useRouter();
   const [danceStyleId, setDanceStyleId] = useState(ALL);
   const [level, setLevel] = useState(ALL);
   const [locationId, setLocationId] = useState(ALL);
+  const [bookingCourse, setBookingCourse] = useState<CatalogCourseRow | null>(null);
 
   const filtered = useMemo(() => {
     return courses.filter((course) => {
@@ -59,10 +73,12 @@ export function CourseCatalog({
     setLocationId(ALL);
   }
 
-  function handleBook(courseName: string) {
-    toast.info(`Buchung für „${courseName}" ist bald verfügbar.`, {
-      description: "Wir arbeiten daran, dir Online-Buchungen zu ermöglichen.",
-    });
+  function handleBook(course: CatalogCourseRow) {
+    if (!isLoggedIn) {
+      router.push("/login?redirect=/kurse");
+      return;
+    }
+    setBookingCourse(course);
   }
 
   return (
@@ -160,13 +176,24 @@ export function CourseCatalog({
                 </p>
               </CardContent>
               <CardFooter>
-                <Button className="w-full" onClick={() => handleBook(course.name)}>
+                <Button className="w-full" onClick={() => handleBook(course)}>
                   Jetzt buchen
                 </Button>
               </CardFooter>
             </Card>
           ))}
         </div>
+      )}
+
+      {bookingCourse && (
+        <BookingDialog
+          open={bookingCourse !== null}
+          onOpenChange={(open) => !open && setBookingCourse(null)}
+          course={bookingCourse}
+          hasMandate={hasMandate}
+          hasReferralSource={hasReferralSource}
+          dropinPricing={dropinPricing}
+        />
       )}
     </div>
   );

@@ -3,7 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ProfileForm } from "@/components/auth/profile-form";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { PaymentMethodSection, type MandateData } from "@/components/payments/payment-method-section";
+import { MyBookingsSection, type MyBookingRow } from "@/components/booking/my-bookings-section";
 import { createClient } from "@/lib/supabase/server";
+import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
+import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
 import type { ProfileInput } from "@/lib/validations/auth";
 
 export default async function ProfilePage() {
@@ -16,7 +19,7 @@ export default async function ProfilePage() {
     redirect("/login?redirect=/profil");
   }
 
-  const [{ data: profile }, { data: mandateRow }] = await Promise.all([
+  const [{ data: profile }, { data: mandateRow }, { data: bookingRows }] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, birthdate, gender").eq("id", user.id).single(),
     supabase
       .from("sepa_mandates")
@@ -24,6 +27,13 @@ export default async function ProfilePage() {
       .eq("customer_id", user.id)
       .is("revoked_at", null)
       .maybeSingle(),
+    supabase
+      .from("course_bookings")
+      .select(
+        "id, type, status, chosen_date, desired_plan, price, courses(name, course_schedule(weekday, course_schedule_pauses(pause_date)))"
+      )
+      .eq("customer_id", user.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   const mandate: MandateData | null = mandateRow
@@ -34,6 +44,32 @@ export default async function ProfilePage() {
         consentedAt: mandateRow.consented_at,
       }
     : null;
+
+  const bookings: MyBookingRow[] = (bookingRows ?? []).map((b) => {
+    const withinLeadTime = daysUntil(b.chosen_date) >= BOOKING_CANCELLATION_LEAD_DAYS;
+    const isActive = b.status === "open" || b.status === "confirmed";
+    const schedule = b.courses?.course_schedule;
+    const availableDates =
+      b.type !== "regular" && schedule
+        ? upcomingOccurrences(schedule.weekday, {
+            count: 4,
+            pauseDates: schedule.course_schedule_pauses.map((p) => p.pause_date),
+          })
+        : [];
+
+    return {
+      id: b.id,
+      courseName: b.courses?.name ?? "—",
+      type: b.type,
+      status: b.status,
+      chosenDate: b.chosen_date,
+      desiredPlan: b.desired_plan,
+      price: b.price,
+      canCancel: isActive && withinLeadTime,
+      canRebook: isActive && withinLeadTime && b.type !== "regular",
+      availableDates,
+    };
+  });
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -65,6 +101,16 @@ export default async function ProfilePage() {
           </CardHeader>
           <CardContent>
             <PaymentMethodSection mandate={mandate} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading text-lg">Meine Buchungen</CardTitle>
+            <CardDescription>Anfragen, Probestunden und Drop-ins</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MyBookingsSection bookings={bookings} />
           </CardContent>
         </Card>
       </div>

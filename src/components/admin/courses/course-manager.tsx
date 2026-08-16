@@ -50,6 +50,10 @@ import {
   type ScheduleData,
   type PauseData,
 } from "@/components/admin/courses/course-schedule-section";
+import {
+  CourseEntryDatesSection,
+  type EntryDateData,
+} from "@/components/admin/courses/course-entry-dates-section";
 
 export type CourseRow = {
   id: string;
@@ -67,6 +71,7 @@ export type CourseRow = {
   videoSetName: string | null;
   schedule: ScheduleData | null;
   pauses: PauseData[];
+  entryDates: EntryDateData[];
 };
 
 export type SimpleOption = { id: string; name: string };
@@ -468,7 +473,10 @@ function CourseFormDialog({
         </Form>
 
         {course && (
-          <CourseScheduleSection courseId={course.id} schedule={course.schedule} pauses={course.pauses} />
+          <>
+            <CourseScheduleSection courseId={course.id} schedule={course.schedule} pauses={course.pauses} />
+            <CourseEntryDatesSection courseId={course.id} entryDates={course.entryDates} />
+          </>
         )}
       </DialogContent>
     </Dialog>

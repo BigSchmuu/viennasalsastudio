@@ -1,0 +1,299 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { createBooking } from "@/lib/actions/booking";
+import { desiredPlanOptions, referralSourceOptions, type DesiredPlan } from "@/lib/constants/booking";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+function formatPrice(price: number): string {
+  return price.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
+}
+
+function formatDate(date: string): string {
+  return new Date(date).toLocaleDateString("de-AT", { weekday: "short", day: "2-digit", month: "2-digit" });
+}
+
+export type BookingDialogCourse = {
+  id: string;
+  name: string;
+  entryDates: string[];
+  nextOccurrenceDates: string[];
+  hasOpenRegularBooking: boolean;
+};
+
+export function BookingDialog({
+  open,
+  onOpenChange,
+  course,
+  hasMandate,
+  hasReferralSource,
+  dropinPricing,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  course: BookingDialogCourse;
+  hasMandate: boolean;
+  hasReferralSource: boolean;
+  dropinPricing: { normal: number; student: number };
+}) {
+  const router = useRouter();
+  const defaultTab =
+    course.entryDates.length > 0 ? "regular" : course.nextOccurrenceDates.length > 0 ? "trial" : "dropin";
+  const [tab, setTab] = useState(defaultTab);
+  const [regularDate, setRegularDate] = useState("");
+  const [desiredPlan, setDesiredPlan] = useState<DesiredPlan | "">("");
+  const [note, setNote] = useState("");
+  const [trialDate, setTrialDate] = useState("");
+  const [dropinDate, setDropinDate] = useState("");
+  const [wantsStudentPrice, setWantsStudentPrice] = useState(false);
+  const [referralSource, setReferralSource] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const dropinPrice = wantsStudentPrice ? dropinPricing.student : dropinPricing.normal;
+
+  const canSubmit =
+    !hasReferralSource && !referralSource
+      ? false
+      : tab === "regular"
+        ? hasMandate && !course.hasOpenRegularBooking && !!regularDate && !!desiredPlan
+        : tab === "trial"
+          ? !!trialDate
+          : !!dropinDate;
+
+  async function handleSubmit() {
+    setLoading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.set("course_id", course.id);
+      formData.set("type", tab);
+      formData.set("referral_source", referralSource);
+
+      if (tab === "regular") {
+        formData.set("chosen_date", regularDate);
+        formData.set("desired_plan", desiredPlan);
+        formData.set("note", note);
+      } else if (tab === "trial") {
+        formData.set("chosen_date", trialDate);
+      } else {
+        formData.set("chosen_date", dropinDate);
+        formData.set("wants_student_price", String(wantsStudentPrice));
+      }
+
+      const result = await createBooking(formData);
+
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      if ("needsMandate" in result) {
+        setError("Bitte hinterlege zuerst ein SEPA-Mandat auf deinem Profil.");
+        return;
+      }
+
+      toast.success(
+        result.booking.status === "confirmed" ? "Buchung bestätigt!" : "Anfrage gesendet — wir melden uns bald."
+      );
+      onOpenChange(false);
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{course.name}</DialogTitle>
+        </DialogHeader>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="regular" className="flex-1">
+              Anmeldung
+            </TabsTrigger>
+            <TabsTrigger value="trial" className="flex-1">
+              Probestunde
+            </TabsTrigger>
+            <TabsTrigger value="dropin" className="flex-1">
+              Drop-in
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="regular" className="space-y-3 pt-2">
+            {course.hasOpenRegularBooking ? (
+              <Alert>
+                <AlertDescription>Du hast bereits eine offene Anfrage für diesen Kurs.</AlertDescription>
+              </Alert>
+            ) : !hasMandate ? (
+              <Alert>
+                <AlertDescription>
+                  Für eine Anmeldung brauchst du zuerst ein SEPA-Mandat.{" "}
+                  <Link href="/profil" className="underline">
+                    Jetzt hinterlegen
+                  </Link>
+                </AlertDescription>
+              </Alert>
+            ) : course.entryDates.length === 0 ? (
+              <Alert>
+                <AlertDescription>Aktuell keine Einstiegstermine verfügbar.</AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <Label>Einstiegstermin</Label>
+                  <Select value={regularDate} onValueChange={setRegularDate}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Bitte wählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {course.entryDates.map((date) => (
+                        <SelectItem key={date} value={date}>
+                          {formatDate(date)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Abo-Art</Label>
+                  <RadioGroup value={desiredPlan} onValueChange={(v) => setDesiredPlan(v as DesiredPlan)}>
+                    {desiredPlanOptions.map((option) => (
+                      <div key={option.value} className="flex items-center gap-2">
+                        <RadioGroupItem value={option.value} id={`plan-${option.value}`} />
+                        <Label htmlFor={`plan-${option.value}`} className="font-normal">
+                          {option.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="booking-note">Notiz (optional)</Label>
+                  <Textarea id="booking-note" value={note} onChange={(e) => setNote(e.target.value)} />
+                </div>
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="trial" className="space-y-3 pt-2">
+            {course.nextOccurrenceDates.length === 0 ? (
+              <Alert>
+                <AlertDescription>Kein Wochentermin hinterlegt.</AlertDescription>
+              </Alert>
+            ) : (
+              <div className="space-y-1">
+                <Label>Termin</Label>
+                <Select value={trialDate} onValueChange={setTrialDate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Bitte wählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {course.nextOccurrenceDates.map((date) => (
+                      <SelectItem key={date} value={date}>
+                        {formatDate(date)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Kostenlos, wird sofort bestätigt.</p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="dropin" className="space-y-3 pt-2">
+            {course.nextOccurrenceDates.length === 0 ? (
+              <Alert>
+                <AlertDescription>Kein Wochentermin hinterlegt.</AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <Label>Termin</Label>
+                  <Select value={dropinDate} onValueChange={setDropinDate}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Bitte wählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {course.nextOccurrenceDates.map((date) => (
+                        <SelectItem key={date} value={date}>
+                          {formatDate(date)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="wants-student-price"
+                    checked={wantsStudentPrice}
+                    onCheckedChange={(checked) => setWantsStudentPrice(checked === true)}
+                  />
+                  <Label htmlFor="wants-student-price" className="font-normal">
+                    Ich bin Student(in)
+                  </Label>
+                </div>
+                <p className="text-sm font-medium">{formatPrice(dropinPrice)} — bar/SumUp vor Ort</p>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {!hasReferralSource && (
+          <div className="space-y-1 pt-2 border-t">
+            <Label>Wie haben Sie von uns erfahren?</Label>
+            <Select value={referralSource} onValueChange={setReferralSource}>
+              <SelectTrigger>
+                <SelectValue placeholder="Bitte wählen" />
+              </SelectTrigger>
+              <SelectContent>
+                {referralSourceOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button disabled={loading || !canSubmit} onClick={handleSubmit}>
+            {loading ? "Wird gesendet…" : "Absenden"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

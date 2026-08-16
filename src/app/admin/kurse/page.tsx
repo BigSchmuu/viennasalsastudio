@@ -15,7 +15,7 @@ export default async function CoursesPage() {
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date))"
+        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date)), course_entry_dates(id, entry_date)"
       )
       .order("created_at", { ascending: true }),
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
@@ -64,6 +64,9 @@ export default async function CoursesPage() {
       id: p.id,
       pauseDate: p.pause_date,
     })),
+    entryDates: (c.course_entry_dates ?? [])
+      .map((d) => ({ id: d.id, entryDate: d.entry_date }))
+      .sort((a, b) => a.entryDate.localeCompare(b.entryDate)),
   }));
 
   return (
