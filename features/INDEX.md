@@ -23,7 +23,7 @@
 | PROJ-6 | Stundenplan & Kalender | Deployed | [PROJ-6](../features/PROJ-6-stundenplan-kalender.md) | 2026-08-12 |
 | PROJ-7 | SEPA-Lastschriftmandate & Sammel-Einzug | Deployed | [PROJ-7](../features/PROJ-7-sepa-lastschrift-mandate.md) | 2026-08-12 |
 | PROJ-8 | Kursbuchung (Buchungsanfrage, Probestunde & Drop-in) | Deployed | [PROJ-8](../features/PROJ-8-kursbuchung.md) | 2026-08-12 |
-| PROJ-9 | Abo-Verwaltung (Self-Service Pause/Kündigung) | Architected | [PROJ-9](../features/PROJ-9-abo-verwaltung-self-service.md) | 2026-08-12 |
+| PROJ-9 | Abo-Verwaltung (Self-Service Pause/Kündigung) | In Progress | [PROJ-9](../features/PROJ-9-abo-verwaltung-self-service.md) | 2026-08-12 |
 | PROJ-10 | Rechnungsarchiv | Roadmap | — | 2026-08-12 |
 | PROJ-11 | Beispiel-Videos (YouTube-Einbettung) | Roadmap | — | 2026-08-12 |
 | PROJ-12 | Warteliste & automatische Nachrückung | Roadmap | — | 2026-08-12 |

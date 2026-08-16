@@ -23,7 +23,7 @@ export async function confirmRegularBooking(
 
   const { data: booking } = await supabase
     .from("course_bookings")
-    .select("id, customer_id, type, status")
+    .select("id, customer_id, type, status, course_id, desired_plan, chosen_date")
     .eq("id", bookingId)
     .single();
 
@@ -33,7 +33,14 @@ export async function confirmRegularBooking(
 
   const { data: subscription, error: subError } = await supabase
     .from("subscriptions")
-    .insert({ customer_id: booking.customer_id, name, price, status: "active" })
+    .insert({
+      customer_id: booking.customer_id,
+      name,
+      price,
+      status: "active",
+      course_id: booking.desired_plan === "single_course" ? booking.course_id : null,
+      cycle_anchor_date: booking.chosen_date,
+    })
     .select("id")
     .single();
 

@@ -1,6 +1,6 @@
 # PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -133,6 +133,28 @@ Gespeichert in: derselben `subscriptions`-Tabelle aus PROJ-4 — keine neue Tabe
 
 ### D) Abhängigkeiten (Pakete)
 Keine neuen Fremdpakete nötig — alle UI-Bausteine sind mit den bereits installierten shadcn/ui-Komponenten umsetzbar, die Zyklus-Berechnung ist einfache Datumsarithmetik nach demselben Muster wie die Terminberechnung aus PROJ-8.
+
+## Implementation Notes (Frontend/Backend)
+
+### Datenbank & Sicherheit
+- Migration `proj9_subscription_self_service`: `subscriptions` erweitert um `course_id` (FK auf `courses`, `on delete restrict`), `cycle_anchor_date` (backfilled aus `created_at` für Bestandsdaten), `pending_status` (check: `paused`/`cancelled`/`null`), `pending_effective_date`.
+- Neue SQL-Funktion `next_cycle_end(p_anchor date)` — projiziert das nächste Zyklusende in 4-Wochen-Schritten ab dem Ankerdatum, korrekt auch bei weit in der Vergangenheit liegenden Ankerdaten.
+- Vier `SECURITY DEFINER`-RPC-Funktionen für den Kunden-Schreibpfad (`self_schedule_subscription_change`, `self_undo_pending_change`, `self_reactivate_subscription`, `self_switch_subscription_course`) — jede erzwingt intern `customer_id = auth.uid()` plus Statusvorbedingungen. Ein direkter Spalten-`GRANT`-Ansatz wurde vor der Umsetzung verworfen, da Supabase Admin und Kunde dieselbe Postgres-Rolle (`authenticated`) zuweist und ein Spalten-Grant daher keine echte Einschränkung bewirkt hätte.
+- Security-Advisor-Fund behoben: alle vier RPCs waren zusätzlich für `anon` ausführbar (Supabase vergibt `EXECUTE` beim Anlegen standardmäßig explizit an `anon`/`authenticated`/`service_role`, nicht über die generische `PUBLIC`-Rolle) — per gezieltem `REVOKE EXECUTE ... FROM anon` behoben und über `information_schema.routine_privileges` verifiziert.
+- **Beim Live-Test gefundener und behobener Bug:** `self_switch_subscription_course` überschrieb bei jedem Kurswechsel zusätzlich den Namen des Abos mit dem Kursnamen (`name = v_course_name`), obwohl das laut Spec nicht vorgesehen war — ein vom Admin vergebener individueller Abo-Name wäre bei jedem Umbuchen stillschweigend verloren gegangen. Migration `proj9_fix_switch_course_preserves_name` entfernt das Überschreiben; die Funktion ändert jetzt ausschließlich `course_id`.
+
+### Backend-Integration bestehender Features
+- PROJ-7 (`createCollectionRun`): Query um `pending_effective_date` erweitert, zusätzlicher Ausschluss-Filter `!pending_effective_date || pending_effective_date > dueDate` — Abos mit einer bereits fälligen geplanten Änderung werden nicht in den SEPA-Lauf aufgenommen. Verhalten per SQL-Simulation gegen echte Produktionsdaten verifiziert (ohne einen echten Lauf anzulegen, um bestehende Fixtures nicht zu verändern).
+- PROJ-8 (`confirmRegularBooking`): setzt bei Bestätigung einer regulären Buchung jetzt zusätzlich `course_id` (nur bei „Nur diesen Kurs", nicht bei Flatrate) und `cycle_anchor_date` (= gewähltes Einstiegsdatum der Buchung) auf dem neu angelegten Abo.
+
+### Frontend
+- Neue Kundensektion „Mein Abo" auf `/profil` (`src/components/subscription/my-subscriptions-section.tsx`): Leerzustand, Karte pro Abo mit Status-Badge, Hinweistext bei geplanter Änderung, kontextabhängige Aktionen (Pausieren/Kündigen/Rückgängig machen/Reaktivieren/Umbuchen) exakt nach den in der Spec definierten Sichtbarkeitsregeln.
+- Neue Server Actions `src/lib/actions/subscription.ts` — dünne Wrapper um die vier RPCs; `pauseSubscription`/`cancelSubscription` geben das tatsächliche `pending_effective_date` aus der RPC-Antwort zurück, damit der angezeigte Hinweistext exakt dem serverseitig berechneten Zyklusende entspricht (keine separate Clientberechnung).
+- Admin-Erweiterung `src/components/admin/customers/subscription-manager.tsx`: zusätzliche Anzeige „Geplante Änderung: … ab [Datum]" pro Abo, „Jetzt übernehmen"-Button (nur sichtbar, wenn `pending_effective_date` erreicht ist), neue Formularfelder Kurs-Auswahl (optional, Sentinel-Pattern wie bei `video_set_id`) und Zyklus-Ankerdatum.
+- Neue Admin-Action `applyPendingChange` (`src/lib/actions/admin/subscriptions.ts`) — einfaches, admin-privilegiertes Direkt-Update (kein RPC nötig, da Admin ohnehin volle RLS-Rechte hat); nutzt `formatDateLocal` statt `toISOString()` für den Datumsvergleich (bekannte Zeitzonen-Falle aus PROJ-8, siehe dortige Implementation Notes).
+
+### Live-Test (Playwright, ad-hoc gegen Produktionsdaten, throwaway-Fixtures)
+Getestet und bestanden: aktives Abo zeigt korrekte Aktionen → Pausieren zeigt Hinweis mit Datum → Rückgängig machen entfernt Hinweis → Umbuchen wechselt Kurs sofort bei unverändertem Preis (inkl. Namens-Bugfix oben) → Kündigen zeigt Hinweis, Admin sieht „Geplante Änderung", noch kein „Jetzt übernehmen" vor Fälligkeit → nach simuliertem Erreichen des Datums erscheint „Jetzt übernehmen", Klick setzt echten Status, Kunde sieht „Gekündigt" ohne Reaktivieren-Option → derselbe Ablauf für Pausierung, Kunde sieht „Pausiert" mit Reaktivieren, Klick setzt sofort „Aktiv". SEPA-Ausschlusslogik gegen reale Abo-/Mandatsdaten simuliert verifiziert. Volle Sicherheits-Red-Team-Prüfung (RLS/RPC-Umgehungsversuche) folgt im `/qa`-Schritt.
 
 ## QA Test Results
 _To be added by /qa_

@@ -50,6 +50,8 @@ export const subscriptionSchema = z.object({
     .min(0, "Preis darf nicht negativ sein")
     .max(100000, "Preis ist zu hoch"),
   status: z.enum(subscriptionStatusValues, { message: "Bitte einen Status wählen" }),
+  course_id: z.string().uuid("Ungültiger Kurs").optional().or(z.literal("")),
+  cycle_anchor_date: z.string().trim().min(1, "Ankerdatum ist erforderlich"),
 });
 export type SubscriptionInput = z.infer<typeof subscriptionSchema>;
 

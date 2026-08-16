@@ -35,7 +35,10 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   }
 
   const [subscriptionsRes, mandatesRes] = await Promise.all([
-    supabase.from("subscriptions").select("id, customer_id, name, price").eq("status", "active"),
+    supabase
+      .from("subscriptions")
+      .select("id, customer_id, name, price, pending_effective_date")
+      .eq("status", "active"),
     supabase
       .from("sepa_mandates")
       .select("customer_id, iban, account_holder_name, mandate_reference")
@@ -46,6 +49,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
 
   const items = (subscriptionsRes.data ?? [])
     .filter((s) => s.price !== null && mandateByCustomer.has(s.customer_id))
+    .filter((s) => !s.pending_effective_date || s.pending_effective_date > dueDate)
     .map((s) => {
       const mandate = mandateByCustomer.get(s.customer_id)!;
       return {

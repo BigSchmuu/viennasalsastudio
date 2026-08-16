@@ -624,30 +624,49 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          course_id: string | null
           created_at: string
           customer_id: string
+          cycle_anchor_date: string
           id: string
           name: string | null
+          pending_effective_date: string | null
+          pending_status: string | null
           price: number | null
           status: string
         }
         Insert: {
+          course_id?: string | null
           created_at?: string
           customer_id: string
+          cycle_anchor_date?: string
           id?: string
           name?: string | null
+          pending_effective_date?: string | null
+          pending_status?: string | null
           price?: number | null
           status?: string
         }
         Update: {
+          course_id?: string | null
           created_at?: string
           customer_id?: string
+          cycle_anchor_date?: string
           id?: string
           name?: string | null
+          pending_effective_date?: string | null
+          pending_status?: string | null
           price?: number | null
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "subscriptions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "subscriptions_customer_id_fkey"
             columns: ["customer_id"]
@@ -776,6 +795,91 @@ export type Database = {
         }[]
       }
       current_role: { Args: never; Returns: string }
+      next_cycle_end: { Args: { p_anchor: string }; Returns: string }
+      self_reactivate_subscription: {
+        Args: { p_subscription_id: string }
+        Returns: {
+          course_id: string | null
+          created_at: string
+          customer_id: string
+          cycle_anchor_date: string
+          id: string
+          name: string | null
+          pending_effective_date: string | null
+          pending_status: string | null
+          price: number | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      self_schedule_subscription_change: {
+        Args: { p_new_pending_status: string; p_subscription_id: string }
+        Returns: {
+          course_id: string | null
+          created_at: string
+          customer_id: string
+          cycle_anchor_date: string
+          id: string
+          name: string | null
+          pending_effective_date: string | null
+          pending_status: string | null
+          price: number | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      self_switch_subscription_course: {
+        Args: { p_new_course_id: string; p_subscription_id: string }
+        Returns: {
+          course_id: string | null
+          created_at: string
+          customer_id: string
+          cycle_anchor_date: string
+          id: string
+          name: string | null
+          pending_effective_date: string | null
+          pending_status: string | null
+          price: number | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      self_undo_pending_change: {
+        Args: { p_subscription_id: string }
+        Returns: {
+          course_id: string | null
+          created_at: string
+          customer_id: string
+          cycle_anchor_date: string
+          id: string
+          name: string | null
+          pending_effective_date: string | null
+          pending_status: string | null
+          price: number | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never

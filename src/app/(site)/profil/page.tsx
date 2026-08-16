@@ -4,6 +4,7 @@ import { ProfileForm } from "@/components/auth/profile-form";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { PaymentMethodSection, type MandateData } from "@/components/payments/payment-method-section";
 import { MyBookingsSection, type MyBookingRow } from "@/components/booking/my-bookings-section";
+import { MySubscriptionsSection, type MySubscriptionRow } from "@/components/subscription/my-subscriptions-section";
 import { createClient } from "@/lib/supabase/server";
 import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
 import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
@@ -19,22 +20,29 @@ export default async function ProfilePage() {
     redirect("/login?redirect=/profil");
   }
 
-  const [{ data: profile }, { data: mandateRow }, { data: bookingRows }] = await Promise.all([
-    supabase.from("profiles").select("full_name, phone, birthdate, gender").eq("id", user.id).single(),
-    supabase
-      .from("sepa_mandates")
-      .select("id, iban, account_holder_name, consented_at")
-      .eq("customer_id", user.id)
-      .is("revoked_at", null)
-      .maybeSingle(),
-    supabase
-      .from("course_bookings")
-      .select(
-        "id, type, status, chosen_date, desired_plan, price, courses(name, course_schedule(weekday, course_schedule_pauses(pause_date)))"
-      )
-      .eq("customer_id", user.id)
-      .order("created_at", { ascending: false }),
-  ]);
+  const [{ data: profile }, { data: mandateRow }, { data: bookingRows }, { data: subscriptionRows }, { data: courseRows }] =
+    await Promise.all([
+      supabase.from("profiles").select("full_name, phone, birthdate, gender").eq("id", user.id).single(),
+      supabase
+        .from("sepa_mandates")
+        .select("id, iban, account_holder_name, consented_at")
+        .eq("customer_id", user.id)
+        .is("revoked_at", null)
+        .maybeSingle(),
+      supabase
+        .from("course_bookings")
+        .select(
+          "id, type, status, chosen_date, desired_plan, price, courses(name, course_schedule(weekday, course_schedule_pauses(pause_date)))"
+        )
+        .eq("customer_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("subscriptions")
+        .select("id, name, price, status, pending_status, pending_effective_date, course_id, courses(name)")
+        .eq("customer_id", user.id)
+        .order("created_at", { ascending: true }),
+      supabase.from("courses").select("id, name").order("name", { ascending: true }),
+    ]);
 
   const mandate: MandateData | null = mandateRow
     ? {
@@ -71,6 +79,19 @@ export default async function ProfilePage() {
     };
   });
 
+  const subscriptions: MySubscriptionRow[] = (subscriptionRows ?? []).map((s) => ({
+    id: s.id,
+    name: s.name ?? "",
+    courseId: s.course_id,
+    courseName: s.courses?.name ?? null,
+    price: s.price,
+    status: s.status,
+    pendingStatus: s.pending_status,
+    pendingEffectiveDate: s.pending_effective_date,
+  }));
+
+  const courses = courseRows ?? [];
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
@@ -101,6 +122,16 @@ export default async function ProfilePage() {
           </CardHeader>
           <CardContent>
             <PaymentMethodSection mandate={mandate} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading text-lg">Mein Abo</CardTitle>
+            <CardDescription>Pausieren, kündigen oder umbuchen</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MySubscriptionsSection subscriptions={subscriptions} courses={courses} />
           </CardContent>
         </Card>
 

@@ -8,12 +8,14 @@ import {
   createSubscription,
   updateSubscription,
   deleteSubscription,
+  applyPendingChange,
 } from "@/lib/actions/admin/subscriptions";
 import {
   subscriptionStatusOptions,
   subscriptionStatusLabel,
   subscriptionStatusColor,
 } from "@/lib/constants/subscription-status";
+import { formatDateLocal } from "@/lib/scheduling/dates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -52,27 +54,50 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
+const NO_COURSE = "__none__";
+
+export type SubscriptionCourseOption = { id: string; name: string };
+
 export type SubscriptionRow = {
   id: string;
   name: string;
   price: number;
   status: string;
+  courseId: string | null;
+  cycleAnchorDate: string;
+  pendingStatus: string | null;
+  pendingEffectiveDate: string | null;
 };
 
 function formatPrice(price: number): string {
   return price.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
 }
 
+function formatDate(date: string): string {
+  return new Date(date + "T00:00:00").toLocaleDateString("de-AT", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function pendingChangeLabel(row: SubscriptionRow): string | null {
+  if (!row.pendingStatus || !row.pendingEffectiveDate) return null;
+  const kind = row.pendingStatus === "paused" ? "Pausierung" : "Kündigung";
+  return `Geplante Änderung: ${kind} ab ${formatDate(row.pendingEffectiveDate)}`;
+}
+
 export function SubscriptionManager({
   customerId,
-  subscriptions,
+  subscriptions: initialSubscriptions,
+  courses,
 }: {
   customerId: string;
   subscriptions: SubscriptionRow[];
+  courses: SubscriptionCourseOption[];
 }) {
+  const [subscriptions, setSubscriptions] = useState(initialSubscriptions);
   const [editing, setEditing] = useState<SubscriptionRow | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<SubscriptionRow | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -85,11 +110,38 @@ export function SubscriptionManager({
     setDeleteError(null);
   }
 
+  async function handleApplyPendingChange(subscription: SubscriptionRow) {
+    setApplyingId(subscription.id);
+    setApplyError(null);
+    try {
+      const result = await applyPendingChange(subscription.id, customerId);
+      if ("error" in result) {
+        setApplyError(result.error);
+        return;
+      }
+      setSubscriptions((prev) =>
+        prev.map((s) =>
+          s.id === subscription.id
+            ? { ...s, status: subscription.pendingStatus as string, pendingStatus: null, pendingEffectiveDate: null }
+            : s
+        )
+      );
+    } finally {
+      setApplyingId(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button onClick={() => setEditing("new")}>Neues Abo</Button>
       </div>
+
+      {applyError && (
+        <Alert variant="destructive">
+          <AlertDescription>{applyError}</AlertDescription>
+        </Alert>
+      )}
 
       {subscriptions.length === 0 ? (
         <p className="text-sm text-muted-foreground py-8 text-center">Noch keine Abos vorhanden.</p>
@@ -104,34 +156,52 @@ export function SubscriptionManager({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {subscriptions.map((subscription) => (
-              <TableRow key={subscription.id}>
-                <TableCell className="font-medium">{subscription.name}</TableCell>
-                <TableCell>{formatPrice(subscription.price)}</TableCell>
-                <TableCell>
-                  <Badge
-                    style={{ backgroundColor: subscriptionStatusColor(subscription.status), color: "white" }}
-                  >
-                    {subscriptionStatusLabel(subscription.status)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => setEditing(subscription)}>
-                    Bearbeiten
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setDeleteTarget(subscription);
-                      setDeleteError(null);
-                    }}
-                  >
-                    Löschen
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {subscriptions.map((subscription) => {
+              const pendingLabel = pendingChangeLabel(subscription);
+              const isDue = Boolean(
+                subscription.pendingEffectiveDate && subscription.pendingEffectiveDate <= formatDateLocal(new Date())
+              );
+              return (
+                <TableRow key={subscription.id}>
+                  <TableCell className="font-medium">
+                    {subscription.name}
+                    {pendingLabel && <p className="text-xs font-normal text-amber-600">{pendingLabel}</p>}
+                  </TableCell>
+                  <TableCell>{formatPrice(subscription.price)}</TableCell>
+                  <TableCell>
+                    <Badge
+                      style={{ backgroundColor: subscriptionStatusColor(subscription.status), color: "white" }}
+                    >
+                      {subscriptionStatusLabel(subscription.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                    {isDue && (
+                      <Button
+                        size="sm"
+                        disabled={applyingId === subscription.id}
+                        onClick={() => handleApplyPendingChange(subscription)}
+                      >
+                        Jetzt übernehmen
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => setEditing(subscription)}>
+                      Bearbeiten
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDeleteTarget(subscription);
+                        setDeleteError(null);
+                      }}
+                    >
+                      Löschen
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}
@@ -142,6 +212,7 @@ export function SubscriptionManager({
           onOpenChange={(open) => !open && setEditing(null)}
           subscription={editing === "new" ? null : editing}
           customerId={customerId}
+          courses={courses}
         />
       )}
 
@@ -180,11 +251,13 @@ function SubscriptionFormDialog({
   onOpenChange,
   subscription,
   customerId,
+  courses,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   subscription: SubscriptionRow | null;
   customerId: string;
+  courses: SubscriptionCourseOption[];
 }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -195,6 +268,8 @@ function SubscriptionFormDialog({
       name: subscription?.name ?? "",
       price: subscription?.price ?? 0,
       status: (subscription?.status as SubscriptionInput["status"]) ?? "active",
+      course_id: subscription?.courseId ?? "",
+      cycle_anchor_date: subscription?.cycleAnchorDate ?? formatDateLocal(new Date()),
     },
   });
 
@@ -206,6 +281,8 @@ function SubscriptionFormDialog({
       formData.set("name", values.name);
       formData.set("price", String(values.price));
       formData.set("status", values.status);
+      formData.set("course_id", values.course_id ?? "");
+      formData.set("cycle_anchor_date", values.cycle_anchor_date);
 
       const result = subscription
         ? await updateSubscription(subscription.id, customerId, formData)
@@ -293,6 +370,49 @@ function SubscriptionFormDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="course_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Kurs (optional, leer bei Flatrate)</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(value === NO_COURSE ? "" : value)}
+                    value={field.value || NO_COURSE}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Kein Kurs-Bezug" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={NO_COURSE}>Kein Kurs-Bezug</SelectItem>
+                      {courses.map((course) => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="cycle_anchor_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Zyklus-Ankerdatum</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

@@ -26,11 +26,11 @@ export default async function CustomerDetailPage({
     notFound();
   }
 
-  const [emailsRes, subscriptionsRes, mandateRes, mandateHistoryRes] = await Promise.all([
+  const [emailsRes, subscriptionsRes, mandateRes, mandateHistoryRes, coursesRes] = await Promise.all([
     supabase.rpc("admin_list_customer_emails"),
     supabase
       .from("subscriptions")
-      .select("id, name, price, status")
+      .select("id, name, price, status, course_id, cycle_anchor_date, pending_status, pending_effective_date")
       .eq("customer_id", id)
       .order("created_at", { ascending: true }),
     supabase
@@ -43,6 +43,7 @@ export default async function CustomerDetailPage({
       .from("sepa_mandates")
       .select("id", { count: "exact", head: true })
       .eq("customer_id", id),
+    supabase.from("courses").select("id, name").order("name", { ascending: true }),
   ]);
 
   const email = (emailsRes.data ?? []).find((e) => e.id === id)?.email ?? "—";
@@ -62,7 +63,13 @@ export default async function CustomerDetailPage({
     name: s.name ?? "",
     price: s.price ?? 0,
     status: s.status,
+    courseId: s.course_id,
+    cycleAnchorDate: s.cycle_anchor_date,
+    pendingStatus: s.pending_status,
+    pendingEffectiveDate: s.pending_effective_date,
   }));
+
+  const courses = coursesRes.data ?? [];
 
   return (
     <div className="space-y-8">
@@ -92,7 +99,7 @@ export default async function CustomerDetailPage({
 
       <div className="space-y-3">
         <h3 className="font-heading text-lg font-semibold">Abos</h3>
-        <SubscriptionManager customerId={id} subscriptions={subscriptions} />
+        <SubscriptionManager customerId={id} subscriptions={subscriptions} courses={courses} />
       </div>
     </div>
   );
