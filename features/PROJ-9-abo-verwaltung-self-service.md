@@ -75,11 +75,64 @@
 | `subscriptions` bekommt einen optionalen Kurs-Bezug (leer bei Flatrate-Abos) | Voraussetzung für echtes Umbuchen über eine Kursauswahl statt Freitext; bestehende Abos ohne Kurs-Bezug funktionieren weiter, zeigen aber kein Umbuchen an, bis der Admin optional einen Kurs zuordnet | 2026-08-17 |
 | Neuer Bereich „Mein Abo" auf `/profil` | Es gab bisher keine Kunden-Ansicht der eigenen Abos überhaupt — Voraussetzung dafür, dass der Kunde sein Abo selbst verwalten kann | 2026-08-17 |
 
+### Technical Decisions
+<!-- Added by /architecture -->
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Geplante Änderung wird direkt auf dem bestehenden Abo-Datensatz gespeichert (zwei zusätzliche Felder), keine eigene Tabelle | Es gibt laut Spec immer nur eine geplante Änderung gleichzeitig pro Abo — eine 1-zu-höchstens-1-Beziehung braucht keine eigene Tabelle | 2026-08-17 |
+| Eine einzige, gemeinsam genutzte Zyklusende-Berechnung für Kundenanzeige UND SEPA-Lauf-Ausschluss-Prüfung | Verhindert Auseinanderdriften zwischen dem, was der Kunde als Wirksamkeitsdatum sieht, und dem, was der Lastschriftlauf tatsächlich berücksichtigt | 2026-08-17 |
+| Umbuchen greift auf den bestehenden Kurskatalog zurück, keine separate Kursliste für Abo-Zwecke | Vermeidet Datenduplikation; Kunde sieht dieselben Kurse wie im Katalog | 2026-08-17 |
+| PROJ-7s Lauf-Erzeugung wird direkt erweitert (zusätzlicher Ausschluss-Check), statt eine parallele Prüfung zu bauen | Eine einzige Stelle, die entscheidet, wer in einen Lauf kommt, ist weniger fehleranfällig als zwei getrennte Prüfungen | 2026-08-17 |
+
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Komponentenstruktur
+
+**Kundenseite — neue Sektion auf `/profil`:**
+```
+/profil
+└── Mein Abo (neue Sektion)
+    ├── Leerzustand „Kein aktives Abo" (falls keins vorhanden)
+    └── Pro Abo eine Karte: Name, Kurs (falls vorhanden), Preis, Status-Badge
+        ├── Hinweis „Wird pausiert/gekündigt ab [Datum]" — nur bei geplanter Änderung
+        └── Aktionen, je nach Zustand:
+            ├── „Pausieren" / „Kündigen" — nur wenn aktiv und keine geplante Änderung
+            ├── „Rückgängig machen" — nur wenn eine geplante Änderung existiert
+            ├── „Reaktivieren" — nur wenn pausiert
+            └── „Umbuchen" (öffnet Kursauswahl) — nur wenn ein Kurs-Bezug existiert (kein Flatrate)
+```
+
+**Admin — Erweiterung der bestehenden Abo-Verwaltung auf der Kundendetailseite (PROJ-4):**
+```
+Abo-Tabelle (bestehend)
+└── Zusätzliche Anzeige pro Abo mit geplanter Änderung:
+    ├── „Geplante Änderung: Pausierung/Kündigung ab [Datum]"
+    └── „Jetzt übernehmen"-Button (nur sichtbar, wenn das Datum bereits erreicht ist)
+```
+
+### B) Datenmodell (fachlich)
+
+**Abo** (bestehende Tabelle aus PROJ-4) wird um folgende Informationen erweitert:
+- Zugehöriger Kurs (optional — leer bei Flatrate-Abos oder alten, noch nicht zugeordneten Abos)
+- Zyklus-Ankerdatum — der Tag, an dem der aktuelle 4-Wochen-Abrechnungszyklus begonnen hat; vom Admin gepflegt
+- Geplante Änderung (optional): „Pausierung" oder „Kündigung"
+- Wirksamkeitsdatum der geplanten Änderung (das errechnete nächste Zyklusende zum Zeitpunkt der Anfrage)
+
+Gespeichert in: derselben `subscriptions`-Tabelle aus PROJ-4 — keine neue Tabelle nötig, da es sich um zusätzliche Eigenschaften desselben Abo-Datensatzes handelt.
+
+### C) Tech-Entscheidungen (Begründung)
+
+- **Die Berechnung „nächstes Zyklusende" ist eine einzige, gemeinsam genutzte Logik:** Sowohl die Anzeige für den Kunden (wann wird meine Pause/Kündigung wirksam) als auch die Ausschluss-Prüfung beim Erzeugen eines SEPA-Laufs (PROJ-7) müssen exakt dasselbe Ergebnis liefern — sonst könnte ein Kunde z. B. eine Kündigung sehen, die der Lastschriftlauf trotzdem nicht berücksichtigt. Eine gemeinsame Logik verhindert dieses Auseinanderdriften.
+- **Keine neue Tabelle für „geplante Änderungen":** Da es laut Spec immer nur eine geplante Änderung gleichzeitig pro Abo geben kann (eine neue Aktion ersetzt die vorherige), reichen zwei zusätzliche Felder auf dem bestehenden Abo-Datensatz — eine eigene Tabelle wäre unnötige Komplexität für eine 1-zu-höchstens-1-Beziehung.
+- **Umbuchen nutzt den bestehenden Kurskatalog (PROJ-3/PROJ-5), keine neue Kursliste:** Der Kunde wählt aus denselben Kursen, die auch im Katalog sichtbar sind.
+- **PROJ-7s Lauf-Erzeugung wird um einen zusätzlichen Ausschluss-Check erweitert, statt eine parallele, neue Prüfung aufzubauen:** Vermeidet doppelte, potenziell widersprüchliche Logik an zwei Stellen.
+- **„Jetzt übernehmen" ist eine einfache, vom Admin ausgelöste Aktion, keine Hintergrundautomatik:** Passt zur bewussten Entscheidung, vorerst keine neue Scheduling-Infrastruktur einzuführen (siehe Decision Log der Spec).
+
+### D) Abhängigkeiten (Pakete)
+Keine neuen Fremdpakete nötig — alle UI-Bausteine sind mit den bereits installierten shadcn/ui-Komponenten umsetzbar, die Zyklus-Berechnung ist einfache Datumsarithmetik nach demselben Muster wie die Terminberechnung aus PROJ-8.
 
 ## QA Test Results
 _To be added by /qa_
