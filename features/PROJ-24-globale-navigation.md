@@ -60,11 +60,59 @@
 | Mobile: Hamburger-Menü statt permanent sichtbarer Links | Standardmuster für responsive Navigation, passt zur bestehenden Mobile-First-Anforderung im Design-System | 2026-08-16 |
 | Priorität P0 | Blockiert den praktischen Zugang zu allen bereits deployten Kunden-Features (PROJ-2, PROJ-5, PROJ-6, PROJ-7, PROJ-8), da bisher nur über direkte URLs erreichbar | 2026-08-16 |
 
+### Technical Decisions
+<!-- Added by /architecture -->
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Neuer, zweiter gemeinsamer Seitenrahmen nur für öffentliche/Kunden-Seiten, statt Ergänzung im ganz übergeordneten Rahmen | Verhindert, dass die neue Nav-Leiste automatisch auch im Admin-Bereich erscheint, der bereits sein eigenes, unverändertes Layout mit `AdminNav` hat; reine Datei-Organisationsfrage ohne Auswirkung auf bestehende URLs | 2026-08-16 |
+| Login-Status/Rolle serverseitig ermittelt, nicht client-seitig nachgeladen | Vermeidet sichtbares Aufblitzen des falschen Zustands beim Laden | 2026-08-16 |
+| Aktive-Seite-Hervorhebung und Mobile-Menü folgen demselben Muster wie die bestehende `AdminNav` | Wiederverwendung eines bereits bewährten Ansatzes statt einer neuen Lösung | 2026-08-16 |
+| Kein neuer Datenspeicher — Nav liest ausschließlich bestehende Login-Session und `role`-Feld | Es gibt keine neue fachliche Information, die diese Funktion benötigt | 2026-08-16 |
+
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Komponentenstruktur
+
+**Neue Nav-Leiste, erscheint auf allen öffentlichen/Kunden-Seiten (nicht auf `/admin/*`):**
+```
+Seiten-Header
+├── Studio-Name/Logo (Link zu "/")
+├── Desktop: Nav-Links nebeneinander
+│   ├── Kurse
+│   ├── Stundenplan
+│   ├── Admin (nur sichtbar, wenn eingeloggter Admin)
+│   └── Login  ODER  Mein Profil + Logout (je nach Login-Status)
+└── Mobile: Menü-Icon
+    └── Aufklappbares Menü mit denselben Links
+```
+
+**Neue Willkommensseite auf „/":**
+```
+Willkommensseite
+├── Studio-Name
+├── Kurzbeschreibung (1–2 Sätze)
+└── Buttons: „Kurse ansehen", „Stundenplan ansehen", „Login"
+```
+
+### B) Datenmodell (fachlich)
+Kein neuer Datenspeicher nötig. Die Nav-Leiste liest ausschließlich bereits vorhandene Informationen:
+- Ob ein Besucher eingeloggt ist (bestehende Login-Session aus PROJ-2)
+- Die Rolle des eingeloggten Nutzers — Kunde oder Admin (bestehendes `role`-Feld aus PROJ-1)
+
+Gespeichert in: nichts Neues — reine Anzeige-Logik auf Basis bestehender Daten.
+
+### C) Tech-Entscheidungen (Begründung)
+
+- **Die Nav-Leiste wird NICHT im bestehenden, ganz übergeordneten Seitenrahmen ergänzt, sondern in einem neuen, zweiten Seitenrahmen, der nur die öffentlichen/Kunden-Seiten umfasst:** Der Admin-Bereich hat sein eigenes, unverändertes Layout mit der bestehenden `AdminNav`. Würde die neue Nav-Leiste ganz oben (auf Ebene der gesamten App) ergänzt, würde sie automatisch auch über der Admin-Nav erscheinen — das widerspricht der Entscheidung, den Admin-Bereich unverändert zu lassen. Technisch handelt es sich um eine reine Organisationsfrage, welche Seiten sich einen gemeinsamen Rahmen teilen — keine Auswirkung auf die URLs der bestehenden Seiten.
+- **Login-Status und Rolle werden serverseitig ermittelt, bevor die Seite an den Besucher ausgeliefert wird:** Verhindert ein kurzes Aufblitzen des falschen Zustands (z. B. „Login" statt „Mein Profil"), das entstehen würde, wenn der Status erst nachträglich im Browser nachgeladen würde.
+- **Aktive-Seite-Hervorhebung und Mobile-Menü-Verhalten folgen demselben Muster wie die bestehende `AdminNav`:** Wiederverwendung eines bereits bewährten, funktionierenden Ansatzes statt einer neuen Lösung.
+- **Der „Admin"-Link in der Nav ist rein kosmetisch:** Der eigentliche Zugriffsschutz für `/admin` bleibt vollständig bei der bestehenden Prüfung aus PROJ-1 — die Nav-Leiste entscheidet nicht über Berechtigungen, sie zeigt nur situativ einen praktischen Link an.
+
+### D) Abhängigkeiten (Pakete)
+Keine neuen Fremdpakete nötig — alle UI-Bausteine (Menü-Button, aufklappbares Mobile-Menü) sind mit den bereits installierten shadcn/ui-Komponenten umsetzbar.
 
 ## QA Test Results
 _To be added by /qa_
