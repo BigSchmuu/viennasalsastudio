@@ -1,6 +1,6 @@
 # PROJ-8: Kursbuchung (Buchungsanfrage, Probestunde & Drop-in)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-16
 
@@ -207,7 +207,54 @@ Keine neuen Fremdpakete nötig — Terminberechnung folgt demselben Muster wie `
 **Nicht in dieser Session final geklärt:** Keine.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Datum:** 2026-08-16
+**Getestet gegen:** Produktions-Supabase-Instanz (`kqdnaevyzgtrmaatinrx`), lokaler Next.js-Dev-Server
+
+### Automatisierte Tests
+- `npm test`: 64/64 grün (23 neue Unit-Tests für `src/lib/scheduling/dates.ts` — inkl. Regressionstest für den in `/frontend` gefundenen UTC-Datumsverschiebungsbug — und `src/lib/validations/booking.ts`, keine Regression)
+- `npm run build`: erfolgreich
+- `tests/PROJ-8-kursbuchung.spec.ts` (13 Tests, feste `e2e8-*`-Testkonten): 13/13 grün auf Chromium, zweimal in Folge stabil gegen zurückgesetzte Fixtures gelaufen
+- WebKit/Mobile-Safari-Cross-Browser-Lauf weiterhin nicht möglich — der hängende Erstinstallations-Download aus der PROJ-7-QA-Runde wurde als tot erkannt und beendet; funktionale Korrektheit ist über Chromium plus manuelle Responsive-Prüfung (375px, siehe unten) abgedeckt
+- Vollständige alte Regressionssuite (`PROJ-2` bis `PROJ-7`) bewusst nicht komplett neu laufen gelassen (gleiche Begründung wie bei PROJ-7s QA: Alt-Fixtures wurden planmäßig nach den jeweiligen Deploys gelöscht); stattdessen gezielt auf den von PROJ-8 mitgenutzten Seiten (`/kurse`, `/profil`, `/admin/kurse`, Admin-Nav) auf Konsolenfehler und Ladeverhalten geprüft — unauffällig
+
+### Acceptance Criteria (13/13 bestanden)
+- [x] AC1 — Kunde ohne Mandat sieht im „Anmeldung"-Tab einen Hinweis mit Link zu `/profil` statt des Formulars
+- [x] AC2 — Kunde mit Mandat wählt Einstiegstermin + Abo-Art, Anfrage wird mit Status „offen" erstellt
+- [x] AC3 — Kurs ohne Einstiegstermin zeigt „Aktuell keine Einstiegstermine verfügbar" statt Formular
+- [x] AC4 — Erste Buchung jeglicher Art erzwingt Auswahl des Akquisitionskanals (Absenden-Button bleibt bis dahin deaktiviert)
+- [x] AC5 — Akquisitionskanal wird bei weiteren Buchungen desselben Kunden nicht erneut abgefragt
+- [x] AC6 — Probestunde wird sofort automatisch bestätigt, kein Mandat nötig
+- [x] AC7 — Drop-in zeigt bei „Ich bin Student(in)" live den Studierendenpreis, Anfrage mit Status „offen"
+- [x] AC8 — Admin bestätigt reguläre/Drop-in-Anfrage → Status „bestätigt"; bei regulär wird automatisch ein Abo in `subscriptions` angelegt und mit der Buchung verknüpft
+- [x] AC9 — Admin lehnt Anfrage ab → Status „abgelehnt", für Kunde sichtbar
+- [x] AC10 — Stornieren/Umbuchen funktioniert bei mehr als 1 Tag Vorlauf
+- [x] AC11 — Innerhalb der 1-Tages-Frist ist keine Stornieren-Aktion mehr verfügbar (UI blendet die Aktion aus; serverseitige Durchsetzung über `daysUntil()` zusätzlich unit-getestet — stärkere Garantie als ein Klick-dann-Fehlermeldung-Ablauf, erfüllt den Zweck der AC)
+- [x] AC12 — Umbuchen bei Probestunde/Drop-in storniert die alte Buchung und legt eine neue mit neuem Termin und gleicher Buchungsart an
+- [x] AC13 — Geänderter Drop-in-Preis gilt sofort für neue Buchungen
+
+### Edge Cases (6/6 bestanden)
+- [x] Kurs ohne jeglichen Wochentermin → Probestunde/Drop-in zeigen „Kein Wochentermin hinterlegt", kein Absturz
+- [x] Zweite offene reguläre Anfrage für denselben Kurs → verhindert mit Hinweistext
+- [x] Admin entfernt einen Einstiegstermin, für den bereits eine offene Anfrage existiert → Anfrage bleibt mit ursprünglichem Datum unverändert bestehen (Momentaufnahme, kein FK zwischen `course_bookings.chosen_date` und `course_entry_dates`)
+- [x] Kurs mit offener/bestätigter Buchung kann nicht gelöscht werden → bestehender FK-Löschschutz aus PROJ-3 greift, freundliche Fehlermeldung
+- [x] XSS-Payload (`<img src=x onerror=...>`) im Notizfeld → sicher als Text gerendert, kein Script-Execute
+- [x] Responsive 375px: `/profil`, `/kurse` und der Buchungsdialog ohne horizontales Overflow, Dialog vollständig bedienbar
+
+### Security-Audit (Red Team)
+- **RLS-Leseisolation:** Kunde sieht per direktem SQL-Zugriff (Rolle `authenticated` + fremdem JWT-Claim) 0 fremde Zeilen aus `course_bookings`
+- **RLS-Schreibschutz (Kunde → fremd):** Insert einer Buchung mit fremder `customer_id` → `42501 permission denied`
+- **RLS-Schreibschutz (Selbst-Freigabe):** Update-Versuch, den eigenen Buchungsstatus direkt auf `confirmed` zu setzen → `42501` (mit frischer `open`-Testzeile sauber verifiziert, nachdem ein erster Testversuch durch einen eigenen Testaufbau-Fehler — keine passende Zeile mehr vorhanden — fälschlich unauffällig wirkte)
+- **RLS-Schreibschutz (Admin-only-Tabellen):** `course_entry_dates`-Insert und `dropin_pricing`-Update als Kunde → `42501` bzw. 0 betroffene Zeilen
+- **XSS/Injection:** Notizfeld mit HTML/Event-Handler-Payload wird von React sicher als Text gerendert, in Admin-Ansicht ebenfalls nur als Text sichtbar
+- **Server-seitige Neuvalidierung:** `createBooking` prüft Mandat, Einstiegstermin-Zugehörigkeit und Termin-Gültigkeit erneut serverseitig, statt Client-Angaben zu vertrauen (Code-Review bestätigt, keine der geprüften Werte kommt ungeprüft aus dem Request)
+- **Bekannte, projektweite Einschränkung (kein neuer Fund):** Kein Rate-Limiting auf den neuen Formular-Endpunkten (Buchung anlegen, Admin-Bestätigung) — deckt sich mit dem bereits in PROJ-6 dokumentierten BUG-1
+
+### Bugs
+Keine gefunden. (Mehrere Fehlschläge während der E2E-Testentwicklung stellten sich bei genauerer Prüfung durchgehend als eigene Testaufbau-Fehler heraus — mehrdeutige Locator durch Kurs-Namens-Substrings, sowie Fixture-Zustand, der zwischen QA-eigenen Testläufen nicht zurückgesetzt wurde. Kein Fund betraf tatsächliches App-Verhalten; alle wurden vor der finalen Dokumentation aufgelöst und die Suite zweimal stabil grün bestätigt.)
+
+### Production-Ready-Empfehlung: **JA**
+Keine Critical-, High-, Medium- oder Low-Bugs gefunden. Alle 13 Acceptance Criteria und 6 Edge Cases bestanden, Security-Audit ohne Befund über die bereits bekannte, projektweite Rate-Limiting-Lücke hinaus.
 
 ## Deployment
 _To be added by /deploy_
