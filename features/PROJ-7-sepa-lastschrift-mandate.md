@@ -1,6 +1,6 @@
 # PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-14
 **Last Updated:** 2026-08-14
 
@@ -229,4 +229,30 @@ Keine Critical-, High- oder offenen Bugs mehr.
 - `SEPA_CREDITOR_*`-Umgebungsvariablen müssen zusätzlich in Vercel gesetzt werden (aktuell nur lokal)
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-16
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-7
+**Commit:** 955698a
+
+**Pre-Deployment Checks:**
+- `npm run build` erfolgreich
+- `npm test`: 41/41 grün
+- E2E-Suite (`tests/PROJ-7-sepa-lastschrift-mandate.spec.ts`): 11/11 grün auf Chromium (zweimal, inkl. Rerun nach BUG-1-Fix)
+- QA-Status: Approved, keine offenen Bugs
+- DB-Migration (`proj7_sepa_mandates_and_collection_runs`) bereits während `/frontend` auf die Produktions-Supabase-Instanz angewendet
+- Keine Secrets im Git-Repo (`.env.local` gitignored); neue Env-Vars in `.env.local.example` dokumentiert
+- `npm run lint`: weiterhin repo-weit defekt (Next.js 16 hat `next lint` entfernt) — bekannter, akzeptierter Zustand seit PROJ-3-Deploy, nicht PROJ-7-spezifisch
+
+**Zusätzlicher Schritt gegenüber vorherigen Deploys:** `SEPA_CREDITOR_NAME`, `SEPA_CREDITOR_IBAN`, `SEPA_CREDITOR_ID` wurden vom Nutzer manuell im Vercel-Dashboard (Production-Umgebung) mit den echten Studio-Stammdaten gesetzt, bevor gepusht wurde — ohne diese Variablen schlägt der XML-Download in Produktion fehl.
+
+**Post-Deployment-Verifikation (Produktion):**
+- `/admin/lastschriften` lädt korrekt, keine Konsolen-/Seitenfehler
+- Admin-Badge auf `/admin/kunden/[id]` live bestätigt für beide unterschiedenen Zustände (E2E7 Solo Kunde → „Mandat entfernt — Abo prüfen" nach tatsächlicher Entfernung; E2E7 Leer Kunde → „Kein Mandat hinterlegt", nie eins gehabt) — bestätigt, dass der BUG-1-Fix auch in Produktion korrekt ausgeliefert wurde
+- `/profil` zeigt die „Zahlungsmethode"-Sektion korrekt für einen eingeloggten Kunden ohne aktuelles Mandat (Formular sichtbar)
+- Keine `pageerror`-Events in beiden Verifikationsläufen
+
+**Bekannte offene Punkte (nicht blockierend):**
+- Mobile-Safari/WebKit-E2E-Lauf aus der `/qa`-Runde konnte wegen eines sehr langsamen/hängenden Erstdownloads der WebKit-Browserbinary nicht abgeschlossen werden; funktionale Korrektheit ist über Chromium + manuelle Responsive-Prüfung (375px) abgedeckt, aber ein echter WebKit-Lauf steht noch aus
+- Mandatstext-Wortlaut weiterhin rechtlich ungeprüft (siehe Open Questions) — vor dem ersten echten monatlichen Lastschriftlauf mit Bank/Steuerberater klären
+- Repo-weiter ESLint-Ausfall (Next.js 16), unverändert seit PROJ-3
