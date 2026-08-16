@@ -33,7 +33,7 @@
 **Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
 
 - [ ] Angenommen ein Kunde ohne SEPA-Mandat ist eingeloggt, wenn er bei einem Kurs auf „Jetzt buchen" (reguläre Buchung) klickt, dann wird er zu `/profil` geleitet, um zuerst ein Mandat anzulegen
-- [ ] Angenommen ein Kunde mit Mandat ist eingeloggt und der Kurs hat mindestens einen Einstiegstermin, wenn er einen Einstiegstermin auswählt und die Anfrage absendet, dann wird eine Buchungsanfrage mit Status „offen" erstellt
+- [ ] Angenommen ein Kunde mit Mandat ist eingeloggt und der Kurs hat mindestens einen Einstiegstermin, wenn er einen Einstiegstermin sowie „Nur diesen Kurs" oder „Flatrate" auswählt und die Anfrage absendet, dann wird eine Buchungsanfrage mit Status „offen" und der gewählten Abo-Art erstellt
 - [ ] Angenommen ein Kurs hat keinen Einstiegstermin hinterlegt, wenn der Kunde die Kursseite ansieht, dann ist die reguläre Buchungsoption nicht verfügbar und ein Hinweis „Aktuell keine Einstiegstermine verfügbar" wird angezeigt
 - [ ] Angenommen der Kunde bucht zum ersten Mal überhaupt (egal welche Buchungsart), wenn er die Buchung absendet, dann muss er zuerst „Wie haben Sie von uns erfahren?" auswählen, bevor die Buchung abgeschickt werden kann
 - [ ] Angenommen der Kunde hat bereits einmal eine Buchung mit ausgefülltem Akquisitionskanal abgeschickt, wenn er eine weitere Buchung vornimmt, dann wird das Feld nicht erneut abgefragt
@@ -59,7 +59,7 @@
 - Alle Terminberechnungen (nächste verfügbare Probestunde-/Drop-in-Termine) berücksichtigen `course_schedule_pauses` aus PROJ-6, damit keine pausierte Woche buchbar ist
 
 ## Open Questions
-- [ ] Genaue Liste der Auswahloptionen für „Wie haben Sie von uns erfahren?" (z. B. Google, Instagram, Empfehlung, Website, Sonstiges) — wird in `/architecture` oder vor Launch final festgelegt
+- [x] Genaue Liste der Auswahloptionen für „Wie haben Sie von uns erfahren?" → Google, Social Media, Empfehlung, Website, Werbung, Sonstiges (2026-08-16)
 
 ## Decision Log
 
@@ -79,12 +79,114 @@
 | Kein Ein-/Ausschalter pro Kurs für Probestunde/Drop-in im MVP | Für alle Kurse einheitlich verfügbar; Admin kann ungeeignete Anfragen bei Bedarf manuell ablehnen | 2026-08-16 |
 | Studierendenstatus für Drop-in per Selbstauskunft-Checkbox im Buchungsformular, nicht dauerhaft im Profil | Hält den Scope auf PROJ-8 begrenzt, statt die bereits deployte PROJ-2-Profilspec zu erweitern | 2026-08-16 |
 | Drop-in-Preis (Normal/Studierend) einheitlich für alle Kurse, aber im Admin-UI editierbar | Kein Code-Zugriff nötig für künftige Preisänderungen, ohne eine komplette neue Einstellungsseite für nur zwei Werte zu bauen | 2026-08-16 |
+| Auswahlliste „Wie haben Sie von uns erfahren?": Google, Social Media, Empfehlung, Website, Werbung, Sonstiges | Nutzerentscheidung im Architektur-Interview; schließt die zuvor offene Frage aus dem Spec-Interview | 2026-08-16 |
+| Reguläre Buchungsanfrage fragt zusätzlich „Nur diesen Kurs" oder „Flatrate (alle Kurse)" ab | Deckt beide realen Abo-Varianten aus PROJ-4 ab; Admin sieht bei Bestätigung sofort, welche Art Abo gewünscht ist, statt es nachträglich klären zu müssen; der konkrete Preis bleibt weiterhin admin-gesetzt wie in PROJ-4 etabliert | 2026-08-16 |
+
+### Technical Decisions
+<!-- Added by /architecture -->
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Eine gemeinsame `Kursbuchung`-Struktur für regulär/Probestunde/Drop-in statt drei getrennter Tabellen | Alle drei teilen sich Kunde, Kurs, Datum, Status; ein Art-Feld vermeidet Duplikation in Code und Admin-UI | 2026-08-16 |
+| Bestehende `class_sessions`/`bookings`-Tabellen aus PROJ-1 werden NICHT wiederverwendet | Sie setzen im Voraus materialisierte Einzeltermine voraus; PROJ-6 hat stattdessen das Prinzip etabliert, Termine live aus dem Wochenmuster zu berechnen — PROJ-8 führt dieses Prinzip konsistent fort | 2026-08-16 |
+| Drop-in-Preis wird pro Buchung als Momentaufnahme gespeichert, nicht live aus den Preiseinstellungen gelesen | Verhindert, dass eine spätere Preisänderung bereits bestehende Buchungen rückwirkend verändert — gleiches Prinzip wie bei den Lastschriftpositionen aus PROJ-7 | 2026-08-16 |
+| Akquisitionskanal wird als Feld auf dem Kundenprofil gespeichert, nicht pro Buchung | Soll nur einmal pro Kunde erfasst werden; ein Profilfeld vermeidet Duplikate und vereinfacht die Auswertung | 2026-08-16 |
+| Drop-in-Preise als einzeiliger Einstellungs-Datensatz statt eigener Einstellungsseite | Deckt „im UI editierbar" minimal ab, ohne eine komplette neue Admin-Bereichsseite für nur zwei Werte zu bauen | 2026-08-16 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Komponentenstruktur
+
+**Kundenseite — Erweiterung von `/kurse` (aus PROJ-5):**
+```
+Kurskarte
+└── "Jetzt buchen"-Button
+    └── Buchungsdialog
+        ├── Auswahl der Buchungsart (Reiter/Buttons)
+        │   ├── Reguläre Anmeldung
+        │   │   ├── Hinweis "Kein Mandat hinterlegt" (Link zu /profil) — falls zutreffend
+        │   │   ├── Hinweis "Keine Einstiegstermine verfügbar" — falls zutreffend
+        │   │   ├── Auswahl eines Einstiegstermins
+        │   │   ├── Auswahl "Nur diesen Kurs" oder "Flatrate (alle Kurse)"
+        │   │   └── Optionales Notizfeld
+        │   ├── Probestunde
+        │   │   └── Auswahl aus den nächsten kommenden Terminen
+        │   └── Drop-in
+        │       ├── Auswahl aus den nächsten kommenden Terminen
+        │       └── "Ich bin Student(in)"-Checkbox (Preis aktualisiert sich live)
+        ├── "Wie haben Sie von uns erfahren?" (nur beim allerersten Buchungsversuch dieses Kunden sichtbar)
+        └── Absenden-Button
+```
+
+**Kundenseite — neue Sektion auf `/profil`:**
+```
+/profil
+└── Meine Buchungen (neue Sektion)
+    └── Liste: Kursname, Buchungsart, Termin, Status (offen/bestätigt/abgelehnt)
+        ├── "Stornieren"-Aktion (nur wenn > 1 Tag entfernt und nicht bereits storniert/abgelehnt)
+        └── "Umbuchen"-Aktion (nur Probestunde/Drop-in, nur wenn > 1 Tag entfernt)
+```
+
+**Admin — Erweiterung des bestehenden Kursformulars (aus PROJ-3, gleiches Muster wie PROJ-6):**
+```
+Kursformular
+└── Einstiegstermine (neue Sektion, analog zur Wochentermin-Sektion aus PROJ-6)
+    ├── Liste bestehender Einstiegstermine mit "Entfernen"
+    └── Neuen Einstiegstermin hinzufügen
+```
+
+**Admin — neue Seite `/admin/buchungen`:**
+```
+/admin/buchungen
+├── Drop-in-Preise (kleine Sektion oben: Normalpreis, Studierendenpreis, editierbar)
+└── Buchungsliste (gefiltert nach Status: offen/bestätigt/abgelehnt/storniert)
+    └── Pro Zeile: Kunde, Kurs, Buchungsart, Termin, Akquisitionskanal, Notiz
+        ├── "Bestätigen"-Aktion (offene reguläre/Drop-in-Anfragen)
+        └── "Ablehnen"-Aktion (offene reguläre/Drop-in-Anfragen)
+```
+Admin-Nav wird um „Buchungen" ergänzt.
+
+### B) Datenmodell (fachlich)
+
+**Kursbuchung** — eine einzelne Buchung jeder Art (regulär, Probestunde oder Drop-in):
+- Zugehöriger Kunde
+- Zugehöriger Kurs
+- Buchungsart (regulär / Probestunde / Drop-in)
+- Gewählte Abo-Art (nur regulär: „Nur dieser Kurs" oder „Flatrate (alle Kurse)") — informiert den Admin, welche Art Abo er bei Bestätigung in PROJ-4 anlegen soll; der konkrete Preis bleibt weiterhin frei vom Admin gesetzt, wie in PROJ-4 etabliert
+- Gewähltes Datum (bei regulär: der gewählte Einstiegstermin; bei Probestunde/Drop-in: der konkrete Termin)
+- Status (offen / bestätigt / abgelehnt / storniert)
+- Optionale Notiz (nur regulär)
+- Gewünschter Studierendenpreis (nur Drop-in, Selbstauskunft)
+- Preis zum Buchungszeitpunkt (nur Drop-in — als Momentaufnahme gespeichert, damit spätere Preisänderungen bestehende Buchungen nicht rückwirkend verändern, gleiches Prinzip wie bei den Lastschriftpositionen aus PROJ-7)
+- Verweis auf das erstellte Abo (nur regulär, erst gesetzt sobald der Admin bestätigt)
+- Zeitpunkt der Erstellung
+
+**Einstiegstermin** — ein vom Admin festgelegtes Datum, zu dem eine reguläre Anmeldung für einen bestimmten Kurs möglich ist:
+- Zugehöriger Kurs
+- Datum
+
+**Drop-in-Preise** — ein einzelner, global gültiger Satz an Preisen:
+- Normalpreis
+- Studierendenpreis
+- Zeitpunkt der letzten Änderung
+
+**Kundenprofil** wird um ein Feld erweitert:
+- Akquisitionskanal (Google / Social Media / Empfehlung / Website / Werbung / Sonstiges) — einmalig beim ersten Buchungsversuch gesetzt, danach unveränderlich für den Kunden sichtbar/abfragbar
+
+Gespeichert in: Supabase/PostgreSQL, wie alle bisherigen Features. Zugriff ausschließlich per Server Actions, kein REST-API-Layer.
+
+### C) Tech-Entscheidungen (Begründung)
+
+- **Eine gemeinsame Tabelle für alle drei Buchungsarten statt drei getrennter Tabellen:** Reguläre Anfrage, Probestunde und Drop-in teilen sich Kunde, Kurs, Datum und Status — eine gemeinsame Struktur mit einem Art-Feld vermeidet Code- und Admin-UI-Duplikation, während artspezifische Felder (Notiz, Studierendenpreis) einfach leer bleiben, wo nicht zutreffend.
+- **Keine Wiederverwendung der bereits angelegten, aber ungenutzten `class_sessions`/`bookings`-Tabellen aus PROJ-1:** Diese gehen von im Voraus angelegten Einzeltermin-Datensätzen aus. Der Stundenplan (PROJ-6) berechnet Termine dagegen live aus dem Wochenmuster, ohne solche Zeilen anzulegen. Für PROJ-8 wird dasselbe Prinzip fortgeführt (Termine live berechnet, nicht vorab materialisiert), daher passen die alten Tabellen nicht mehr zum etablierten Muster.
+- **Drop-in-Preis wird pro Buchung als Momentaufnahme gespeichert:** Verhindert, dass eine spätere Preisänderung durch den Admin den Preis einer bereits offenen oder bestätigten Buchung rückwirkend verändert — gleiches Prinzip wie bei PROJ-7s Lastschriftpositionen.
+- **Akquisitionskanal als Profilfeld statt pro Buchung gespeichert:** Da er nur einmal pro Kunde abgefragt werden soll, ist das Kundenprofil der naheliegende Ort — vermeidet Duplikate und macht die spätere Auswertung einfacher (ein Wert pro Kunde statt potenziell widersprüchlicher Werte pro Buchung).
+- **Drop-in-Preise als einzeiliger Einstellungs-Datensatz statt eigener Einstellungsseite:** Deckt den Bedarf „Admin kann selbst ändern" minimal ab, ohne eine komplette neue Admin-Bereichsseite nur für zwei Zahlen zu bauen.
+
+### D) Abhängigkeiten (Pakete)
+Keine neuen Fremdpakete nötig — Terminberechnung folgt demselben Muster wie `/stundenplan` (PROJ-6), UI-Bausteine kommen vollständig aus den bereits installierten shadcn/ui-Komponenten.
 
 ## QA Test Results
 _To be added by /qa_
