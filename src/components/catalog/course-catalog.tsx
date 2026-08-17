@@ -26,6 +26,7 @@ export type CatalogCourseRow = {
   level: string | null;
   locationId: string;
   locationName: string;
+  roomName: string | null;
   teacherNames: string[];
   nextOccurrenceDates: string[];
   entryDates: string[];
@@ -174,7 +175,9 @@ export function CourseCatalog({
                       {levelLabel(course.level)}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">{course.locationName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {course.roomName ? `${course.locationName} · ${course.roomName}` : course.locationName}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     {course.teacherNames.length > 0
                       ? course.teacherNames.join(", ")

@@ -15,7 +15,7 @@ export default async function KurskatalogPage() {
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date)"
+        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date)"
       )
       .order("created_at", { ascending: true }),
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
@@ -67,6 +67,7 @@ export default async function KurskatalogPage() {
       level: c.level,
       locationId: c.rooms?.location_id ?? "",
       locationName: c.rooms?.locations?.name ?? "—",
+      roomName: c.rooms?.name ?? null,
       teacherNames: c.course_teachers
         .map((ct) => teacherNameById.get(ct.teacher_id))
         .filter((name): name is string => Boolean(name)),

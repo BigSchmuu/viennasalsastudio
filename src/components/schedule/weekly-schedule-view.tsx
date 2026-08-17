@@ -13,13 +13,16 @@ export type ScheduleEntry = {
   danceStyleName: string;
   level: string | null;
   locationName: string;
+  roomId: string;
+  roomName: string | null;
   teacherNames: string[];
   startTime: string;
   endTime: string;
 };
 
-// Vertical offset per minute of start-time difference between tracks —
-// mirrors the marketing website's day-timeline/day-track layout.
+// Vertical offset per minute of start-time difference between rooms —
+// mirrors the marketing website's day-timeline/day-track layout, applied
+// per Saal instead of per start-minute.
 const PX_PER_MINUTE = 3;
 
 function formatTime(time: string): string {
@@ -31,8 +34,12 @@ function minutesFromTime(time: string): number {
   return hours * 60 + minutes;
 }
 
-function minutePart(time: string): number {
-  return Number(time.split(":")[1]);
+/** Extracts the number from a "Saal N" room name for left-to-right ordering
+ * (Saal 1, Saal 2, Saal 3, ...). Rooms that don't follow this naming fall
+ * back to alphabetical order after all numbered Säle. */
+function saalNumber(roomName: string | null): number {
+  const match = roomName?.match(/saal\s*(\d+)/i);
+  return match ? Number(match[1]) : Infinity;
 }
 
 function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
@@ -56,7 +63,9 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
             {levelLabel(entry.level)}
           </Badge>
         </div>
-        <p className="text-sm text-muted-foreground">{entry.locationName}</p>
+        <p className="text-sm text-muted-foreground">
+          {entry.roomName ? `${entry.locationName} · ${entry.roomName}` : entry.locationName}
+        </p>
         <p className="text-sm text-muted-foreground">
           {entry.teacherNames.length > 0
             ? entry.teacherNames.join(", ")
@@ -97,20 +106,31 @@ function ScheduleSlots({ entries }: { entries: ScheduleEntry[] }) {
   );
 }
 
-/** Groups a day's entries into side-by-side tracks by start-minute (:00 vs. :30 etc.),
- * each track vertically offset to reflect how much later its courses start —
- * mirrors the marketing website's day-timeline layout. Falls back to a single
- * stacked list when every course starts on the same minute mark. */
+/** Groups a day's entries into side-by-side columns by Saal (Saal 1 always
+ * left, Saal 2 right of it, and so on), each column vertically offset to
+ * reflect how much later its earliest course starts relative to the day's
+ * overall earliest course — mirrors the marketing website's day-timeline
+ * layout. Falls back to a single stacked list when only one room is used
+ * that day. */
 function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
-  const tracks = new Map<number, ScheduleEntry[]>();
+  const rooms = new Map<string, { name: string; entries: ScheduleEntry[] }>();
   for (const entry of entries) {
-    const key = minutePart(entry.startTime);
-    if (!tracks.has(key)) tracks.set(key, []);
-    tracks.get(key)!.push(entry);
+    if (!rooms.has(entry.roomId)) {
+      rooms.set(entry.roomId, { name: entry.roomName ?? "Ohne Saal", entries: [] });
+    }
+    rooms.get(entry.roomId)!.entries.push(entry);
   }
-  const minuteKeys = [...tracks.keys()].sort((a, b) => a - b);
 
-  if (minuteKeys.length <= 1) {
+  const roomIds = [...rooms.keys()].sort((a, b) => {
+    const roomA = rooms.get(a)!;
+    const roomB = rooms.get(b)!;
+    const numA = saalNumber(roomA.name);
+    const numB = saalNumber(roomB.name);
+    if (numA !== numB) return numA - numB;
+    return roomA.name.localeCompare(roomB.name);
+  });
+
+  if (roomIds.length <= 1) {
     return <ScheduleSlots entries={entries} />;
   }
 
@@ -119,15 +139,20 @@ function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
   return (
     <div
       className="grid gap-3 items-start overflow-x-auto"
-      style={{ gridTemplateColumns: `repeat(${minuteKeys.length}, minmax(220px, 1fr))` }}
+      style={{ gridTemplateColumns: `repeat(${roomIds.length}, minmax(240px, 1fr))` }}
     >
-      {minuteKeys.map((minuteKey) => {
-        const trackEntries = tracks.get(minuteKey)!;
-        const trackEarliestStart = Math.min(...trackEntries.map((e) => minutesFromTime(e.startTime)));
-        const offsetPx = (trackEarliestStart - dayEarliestStart) * PX_PER_MINUTE;
+      {roomIds.map((roomId) => {
+        const room = rooms.get(roomId)!;
+        const roomEarliestStart = Math.min(...room.entries.map((e) => minutesFromTime(e.startTime)));
+        const offsetPx = (roomEarliestStart - dayEarliestStart) * PX_PER_MINUTE;
         return (
-          <div key={minuteKey} style={{ marginTop: offsetPx }}>
-            <ScheduleSlots entries={trackEntries} />
+          <div key={roomId}>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              {room.name}
+            </p>
+            <div style={{ marginTop: offsetPx }}>
+              <ScheduleSlots entries={room.entries} />
+            </div>
           </div>
         );
       })}

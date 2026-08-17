@@ -22,7 +22,7 @@ export default async function StundenplanPage() {
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_styles(name), rooms(name, locations(name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date))"
+        "id, name, level, dance_styles(name), rooms(id, name, locations(name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date))"
       ),
     supabase.from("teacher_directory").select("id, full_name"),
   ]);
@@ -50,6 +50,8 @@ export default async function StundenplanPage() {
       danceStyleName: course.dance_styles?.name ?? "—",
       level: course.level,
       locationName: course.rooms?.locations?.name ?? "—",
+      roomId: course.rooms?.id ?? "unassigned",
+      roomName: course.rooms?.name ?? null,
       teacherNames: course.course_teachers
         .map((ct) => teacherNameById.get(ct.teacher_id))
         .filter((name): name is string => Boolean(name)),
