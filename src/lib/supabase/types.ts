@@ -653,6 +653,48 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_queue: {
+        Row: {
+          created_at: string
+          customer_id: string
+          dedupe_key: string | null
+          email_status: string | null
+          error_detail: string | null
+          event_type: string
+          id: string
+          payload: Json
+          processed_at: string | null
+          push_status: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          dedupe_key?: string | null
+          email_status?: string | null
+          error_detail?: string | null
+          event_type: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          push_status?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          dedupe_key?: string | null
+          email_status?: string | null
+          error_detail?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          push_status?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           birthdate: string | null
@@ -1151,6 +1193,15 @@ export type Database = {
         }
       }
       current_role: { Args: never; Returns: string }
+      enqueue_notification: {
+        Args: {
+          p_customer_id: string
+          p_dedupe_key?: string
+          p_event_type: string
+          p_payload: Json
+        }
+        Returns: undefined
+      }
       get_course_attendance_roster: {
         Args: { p_course_id: string; p_occurrence_date: string }
         Returns: {

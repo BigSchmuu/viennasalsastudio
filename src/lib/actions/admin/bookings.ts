@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 import type { ActionResult } from "@/lib/actions/types";
 
 export async function confirmRegularBooking(
@@ -57,6 +58,13 @@ export async function confirmRegularBooking(
     return { error: "Buchung konnte nicht bestätigt werden." };
   }
 
+  await enqueueAndDispatch({
+    customerId: booking.customer_id,
+    eventType: "buchungsstatus",
+    payload: { booking_id: bookingId, new_status: "confirmed" },
+    dedupeKey: `booking_status:${bookingId}:confirmed`,
+  });
+
   revalidatePath("/admin/buchungen");
   revalidatePath("/admin/kunden");
   return { success: true };
@@ -67,7 +75,7 @@ export async function confirmDropinBooking(bookingId: string): Promise<ActionRes
 
   const { data: booking } = await supabase
     .from("course_bookings")
-    .select("id, type, status")
+    .select("id, type, status, customer_id")
     .eq("id", bookingId)
     .single();
 
@@ -84,6 +92,13 @@ export async function confirmDropinBooking(bookingId: string): Promise<ActionRes
     return { error: "Buchung konnte nicht bestätigt werden." };
   }
 
+  await enqueueAndDispatch({
+    customerId: booking.customer_id,
+    eventType: "buchungsstatus",
+    payload: { booking_id: bookingId, new_status: "confirmed" },
+    dedupeKey: `booking_status:${bookingId}:confirmed`,
+  });
+
   revalidatePath("/admin/buchungen");
   return { success: true };
 }
@@ -93,7 +108,7 @@ export async function rejectBooking(bookingId: string): Promise<ActionResult> {
 
   const { data: booking } = await supabase
     .from("course_bookings")
-    .select("id, status, type, course_id")
+    .select("id, status, type, course_id, customer_id")
     .eq("id", bookingId)
     .single();
 
@@ -109,6 +124,13 @@ export async function rejectBooking(bookingId: string): Promise<ActionResult> {
   if (error) {
     return { error: "Buchung konnte nicht abgelehnt werden." };
   }
+
+  await enqueueAndDispatch({
+    customerId: booking.customer_id,
+    eventType: "buchungsstatus",
+    payload: { booking_id: bookingId, new_status: "rejected" },
+    dedupeKey: `booking_status:${bookingId}:rejected`,
+  });
 
   if (booking.type === "regular" && booking.course_id) {
     const { error: promoteError } = await supabase.rpc("promote_waitlist_for_course", {

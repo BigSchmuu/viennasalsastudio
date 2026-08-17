@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 import { collectionRunSchema } from "@/lib/validations/sepa";
 import { generateSepaDirectDebitXml, type SepaXmlItem } from "@/lib/sepa/xml";
 import type { ActionResult } from "@/lib/actions/types";
@@ -92,6 +93,17 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     // ist fehlgeschlagen und müsste ggf. nachträglich untersucht werden.
     console.error("create_invoices_for_collection_run failed", invoiceError);
   }
+
+  await Promise.all(
+    items.map((item) =>
+      enqueueAndDispatch({
+        customerId: item.customer_id,
+        eventType: "sepa_ankuendigung",
+        payload: { amount: item.amount, due_date: dueDate },
+        dedupeKey: `sepa_item:${item.subscription_id}:${dueDate}`,
+      })
+    )
+  );
 
   revalidatePath("/admin/lastschriften");
   revalidatePath("/admin/rechnungen");

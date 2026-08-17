@@ -163,11 +163,32 @@ Der Studio-Betreiber muss vor dem Live-Gang die SMTP-Zugangsdaten der Studio-Mai
 - VAPID-Schlüsselpaar einmalig generiert und in `.env.local` hinterlegt (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`); Platzhalter in `.env.local.example` ergänzt, ebenso ein dokumentierter SMTP-Platzhalterblock.
 - Manuell im Browser verifiziert: Einstellungs-Umschalten persistiert korrekt in der DB (per SQL geprüft), Push-Spalte ist bis zur Aktivierung sichtbar deaktiviert, keine Konsolenfehler, `npm run build` und `npm run lint` sauber.
 
-**Bewusst noch NICHT gebaut (folgt in `/backend`):**
-- Benachrichtigungs-Warteschlange (Outbox-Tabelle) und der Versand-Job, der sie abarbeitet
-- Tatsächlicher E-Mail-Versand (Nodemailer/SMTP) und Push-Versand (web-push) — Pakete sind bereits installiert, aber noch nicht verdrahtet
-- Anbindung der auslösenden Ereignisse an die Warteschlange: Buchungsstatus-Änderung (`bookings.ts`), automatisches Nachrücken (`promote_waitlist_for_course`), SEPA-Lauf-Erstellung (`createCollectionRun`)
-- Täglicher Hintergrund-Job (Kursstart-Erinnerung + Erkennung „Kündigung wird heute wirksam")
+## Implementation Notes (Backend)
+
+**Gebaut:**
+- Migration `proj16_notification_queue`: Tabelle `notification_queue` (Outbox — customer_id, event_type, payload jsonb, dedupe_key unique, status, email_status, push_status, error_detail). RLS aktiviert, aber bewusst **ohne Policies** (wie `course_attendance`/`course_session_notes` in PROJ-13) — nur SECURITY-DEFINER-Funktionen (umgehen RLS über den Owner) und Server-Code mit dem Service-Role-Key dürfen darauf zugreifen, kein Zugriff über PostgREST für irgendeine Rolle.
+- `enqueue_notification(customer_id, event_type, payload, dedupe_key)` — interne SECURITY-DEFINER-Hilfsfunktion, EXECUTE für `anon`/`authenticated` explizit entzogen (per SQL verifiziert: beide Rollen haben `has_function_privilege = false`). Nur aus anderen SECURITY-DEFINER-Funktionen heraus aufrufbar.
+- `promote_waitlist_for_course` (PROJ-12) erweitert: reiht nach jeder automatischen Nachrückung eine `warteliste`-Benachrichtigung für den nachgerückten Kunden ein — der einzige Auslöser, der rein in SQL passiert und daher zwingend über die Warteschlange laufen muss (kann selbst keinen HTTP-Request auslösen).
+- `src/lib/supabase/service.ts` — Service-Role-Client für Hintergrund-Code (umgeht RLS vollständig, nie im Browser verwenden).
+- `src/lib/notifications/mailer.ts` — Nodemailer/SMTP-Versand; meldet klar "SMTP nicht konfiguriert", solange der Betreiber keine Zugangsdaten hinterlegt hat (erwarteter Zustand bis `/deploy`).
+- `src/lib/notifications/push.ts` — Web-Push-Versand an alle Geräte eines Kunden; räumt abgelaufene/widerrufene Registrierungen (HTTP 404/410) automatisch auf.
+- `src/lib/notifications/templates.ts` — reine Text-/HTML-Bausteine (gebrandetes Layout, Salsa-Rot/Mango-Gold) für alle 5 Ereignistypen; 6 Unit-Tests in `templates.test.ts`.
+- `src/lib/notifications/dispatch.ts` — Kernlogik: `processQueueRow` (löst Anzeige-Details auf, prüft Kunden-Einstellungen außer bei der fixen SEPA-Ankündigung, versendet, aktualisiert die Zeile), `enqueueAndDispatch` (Einreihen + sofortiger Versandversuch, nie blockierend — für die admin-ausgelösten Ereignisse), `runDailyChecks` (Kursstart-Erinnerung für morgen + „Kündigung/Pausierung wird heute wirksam", beides idempotent über `dedupe_key`), `drainPendingQueue` (Sicherheitsnetz, holt u.a. die aus SQL eingereihten Warteliste-Benachrichtigungen ab).
+- `src/app/api/cron/notifications/route.ts` + `vercel.json` — erster geplanter Hintergrund-Job im Projekt, täglich 06:00 UTC, abgesichert über `CRON_SECRET` (Vercels Standard-Cron-Absicherung); 3 Integrationstests in `route.test.ts`.
+- Verdrahtung: `confirmRegularBooking`/`confirmDropinBooking`/`rejectBooking` (`bookings.ts`) und `createCollectionRun` (`sepa-collections.ts`) rufen nach erfolgreicher Aktion `enqueueAndDispatch` auf — sofortiger Versandversuch, Fehler werden nur geloggt, blockieren nie die eigentliche Aktion.
+- Env-Variablen ergänzt: `CRON_SECRET` (generiert), `SMTP_PORT`/`SMTP_FROM`-Platzhalter.
+
+**Live gegen die Produktions-DB verifiziert** (Testzeilen anschließend wieder entfernt):
+- Cron-Route: 401 ohne/mit falschem `CRON_SECRET`, 200 mit korrektem.
+- `dedupe_key`-Uniqueness verhindert doppelte Einreihung zuverlässig (`on conflict do nothing`).
+- Voller Pfad admin bestätigt Buchung → `enqueueAndDispatch` läuft inline im selben Request, E-Mail-Versand schlägt korrekt und sauber protokolliert fehl (SMTP noch nicht konfiguriert — erwartet), Push wird korrekt übersprungen (keine Geräte registriert).
+- Voller Pfad admin lehnt Buchung ab → `promote_waitlist_for_course` rückt den wartenden Kunden nach UND reiht die `warteliste`-Benachrichtigung korrekt als `pending` ein (kein Inline-Versand möglich); der nächste Cron-Lauf verarbeitet sie zuverlässig.
+- Täglicher Erinnerungs-Check erkennt eine Probestunde für morgen korrekt und reiht sie ein.
+- `npm run build`, `npm run lint`, `npm test` (129/129) alle sauber.
+
+**Zwischenfall während der Live-Tests:** Beim Testen des Ablehnen-Pfads wurde versehentlich zusätzlich eine unabhängige, bereits bestehende PROJ-12-Test-Buchung (`157b496d…`, Status vorher „open") ebenfalls auf „abgelehnt" gesetzt — Ursache nicht abschließend geklärt (vermutlich eine Fehlbedienung des Testskripts). Status wurde umgehend auf „open" zurückgesetzt; alle sonstigen PROJ-12-Fixtures sind unberührt.
+
+**Bewusst offen (siehe Open Questions):** Der tatsächliche E-Mail-Versand funktioniert erst, sobald der Studio-Betreiber echte SMTP-Zugangsdaten in den Produktions-Umgebungsvariablen hinterlegt (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`) — bis dahin werden alle E-Mail-Versuche sauber protokolliert als fehlgeschlagen markiert, ohne dass eine Aktion blockiert wird.
 
 ## QA Test Results
 _To be added by /qa_
