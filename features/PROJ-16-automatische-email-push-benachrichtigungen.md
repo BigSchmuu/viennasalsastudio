@@ -1,6 +1,6 @@
 # PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -81,12 +81,74 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Warteschlangen-Muster (Outbox) statt direktem Versand aus der auslösenden Aktion heraus | Manche auslösenden Ereignisse (z.B. automatisches Nachrücken von der Warteliste) passieren tief in der Datenbank, nicht in einer Next.js-Aktion, die selbst eine E-Mail verschicken könnte. Ein Warteschlangen-Eintrag ist ein einfacher, schneller Datenbank-Eintrag, den jeder auslösende Vorgang zuverlässig setzen kann — erfüllt außerdem von Natur aus die Anforderung „Versand blockiert nie die Aktion" | 2026-08-17 |
+| Erstmaliger geplanter Hintergrund-Job im Projekt (bisher gab es keinen) | Nötig für drei wiederkehrende Prüfungen, die es vorher nicht gab: tägliche Kursstart-Erinnerung, tägliche Prüfung „wird eine geplante Kündigung/Pausierung heute wirksam", und Abarbeiten der Warteschlange. Über die Hosting-Plattform (Vercel) gesteuert — kein zusätzlicher Dienst nötig | 2026-08-17 |
+| E-Mail-Versand über die bestehende Studio-Mailadresse (SMTP-Zugangsdaten) statt über einen dedizierten Dienst wie Resend | Explizite Nutzerentscheidung — keine zusätzlichen laufenden Kosten, kein neuer Account nötig; das aktuelle Sendevolumen liegt weit unter den üblichen Tageslimits eines normalen Postfachs | 2026-08-17 |
+| Push-Versand über den offenen Web-Push-Standard (kein Dienst eines Drittanbieters) | Browser-Push ist standardisiert und kostenlos nutzbar, benötigt nur ein einmalig erzeugtes Schlüsselpaar. Dafür ist eine kleine „Service Worker"-Datei im Browser nötig, die eingehende Push-Nachrichten empfängt und anzeigt — neue technische Grundlage, die auch künftige Push-Features nutzen können | 2026-08-17 |
+| „Wirksam werden" einer geplanten Kündigung/Pausierung wird nur erkannt, nicht ausgelöst | Die eigentliche Status-Logik (ob eine Kündigung an einem Datum gilt) existiert in PROJ-9 bereits und wird weiterhin dynamisch anhand des gespeicherten Datums bestimmt. PROJ-16 fügt keine neue Status-Logik hinzu, sondern nur eine tägliche Prüfung, die am Stichtag eine Benachrichtigung einreiht | 2026-08-17 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Profil-Seite (bestehend)
++-- Bestehende Bereiche (Abo, Buchungen, Rechnungen, ...)
++-- NEU: Abschnitt "Benachrichtigungen"
+    +-- Push-Status-Anzeige
+    |   +-- Button "Push-Benachrichtigungen aktivieren" (wenn noch keine Browser-Berechtigung erteilt)
+    |   +-- Hinweis "Push aktiv auf diesem Gerät" (wenn bereits erteilt, mit Möglichkeit zu deaktivieren)
+    +-- Einstellungs-Tabelle: 4 Zeilen (Buchungsstatus, Warteliste, Abo-Kündigung, Kursstart-Erinnerung)
+    |   x 2 Spalten (E-Mail, Push) mit Schaltern je Zelle
+    +-- Hinweistext: SEPA-Vorab-Ankündigung ist immer aktiv und nicht abschaltbar
+
+Neue Hintergrundprozesse (für Nutzer nicht sichtbar)
++-- Täglicher Prüf-Job
+|   +-- Findet Probestunden/Drop-ins für morgen -> reiht Erinnerungen ein
+|   +-- Findet Abo-Änderungen, die heute wirksam werden -> reiht Benachrichtigung ein
++-- Versand-Job (läuft regelmäßig, arbeitet die Warteschlange ab)
+    +-- Für jeden wartenden Eintrag: prüft Kunden-Einstellung für dieses Ereignis+Kanal
+    +-- Verschickt E-Mail (SMTP) und/oder Push (Web-Push), protokolliert Erfolg/Fehler
+```
+
+### B) Data Model (plain language)
+
+**Benachrichtigungs-Einstellungen** (pro Kunde)
+- Bezug zum Kunden
+- Ereignisgruppe (Buchungsstatus / Warteliste / Abo-Kündigung / Kursstart-Erinnerung)
+- Kanal (E-Mail / Push)
+- Ein/Aus (Standard: an)
+
+**Push-Registrierungen** (pro Kunde, pro Gerät/Browser)
+- Bezug zum Kunden
+- Vom Browser bereitgestellte Zugangsdaten für dieses Gerät
+- Erstellt-Zeitstempel
+
+**Benachrichtigungs-Warteschlange** (Outbox)
+- Bezug zum Kunden
+- Ereignistyp (z.B. „Buchung bestätigt", „SEPA-Vorab-Ankündigung")
+- Zugehörige Daten für den Text (z.B. Kursname, Betrag, Datum)
+- Status (wartend / versendet / fehlgeschlagen)
+- Zeitstempel Erstellung + Zeitstempel Versand
+
+Gespeichert in: Supabase Postgres (wie der Rest des Projekts). Jeder Kunde sieht und ändert ausschließlich seine eigenen Einstellungen und Push-Registrierungen (Row Level Security wie überall im Projekt). Die Warteschlange selbst ist für Kunden nicht direkt einsehbar — nur die Hintergrund-Jobs verarbeiten sie.
+
+### C) Tech Decisions (justified for PM)
+
+- **Warteschlange statt Direktversand**: Auslösende Ereignisse (z.B. automatisches Nachrücken von der Warteliste) passieren teils tief im Datenbank-Code. Ein Warteschlangen-Eintrag ist die einzige Stelle, die von überall zuverlässig gesetzt werden kann — und garantiert nebenbei, dass ein Versandfehler nie die eigentliche Aktion blockiert.
+- **Neuer täglicher Hintergrund-Job**: Für die Kursstart-Erinnerung und die Erkennung „Kündigung wird heute wirksam" braucht es erstmals eine zeitgesteuerte Prüfung im Projekt. Läuft über die bestehende Hosting-Plattform (Vercel), kein zusätzlicher Dienst.
+- **E-Mail über die bestehende Studio-Mailadresse (SMTP)**: Nutzerentscheidung — spart einen zusätzlichen Account und laufende Kosten, solange das Versandvolumen überschaubar bleibt.
+- **Push über den offenen Web-Push-Standard**: Kein Drittanbieter-Dienst nötig, nur ein einmalig erzeugtes Schlüsselpaar. Der Browser übernimmt Zustellung und Anzeige über eine kleine, einmalig eingerichtete „Service Worker"-Datei.
+
+### D) Dependencies (packages to install)
+- `nodemailer` — Versand von E-Mails über die SMTP-Zugangsdaten der Studio-Mailadresse
+- `web-push` — Versand von Browser-Push-Benachrichtigungen inkl. Verwaltung des Schlüsselpaars
+
+### Voraussetzung vor `/deploy`
+Der Studio-Betreiber muss vor dem Live-Gang die SMTP-Zugangsdaten der Studio-Mailadresse (Host, Port, Benutzername, Passwort) bereitstellen. Ohne diese Zugangsdaten kann kein E-Mail-Versand stattfinden; Push funktioniert unabhängig davon.
 
 ## QA Test Results
 _To be added by /qa_
