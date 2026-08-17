@@ -117,6 +117,12 @@ export async function applyPendingChange(id: string, customerId: string): Promis
       status: subscription.pending_status,
       pending_status: null,
       pending_effective_date: null,
+      // Preserve the effective date permanently once a cancellation is
+      // applied — it would otherwise be the only record of when this
+      // subscription actually churned, and analytics (PROJ-17) needs it.
+      ...(subscription.pending_status === "cancelled"
+        ? { cancelled_at: subscription.pending_effective_date }
+        : {}),
     })
     .eq("id", id);
 

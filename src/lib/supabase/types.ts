@@ -938,6 +938,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          cancelled_at: string | null
           course_id: string | null
           created_at: string
           customer_id: string
@@ -950,6 +951,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          cancelled_at?: string | null
           course_id?: string | null
           created_at?: string
           customer_id: string
@@ -962,6 +964,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          cancelled_at?: string | null
           course_id?: string | null
           created_at?: string
           customer_id?: string
@@ -1279,6 +1282,7 @@ export type Database = {
       self_reactivate_subscription: {
         Args: { p_subscription_id: string }
         Returns: {
+          cancelled_at: string | null
           course_id: string | null
           created_at: string
           customer_id: string
@@ -1300,6 +1304,7 @@ export type Database = {
       self_schedule_subscription_change: {
         Args: { p_new_pending_status: string; p_subscription_id: string }
         Returns: {
+          cancelled_at: string | null
           course_id: string | null
           created_at: string
           customer_id: string
@@ -1321,6 +1326,7 @@ export type Database = {
       self_switch_subscription_course: {
         Args: { p_new_course_id: string; p_subscription_id: string }
         Returns: {
+          cancelled_at: string | null
           course_id: string | null
           created_at: string
           customer_id: string
@@ -1342,6 +1348,7 @@ export type Database = {
       self_undo_pending_change: {
         Args: { p_subscription_id: string }
         Returns: {
+          cancelled_at: string | null
           course_id: string | null
           created_at: string
           customer_id: string
