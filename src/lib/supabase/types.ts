@@ -384,6 +384,109 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_number_counters: {
+        Row: {
+          last_number: number
+          year: number
+        }
+        Insert: {
+          last_number?: number
+          year: number
+        }
+        Update: {
+          last_number?: number
+          year?: number
+        }
+        Relationships: []
+      }
+      invoice_settings: {
+        Row: {
+          address: string
+          company_name: string
+          id: string
+          uid_number: string
+          updated_at: string
+          vat_rate: number
+        }
+        Insert: {
+          address?: string
+          company_name?: string
+          id?: string
+          uid_number?: string
+          updated_at?: string
+          vat_rate?: number
+        }
+        Update: {
+          address?: string
+          company_name?: string
+          id?: string
+          uid_number?: string
+          updated_at?: string
+          vat_rate?: number
+        }
+        Relationships: []
+      }
+      invoices: {
+        Row: {
+          bounced_at: string | null
+          collection_item_id: string | null
+          created_at: string
+          customer_id: string
+          description: string
+          gross_amount: number
+          id: string
+          invoice_date: string
+          invoice_number: string
+          vat_rate: number
+        }
+        Insert: {
+          bounced_at?: string | null
+          collection_item_id?: string | null
+          created_at?: string
+          customer_id: string
+          description: string
+          gross_amount: number
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          vat_rate: number
+        }
+        Update: {
+          bounced_at?: string | null
+          collection_item_id?: string | null
+          created_at?: string
+          customer_id?: string
+          description?: string
+          gross_amount?: number
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_collection_item_id_fkey"
+            columns: ["collection_item_id"]
+            isOneToOne: false
+            referencedRelation: "sepa_collection_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null
@@ -796,6 +899,10 @@ export type Database = {
           email: string
           id: string
         }[]
+      }
+      create_invoices_for_collection_run: {
+        Args: { p_run_id: string }
+        Returns: undefined
       }
       current_role: { Args: never; Returns: string }
       next_cycle_end: { Args: { p_anchor: string }; Returns: string }

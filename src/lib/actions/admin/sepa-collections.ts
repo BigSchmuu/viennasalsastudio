@@ -84,7 +84,17 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     return { error: "Lastschriftpositionen konnten nicht gespeichert werden." };
   }
 
+  const { error: invoiceError } = await supabase.rpc("create_invoices_for_collection_run", {
+    p_run_id: run.id,
+  });
+  if (invoiceError) {
+    // Der Lastschriftlauf selbst ist bereits gespeichert; nur die Rechnungserstellung
+    // ist fehlgeschlagen und müsste ggf. nachträglich untersucht werden.
+    console.error("create_invoices_for_collection_run failed", invoiceError);
+  }
+
   revalidatePath("/admin/lastschriften");
+  revalidatePath("/admin/rechnungen");
   return { success: true, runId: run.id, itemCount: items.length };
 }
 
@@ -170,15 +180,20 @@ export async function generateRunXml(runId: string): Promise<RunXmlResult> {
 
 export async function markItemBounced(itemId: string, bounced: boolean): Promise<ActionResult> {
   const { supabase } = await requireAdmin();
+  const bouncedAt = bounced ? new Date().toISOString() : null;
+
   const { error } = await supabase
     .from("sepa_collection_items")
-    .update({ bounced_at: bounced ? new Date().toISOString() : null })
+    .update({ bounced_at: bouncedAt })
     .eq("id", itemId);
 
   if (error) {
     return { error: "Status konnte nicht aktualisiert werden." };
   }
 
+  await supabase.from("invoices").update({ bounced_at: bouncedAt }).eq("collection_item_id", itemId);
+
   revalidatePath("/admin/lastschriften");
+  revalidatePath("/admin/rechnungen");
   return { success: true };
 }

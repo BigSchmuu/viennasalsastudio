@@ -90,3 +90,14 @@ export const teacherInviteSchema = z.object({
   email: z.string().trim().min(1, "E-Mail ist erforderlich").email("Bitte eine gültige E-Mail-Adresse eingeben"),
 });
 export type TeacherInviteInput = z.infer<typeof teacherInviteSchema>;
+
+export const invoiceSettingsSchema = z.object({
+  company_name: z.string().trim().min(1, "Firmenname ist erforderlich").max(200),
+  address: z.string().trim().max(300).optional().or(z.literal("")),
+  uid_number: z.string().trim().max(50).optional().or(z.literal("")),
+  vat_rate: z
+    .number({ message: "Bitte einen gültigen USt-Satz eingeben" })
+    .min(0, "USt-Satz darf nicht negativ sein")
+    .max(100, "USt-Satz darf 100% nicht übersteigen"),
+});
+export type InvoiceSettingsInput = z.infer<typeof invoiceSettingsSchema>;

@@ -13,6 +13,7 @@ const links = [
   { href: "/admin/lehrer", label: "Lehrer" },
   { href: "/admin/buchungen", label: "Buchungen" },
   { href: "/admin/lastschriften", label: "Lastschriften" },
+  { href: "/admin/rechnungen", label: "Rechnungen" },
 ];
 
 export function AdminNav() {
