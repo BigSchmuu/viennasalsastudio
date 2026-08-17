@@ -1,6 +1,6 @@
 # PROJ-17: Admin-Analytics-Dashboard
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -57,7 +57,7 @@
 - Datenintegrität: Der Kursbuchungs-Anteil der historischen Auslastung ist eine Näherung (aktueller Status, keine Verlaufsdaten) und muss in der UI erkennbar als solche gekennzeichnet sein, um keine falsche Präzision zu suggerieren
 
 ## Open Questions
-- [ ] Genaue Zeiteinheiten-Granularität der Trend-Charts bei sehr langen oder sehr kurzen individuellen Zeiträumen (z.B. Tage vs. Wochen vs. Monate) — wird in `/architecture` festgelegt
+- [x] Zeiteinheiten-Granularität der Trend-Charts — gelöst in `/architecture`: Gruppierung nach Monat ab 2 Monaten Zeitraum, sonst nach Tag (siehe Technical Decisions)
 
 ## Decision Log
 
@@ -78,12 +78,59 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Kein neues Backend, keine neuen Datenbank-Funktionen oder -Tabellen | Der Admin hat über die bestehenden Berechtigungen (RLS-Regel „eigene Zeile ODER Admin") bereits vollen Lesezugriff auf Rechnungen, Abos, Kursbuchungen und Kurse — genau wie beim bestehenden Rechnungsarchiv. Summenbildung und Gruppierung nach Monat passieren direkt in der Seite, keine neue Infrastruktur nötig | 2026-08-18 |
+| Aktuelle Auslastung nutzt die bestehende Funktion aus PROJ-12 (`get_course_occupancy`), die bereits „aktive Abos + offene Buchungen pro Kurs" liefert | Vermeidet doppelte Logik — dieselbe Berechnung, die schon für die öffentliche „Ausgebucht"-Anzeige verwendet wird | 2026-08-18 |
+| Zeitraum wird über URL-Parameter gesteuert (z.B. `?von=...&bis=...`), Standard = laufender Monat | Macht die Ansicht direkt teil-/verlinkbar (z.B. „schau dir den Juli-Wert an") und folgt dem bestehenden Server-Component-Muster des Projekts statt komplexem Client-State | 2026-08-18 |
+| Diagramm-Bibliothek: shadcn/ui-Charts (auf Basis von Recharts) | Fügt sich nahtlos in das bestehende shadcn/ui-Design-System ein, keine neue UI-Sprache oder komplett neue Bibliothek nötig | 2026-08-18 |
+| Trend-Charts gruppieren nach Monat, sofern der gewählte Zeitraum mindestens 2 Monate umfasst; bei kürzeren, individuell gewählten Zeiträumen wird nach Tag gruppiert | Löst die offene Frage aus dem Spec-Interview: bei einem 2-Wochen-Zeitraum wäre eine Monats-Gruppierung sinnlos (nur 1 Datenpunkt), bei einem Mehrjahres-Zeitraum wäre eine Tages-Gruppierung unlesbar | 2026-08-18 |
+| Kündigungs-Datum für die Churn-Zählung ist das geplante Wirksamkeitsdatum der Kündigung, nicht der Zeitpunkt, an dem der Status-Wechsel technisch gespeichert wurde | Der Status eines Abos wechselt laut PROJ-9 erst, wenn ein Admin die fällige Änderung aktiv „übernimmt" (Button „Jetzt übernehmen") — das kann zeitlich vom eigentlichen Kündigungsdatum abweichen. Das gespeicherte Wirksamkeitsdatum spiegelt den tatsächlichen Entscheidungszeitpunkt des Kunden wider und ist daher die aussagekräftigere Grundlage für die Kennzahl | 2026-08-18 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+/admin (neue Standard-Startseite, ersetzt bisherigen Redirect zu „Standorte")
++-- Zeitraum-Filter (oben, quer über die volle Breite)
+|   +-- Schnellauswahl "Laufender Monat" (aktiv als Standard)
+|   +-- Eigener Zeitraum (Start-/Enddatum-Auswahl)
++-- Kennzahl-Kacheln (3 nebeneinander)
+|   +-- Umsatz-Kachel — Betrag für den gewählten Zeitraum
+|   +-- Auslastungs-Kachel — Gesamt-Prozentsatz über alle Kurse mit Teilnehmerlimit
+|   +-- Kündigungs-Kachel — Anzahl endgültig gekündigt + separat Anzahl pausiert
++-- Umsatz-Trend-Chart (Balken/Linie, Zeitraum-abhängige Gruppierung)
++-- Kündigungs-Trend-Chart (Balken/Linie, Zeitraum-abhängige Gruppierung)
++-- Auslastungs-Liste
+    +-- Tabelle: Kursname | belegte Plätze / Kapazität | Prozentsatz-Balken
+    +-- Sortiert nach Auslastung absteigend
+    +-- Hinweis „Geschätzt" beim Kursbuchungs-Anteil, sobald ein vergangener Zeitraum gewählt ist
+
+Admin-Navigation
++-- NEU: Nav-Link "Dashboard" als erster Eintrag, führt zu /admin
+```
+
+### B) Data Model (plain language)
+
+Keine neuen Tabellen. Das Dashboard liest ausschließlich aus bereits bestehenden Daten:
+- **Rechnungen** (für Umsatz) — Betrag, Datum, Rücklastschrift-Status
+- **Abos** (für Auslastung + Kündigung) — Erstelldatum, aktueller Status, geplanter Status-Wechsel mit Wirksamkeitsdatum
+- **Kursbuchungen** (für Auslastung) — aktueller Status, Kurs-Zuordnung
+- **Kurse** (für Auslastung) — maximale Teilnehmerzahl
+
+Alles wird zur Anzeigezeit direkt aus der Datenbank gelesen und in der Seite selbst summiert/gruppiert — nichts wird zwischengespeichert oder vorab berechnet.
+
+### C) Tech Decisions (justified for PM)
+
+- **Kein neues Backend nötig**: Der Admin darf schon heute alle relevanten Daten lesen (wie im Rechnungsarchiv) — das Dashboard ist im Kern „bestehende Daten neu zusammenstellen und visualisieren", kein neuer Datenspeicher.
+- **Bestehende Auslastungs-Berechnung wiederverwendet**: Für den aktuellen Stand nutzt das Dashboard dieselbe Logik, die schon die öffentliche Kursseite für „Ausgebucht" verwendet — konsistent und ohne doppelten Code.
+- **Zeitraum in der URL**: Der gewählte Zeitraum steckt in der Web-Adresse, nicht nur im Browser-Speicher — ein Admin kann sich z.B. den Link für „Auswertung Juli" merken oder teilen.
+- **shadcn/ui-Charts**: Passt sich automatisch an das bestehende Marken-Design (Salsa-Rot/Mango-Gold) an, statt eine visuell abweichende Diagramm-Bibliothek einzuführen.
+
+### D) Dependencies (packages to install)
+- `recharts` — Grundlage der shadcn/ui-Chart-Komponente, für die beiden Trend-Charts
 
 ## QA Test Results
 _To be added by /qa_
