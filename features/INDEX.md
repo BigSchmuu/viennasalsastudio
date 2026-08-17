@@ -26,7 +26,7 @@
 | PROJ-9 | Abo-Verwaltung (Self-Service Pause/Kündigung) | Deployed | [PROJ-9](../features/PROJ-9-abo-verwaltung-self-service.md) | 2026-08-12 |
 | PROJ-10 | Rechnungsarchiv | Deployed | [PROJ-10](../features/PROJ-10-rechnungsarchiv.md) | 2026-08-12 |
 | PROJ-11 | Beispiel-Videos (YouTube-Einbettung) | Deployed | [PROJ-11](../features/PROJ-11-beispiel-videos-youtube-einbettung.md) | 2026-08-12 |
-| PROJ-12 | Warteliste & automatische Nachrückung | In Review | [PROJ-12](../features/PROJ-12-warteliste-automatische-nachrueckung.md) | 2026-08-12 |
+| PROJ-12 | Warteliste & automatische Nachrückung | Approved | [PROJ-12](../features/PROJ-12-warteliste-automatische-nachrueckung.md) | 2026-08-12 |
 | PROJ-13 | Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen) | Roadmap | — | 2026-08-12 |
 | PROJ-14 | Events & Workshops (Tickets, QR-Check-in) | Roadmap | — | 2026-08-12 |
 | PROJ-15 | Gutscheine & Rabattcodes | Roadmap | — | 2026-08-12 |

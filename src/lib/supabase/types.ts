@@ -988,6 +988,13 @@ export type Database = {
         }
       }
       current_role: { Args: never; Returns: string }
+      get_course_occupancy: {
+        Args: never
+        Returns: {
+          course_id: string
+          occupied_count: number
+        }[]
+      }
       join_waitlist: {
         Args: {
           p_chosen_date: string

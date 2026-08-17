@@ -168,9 +168,15 @@ export function CourseManager({
                 <TableCell>{course.teacherNames.join(", ") || "—"}</TableCell>
                 <TableCell>{course.videoSetName || "—"}</TableCell>
                 <TableCell>
-                  {course.maxParticipants === null
-                    ? "Unbegrenzt"
-                    : `${course.occupiedCount} / ${course.maxParticipants}`}
+                  {course.maxParticipants === null ? (
+                    "Unbegrenzt"
+                  ) : course.occupiedCount > course.maxParticipants ? (
+                    <span className="text-destructive font-medium">
+                      {course.occupiedCount} / {course.maxParticipants} (überbelegt)
+                    </span>
+                  ) : (
+                    `${course.occupiedCount} / ${course.maxParticipants}`
+                  )}
                 </TableCell>
                 <TableCell>
                   {course.waitlistEntries.length === 0 ? (
@@ -242,12 +248,14 @@ export function CourseManager({
         </AlertDialogContent>
       </AlertDialog>
 
-      <CourseWaitlistDialog
-        open={waitlistTarget !== null}
-        onOpenChange={(open) => !open && setWaitlistTarget(null)}
-        courseName={waitlistTarget?.name ?? ""}
-        entries={waitlistTarget?.waitlistEntries ?? []}
-      />
+      {waitlistTarget !== null && (
+        <CourseWaitlistDialog
+          open={waitlistTarget !== null}
+          onOpenChange={(open) => !open && setWaitlistTarget(null)}
+          courseName={waitlistTarget.name}
+          entries={waitlistTarget.waitlistEntries}
+        />
+      )}
     </div>
   );
 }

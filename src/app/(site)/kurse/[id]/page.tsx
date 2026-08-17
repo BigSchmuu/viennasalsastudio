@@ -18,7 +18,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: course }, { data: pricing }, activeSubsRes, openBookingsRes] = await Promise.all([
+  const [{ data: course }, { data: pricing }, occupancyRes] = await Promise.all([
     supabase
       .from("courses")
       .select(
@@ -27,20 +27,16 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
       .eq("id", id)
       .single(),
     supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
-    supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("course_id", id).eq("status", "active"),
-    supabase
-      .from("course_bookings")
-      .select("id", { count: "exact", head: true })
-      .eq("course_id", id)
-      .eq("type", "regular")
-      .eq("status", "open"),
+    // subscriptions/course_bookings are RLS-scoped to "own row or admin" — see
+    // src/app/(site)/kurse/page.tsx for why this needs the aggregate RPC.
+    supabase.rpc("get_course_occupancy"),
   ]);
 
   if (!course) {
     notFound();
   }
 
-  const occupiedCount = (activeSubsRes.count ?? 0) + (openBookingsRes.count ?? 0);
+  const occupiedCount = (occupancyRes.data ?? []).find((row) => row.course_id === id)?.occupied_count ?? 0;
   const isFull = course.max_participants !== null && occupiedCount >= course.max_participants;
 
   const { data: teachersData } = await supabase.from("teacher_directory").select("id, full_name");

@@ -35,7 +35,7 @@ test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
   // request rejected — this test is one-shot against the live fixtures; a
   // repeat run needs the fixture course reset (see QA Test Results, BUG-3
   // section for the exact reset SQL) before "Ablehnen" is available again.
-  test("AC1: Voller Kurs zeigt Warteliste-Hinweis statt Anmeldeformular, Katalog zeigt 'Ausgebucht' (BUG-1)", async ({
+  test("AC1: Voller Kurs zeigt Warteliste-Hinweis statt Anmeldeformular, Katalog zeigt 'Ausgebucht'", async ({
     page,
   }) => {
     await page.goto("/kurse");
@@ -71,7 +71,7 @@ test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
     await expect(page.getByText(/nicht möglich/)).toBeVisible();
   });
 
-  test("AC3/AC4: Kunde trägt sich auf die Warteliste ein, sieht Position im Profil und trägt sich wieder aus (blocked by BUG-1)", async ({
+  test("AC3/AC4: Kunde trägt sich auf die Warteliste ein, sieht Position im Profil und trägt sich wieder aus", async ({
     page,
   }) => {
     await login(page, CUSTOMER_A);
@@ -104,7 +104,7 @@ test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
     await expect(page.locator("#sub-price")).toHaveValue("55");
   });
 
-  test("AC8: Admin sieht Wartelisten-Übersicht mit Position, Kunde, Termin und kann Einträge entfernen (BUG-2)", async ({
+  test("AC8: Admin sieht Wartelisten-Übersicht mit Position, Kunde, Termin und kann Einträge entfernen", async ({
     page,
   }) => {
     await login(page, ADMIN);

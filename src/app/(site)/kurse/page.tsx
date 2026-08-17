@@ -11,31 +11,27 @@ export default async function KurskatalogPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [coursesRes, danceStylesRes, locationsRes, teachersRes, pricingRes, activeSubsRes, openBookingsRes] =
-    await Promise.all([
-      supabase
-        .from("courses")
-        .select(
-          "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants"
-        )
-        .order("created_at", { ascending: true }),
-      supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
-      supabase.from("locations").select("id, name").order("name", { ascending: true }),
-      supabase.from("teacher_directory").select("id, full_name"),
-      supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
-      supabase.from("subscriptions").select("course_id").eq("status", "active"),
-      supabase.from("course_bookings").select("course_id").eq("type", "regular").eq("status", "open"),
-    ]);
+  const [coursesRes, danceStylesRes, locationsRes, teachersRes, pricingRes, occupancyRes] = await Promise.all([
+    supabase
+      .from("courses")
+      .select(
+        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants"
+      )
+      .order("created_at", { ascending: true }),
+    supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
+    supabase.from("locations").select("id, name").order("name", { ascending: true }),
+    supabase.from("teacher_directory").select("id, full_name"),
+    supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
+    // subscriptions/course_bookings are RLS-scoped to "own row or admin", so a
+    // plain query here would only ever see the viewer's own occupancy — this
+    // SECURITY DEFINER function returns aggregate counts only (no customer
+    // data), which is why it's safe to call for anonymous visitors too.
+    supabase.rpc("get_course_occupancy"),
+  ]);
 
-  const occupiedByCourse = new Map<string, number>();
-  for (const s of activeSubsRes.data ?? []) {
-    if (!s.course_id) continue;
-    occupiedByCourse.set(s.course_id, (occupiedByCourse.get(s.course_id) ?? 0) + 1);
-  }
-  for (const b of openBookingsRes.data ?? []) {
-    if (!b.course_id) continue;
-    occupiedByCourse.set(b.course_id, (occupiedByCourse.get(b.course_id) ?? 0) + 1);
-  }
+  const occupiedByCourse = new Map<string, number>(
+    (occupancyRes.data ?? []).map((row) => [row.course_id, row.occupied_count])
+  );
 
   const danceStyles: SimpleOption[] = danceStylesRes.data ?? [];
   const locations: SimpleOption[] = locationsRes.data ?? [];

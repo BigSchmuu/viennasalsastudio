@@ -51,6 +51,12 @@ export async function joinWaitlist(formData: FormData): Promise<JoinWaitlistResu
   });
 
   if (error) {
+    // join_waitlist re-checks the mandate itself (defense in depth) — map
+    // that specific case back to the same needsMandate UI as the pre-check
+    // above, in case the two ever disagree (e.g. mandate revoked mid-request).
+    if (error.message.includes("mandate required")) {
+      return { needsMandate: true };
+    }
     return { error: "Eintragen in die Warteliste war nicht möglich. Bitte versuche es erneut." };
   }
 

@@ -212,9 +212,9 @@ Ran the full existing Playwright suite as a baseline before making any further c
 
 **Conclusion: no regressions caused by PROJ-12.** All investigated failures pre-date this session's changes and are attributable to accumulated state on long-lived, shared fixture accounts (this project has no staging database).
 
-### Bugs Found
+### Bugs Found — all 4 fixed (2026-08-17)
 
-#### BUG-1: Customer-facing "is this course full" check is wrong for everyone except the admin and the exact occupying customer
+#### BUG-1: Customer-facing "is this course full" check is wrong for everyone except the admin and the exact occupying customer — FIXED
 - **Severity:** Critical
 - **Steps to Reproduce:**
   1. As an anonymous visitor (or any logged-in customer who isn't already enrolled in the course), open `/kurse` for a course whose capacity is genuinely full.
@@ -222,10 +222,10 @@ Ran the full existing Playwright suite as a baseline before making any further c
   3. Actual: no badge, and the dialog shows the normal registration form as if the course had free capacity.
 - **Root cause:** `src/app/(site)/kurse/page.tsx` and `src/app/(site)/kurse/[id]/page.tsx` compute occupancy with plain `.from("subscriptions")` / `.from("course_bookings")` queries through the standard (RLS-enforced) client. Both tables' SELECT policy is "own row or admin only" (`auth.uid() = customer_id OR current_role() = 'admin'`) — verified directly. Any viewer who isn't the admin or the specific customer occupying that slot gets zero rows back for *other* customers' subscriptions/bookings on that course, so the computed `occupied` count is always too low (frequently 0), and `isFull` evaluates to `false`.
 - **Why it's not a data-integrity issue:** the actual capacity enforcement happens inside the `SECURITY DEFINER` RPCs (`create_regular_course_booking`, `join_waitlist`), which correctly bypass RLS to see true occupancy — nobody can actually overbook a course. If a customer submits through the (incorrectly-shown) normal form, the server-side RPC still rejects with "course is full" and the dialog shows a fallback error text — but never flips to the waitlist-join UI, leaving the customer stuck.
-- **Suggested direction (not implemented — QA doesn't fix):** a `SECURITY DEFINER` function/view that returns only aggregate occupancy counts per course (no per-row customer data, so safe to expose broadly), used by the public/customer-facing pages instead of the raw RLS-scoped table queries.
+- **Fix applied:** new `get_course_occupancy()` `SECURITY DEFINER` function returning only `(course_id, occupied_count)` pairs — no customer PII, so (unlike every other function in this project) it's deliberately granted to `anon` as well as `authenticated`. `src/app/(site)/kurse/page.tsx` and `.../kurse/[id]/page.tsx` now call this instead of querying `subscriptions`/`course_bookings` directly. Re-verified: `get_advisors(security)` clean, "Ausgebucht" badge and waitlist-offer now correctly appear for an anonymous browser session, full PROJ-12 E2E suite + PROJ-5/PROJ-11 regression spot-checks all green.
 - **Priority:** Fix before deployment — this defeats the feature's primary purpose for its primary audience (regular customers).
 
-#### BUG-2: Admin's waitlist overview dialog always shows "Warteliste ist leer."
+#### BUG-2: Admin's waitlist overview dialog always shows "Warteliste ist leer." — FIXED
 - **Severity:** Critical
 - **Steps to Reproduce:**
   1. As admin, go to `/admin/kurse` for a course that genuinely has waitlist entries (table correctly shows e.g. "1 wartend").
@@ -233,35 +233,36 @@ Ran the full existing Playwright suite as a baseline before making any further c
   3. Expected: the entries (position, customer, plan, date, remove button).
   4. Actual: "Warteliste ist leer." every time, regardless of how many entries actually exist.
 - **Root cause:** `CourseWaitlistDialog` (`src/components/admin/courses/course-waitlist-dialog.tsx`) is rendered unconditionally in `course-manager.tsx` (unlike the sibling `CourseFormDialog`, which is only mounted while `editing !== null`). Its `useState(initialEntries)` therefore only ever initializes once, at first page load, when `waitlistTarget` is still `null` and `entries={[]}` is passed in. The `onOpenChange`-based re-sync (`if (next) setEntries(initialEntries)`) never fires, because the dialog's `open` prop is flipped by a *parent* state change (clicking a table row's button), not by a Radix-internal open/close interaction that would actually invoke `onOpenChange`. This is the exact "client state goes stale after a prop change" pattern already documented from an earlier session's fix (`SubscriptionManager` in PROJ-9).
-- **Suggested direction (not implemented — QA doesn't fix):** either conditionally mount the dialog like `CourseFormDialog` already does (`{waitlistTarget !== null && <CourseWaitlistDialog .../>}`), or add a `useEffect` that resyncs `entries` from the `entries` prop.
+- **Fix applied:** `CourseWaitlistDialog` is now conditionally mounted (`{waitlistTarget !== null && <CourseWaitlistDialog .../>}`), matching `CourseFormDialog`'s existing pattern — each open is a fresh mount with correct initial `entries`, so the now-unnecessary `onOpenChange`-based resync was removed. Re-verified via E2E: dialog correctly shows position/customer/plan/date and the "Entfernen" action works.
 - **Priority:** Fix before deployment — AC8 is completely non-functional as shipped.
 
-#### BUG-3: `join_waitlist` doesn't enforce the SEPA-mandate requirement server-side
+#### BUG-3: `join_waitlist` doesn't enforce the SEPA-mandate requirement server-side — FIXED
 - **Severity:** High
 - **Steps to Reproduce:**
   1. As an authenticated customer with **no** SEPA mandate on file, call the Supabase RPC endpoint directly: `POST /rest/v1/rpc/join_waitlist` with a valid `p_course_id`/`p_desired_plan`/`p_chosen_date` for a full course (bypassing the app's UI/server-action entirely).
   2. Expected (per AC2 and the spec's Decision Log): rejected, same as the app-layer mandate check.
   3. Actual: succeeds — a real `waitlist_entries` row is created for a customer with no way to ever pay via SEPA.
 - **Impact:** a customer who reaches the waitlist this way can later be auto-promoted (via `promote_waitlist_for_course`) into an open booking request that the admin may confirm trusting that "on the waitlist" already implies "has a mandate" (that's the explicit rationale in the Decision Log for requiring the mandate up front) — the missing payment method then only surfaces at the next SEPA collection run.
-- **Suggested direction (not implemented — QA doesn't fix):** add the same `exists (select 1 from sepa_mandates where customer_id = v_customer_id and revoked_at is null)` check used elsewhere directly inside `join_waitlist`, mirroring how capacity/duplicate checks are already enforced at the DB layer rather than only in the Next.js action.
+- **Fix applied:** `join_waitlist` now raises `mandate required` if the customer has no active SEPA mandate, checked first thing inside the function itself — mirrors how capacity/duplicate checks are already enforced at the DB layer. `src/lib/actions/waitlist.ts`'s `joinWaitlist` also now maps this specific RPC error back to the same `needsMandate` UI signal as its existing pre-check, for a race-safe, consistent UX. Re-verified live: the same no-mandate fixture customer's direct RPC call is now rejected with `mandate required`; test entry never created.
 - **Priority:** Fix before deployment.
 
-#### BUG-4: No "überbelegt" indicator when capacity is reduced below current occupancy
+#### BUG-4: No "überbelegt" indicator when capacity is reduced below current occupancy — FIXED
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. As admin, reduce a course's "Max. Teilnehmer" below its current occupied count (explicitly allowed per the spec's edge case).
   2. Expected: the course shows an "überbelegt" hint somewhere in the admin course table.
   3. Actual: the "Kapazität" column just shows the raw numbers (e.g. "2 / 1") with no distinguishing styling or label.
 - **Impact:** cosmetic/informational only — the reduction is correctly allowed, no existing subscriptions/bookings are touched, and customer-facing behavior (course shows as full) is unaffected.
+- **Fix applied:** the admin course table's "Kapazität" cell now shows `N / M (überbelegt)` in destructive styling when occupancy exceeds the limit, instead of the plain `N / M` text.
 - **Priority:** Nice to have.
 
-### Summary
-- **Acceptance Criteria:** 6/10 fully pass end-to-end through the UI; 2 more (AC3, AC4) verified correct at the data/RPC layer but blocked from UI verification by BUG-1; 2 fail (AC1, AC8).
-- **Bugs Found:** 4 total (2 Critical, 1 High, 1 Medium).
-- **Security:** 1 High finding (BUG-3, mandate bypass); 1 informational note (broad `promote_waitlist_for_course` grant, consistent with existing codebase precedent); RLS boundaries on the new `waitlist_entries` table otherwise verified solid.
-- **Regressions:** none — all baseline suite failures traced to pre-existing, unrelated fixture drift (documented above), not to PROJ-12 changes. My modified files (`admin/courses.ts`, `admin/subscriptions.ts`, `admin/bookings.ts`, `booking.ts`) were each independently re-verified passing.
-- **Production Ready:** **NO** — BUG-1 and BUG-2 are Critical and defeat the feature's core purpose for its primary audience.
-- **Recommendation:** Fix BUG-1, BUG-2, and BUG-3 before deploying; BUG-4 can ship as a known follow-up if desired.
+### Summary (post-fix)
+- **Acceptance Criteria:** 10/10 pass end-to-end through the UI (AC1 and AC8 re-verified fixed; AC3/AC4 no longer blocked).
+- **Bugs Found:** 4 total (2 Critical, 1 High, 1 Medium) — **all 4 fixed and re-verified** (full `npm test` — 116/116 — and `tests/PROJ-12-warteliste-automatische-nachrueckung.spec.ts` — 8/8 — both green after fixes; `get_advisors(security)` re-checked clean; PROJ-5 and PROJ-11 regression suites, which share the two edited public pages, re-run and green).
+- **Security:** BUG-3 (mandate bypass) closed at the DB layer. The `promote_waitlist_for_course` broad-grant note from the initial pass remains informational only (matches existing, already-accepted codebase precedent) — not filed as a bug.
+- **Regressions:** none — all baseline suite failures traced to pre-existing, unrelated fixture drift (documented above), not to PROJ-12 changes.
+- **Production Ready:** **YES.**
+- **Recommendation:** Ready for `/deploy`.
 
 ## Deployment
 _To be added by /deploy_
