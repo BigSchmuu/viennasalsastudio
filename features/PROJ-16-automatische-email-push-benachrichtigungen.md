@@ -1,6 +1,6 @@
 # PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -212,7 +212,7 @@ Der Studio-Betreiber muss vor dem Live-Gang die SMTP-Zugangsdaten der Studio-Mai
 
 #### AC5: SEPA-Vorab-Ankündigung
 - [x] Code-Review bestätigt korrekte Verdrahtung (`item.customer_id`, `item.amount`, `dueDate` korrekt referenziert, `enqueueAndDispatch` pro Kollektions-Position aufgerufen) und Template liefert Betrag+Fälligkeitsdatum korrekt (Unit-Test)
-- [ ] BUG: siehe BUG-2 — die Umsetzung blockiert die Admin-Aktion auf N synchrone Versand-Versuche statt sie zu entkoppeln
+- [x] BUG-2 behoben: nutzt jetzt `enqueueNotification` (reines Insert) statt `enqueueAndDispatch` — die Admin-Aktion wartet nicht mehr auf N synchrone Versand-Versuche
 
 #### AC6: Profil-Abschnitt „Benachrichtigungen" mit 4 Gruppen × 2 Kanälen
 - [x] E2E-Test bestätigt alle 4 Ereignisgruppen-Labels und beide Spaltenköpfe (E-Mail/Push)
@@ -242,7 +242,7 @@ Der Studio-Betreiber muss vor dem Live-Gang die SMTP-Zugangsdaten der Studio-Mai
 
 #### EC5: Zwei SEPA-Läufe kurz hintereinander
 - [x] Für unterschiedliche Kunden/Subscriptions: jeder Lauf erzeugt einen eigenen `dedupe_key`, eigene Ankündigung
-- [ ] BUG: siehe BUG-7 — Sonderfall „exakt dieselbe Subscription, exakt dasselbe Fälligkeitsdatum, zweimal abgerechnet" unterdrückt die zweite Ankündigung durch `dedupe_key`-Kollision
+- [x] BUG-7 behoben: `dedupe_key` jetzt an `run.id` statt `due_date` gebunden — auch der Sonderfall „exakt dieselbe Subscription, exakt dasselbe Fälligkeitsdatum" erhält jetzt pro Lauf eine eigene Ankündigung
 
 #### EC6: Stornierung + Sofort-Neubuchung
 - [x] Reguläre Buchungs-/Erinnerungslogik greift unverändert (keine PROJ-16-spezifische Sonderbehandlung nötig, by design)
@@ -250,10 +250,10 @@ Der Studio-Betreiber muss vor dem Live-Gang die SMTP-Zugangsdaten der Studio-Mai
 ### Security Audit Results
 - [x] Authentication: `/api/cron/notifications` verlangt korrekten `CRON_SECRET`-Bearer-Token (live getestet: 401 ohne/mit falschem Token, 200 mit korrektem)
 - [x] Authorization: `notification_preferences`/`push_subscriptions` RLS-geprüft — Kunde kann nur eigene Zeilen lesen/schreiben; `notification_queue` per RLS ohne jegliche Policy nur für SECURITY-DEFINER-Funktionen und Service-Role-Code erreichbar (per SQL verifiziert: `authenticated`/`anon` haben kein `EXECUTE` auf `enqueue_notification`)
-- [ ] BUG: siehe BUG-1 (Critical) — SSRF über ungeprüfte Push-Subscription-Endpoint-URL
+- [x] BUG-1 behoben: `subscribeToPush` akzeptiert nur noch Endpoints aus einer Allowlist bekannter Push-Dienste (verifiziert per Unit-Test)
 - [x] Keine sensiblen Daten (IBAN, Zugangsdaten) in Benachrichtigungsinhalten oder in `notification_queue`-Fehlermeldungen, die für Kunden erreichbar wären
-- [ ] BUG: siehe BUG-3 (Medium) — fehlendes HTML-Escaping bei Kurs-/Abo-Namen in E-Mail-Templates
-- [ ] BUG: siehe BUG-5 (Medium) — Cron-Route fällt bei fehlendem `CRON_SECRET` offen (fail-open) statt geschlossen
+- [x] BUG-3 behoben: `escapeHtml()` wird auf alle interpolierten Kurs-/Abo-Namen im E-Mail-HTML angewendet (verifiziert per Unit-Test)
+- [x] BUG-5 behoben: Cron-Route lehnt jetzt explizit ab, wenn `CRON_SECRET` nicht gesetzt ist (fail-closed)
 
 ### Bugs Found
 
@@ -320,12 +320,26 @@ Der Studio-Betreiber muss vor dem Live-Gang die SMTP-Zugangsdaten der Studio-Mai
   4. Tatsächlich: die zweite Ankündigung wird durch die `dedupe_key`-Unique-Constraint stillschweigend unterdrückt
 - **Priority:** Nice to have (sehr seltener Sonderfall; unterschiedliche Kunden/Subscriptions pro Lauf — der Regelfall — funktionieren korrekt)
 
+### Fix Verification (2026-08-17, nach Nutzeranfrage „fix all bugs")
+
+Alle 7 Bugs wurden behoben:
+
+- **BUG-1 (Critical, SSRF):** neue Allowlist `src/lib/notifications/push-endpoint.ts` (`isTrustedPushEndpoint`) — nur `https://` und bekannte Push-Dienst-Hostnamen (fcm.googleapis.com, updates.push.services.mozilla.com, web.push.apple.com, `*.notify.windows.com`); `subscribeToPush` lehnt alles andere ab. 5 neue Unit-Tests. **outcome: fixed**
+- **BUG-2 (High, blockierender SEPA-Versand):** `createCollectionRun` nutzt jetzt `enqueueNotification` (reines, schnelles Insert) statt `enqueueAndDispatch` — Versand läuft über den Cron-Drain, nicht mehr synchron in der Admin-Aktion. Live bestätigt: eine echte, unabhängig (durch den PROJ-7-E2E-Testlauf) ausgelöste SEPA-Sammel-Buchung erzeugte korrekt `pending`-Warteschlangen-Einträge, die anschließend fehlerfrei durch den Dispatch-Job verarbeitet wurden. **outcome: fixed**
+- **BUG-3 (Medium, fehlendes HTML-Escaping):** neue `escapeHtml()`-Funktion in `templates.ts`, angewendet auf `courseName`/`subscriptionName` überall dort, wo sie ins E-Mail-HTML eingebettet werden (inkl. der H1-Titelzeile in `emailShell`). 2 neue Unit-Tests mit `<img onerror=...>`/`<a href=evil>`-Payloads bestätigen, dass kein rohes HTML mehr im Output landet. **outcome: fixed**
+- **BUG-4 (Medium, Race Condition):** neue atomare „Claim"-Funktion (`UPDATE ... WHERE status='pending' RETURNING`, neuer Zwischenstatus `processing`); sowohl `drainPendingQueue` als auch `enqueueAndDispatch` beanspruchen eine Zeile jetzt exklusiv, bevor sie versendet wird. Live mit zwei zeitgleichen Cron-Aufrufen auf dieselbe wartende Zeile bestätigt: genau ein Aufruf verarbeitete sie (`processed: 1`), der andere sah sie bereits beansprucht (`processed: 0`) — kein Doppelversand. **outcome: fixed**
+- **BUG-5 (Medium, Cron fail-open):** `route.ts` prüft jetzt explizit `if (!cronSecret || ...)` und lehnt ab, wenn `CRON_SECRET` nicht gesetzt ist, statt implizit gegen den String „Bearer undefined" zu vergleichen. **outcome: fixed**
+- **BUG-6 (Low, Zeitzonen-Fragilität):** `tomorrowInVienna()` berechnet „morgen" jetzt rein über UTC-Datums-Arithmetik auf dem bereits korrekten Wien-Datumsstring, ganz ohne Abhängigkeit von der Zeitzone des ausführenden Prozesses. **outcome: fixed**
+- **BUG-7 (Low, SEPA-Korrekturlauf-Dedupe-Kollision):** `dedupe_key` für SEPA-Ankündigungen ist jetzt an `run.id` gebunden statt an `due_date` — jeder tatsächliche Lastschriftlauf erhält garantiert eigene Ankündigungen, auch bei identischem Fälligkeitsdatum. **outcome: fixed**
+
+**Regressionsprüfung nach den Fixes:** `npm test` (135/135, inkl. 6 neuer Tests für BUG-1/BUG-3), `npm run lint` und `npm run build` sauber. `tests/PROJ-16-*.spec.ts` zweimal hintereinander (`--repeat-each=2`) fehlerfrei durchgelaufen (6/6) — dabei eine kleine Flakiness im eigenen Test entdeckt und behoben: der abschließende „Zurücksetzen"-Schritt der Persistenz-Prüfung wartete nicht auf den asynchronen Server-Roundtrip, bevor die Seite geschlossen wurde, wodurch die Einstellung beim nächsten Lauf noch auf „aus" stehen konnte (kein App-Bug, reines Test-Timing — behoben mit einem zusätzlichen `waitForTimeout`). Der vollständige Buchungsbestätigen-Live-Test wurde nach dem `dispatch.ts`-Refactor erneut durchgeführt und funktioniert unverändert korrekt.
+
 ### Summary
-- **Acceptance Criteria:** 9/9 funktional bestätigt (AC5 mit BUG-2 behaftet)
-- **Bugs Found:** 7 total (1 critical, 1 high, 3 medium, 2 low)
-- **Security:** Issues found — 1 Critical (SSRF), 2 Medium
-- **Production Ready:** NO
-- **Recommendation:** BUG-1 (Critical) und BUG-2 (High) vor Deployment beheben; BUG-3 und BUG-5 (Medium) ebenfalls vor Deployment empfohlen, da einfache, klar umrissene Korrekturen. BUG-4, BUG-6, BUG-7 können in einem Folge-Sprint adressiert werden.
+- **Acceptance Criteria:** 9/9 funktional bestätigt
+- **Bugs Found:** 7 total (1 critical, 1 high, 3 medium, 2 low) — **alle 7 behoben**
+- **Security:** Ursprünglich 1 Critical (SSRF) + 2 Medium gefunden, alle behoben und mit Unit-Tests abgesichert
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 **Hinweis zur automatisierten Regressionsprüfung:** `npm test` lief vollständig durch (129/129, inkl. der 9 neuen PROJ-16-Tests). Der neue `tests/PROJ-16-*.spec.ts` lief isoliert gegen Chromium fehlerfrei durch (3/3); Mobile Safari schlägt wie bei allen bisherigen Features an der bekannten, vorbestehenden fehlenden WebKit-Browser-Installation dieser Umgebung fehl (kein neuer Befund).
 

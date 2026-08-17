@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
+import { enqueueNotification } from "@/lib/notifications/dispatch";
 import { collectionRunSchema } from "@/lib/validations/sepa";
 import { generateSepaDirectDebitXml, type SepaXmlItem } from "@/lib/sepa/xml";
 import type { ActionResult } from "@/lib/actions/types";
@@ -94,13 +94,18 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     console.error("create_invoices_for_collection_run failed", invoiceError);
   }
 
+  // Queue-only, not enqueueAndDispatch: with many customers, waiting on a
+  // synchronous email+push attempt per item here risked the admin's request
+  // timing out even though the run/invoices already saved successfully. The
+  // cron drain sends these. Keyed by run.id (not due_date) so a correction
+  // run for the same due date still gets its own announcement per item.
   await Promise.all(
     items.map((item) =>
-      enqueueAndDispatch({
+      enqueueNotification({
         customerId: item.customer_id,
         eventType: "sepa_ankuendigung",
         payload: { amount: item.amount, due_date: dueDate },
-        dedupeKey: `sepa_item:${item.subscription_id}:${dueDate}`,
+        dedupeKey: `sepa_item:${item.subscription_id}:${run.id}`,
       })
     )
   );

@@ -56,11 +56,16 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
       "unchecked"
     );
 
-    // reset to default for repeatable runs
+    // Reset to default for repeatable runs. The switch is optimistic (see
+    // notification-settings-section.tsx), so the assertion above passes
+    // instantly even before the server-side upsert completes — without this
+    // wait, the test could close the page while that write is still in
+    // flight and leave the fixture toggled off for the next run.
     await page.getByRole("switch", { name: "Warteliste rückt nach per E-Mail" }).click();
     await expect(page.getByRole("switch", { name: "Warteliste rückt nach per E-Mail" })).toHaveAttribute(
       "data-state",
       "checked"
     );
+    await page.waitForTimeout(800);
   });
 });

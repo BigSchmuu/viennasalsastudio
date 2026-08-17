@@ -9,6 +9,7 @@ import {
   type NotificationEventGroup,
   type NotificationChannel,
 } from "@/lib/constants/notifications";
+import { isTrustedPushEndpoint } from "@/lib/notifications/push-endpoint";
 
 export async function setNotificationPreference(
   eventGroup: NotificationEventGroup,
@@ -50,6 +51,13 @@ export async function subscribeToPush(subscription: {
   endpoint: string;
   keys: { p256dh: string; auth: string };
 }): Promise<SubscribeResult> {
+  if (!isTrustedPushEndpoint(subscription.endpoint)) {
+    return { error: "Ungültige Push-Registrierung." };
+  }
+  if (!subscription.keys?.p256dh || !subscription.keys?.auth) {
+    return { error: "Ungültige Push-Registrierung." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

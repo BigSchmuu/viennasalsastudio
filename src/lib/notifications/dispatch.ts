@@ -103,6 +103,22 @@ async function trySendEmail(service: ServiceClient, customerId: string, content:
   }
 }
 
+/**
+ * Atomically claims a pending row so exactly one caller ever processes it —
+ * closes the race between the cron drain and an inline dispatch picking up
+ * the same row (BUG-4). Returns null if the row was already claimed.
+ */
+async function claimQueueRow(service: ServiceClient, id: string): Promise<QueueRow | null> {
+  const { data } = await service
+    .from("notification_queue")
+    .update({ status: "processing" })
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("id, customer_id, event_type, payload")
+    .maybeSingle();
+  return (data as QueueRow) ?? null;
+}
+
 export async function processQueueRow(service: ServiceClient, row: QueueRow): Promise<void> {
   const errors: string[] = [];
   let emailStatus: "skipped" | "sent" | "failed" = "skipped";
@@ -157,14 +173,39 @@ type EnqueueInput = {
 };
 
 /**
+ * Enqueues a notification only — fast, no send attempt. Use this for bulk
+ * triggers (e.g. one row per customer in a SEPA collection run) so the
+ * triggering action isn't blocked on N synchronous email/push sends; the
+ * cron drain picks these up.
+ */
+export async function enqueueNotification(input: EnqueueInput): Promise<void> {
+  try {
+    const service = createServiceClient();
+    const { error } = await service.from("notification_queue").insert({
+      customer_id: input.customerId,
+      event_type: input.eventType,
+      payload: input.payload,
+      dedupe_key: input.dedupeKey,
+      status: "pending",
+    });
+    if (error && error.code !== "23505") {
+      console.error("enqueueNotification: insert failed", error);
+    }
+  } catch (err) {
+    console.error("enqueueNotification failed", err);
+  }
+}
+
+/**
  * Enqueues a notification and attempts to dispatch it immediately (best-effort,
- * never throws). Used from admin server actions right after the underlying
- * business action succeeds, so customers get near-real-time delivery.
+ * never throws). Used from admin server actions right after a single-customer
+ * business action succeeds (booking confirm/reject), so that customer gets
+ * near-real-time delivery. Not suitable for bulk triggers — see `enqueueNotification`.
  */
 export async function enqueueAndDispatch(input: EnqueueInput): Promise<void> {
   try {
     const service = createServiceClient();
-    const { data, error } = await service
+    const { data: inserted, error } = await service
       .from("notification_queue")
       .insert({
         customer_id: input.customerId,
@@ -173,7 +214,7 @@ export async function enqueueAndDispatch(input: EnqueueInput): Promise<void> {
         dedupe_key: input.dedupeKey,
         status: "pending",
       })
-      .select("id, customer_id, event_type, payload")
+      .select("id")
       .single();
 
     if (error) {
@@ -181,7 +222,8 @@ export async function enqueueAndDispatch(input: EnqueueInput): Promise<void> {
       return;
     }
 
-    await processQueueRow(service, data as QueueRow);
+    const claimed = await claimQueueRow(service, inserted.id);
+    if (claimed) await processQueueRow(service, claimed);
   } catch (err) {
     console.error("enqueueAndDispatch failed", err);
   }
@@ -191,10 +233,17 @@ function todayInVienna(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
 }
 
+/** Adds days to a YYYY-MM-DD string via UTC arithmetic — independent of the
+ *  executing process's own local timezone (BUG-6: the previous implementation
+ *  mutated a local Date, which was only safe because Vercel runs UTC). */
+function addDaysToDateString(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function tomorrowInVienna(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
+  return addDaysToDateString(todayInVienna(), 1);
 }
 
 /** Enqueues day-before reminders (trial/dropin) and "cancellation is now effective" notices. */
@@ -250,14 +299,19 @@ export async function runDailyChecks(service: ServiceClient): Promise<{ reminder
 export async function drainPendingQueue(service: ServiceClient, limit = 200): Promise<{ processed: number }> {
   const { data: rows } = await service
     .from("notification_queue")
-    .select("id, customer_id, event_type, payload")
+    .select("id")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
     .limit(limit);
 
+  let processed = 0;
   for (const row of rows ?? []) {
-    await processQueueRow(service, row as QueueRow);
+    const claimed = await claimQueueRow(service, row.id);
+    if (claimed) {
+      await processQueueRow(service, claimed);
+      processed += 1;
+    }
   }
 
-  return { processed: rows?.length ?? 0 };
+  return { processed };
 }

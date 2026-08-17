@@ -70,4 +70,25 @@ describe("buildNotificationContent", () => {
     expect(content.pushBody).toContain("05.09.2026");
     expect(content.url).toBe("/rechnungen");
   });
+
+  // BUG-3 regression: course/subscription names are admin-provided text and
+  // must never be embedded raw into the email HTML.
+  it("escapes HTML in course names before embedding them in the email body", () => {
+    const content = buildNotificationContent("buchungsstatus", {
+      courseName: '<img src=x onerror=alert(1)>"Salsa"',
+      newStatus: "confirmed",
+    });
+    expect(content.emailHtml).not.toContain("<img");
+    expect(content.emailHtml).toContain("&lt;img");
+  });
+
+  it("escapes HTML in subscription names before embedding them in the email body", () => {
+    const content = buildNotificationContent("abo_kuendigung", {
+      subscriptionName: "<a href=evil>Klick hier</a>",
+      newStatus: "cancelled",
+      effectiveDate: "2026-09-01",
+    });
+    expect(content.emailHtml).not.toContain("<a href=evil>");
+    expect(content.emailHtml).toContain("&lt;a href=evil&gt;");
+  });
 });
