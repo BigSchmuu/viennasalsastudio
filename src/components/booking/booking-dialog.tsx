@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createBooking } from "@/lib/actions/booking";
+import { joinWaitlist } from "@/lib/actions/waitlist";
 import { desiredPlanOptions, referralSourceOptions, type DesiredPlan } from "@/lib/constants/booking";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -42,6 +43,8 @@ export type BookingDialogCourse = {
   entryDates: string[];
   nextOccurrenceDates: string[];
   hasOpenRegularBooking: boolean;
+  isFull: boolean;
+  isOnWaitlist: boolean;
 };
 
 export function BookingDialog({
@@ -75,11 +78,18 @@ export function BookingDialog({
 
   const dropinPrice = wantsStudentPrice ? dropinPricing.student : dropinPricing.normal;
 
+  const showWaitlistForm =
+    tab === "regular" && course.isFull && !course.isOnWaitlist && !course.hasOpenRegularBooking && hasMandate;
+
   const canSubmit =
     !hasReferralSource && !referralSource
       ? false
       : tab === "regular"
-        ? hasMandate && !course.hasOpenRegularBooking && !!regularDate && !!desiredPlan
+        ? hasMandate &&
+          !course.hasOpenRegularBooking &&
+          !course.isOnWaitlist &&
+          !!regularDate &&
+          !!desiredPlan
         : tab === "trial"
           ? !!trialDate
           : !!dropinDate;
@@ -88,6 +98,28 @@ export function BookingDialog({
     setLoading(true);
     setError(null);
     try {
+      if (showWaitlistForm) {
+        const formData = new FormData();
+        formData.set("course_id", course.id);
+        formData.set("chosen_date", regularDate);
+        formData.set("desired_plan", desiredPlan);
+
+        const result = await joinWaitlist(formData);
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
+        if ("needsMandate" in result) {
+          setError("Bitte hinterlege zuerst ein SEPA-Mandat auf deinem Profil.");
+          return;
+        }
+
+        toast.success("Du wurdest auf die Warteliste eingetragen.");
+        onOpenChange(false);
+        router.refresh();
+        return;
+      }
+
       const formData = new FormData();
       formData.set("course_id", course.id);
       formData.set("type", tab);
@@ -112,6 +144,11 @@ export function BookingDialog({
       }
       if ("needsMandate" in result) {
         setError("Bitte hinterlege zuerst ein SEPA-Mandat auf deinem Profil.");
+        return;
+      }
+      if ("full" in result) {
+        setError("Dieser Kurs ist mittlerweile voll. Bitte trage dich auf die Warteliste ein.");
+        router.refresh();
         return;
       }
 
@@ -156,6 +193,13 @@ export function BookingDialog({
               <Alert>
                 <AlertDescription>Du hast bereits eine offene Anfrage für diesen Kurs.</AlertDescription>
               </Alert>
+            ) : course.isOnWaitlist ? (
+              <Alert>
+                <AlertDescription>
+                  Du stehst bereits auf der Warteliste für diesen Kurs. Du findest deinen Platz auf der
+                  Warteliste in deinem Profil.
+                </AlertDescription>
+              </Alert>
             ) : !hasMandate ? (
               <Alert>
                 <AlertDescription>
@@ -171,6 +215,14 @@ export function BookingDialog({
               </Alert>
             ) : (
               <>
+                {course.isFull && (
+                  <Alert>
+                    <AlertDescription>
+                      Dieser Kurs ist aktuell voll. Trage dich auf die Warteliste ein — du wirst automatisch
+                      benachrichtigt, sobald ein Platz frei wird.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="space-y-1">
                   <Label>Einstiegstermin</Label>
                   <Select value={regularDate} onValueChange={setRegularDate}>
@@ -199,10 +251,12 @@ export function BookingDialog({
                     ))}
                   </RadioGroup>
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="booking-note">Notiz (optional)</Label>
-                  <Textarea id="booking-note" value={note} onChange={(e) => setNote(e.target.value)} />
-                </div>
+                {!course.isFull && (
+                  <div className="space-y-1">
+                    <Label htmlFor="booking-note">Notiz (optional)</Label>
+                    <Textarea id="booking-note" value={note} onChange={(e) => setNote(e.target.value)} />
+                  </div>
+                )}
               </>
             )}
           </TabsContent>
@@ -290,7 +344,7 @@ export function BookingDialog({
 
         <DialogFooter>
           <Button disabled={loading || !canSubmit} onClick={handleSubmit}>
-            {loading ? "Wird gesendet…" : "Absenden"}
+            {loading ? "Wird gesendet…" : showWaitlistForm ? "Auf Warteliste eintragen" : "Absenden"}
           </Button>
         </DialogFooter>
       </DialogContent>

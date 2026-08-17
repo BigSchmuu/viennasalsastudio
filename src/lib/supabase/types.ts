@@ -299,7 +299,9 @@ export type Database = {
           dance_style_id: string | null
           id: string
           level: string | null
+          max_participants: number | null
           name: string
+          price: number | null
           room_id: string
           video_set_id: string | null
         }
@@ -308,7 +310,9 @@ export type Database = {
           dance_style_id?: string | null
           id?: string
           level?: string | null
+          max_participants?: number | null
           name: string
+          price?: number | null
           room_id: string
           video_set_id?: string | null
         }
@@ -317,7 +321,9 @@ export type Database = {
           dance_style_id?: string | null
           id?: string
           level?: string | null
+          max_participants?: number | null
           name?: string
+          price?: number | null
           room_id?: string
           video_set_id?: string | null
         }
@@ -874,6 +880,55 @@ export type Database = {
         }
         Relationships: []
       }
+      waitlist_entries: {
+        Row: {
+          chosen_date: string
+          course_id: string
+          created_at: string
+          customer_id: string
+          desired_plan: string
+          id: string
+        }
+        Insert: {
+          chosen_date: string
+          course_id: string
+          created_at?: string
+          customer_id: string
+          desired_plan: string
+          id?: string
+        }
+        Update: {
+          chosen_date?: string
+          course_id?: string
+          created_at?: string
+          customer_id?: string
+          desired_plan?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waitlist_entries_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waitlist_entries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waitlist_entries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       teacher_directory: {
@@ -904,8 +959,72 @@ export type Database = {
         Args: { p_run_id: string }
         Returns: undefined
       }
+      create_regular_course_booking: {
+        Args: {
+          p_chosen_date: string
+          p_course_id: string
+          p_desired_plan: string
+          p_note: string
+        }
+        Returns: {
+          chosen_date: string
+          course_id: string
+          created_at: string
+          customer_id: string
+          desired_plan: string | null
+          id: string
+          note: string | null
+          price: number | null
+          status: string
+          subscription_id: string | null
+          type: string
+          wants_student_price: boolean | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "course_bookings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_role: { Args: never; Returns: string }
+      join_waitlist: {
+        Args: {
+          p_chosen_date: string
+          p_course_id: string
+          p_desired_plan: string
+        }
+        Returns: {
+          chosen_date: string
+          course_id: string
+          created_at: string
+          customer_id: string
+          desired_plan: string
+          id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "waitlist_entries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      list_my_waitlist: {
+        Args: never
+        Returns: {
+          chosen_date: string
+          course_id: string
+          created_at: string
+          desired_plan: string
+          id: string
+          position: number
+        }[]
+      }
       next_cycle_end: { Args: { p_anchor: string }; Returns: string }
+      promote_waitlist_for_course: {
+        Args: { p_course_id: string }
+        Returns: number
+      }
       self_reactivate_subscription: {
         Args: { p_subscription_id: string }
         Returns: {

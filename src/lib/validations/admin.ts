@@ -37,6 +37,22 @@ export const courseSchema = z.object({
   room_id: z.string().uuid("Bitte einen Raum wählen"),
   video_set_id: z.string().uuid("Ungültiger Videosatz").optional().or(z.literal("")),
   teacher_ids: z.array(z.string().uuid()),
+  max_participants: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || (Number.isInteger(Number(value)) && Number(value) > 0), {
+      message: "Bitte eine gültige maximale Teilnehmerzahl eingeben",
+    })
+    .optional()
+    .or(z.literal("")),
+  price: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || (Number.isFinite(Number(value)) && Number(value) >= 0), {
+      message: "Bitte einen gültigen Preis eingeben",
+    })
+    .optional()
+    .or(z.literal("")),
 });
 export type CourseInput = z.infer<typeof courseSchema>;
 

@@ -11,6 +11,8 @@ export type CourseDetailData = {
   entryDates: string[];
   nextOccurrenceDates: string[];
   hasOpenRegularBooking: boolean;
+  isFull: boolean;
+  isOnWaitlist: boolean;
 };
 
 export function CourseDetailBooking({

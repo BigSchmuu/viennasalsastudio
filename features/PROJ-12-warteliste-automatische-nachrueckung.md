@@ -1,6 +1,6 @@
 # PROJ-12: Warteliste & automatische Nachrückung
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -137,6 +137,28 @@ Die „belegte Kapazität" eines Kurses wird nicht gespeichert, sondern bei jede
 ### D) Abhängigkeiten (Pakete)
 
 Keine neuen Fremdpakete nötig.
+
+## Implementation Notes
+
+**Datenbank (Migrationen):**
+- `courses.max_participants` (nullable int), `courses.price` (nullable numeric) — optionale Felder, kein Migrations-Aufwand für bestehende Kurse.
+- Neue Tabelle `waitlist_entries` (id, course_id, customer_id, desired_plan, chosen_date, created_at) mit RLS: Kunde sieht/löscht nur eigene Einträge, Admin sieht/löscht alle; keine INSERT-Policy (Einträge entstehen ausschließlich über die `join_waitlist`-Funktion).
+- Vier neue `SECURITY DEFINER`-Funktionen (alle mit `anon` explizit per `revoke` gesperrt, nur `authenticated` darf ausführen):
+  - `create_regular_course_booking(...)` — sperrt die Kurszeile (`SELECT ... FOR UPDATE`), prüft Kapazität und Duplikat-Anfrage, legt die offene Buchung an. Dieser Row-Lock ist der Kern der Race-Condition-Sicherheit aus den Akzeptanzkriterien: zwei gleichzeitige Anfragen für den letzten Platz werden durch Postgres serialisiert, nicht nur durch einen Lese-dann-Schreibe-Check auf Anwendungsebene.
+  - `join_waitlist(...)` — validiert erneut, dass der Kurs wirklich voll ist, und verhindert Mehrfacheinträge (aktives Abo/offene Anfrage/bereits auf Warteliste).
+  - `promote_waitlist_for_course(p_course_id)` — rückt in einer Schleife so viele Wartelisten-Einträge nach, wie Kapazität frei ist; erzeugt dabei ganz normale offene `course_bookings`-Zeilen (kein separater Bestätigungspfad).
+  - `list_my_waitlist()` — da RLS Kunden nur die eigenen Wartelisten-Zeilen zeigt, berechnet diese Funktion serverseitig (unter Umgehung von RLS, aber gefiltert auf `auth.uid()`) die exakte Position pro Eintrag, ohne andere Kunden preiszugeben.
+- `promote_waitlist_for_course` wird nach jedem der drei im Spec genannten Auslöser aufgerufen: Abo wird wirksam storniert/gelöscht (`applyPendingChange`, `deleteSubscription`, `updateSubscription`), offene Anfrage abgelehnt (`rejectBooking`), Kapazität erhöht (`updateCourse`).
+
+**Frontend/Server Actions:**
+- `src/lib/actions/waitlist.ts` (Kunde: `joinWaitlist`, `leaveWaitlist`), `src/lib/actions/admin/waitlist.ts` (Admin: `removeWaitlistEntry`).
+- `BookingDialog` erkennt `isFull`/`isOnWaitlist` und zeigt statt des Anmeldeformulars einen Hinweis + „Auf Warteliste eintragen"-Button (weiterhin hinter dem SEPA-Mandat-Gate, wie im Spec gefordert).
+- Kurskatalog, Kursdetailseite: „Ausgebucht"-Badge, wenn Kapazität erreicht.
+- `/admin/kurse`: neue Formularfelder „Max. Teilnehmer"/„Preis", neue Spalte „Kapazität" (belegt/max) und „Warteliste" mit Dialog (Position, Kunde, Abo-Art, Termin, Entfernen-Button).
+- `/admin/buchungen`: Preisfeld im Bestätigungsdialog wird mit dem festen Kurspreis vorausgefüllt, wenn vorhanden.
+- `/profil`: neuer Abschnitt „Meine Warteliste" mit exakter Position und Selbst-Austragen-Button.
+
+**Abweichung von der ursprünglichen Architektur-Planung:** Die Tech-Design-Phase hatte für die reguläre Kursanmeldung ursprünglich einen einfachen sequenziellen Vorab-Check vorgesehen (wie die übrigen Checks in `booking.ts`). Beim Umsetzen wurde das gegen den expliziten Akzeptanzkriterium/Edge-Case „race-condition-sicher zum Zeitpunkt der Anfrage" geprüft und durch die atomare, zeilengesperrte Funktion `create_regular_course_booking` ersetzt — sonst hätten zwei gleichzeitige Anfragen für den letzten Platz beide durchkommen können.
 
 ## QA Test Results
 _To be added by /qa_

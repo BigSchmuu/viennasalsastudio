@@ -8,7 +8,9 @@ export default async function BuchungenPage() {
   const [bookingsRes, pricingRes] = await Promise.all([
     supabase
       .from("course_bookings")
-      .select("id, type, status, chosen_date, desired_plan, note, price, courses(name), profiles(full_name)")
+      .select(
+        "id, type, status, chosen_date, desired_plan, note, price, courses(name, price), profiles(full_name)"
+      )
       .order("created_at", { ascending: false }),
     supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
   ]);
@@ -23,6 +25,7 @@ export default async function BuchungenPage() {
     desiredPlan: b.desired_plan,
     note: b.note,
     price: b.price,
+    coursePrice: b.courses?.price ?? null,
   }));
 
   return (

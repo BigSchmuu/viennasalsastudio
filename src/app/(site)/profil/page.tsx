@@ -6,6 +6,7 @@ import { PaymentMethodSection, type MandateData } from "@/components/payments/pa
 import { MyBookingsSection, type MyBookingRow } from "@/components/booking/my-bookings-section";
 import { MySubscriptionsSection, type MySubscriptionRow } from "@/components/subscription/my-subscriptions-section";
 import { MyInvoicesSection, type MyInvoiceRow } from "@/components/invoices/my-invoices-section";
+import { MyWaitlistSection, type MyWaitlistRow } from "@/components/waitlist/my-waitlist-section";
 import { createClient } from "@/lib/supabase/server";
 import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
 import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
@@ -28,6 +29,7 @@ export default async function ProfilePage() {
     { data: subscriptionRows },
     { data: courseRows },
     { data: invoiceRows },
+    { data: waitlistRows },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, birthdate, gender").eq("id", user.id).single(),
     supabase
@@ -54,6 +56,7 @@ export default async function ProfilePage() {
       .select("id, invoice_number, invoice_date, description, gross_amount, bounced_at")
       .eq("customer_id", user.id)
       .order("invoice_date", { ascending: false }),
+    supabase.rpc("list_my_waitlist"),
   ]);
 
   const mandate: MandateData | null = mandateRow
@@ -103,6 +106,16 @@ export default async function ProfilePage() {
   }));
 
   const courses = courseRows ?? [];
+  const courseNameById = new Map(courses.map((c) => [c.id, c.name]));
+
+  const waitlistEntries: MyWaitlistRow[] = (waitlistRows ?? []).map((w) => ({
+    id: w.id,
+    courseId: w.course_id,
+    courseName: courseNameById.get(w.course_id) ?? "—",
+    desiredPlan: w.desired_plan,
+    chosenDate: w.chosen_date,
+    position: w.position,
+  }));
 
   const invoices: MyInvoiceRow[] = (invoiceRows ?? []).map((i) => ({
     id: i.id,
@@ -163,6 +176,16 @@ export default async function ProfilePage() {
           </CardHeader>
           <CardContent>
             <MyBookingsSection bookings={bookings} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading text-lg">Meine Warteliste</CardTitle>
+            <CardDescription>Kurse, für die du auf einen freien Platz wartest</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MyWaitlistSection entries={waitlistEntries} />
           </CardContent>
         </Card>
 

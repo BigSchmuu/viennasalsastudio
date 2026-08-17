@@ -35,6 +35,7 @@ export type AdminBookingRow = {
   desiredPlan: string | null;
   note: string | null;
   price: number | null;
+  coursePrice: number | null;
 };
 
 export function BookingManager({ bookings: initialBookings }: { bookings: AdminBookingRow[] }) {
@@ -150,7 +151,7 @@ export function BookingManager({ bookings: initialBookings }: { bookings: AdminB
                         if (booking.type === "regular") {
                           setConfirmTarget(booking);
                           setSubName(booking.courseName);
-                          setSubPrice("");
+                          setSubPrice(booking.coursePrice != null ? String(booking.coursePrice) : "");
                           setError(null);
                         } else {
                           handleConfirmDropin(booking.id);

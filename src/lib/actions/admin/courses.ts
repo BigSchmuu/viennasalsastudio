@@ -13,6 +13,8 @@ function parseCourseFormData(formData: FormData) {
     room_id: formData.get("room_id"),
     video_set_id: formData.get("video_set_id"),
     teacher_ids: formData.getAll("teacher_ids"),
+    max_participants: formData.get("max_participants"),
+    price: formData.get("price"),
   });
 }
 
@@ -60,6 +62,8 @@ export async function createCourse(formData: FormData): Promise<ActionResult> {
       level: parsed.data.level,
       room_id: parsed.data.room_id,
       video_set_id: parsed.data.video_set_id || null,
+      max_participants: parsed.data.max_participants ? Number(parsed.data.max_participants) : null,
+      price: parsed.data.price ? Number(parsed.data.price) : null,
     })
     .select("id")
     .single();
@@ -92,6 +96,8 @@ export async function updateCourse(id: string, formData: FormData): Promise<Acti
       level: parsed.data.level,
       room_id: parsed.data.room_id,
       video_set_id: parsed.data.video_set_id || null,
+      max_participants: parsed.data.max_participants ? Number(parsed.data.max_participants) : null,
+      price: parsed.data.price ? Number(parsed.data.price) : null,
     })
     .eq("id", id);
 
@@ -104,7 +110,17 @@ export async function updateCourse(id: string, formData: FormData): Promise<Acti
     return { error: teacherResult.error };
   }
 
+  // A capacity increase may free up spots — re-check the waitlist for this
+  // course. Harmless no-op if capacity wasn't raised or the waitlist is empty.
+  const { error: promoteError } = await supabase.rpc("promote_waitlist_for_course", {
+    p_course_id: id,
+  });
+  if (promoteError) {
+    console.error("promote_waitlist_for_course failed", promoteError);
+  }
+
   revalidatePath("/admin/kurse");
+  revalidatePath("/admin/buchungen");
   return { success: true };
 }
 

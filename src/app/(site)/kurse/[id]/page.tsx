@@ -18,20 +18,30 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: course }, { data: pricing }] = await Promise.all([
+  const [{ data: course }, { data: pricing }, activeSubsRes, openBookingsRes] = await Promise.all([
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date)"
+        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants"
       )
       .eq("id", id)
       .single(),
     supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
+    supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("course_id", id).eq("status", "active"),
+    supabase
+      .from("course_bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("course_id", id)
+      .eq("type", "regular")
+      .eq("status", "open"),
   ]);
 
   if (!course) {
     notFound();
   }
+
+  const occupiedCount = (activeSubsRes.count ?? 0) + (openBookingsRes.count ?? 0);
+  const isFull = course.max_participants !== null && occupiedCount >= course.max_participants;
 
   const { data: teachersData } = await supabase.from("teacher_directory").select("id, full_name");
   const teacherNameById = new Map((teachersData ?? []).map((t) => [t.id, t.full_name || "Unbenannter Lehrer"]));
@@ -48,9 +58,10 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   let hasReferralSource = false;
   let hasOpenRegularBooking = false;
   let hasVideoAccess = false;
+  let isOnWaitlist = false;
 
   if (user) {
-    const [mandateRes, profileRes, bookingRes, subscriptionsRes] = await Promise.all([
+    const [mandateRes, profileRes, bookingRes, subscriptionsRes, waitlistRes] = await Promise.all([
       supabase.from("sepa_mandates").select("id").eq("customer_id", user.id).is("revoked_at", null).maybeSingle(),
       supabase.from("profiles").select("referral_source").eq("id", user.id).single(),
       supabase
@@ -66,11 +77,18 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
         .select("id, course_id")
         .eq("customer_id", user.id)
         .eq("status", "active"),
+      supabase
+        .from("waitlist_entries")
+        .select("id")
+        .eq("customer_id", user.id)
+        .eq("course_id", id)
+        .maybeSingle(),
     ]);
     hasMandate = !!mandateRes.data;
     hasReferralSource = !!profileRes.data?.referral_source;
     hasOpenRegularBooking = !!bookingRes.data;
     hasVideoAccess = (subscriptionsRes.data ?? []).some((s) => s.course_id === id || s.course_id === null);
+    isOnWaitlist = !!waitlistRes.data;
   }
 
   // Server-side gate: only fetch lesson videos at all if the customer is
@@ -98,6 +116,8 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     entryDates: (course.course_entry_dates ?? []).map((d) => d.entry_date).sort(),
     nextOccurrenceDates,
     hasOpenRegularBooking,
+    isFull,
+    isOnWaitlist,
   };
 
   return (
@@ -113,6 +133,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
           <Badge variant="outline" style={levelBadgeStyle(course.level)}>
             {levelLabel(course.level)}
           </Badge>
+          {isFull && <Badge variant="destructive">Ausgebucht</Badge>}
         </div>
         <p className="text-muted-foreground">{course.rooms?.locations?.name ?? "—"}</p>
         <p className="text-muted-foreground">

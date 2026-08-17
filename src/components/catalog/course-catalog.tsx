@@ -31,6 +31,8 @@ export type CatalogCourseRow = {
   nextOccurrenceDates: string[];
   entryDates: string[];
   hasOpenRegularBooking: boolean;
+  isFull: boolean;
+  isOnWaitlist: boolean;
 };
 
 export type SimpleOption = { id: string; name: string };
@@ -174,6 +176,7 @@ export function CourseCatalog({
                     <Badge variant="outline" style={levelBadgeStyle(course.level)}>
                       {levelLabel(course.level)}
                     </Badge>
+                    {course.isFull && <Badge variant="destructive">Ausgebucht</Badge>}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {course.roomName ? `${course.locationName} · ${course.roomName}` : course.locationName}

@@ -54,6 +54,7 @@ import {
   CourseEntryDatesSection,
   type EntryDateData,
 } from "@/components/admin/courses/course-entry-dates-section";
+import { CourseWaitlistDialog, type WaitlistEntryRow } from "@/components/admin/courses/course-waitlist-dialog";
 
 export type CourseRow = {
   id: string;
@@ -72,6 +73,10 @@ export type CourseRow = {
   schedule: ScheduleData | null;
   pauses: PauseData[];
   entryDates: EntryDateData[];
+  maxParticipants: number | null;
+  price: number | null;
+  occupiedCount: number;
+  waitlistEntries: WaitlistEntryRow[];
 };
 
 export type SimpleOption = { id: string; name: string };
@@ -98,6 +103,7 @@ export function CourseManager({
   const [editing, setEditing] = useState<CourseRow | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<CourseRow | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [waitlistTarget, setWaitlistTarget] = useState<CourseRow | null>(null);
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -141,6 +147,8 @@ export function CourseManager({
               <TableHead>Standort / Raum</TableHead>
               <TableHead>Lehrer</TableHead>
               <TableHead>Videosatz</TableHead>
+              <TableHead>Kapazität</TableHead>
+              <TableHead>Warteliste</TableHead>
               <TableHead className="text-right">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
@@ -159,6 +167,20 @@ export function CourseManager({
                 </TableCell>
                 <TableCell>{course.teacherNames.join(", ") || "—"}</TableCell>
                 <TableCell>{course.videoSetName || "—"}</TableCell>
+                <TableCell>
+                  {course.maxParticipants === null
+                    ? "Unbegrenzt"
+                    : `${course.occupiedCount} / ${course.maxParticipants}`}
+                </TableCell>
+                <TableCell>
+                  {course.waitlistEntries.length === 0 ? (
+                    "—"
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => setWaitlistTarget(course)}>
+                      {course.waitlistEntries.length} wartend
+                    </Button>
+                  )}
+                </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button variant="outline" size="sm" onClick={() => setEditing(course)}>
                     Bearbeiten
@@ -219,6 +241,13 @@ export function CourseManager({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CourseWaitlistDialog
+        open={waitlistTarget !== null}
+        onOpenChange={(open) => !open && setWaitlistTarget(null)}
+        courseName={waitlistTarget?.name ?? ""}
+        entries={waitlistTarget?.waitlistEntries ?? []}
+      />
     </div>
   );
 }
@@ -255,6 +284,8 @@ function CourseFormDialog({
       room_id: course?.roomId ?? "",
       video_set_id: course?.videoSetId ?? "",
       teacher_ids: course?.teacherIds ?? [],
+      max_participants: course?.maxParticipants != null ? String(course.maxParticipants) : "",
+      price: course?.price != null ? String(course.price) : "",
     },
   });
 
@@ -270,6 +301,8 @@ function CourseFormDialog({
       formData.set("level", values.level);
       formData.set("room_id", values.room_id);
       formData.set("video_set_id", values.video_set_id ?? "");
+      formData.set("max_participants", values.max_participants ?? "");
+      formData.set("price", values.price ?? "");
       (values.teacher_ids ?? []).forEach((id) => formData.append("teacher_ids", id));
 
       const result = course
@@ -459,6 +492,34 @@ function CourseFormDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="max_participants"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Max. Teilnehmer (optional, leer = unbegrenzt)</FormLabel>
+                  <FormControl>
+                    <Input type="number" min="1" step="1" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Preis pro Monat in € (optional, wird beim Bestätigen vorausgefüllt)</FormLabel>
+                  <FormControl>
+                    <Input type="number" min="0" step="0.01" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

@@ -93,7 +93,7 @@ export async function rejectBooking(bookingId: string): Promise<ActionResult> {
 
   const { data: booking } = await supabase
     .from("course_bookings")
-    .select("id, status")
+    .select("id, status, type, course_id")
     .eq("id", bookingId)
     .single();
 
@@ -108,6 +108,15 @@ export async function rejectBooking(bookingId: string): Promise<ActionResult> {
 
   if (error) {
     return { error: "Buchung konnte nicht abgelehnt werden." };
+  }
+
+  if (booking.type === "regular" && booking.course_id) {
+    const { error: promoteError } = await supabase.rpc("promote_waitlist_for_course", {
+      p_course_id: booking.course_id,
+    });
+    if (promoteError) {
+      console.error("promote_waitlist_for_course failed", promoteError);
+    }
   }
 
   revalidatePath("/admin/buchungen");

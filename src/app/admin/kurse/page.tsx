@@ -11,11 +11,21 @@ import type { TeacherOption } from "@/components/admin/courses/teacher-multi-sel
 export default async function CoursesPage() {
   const supabase = await createClient();
 
-  const [coursesRes, danceStylesRes, locationsRes, roomsRes, teachersRes, videoSetsRes] = await Promise.all([
+  const [
+    coursesRes,
+    danceStylesRes,
+    locationsRes,
+    roomsRes,
+    teachersRes,
+    videoSetsRes,
+    activeSubsRes,
+    openBookingsRes,
+    waitlistRes,
+  ] = await Promise.all([
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date)), course_entry_dates(id, entry_date)"
+        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date)), course_entry_dates(id, entry_date), max_participants, price"
       )
       .order("created_at", { ascending: true }),
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
@@ -23,6 +33,12 @@ export default async function CoursesPage() {
     supabase.from("rooms").select("id, name, location_id").order("name", { ascending: true }),
     supabase.from("profiles").select("id, full_name").eq("role", "teacher"),
     supabase.from("video_sets").select("id, name, level").order("name", { ascending: true }),
+    supabase.from("subscriptions").select("course_id").eq("status", "active"),
+    supabase.from("course_bookings").select("course_id").eq("type", "regular").eq("status", "open"),
+    supabase
+      .from("waitlist_entries")
+      .select("id, course_id, desired_plan, chosen_date, created_at, profiles(full_name)")
+      .order("created_at", { ascending: true }),
   ]);
 
   const danceStyles: SimpleOption[] = danceStylesRes.data ?? [];
@@ -37,6 +53,29 @@ export default async function CoursesPage() {
     label: t.full_name || "Unbenannter Lehrer",
   }));
   const videoSets: VideoSetOption[] = videoSetsRes.data ?? [];
+
+  const occupiedByCourse = new Map<string, number>();
+  for (const s of activeSubsRes.data ?? []) {
+    if (!s.course_id) continue;
+    occupiedByCourse.set(s.course_id, (occupiedByCourse.get(s.course_id) ?? 0) + 1);
+  }
+  for (const b of openBookingsRes.data ?? []) {
+    if (!b.course_id) continue;
+    occupiedByCourse.set(b.course_id, (occupiedByCourse.get(b.course_id) ?? 0) + 1);
+  }
+
+  const waitlistByCourse = new Map<string, CourseRow["waitlistEntries"]>();
+  for (const w of waitlistRes.data ?? []) {
+    const entries = waitlistByCourse.get(w.course_id) ?? [];
+    entries.push({
+      id: w.id,
+      customerName: w.profiles?.full_name || "Unbenannter Kunde",
+      desiredPlan: w.desired_plan,
+      chosenDate: w.chosen_date,
+      createdAt: w.created_at,
+    });
+    waitlistByCourse.set(w.course_id, entries);
+  }
 
   const courses: CourseRow[] = (coursesRes.data ?? []).map((c) => ({
     id: c.id,
@@ -67,6 +106,10 @@ export default async function CoursesPage() {
     entryDates: (c.course_entry_dates ?? [])
       .map((d) => ({ id: d.id, entryDate: d.entry_date }))
       .sort((a, b) => a.entryDate.localeCompare(b.entryDate)),
+    maxParticipants: c.max_participants,
+    price: c.price,
+    occupiedCount: occupiedByCourse.get(c.id) ?? 0,
+    waitlistEntries: waitlistByCourse.get(c.id) ?? [],
   }));
 
   return (

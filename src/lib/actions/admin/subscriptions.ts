@@ -52,13 +52,21 @@ export async function updateSubscription(
   }
 
   const { supabase } = await requireAdmin();
+
+  const { data: before } = await supabase
+    .from("subscriptions")
+    .select("status, course_id")
+    .eq("id", id)
+    .single();
+
+  const newCourseId = parsed.data.course_id || null;
   const { error } = await supabase
     .from("subscriptions")
     .update({
       name: parsed.data.name,
       price: parsed.data.price,
       status: parsed.data.status,
-      course_id: parsed.data.course_id || null,
+      course_id: newCourseId,
       cycle_anchor_date: parsed.data.cycle_anchor_date,
     })
     .eq("id", id);
@@ -67,7 +75,23 @@ export async function updateSubscription(
     return { error: "Abo konnte nicht gespeichert werden." };
   }
 
+  // Freed a slot in the old course if it was active there and is no longer
+  // (either deactivated or moved to a different course).
+  if (
+    before?.status === "active" &&
+    before.course_id &&
+    (parsed.data.status !== "active" || newCourseId !== before.course_id)
+  ) {
+    const { error: promoteError } = await supabase.rpc("promote_waitlist_for_course", {
+      p_course_id: before.course_id,
+    });
+    if (promoteError) {
+      console.error("promote_waitlist_for_course failed", promoteError);
+    }
+  }
+
   revalidatePath(`/admin/kunden/${customerId}`);
+  revalidatePath("/admin/buchungen");
   return { success: true };
 }
 
@@ -76,7 +100,7 @@ export async function applyPendingChange(id: string, customerId: string): Promis
 
   const { data: subscription } = await supabase
     .from("subscriptions")
-    .select("id, pending_status, pending_effective_date")
+    .select("id, status, course_id, pending_status, pending_effective_date")
     .eq("id", id)
     .single();
 
@@ -100,18 +124,45 @@ export async function applyPendingChange(id: string, customerId: string): Promis
     return { error: "Änderung konnte nicht übernommen werden." };
   }
 
+  if (subscription.status === "active" && subscription.pending_status !== "active" && subscription.course_id) {
+    const { error: promoteError } = await supabase.rpc("promote_waitlist_for_course", {
+      p_course_id: subscription.course_id,
+    });
+    if (promoteError) {
+      console.error("promote_waitlist_for_course failed", promoteError);
+    }
+  }
+
   revalidatePath(`/admin/kunden/${customerId}`);
+  revalidatePath("/admin/buchungen");
   return { success: true };
 }
 
 export async function deleteSubscription(id: string, customerId: string): Promise<ActionResult> {
   const { supabase } = await requireAdmin();
+
+  const { data: before } = await supabase
+    .from("subscriptions")
+    .select("status, course_id")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase.from("subscriptions").delete().eq("id", id);
 
   if (error) {
     return { error: "Abo konnte nicht gelöscht werden." };
   }
 
+  if (before?.status === "active" && before.course_id) {
+    const { error: promoteError } = await supabase.rpc("promote_waitlist_for_course", {
+      p_course_id: before.course_id,
+    });
+    if (promoteError) {
+      console.error("promote_waitlist_for_course failed", promoteError);
+    }
+  }
+
   revalidatePath(`/admin/kunden/${customerId}`);
+  revalidatePath("/admin/buchungen");
   return { success: true };
 }

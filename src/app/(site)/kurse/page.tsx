@@ -11,18 +11,31 @@ export default async function KurskatalogPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [coursesRes, danceStylesRes, locationsRes, teachersRes, pricingRes] = await Promise.all([
-    supabase
-      .from("courses")
-      .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date)"
-      )
-      .order("created_at", { ascending: true }),
-    supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
-    supabase.from("locations").select("id, name").order("name", { ascending: true }),
-    supabase.from("teacher_directory").select("id, full_name"),
-    supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
-  ]);
+  const [coursesRes, danceStylesRes, locationsRes, teachersRes, pricingRes, activeSubsRes, openBookingsRes] =
+    await Promise.all([
+      supabase
+        .from("courses")
+        .select(
+          "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants"
+        )
+        .order("created_at", { ascending: true }),
+      supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
+      supabase.from("locations").select("id, name").order("name", { ascending: true }),
+      supabase.from("teacher_directory").select("id, full_name"),
+      supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
+      supabase.from("subscriptions").select("course_id").eq("status", "active"),
+      supabase.from("course_bookings").select("course_id").eq("type", "regular").eq("status", "open"),
+    ]);
+
+  const occupiedByCourse = new Map<string, number>();
+  for (const s of activeSubsRes.data ?? []) {
+    if (!s.course_id) continue;
+    occupiedByCourse.set(s.course_id, (occupiedByCourse.get(s.course_id) ?? 0) + 1);
+  }
+  for (const b of openBookingsRes.data ?? []) {
+    if (!b.course_id) continue;
+    occupiedByCourse.set(b.course_id, (occupiedByCourse.get(b.course_id) ?? 0) + 1);
+  }
 
   const danceStyles: SimpleOption[] = danceStylesRes.data ?? [];
   const locations: SimpleOption[] = locationsRes.data ?? [];
@@ -33,9 +46,10 @@ export default async function KurskatalogPage() {
   let hasMandate = false;
   let hasReferralSource = false;
   let openRegularCourseIds = new Set<string>();
+  let waitlistCourseIds = new Set<string>();
 
   if (user) {
-    const [mandateRes, profileRes, bookingsRes] = await Promise.all([
+    const [mandateRes, profileRes, bookingsRes, waitlistRes] = await Promise.all([
       supabase.from("sepa_mandates").select("id").eq("customer_id", user.id).is("revoked_at", null).maybeSingle(),
       supabase.from("profiles").select("referral_source").eq("id", user.id).single(),
       supabase
@@ -44,10 +58,12 @@ export default async function KurskatalogPage() {
         .eq("customer_id", user.id)
         .eq("type", "regular")
         .eq("status", "open"),
+      supabase.from("waitlist_entries").select("course_id").eq("customer_id", user.id),
     ]);
     hasMandate = !!mandateRes.data;
     hasReferralSource = !!profileRes.data?.referral_source;
     openRegularCourseIds = new Set((bookingsRes.data ?? []).map((b) => b.course_id));
+    waitlistCourseIds = new Set((waitlistRes.data ?? []).map((w) => w.course_id));
   }
 
   const courses: CatalogCourseRow[] = (coursesRes.data ?? []).map((c) => {
@@ -74,6 +90,8 @@ export default async function KurskatalogPage() {
       nextOccurrenceDates: nextDates,
       entryDates: (c.course_entry_dates ?? []).map((d) => d.entry_date).sort(),
       hasOpenRegularBooking: openRegularCourseIds.has(c.id),
+      isFull: c.max_participants !== null && (occupiedByCourse.get(c.id) ?? 0) >= c.max_participants,
+      isOnWaitlist: waitlistCourseIds.has(c.id),
     };
   });
 

@@ -18,7 +18,11 @@ type BookingRow = {
   wantsStudentPrice: boolean | null;
 };
 
-type CreateBookingResult = { error: string } | { needsMandate: true } | { success: true; booking: BookingRow };
+type CreateBookingResult =
+  | { error: string }
+  | { needsMandate: true }
+  | { full: true }
+  | { success: true; booking: BookingRow };
 
 const UPCOMING_OCCURRENCES_WINDOW = 8;
 
@@ -90,22 +94,56 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       return { error: "Ungültiger Einstiegstermin." };
     }
 
-    const { data: existingOpen } = await supabase
-      .from("course_bookings")
-      .select("id")
-      .eq("customer_id", user.id)
-      .eq("course_id", parsed.data.course_id)
-      .eq("type", "regular")
-      .eq("status", "open")
-      .maybeSingle();
-    if (existingOpen) {
-      return { error: "Du hast bereits eine offene Anfrage für diesen Kurs." };
+    // Capacity check + insert happen atomically in one server-side function
+    // (row-locked on the course) so two simultaneous requests can't both
+    // claim the last free spot.
+    const { data: booking, error } = await supabase.rpc("create_regular_course_booking", {
+      p_course_id: parsed.data.course_id,
+      p_desired_plan: parsed.data.desired_plan ?? "",
+      p_chosen_date: parsed.data.chosen_date,
+      p_note: parsed.data.note ?? "",
+    });
+
+    if (error) {
+      if (error.message.includes("already requested")) {
+        return { error: "Du hast bereits eine offene Anfrage für diesen Kurs." };
+      }
+      if (error.message.includes("course is full")) {
+        return { full: true };
+      }
+      return { error: "Buchung konnte nicht gespeichert werden." };
     }
-  } else {
-    const validDates = await getValidOccurrenceDates(supabase, parsed.data.course_id);
-    if (!validDates.includes(parsed.data.chosen_date)) {
-      return { error: "Ungültiger Termin." };
+    if (!booking) {
+      return { error: "Buchung konnte nicht gespeichert werden." };
     }
+
+    if (!profile?.referral_source && parsed.data.referral_source) {
+      await supabase
+        .from("profiles")
+        .update({ referral_source: parsed.data.referral_source })
+        .eq("id", user.id);
+    }
+
+    revalidatePath("/kurse");
+    revalidatePath("/profil");
+    return {
+      success: true,
+      booking: {
+        id: booking.id,
+        type: booking.type,
+        status: booking.status,
+        chosenDate: booking.chosen_date,
+        desiredPlan: booking.desired_plan,
+        note: booking.note,
+        price: booking.price,
+        wantsStudentPrice: booking.wants_student_price,
+      },
+    };
+  }
+
+  const validDates = await getValidOccurrenceDates(supabase, parsed.data.course_id);
+  if (!validDates.includes(parsed.data.chosen_date)) {
+    return { error: "Ungültiger Termin." };
   }
 
   let price: number | null = null;
@@ -126,10 +164,8 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       customer_id: user.id,
       course_id: parsed.data.course_id,
       type: parsed.data.type,
-      desired_plan: parsed.data.type === "regular" ? parsed.data.desired_plan : null,
       chosen_date: parsed.data.chosen_date,
       status,
-      note: parsed.data.type === "regular" && parsed.data.note ? parsed.data.note : null,
       wants_student_price: parsed.data.type === "dropin" ? parsed.data.wants_student_price ?? false : null,
       price,
     })
