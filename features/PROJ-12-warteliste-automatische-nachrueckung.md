@@ -76,12 +76,67 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Kapazitätsprüfung und Nachrück-Logik laufen als eine einzige, geschützte serverseitige Funktion statt mehrerer Einzelschritte | Verhindert Race Conditions bei gleichzeitigen Anfragen (zwei Kunden auf den letzten Platz, doppeltes Nachrücken); gleiches, bereits bewährtes Muster wie die Rechnungsnummern-Vergabe aus PROJ-10 | 2026-08-17 |
+| Nachrückung erzeugt eine ganz normale offene Buchungsanfrage statt einer eigenen Bestätigungs-Logik | Nutzt den bestehenden, bereits getesteten PROJ-8-Bestätigungsablauf unverändert weiter — kein zweiter Code-Pfad zum Anlegen von Abos | 2026-08-17 |
+| Wartelisten-Position wird bei jeder Anzeige live berechnet, nicht gespeichert | Bleibt automatisch korrekt bei Austragungen/Nachrückungen, ohne dass mehrere gespeicherte Zahlen synchron gehalten werden müssten | 2026-08-17 |
+| Kapazität und Preis sind rein optionale, neue Felder auf der bestehenden Kurstabelle | Keine Migration bestehender Kurse nötig; Verhalten bleibt exakt wie bisher, bis Admin die Felder aktiv setzt | 2026-08-17 |
+| Wartelisten-Übersicht als Dialog auf der bestehenden /admin/kurse-Seite statt einer neuen Kurs-Detailseite | Kurse werden aktuell ausschließlich über Dialoge verwaltet (kein Kurs-Detailseiten-Muster vorhanden, anders als z. B. bei Videosätzen); konsistent mit dem Rest der Seite | 2026-08-17 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Komponentenstruktur
+
+```
+/admin/kurse (bestehend, PROJ-3)
+└── Kurstabelle
+    ├── Anlegen-/Bearbeiten-Dialog bekommt zwei neue, optionale Felder:
+    │   „Max. Teilnehmer" und „Preis"
+    └── Neue Spalte „Warteliste" pro Kurs (z. B. „Warteliste (3)")
+        └── Klick öffnet einen neuen Dialog: wartende Kunden mit
+            Position, Name, Eintragungsdatum, „Entfernen"-Button je Zeile
+
+/admin/buchungen (bestehend, PROJ-8)
+└── Bestätigungsdialog für offene reguläre Anfragen
+    └── Preisfeld ist vorausgefüllt, wenn der Kurs einen festen Preis
+        hat — bleibt weiterhin frei änderbar; gilt für alle offenen
+        Anfragen, nicht nur für nachgerückte
+
+Buchungsdialog auf /kurse und /kurse/[id] (bestehend, PROJ-5/8/11)
+└── Tab „Anmeldung"
+    ├── Kurs ist voll → statt Formular: Hinweis „Kurs ist aktuell
+    │   voll" + Button „Auf Warteliste eintragen"
+    └── Kein Mandat hinterlegt → bestehender Hinweis „Mandat zuerst
+        hinterlegen" (gilt jetzt auch fürs Eintragen auf die Warteliste)
+
+/profil (bestehend, PROJ-2/9/10/11)
+└── Neuer Abschnitt „Meine Warteliste"
+    ├── Kurs + genaue Position pro Eintrag
+    └── „Austragen"-Button je Eintrag
+```
+
+### B) Datenmodell (fachlich)
+
+**Kurs** (bestehend) bekommt zwei neue, optionale Informationen:
+- Maximale Teilnehmerzahl — eine Zahl, leer lassbar (kein Limit → Warteliste greift nie)
+- Fester Preis — ein Betrag, leer lassbar (dient nur der Vorbefüllung im Bestätigungsdialog, ändert nichts an der weiterhin möglichen manuellen Preiseingabe)
+
+**Wartelisten-Eintrag** (neu): Verweis auf den Kunden, Verweis auf den Kurs, gewünschte Abo-Art (Einzelkurs/Flatrate — dieselbe Auswahl wie bei einer normalen Anmeldung), Eintragungszeitpunkt (bestimmt die Position: je früher, desto weiter vorne). Kein eigenes Status-Feld nötig — ein Eintrag existiert, solange der Kunde wartet, und wird beim Nachrücken direkt in eine normale offene Buchungsanfrage umgewandelt, wodurch er aus der Warteliste verschwindet.
+
+Die „belegte Kapazität" eines Kurses wird nicht gespeichert, sondern bei jeder Prüfung frisch berechnet: Anzahl aktiver Abos + Anzahl offener regulärer Anfragen für diesen Kurs.
+
+### C) Tech-Entscheidungen (Begründung)
+
+- **Serverseitige, geschützte Kapazitätsprüfung + Nachrück-Logik:** Verhindert, dass zwei gleichzeitige Anfragen sich denselben letzten Platz streitig machen, oder dass ein Wartelisten-Eintrag doppelt nachrückt.
+- **Nachrückung = normale offene Buchungsanfrage:** Kein zweiter Bestätigungs-Mechanismus, Admin sieht und bearbeitet nachgerückte Anfragen genau wie jede andere.
+- **Live berechnete Position statt gespeicherter Zahl:** Immer korrekt, ohne Synchronisationsaufwand.
+- **Kapazität/Preis als optionale Felder:** Bestehende Kurse und der bestehende Buchungsablauf bleiben unverändert, bis Admin aktiv einen Wert einträgt.
+
+### D) Abhängigkeiten (Pakete)
+
+Keine neuen Fremdpakete nötig.
 
 ## QA Test Results
 _To be added by /qa_
