@@ -1,6 +1,6 @@
 # PROJ-12: Warteliste & automatische Nachrückung
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -265,4 +265,27 @@ Ran the full existing Playwright suite as a baseline before making any further c
 - **Recommendation:** Ready for `/deploy`.
 
 ## Deployment
-_To be added by /deploy_
+
+**Production URL:** https://viennasalsastudio.vercel.app
+**Deployed:** 2026-08-17
+**Commits:** `188ffa3` (frontend) → `3f03d1b` (QA) → `7cc33ee` (bug fixes) → `f6fe3f8` (unrelated ESLint tooling chore, bundled into this deploy)
+
+### Pre-Deployment Checks
+- `npm run build`: clean.
+- `npm run lint`: clean — **fixed as part of this deploy**. `next lint` no longer exists in Next.js 16; the project's legacy `.eslintrc.json` was replaced with a flat `eslint.config.mjs` (using `eslint-config-next`'s native flat export), and the `lint` script now runs `eslint .` directly. Running it for the first time surfaced 10 pre-existing `react/no-unescaped-entities` errors across 8 admin manager components (predating PROJ-12, same copy-pasted delete-confirmation pattern everywhere) — fixed alongside the config migration since they were trivial and blocking the checklist. `src/components/ui/**` (vendored shadcn/ui) is now excluded from linting, matching this project's "never hand-edit these" convention.
+- QA: Approved, 0 Critical/High bugs remaining (see QA Test Results above).
+- No new environment variables needed for this feature.
+- No secrets committed.
+- DB migrations: all 5 applied directly to the production Supabase project during `/backend`+`/qa` (`proj12_waitlist_capacity_and_price`, `proj12_list_my_waitlist`, `proj12_atomic_regular_booking`, `proj12_fix_public_occupancy_and_mandate_check`, plus the earlier advisor-verified functions) — no separate migration step needed at deploy time.
+- All code committed and pushed to `main`.
+
+### Deploy
+- Pushed to `main` → Vercel auto-deploy fired correctly this time (previous features in this project saw the webhook intermittently not fire — see PROJ-10/PWA deploy notes — but this push triggered a build automatically, confirmed via the GitHub commit status API going `pending` → `success`).
+
+### Post-Deployment Verification
+- Production loads: `/`, `/kurse`, `/kurse/[id]`, `/stundenplan`, `/login` all return 200; `/profil`, `/admin` correctly redirect (307) when logged out.
+- **BUG-1 fix confirmed live, anonymously, in production:** `/kurse` and the E2E12 fixture course's detail page both show the "Ausgebucht" badge for a genuinely full course, verified via an unauthenticated `curl` against the live site (previously this only worked for the admin or the exact occupying customer — see QA Test Results).
+- No new environment variables, no auth/DB connection changes — verified no new failure surface introduced there.
+
+### Production-Ready Essentials
+Already covered by earlier deployments in this project (error tracking, security headers, etc. — see PROJ-1's deployment notes); nothing new required for this feature.
