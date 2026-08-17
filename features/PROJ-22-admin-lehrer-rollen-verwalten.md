@@ -121,6 +121,29 @@ Neu ist lediglich der **Ablauf**, wie ein Profil entsteht bzw. seine Rolle wechs
 
 Keine neuen Fremdpakete nötig — die Einladungsfunktion ist Teil des bereits installierten Supabase-Pakets, wird hier nur erstmals mit einer erhöhten Berechtigung statt der öffentlichen Standard-Berechtigung verwendet. Diese Berechtigung (ein zusätzlicher geheimer Schlüssel) muss einmalig in der Serverkonfiguration (lokal und in Vercel) hinterlegt werden, bevor `/backend` beginnt.
 
+## Implementation Notes (Frontend/Backend)
+
+Frontend und Backend wurden zusammen in einem Durchgang umgesetzt (wie bei PROJ-7/8/9) — keine DB-Migration nötig, da `profiles.role` bereits `'teacher'` unterstützte.
+
+### Neue Dateien
+- `src/lib/supabase/admin.ts` — Server-only Supabase-Client mit dem Service-Role-Key (`createAdminClient()`), umgeht RLS vollständig; ausschließlich für die Einladungsfunktion genutzt, nirgends sonst importiert
+- `src/lib/actions/admin/teachers.ts` — `inviteTeacher`, `promoteToTeacher`, `demoteToCustomer` (jeweils `requireAdmin()`-geschützt; Promote/Demote sind einfache `UPDATE profiles SET role = ...` mit zusätzlichem `.eq("role", ...)`-Sicherheitscheck gegen falsche Zustandsübergänge)
+- `src/components/admin/teachers/teacher-manager.tsx` — Hauptkomponente inkl. Einladungs-Dialog (react-hook-form + Zod) und Kundensuche-Dialog (gleiches Suchmuster wie `customer-list.tsx`); lokaler State wird per `useEffect` mit den Server-Props synchronisiert (siehe PROJ-9-Erkenntnis zu `useState(initialProp)`)
+- `src/app/admin/lehrer/page.tsx` — lädt Lehrer, Kunden (für die Beförderungssuche) und `course_teachers`-Zuordnungen (für die Degradierungs-Warnung) server-seitig
+- `src/lib/validations/admin.ts` — neues `teacherInviteSchema`
+- `src/components/admin/admin-nav.tsx` — neuer Nav-Punkt „Lehrer"
+
+### Neue Umgebungsvariable
+`SUPABASE_SERVICE_ROLE_KEY` — in `.env.local.example` dokumentiert, vom Nutzer lokal aus dem Supabase Dashboard eingetragen. Muss vor `/deploy` auch in Vercel gesetzt werden.
+
+### Beim Live-Test gefundene und behobene Probleme
+- **Fehlende Weiterleitung nach Einladung (echter Bug, behoben):** `inviteUserByEmail()` wurde ursprünglich ohne `redirectTo`-Option aufgerufen. Die eingeladene Person landete dadurch nach Klick auf den Mail-Link zwar eingeloggt, aber ohne Aufforderung, ein Passwort zu setzen — es existierte schlicht keines. Fix: `redirectTo: `${siteUrl}/passwort-zuruecksetzen`` ergänzt (exakt dasselbe etablierte Muster wie bei `resetPasswordForEmail` in `src/lib/actions/auth.ts`). Die bestehende `ResetPasswordForm`-Seite eignet sich unverändert dafür, da sie nur eine gültige Session voraussetzt, unabhängig davon, ob diese durch Passwort-Reset oder Einladung entstanden ist. Verifiziert per `auth.admin.generateLink()` (erzeugt den Link ohne Mail-Versand) und direktem Öffnen in Playwright — landet jetzt korrekt auf „Neues Passwort festlegen".
+- **Generische Einladungs-E-Mail-Vorlage:** Supabases Standard-Vorlage für „Invite user" erwähnt nicht, wofür/von wem eingeladen wird. Das ist ein Supabase-Dashboard-Setting (Authentication → Email Templates → „Invite user"), kein Code — der Nutzer hat die Vorlage manuell auf Vienna-Salsa-Studio-Branding angepasst.
+- **Root-Cause-Korrektur zu einer früheren Session-Annahme:** Die E-Mail-Zustellung an `@viennasalsastudio.test`-Adressen schlägt IMMER fehl („Domain does not exist" — `.test` ist eine reservierte, nicht auflösbare TLD nach RFC 2606). Das erklärt rückwirkend die früher als „Rate-Limit" gedeuteten Signup-Fehlschläge in dieser Session — es war nie ein Rate-Limit. Bei fehlgeschlagenem Mail-Versand rollt Supabase die Kontoerstellung selbst zurück (kein verwaistes Konto).
+
+### Live-Test (Playwright + echte E-Mail, gegen Produktionsdaten, throwaway-Fixtures)
+Getestet und bestanden: Leerzustand/Liste zeigt bestehende Lehrer → Kundensuche filtert korrekt (nur `role='customer'`) → Beförderung eines bestehenden Kunden funktioniert, verschwindet danach aus `/admin/kunden` → Degradierung ohne Kurs-Zuordnung erfolgt sofort ohne Dialog → Degradierung mit Kurs-Zuordnung zeigt Bestätigungsdialog mit korrektem Kursnamen → Einladung mit bereits registrierter E-Mail zeigt den vorgesehenen Fehlertext → Einladung mit echter E-Mail-Adresse (Nutzer-bereitgestellt) komplett end-to-end verifiziert: Mail kommt an, Link führt zu „Neues Passwort festlegen", Konto/Rolle/Name korrekt gesetzt.
+
 ## QA Test Results
 _To be added by /qa_
 

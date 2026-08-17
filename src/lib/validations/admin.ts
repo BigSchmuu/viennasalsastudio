@@ -73,3 +73,9 @@ export const schedulePauseSchema = z.object({
   pause_date: z.string().trim().min(1, "Datum ist erforderlich"),
 });
 export type SchedulePauseInput = z.infer<typeof schedulePauseSchema>;
+
+export const teacherInviteSchema = z.object({
+  full_name: z.string().trim().min(1, "Name ist erforderlich").max(200),
+  email: z.string().trim().min(1, "E-Mail ist erforderlich").email("Bitte eine gültige E-Mail-Adresse eingeben"),
+});
+export type TeacherInviteInput = z.infer<typeof teacherInviteSchema>;

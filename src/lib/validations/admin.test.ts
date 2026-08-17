@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { subscriptionSchema } from "./admin";
+import { subscriptionSchema, teacherInviteSchema } from "./admin";
 
 const validCourseId = "3b11eea8-cab5-46b0-9a2f-ad35bc99115f";
 
@@ -39,6 +39,26 @@ describe("subscriptionSchema", () => {
       course_id: "",
       cycle_anchor_date: "",
     });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("teacherInviteSchema", () => {
+  it("accepts a valid name and email", () => {
+    const result = teacherInviteSchema.safeParse({
+      full_name: "Maria Musterlehrerin",
+      email: "maria@beispiel.at",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an empty name", () => {
+    const result = teacherInviteSchema.safeParse({ full_name: "", email: "maria@beispiel.at" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an invalid email", () => {
+    const result = teacherInviteSchema.safeParse({ full_name: "Maria", email: "not-an-email" });
     expect(result.success).toBe(false);
   });
 });

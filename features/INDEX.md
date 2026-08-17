@@ -36,7 +36,7 @@
 | PROJ-19 | Community/Newsfeed | Roadmap | — | 2026-08-12 |
 | PROJ-20 | Gamification (Badges, Streaks, Level) | Roadmap | — | 2026-08-12 |
 | PROJ-21 | Affiliate-System, Rollen & Dokumente/Verträge | Roadmap | — | 2026-08-12 |
-| PROJ-22 | Admin: Lehrer-Rollen verwalten | Architected | [PROJ-22](../features/PROJ-22-admin-lehrer-rollen-verwalten.md) | 2026-08-13 |
+| PROJ-22 | Admin: Lehrer-Rollen verwalten | In Progress | [PROJ-22](../features/PROJ-22-admin-lehrer-rollen-verwalten.md) | 2026-08-13 |
 | PROJ-23 | Admin: Videosätze & Lektionen verwalten (internes Lehrmaterial) | Deployed | [PROJ-23](../features/PROJ-23-admin-videosaetze-lektionen-verwalten.md) | 2026-08-13 |
 | PROJ-24 | Globale Navigation & Login-Status | Deployed | [PROJ-24](../features/PROJ-24-globale-navigation.md) | 2026-08-16 |
 
