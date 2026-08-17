@@ -113,7 +113,7 @@ export function DanceStyleManager({ danceStyles }: { danceStyles: DanceStyleRow[
           <AlertDialogHeader>
             <AlertDialogTitle>Tanzstil löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{deleteTarget?.name}" wird unwiderruflich gelöscht.
+              „{deleteTarget?.name}&quot; wird unwiderruflich gelöscht.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (

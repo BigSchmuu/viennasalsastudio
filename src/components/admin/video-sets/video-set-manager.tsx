@@ -141,7 +141,7 @@ export function VideoSetManager({ videoSets }: { videoSets: VideoSetRow[] }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Videosatz löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{deleteTarget?.name}" wird unwiderruflich gelöscht, inklusive aller Lektionen und
+              „{deleteTarget?.name}&quot; wird unwiderruflich gelöscht, inklusive aller Lektionen und
               Video-Links.
             </AlertDialogDescription>
           </AlertDialogHeader>

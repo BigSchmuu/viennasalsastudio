@@ -130,7 +130,7 @@ export function CourseManager({
         <Alert>
           <AlertDescription>
             Bevor du einen Kurs anlegen kannst, brauchst du mindestens einen Tanzstil und einen
-            Raum. Lege diese zuerst unter „Tanzstile" bzw. „Standorte" an.
+            Raum. Lege diese zuerst unter „Tanzstile&quot; bzw. „Standorte&quot; an.
           </AlertDescription>
         </Alert>
       )}
@@ -226,7 +226,7 @@ export function CourseManager({
           <AlertDialogHeader>
             <AlertDialogTitle>Kurs löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{deleteTarget?.name}" wird unwiderruflich gelöscht.
+              „{deleteTarget?.name}&quot; wird unwiderruflich gelöscht.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (

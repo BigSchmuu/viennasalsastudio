@@ -110,7 +110,7 @@ export function RoomManager({ locationId, rooms }: { locationId: string; rooms: 
           <AlertDialogHeader>
             <AlertDialogTitle>Raum löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{deleteTarget?.name}" wird unwiderruflich gelöscht.
+              „{deleteTarget?.name}&quot; wird unwiderruflich gelöscht.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (

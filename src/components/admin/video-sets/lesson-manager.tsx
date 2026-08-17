@@ -147,7 +147,7 @@ export function LessonManager({ videoSetId, lessons }: { videoSetId: string; les
           <AlertDialogHeader>
             <AlertDialogTitle>Lektion löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{deleteTarget?.title}" wird unwiderruflich gelöscht, inklusive aller zugehörigen
+              „{deleteTarget?.title}&quot; wird unwiderruflich gelöscht, inklusive aller zugehörigen
               Video-Links.
             </AlertDialogDescription>
           </AlertDialogHeader>

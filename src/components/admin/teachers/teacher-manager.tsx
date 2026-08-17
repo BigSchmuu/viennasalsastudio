@@ -138,7 +138,7 @@ export function TeacherManager({
       <AlertDialog open={demoteTarget !== null} onOpenChange={(open) => !open && setDemoteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>„{demoteTarget?.name}" zum Kunden zurückstufen?</AlertDialogTitle>
+            <AlertDialogTitle>„{demoteTarget?.name}&quot; zum Kunden zurückstufen?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p>Diese Person ist aktuell noch bei folgenden Kursen als Lehrer eingetragen:</p>

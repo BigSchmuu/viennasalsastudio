@@ -229,7 +229,7 @@ export function SubscriptionManager({
           <AlertDialogHeader>
             <AlertDialogTitle>Abo löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{deleteTarget?.name}" wird unwiderruflich gelöscht.
+              „{deleteTarget?.name}&quot; wird unwiderruflich gelöscht.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (

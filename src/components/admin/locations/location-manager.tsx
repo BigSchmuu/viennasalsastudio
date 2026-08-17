@@ -126,7 +126,7 @@ export function LocationManager({ locations }: { locations: LocationRow[] }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Standort löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{deleteTarget?.name}" wird unwiderruflich gelöscht.
+              „{deleteTarget?.name}&quot; wird unwiderruflich gelöscht.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (
