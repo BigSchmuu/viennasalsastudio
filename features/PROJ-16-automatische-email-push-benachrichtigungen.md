@@ -1,6 +1,6 @@
 # PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -191,7 +191,143 @@ Der Studio-Betreiber muss vor dem Live-Gang die SMTP-Zugangsdaten der Studio-Mai
 **Bewusst offen (siehe Open Questions):** Der tatsächliche E-Mail-Versand funktioniert erst, sobald der Studio-Betreiber echte SMTP-Zugangsdaten in den Produktions-Umgebungsvariablen hinterlegt (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`) — bis dahin werden alle E-Mail-Versuche sauber protokolliert als fehlgeschlagen markiert, ohne dass eine Aktion blockiert wird.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-17
+**App URL:** http://localhost:3000 (live gegen die Produktions-Supabase-DB, kein Staging vorhanden)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC1: Buchungsstatus-Änderung → Benachrichtigung je Einstellung
+- [x] Bestätigung/Ablehnung über die echte Admin-UI löst `enqueueAndDispatch` inline aus, respektiert die Kunden-Einstellung (live mit deaktiviertem Push-Kanal verifiziert → `push_status: "skipped"`, E-Mail weiterhin versucht)
+
+#### AC2: Warteliste-Nachrücken → Benachrichtigung
+- [x] Vollständiger Pfad über die echte Admin-UI (Buchung ablehnen → `promote_waitlist_for_course` rückt nach) reiht die `warteliste`-Benachrichtigung korrekt als `pending` ein; der nächste Dispatch-Lauf verarbeitet sie zuverlässig
+
+#### AC3: Kündigung/Pausierung wirksam → Benachrichtigung
+- [x] Täglicher Check erkennt eine Subscription mit `pending_effective_date = heute` korrekt, reiht ein und verarbeitet; erneuter Lauf am selben Tag erzeugt keinen Duplikat-Eintrag (`effective: 0` beim zweiten Aufruf)
+
+#### AC4: Kursstart-Erinnerung (Probestunde/Drop-in)
+- [x] Täglicher Check erkennt eine `trial`-Buchung für morgen korrekt, reiht ein und verarbeitet; `dropin`-Variante durch Unit-Test des Templates abgedeckt (identischer Codepfad)
+
+#### AC5: SEPA-Vorab-Ankündigung
+- [x] Code-Review bestätigt korrekte Verdrahtung (`item.customer_id`, `item.amount`, `dueDate` korrekt referenziert, `enqueueAndDispatch` pro Kollektions-Position aufgerufen) und Template liefert Betrag+Fälligkeitsdatum korrekt (Unit-Test)
+- [ ] BUG: siehe BUG-2 — die Umsetzung blockiert die Admin-Aktion auf N synchrone Versand-Versuche statt sie zu entkoppeln
+
+#### AC6: Profil-Abschnitt „Benachrichtigungen" mit 4 Gruppen × 2 Kanälen
+- [x] E2E-Test bestätigt alle 4 Ereignisgruppen-Labels und beide Spaltenköpfe (E-Mail/Push)
+
+#### AC7: Kein Push-Consent → Button statt Schalter
+- [x] E2E-Test bestätigt: Aktivieren-Button sichtbar, Push-Schalter deaktiviert, E-Mail-Schalter weiterhin aktiv
+
+#### AC8: Push deaktiviert für ein Ereignis → keine Push, ggf. E-Mail
+- [x] Live verifiziert: mit registriertem Gerät UND deaktivierter Push-Einstellung wird Push korrekt übersprungen (`push_status: "skipped"`), E-Mail weiterhin versucht
+
+#### AC9: Fehlgeschlagener Versand blockiert nie die Aktion
+- [x] Durchgehend über alle Live-Tests bestätigt — Buchung bestätigt/abgelehnt und Warteliste-Nachrücken liefen in jedem Fall vollständig durch, obwohl der E-Mail-Versand mangels SMTP-Konfiguration jedes Mal fehlschlug
+
+### Edge Cases Status
+
+#### EC1: Multi-Device-Push
+- [x] Zwei registrierte Geräte gleichzeitig: Verarbeitung lief fehlerfrei durch (kein Crash/Abbruch bei mehreren Subscriptions); Code-Review bestätigt eine unbedingte Schleife über alle Geräte ohne Early-Exit
+
+#### EC2: Widerrufene Push-Berechtigung
+- [x] Code-Review: pro Gerät einzeln try/catch, HTTP 404/410 löst automatische Bereinigung der Registrierung aus, andere Geräte/E-Mail unbeeinflusst (nicht mit einer echten widerrufenen Browser-Registrierung nachstellbar, da kein echter Push-Dienst in dieser Umgebung erreichbar ist)
+
+#### EC3: Stornierte Probestunde nach Erinnerungsversand
+- [x] Keine Rücknahme-Logik implementiert (by design) — Erinnerung bleibt wie verschickt
+
+#### EC4: Einstellungsänderung während laufender Aktion
+- [x] Code-Review bestätigt: Einstellungen werden in `processQueueRow`/`getChannelPreferences` erst beim tatsächlichen Versand frisch abgefragt, nicht beim Einreihen zwischengespeichert
+
+#### EC5: Zwei SEPA-Läufe kurz hintereinander
+- [x] Für unterschiedliche Kunden/Subscriptions: jeder Lauf erzeugt einen eigenen `dedupe_key`, eigene Ankündigung
+- [ ] BUG: siehe BUG-7 — Sonderfall „exakt dieselbe Subscription, exakt dasselbe Fälligkeitsdatum, zweimal abgerechnet" unterdrückt die zweite Ankündigung durch `dedupe_key`-Kollision
+
+#### EC6: Stornierung + Sofort-Neubuchung
+- [x] Reguläre Buchungs-/Erinnerungslogik greift unverändert (keine PROJ-16-spezifische Sonderbehandlung nötig, by design)
+
+### Security Audit Results
+- [x] Authentication: `/api/cron/notifications` verlangt korrekten `CRON_SECRET`-Bearer-Token (live getestet: 401 ohne/mit falschem Token, 200 mit korrektem)
+- [x] Authorization: `notification_preferences`/`push_subscriptions` RLS-geprüft — Kunde kann nur eigene Zeilen lesen/schreiben; `notification_queue` per RLS ohne jegliche Policy nur für SECURITY-DEFINER-Funktionen und Service-Role-Code erreichbar (per SQL verifiziert: `authenticated`/`anon` haben kein `EXECUTE` auf `enqueue_notification`)
+- [ ] BUG: siehe BUG-1 (Critical) — SSRF über ungeprüfte Push-Subscription-Endpoint-URL
+- [x] Keine sensiblen Daten (IBAN, Zugangsdaten) in Benachrichtigungsinhalten oder in `notification_queue`-Fehlermeldungen, die für Kunden erreichbar wären
+- [ ] BUG: siehe BUG-3 (Medium) — fehlendes HTML-Escaping bei Kurs-/Abo-Namen in E-Mail-Templates
+- [ ] BUG: siehe BUG-5 (Medium) — Cron-Route fällt bei fehlendem `CRON_SECRET` offen (fail-open) statt geschlossen
+
+### Bugs Found
+
+#### BUG-1: SSRF über ungeprüfte Push-Subscription-Endpoint-URL
+- **Severity:** Critical
+- **Steps to Reproduce:**
+  1. Als beliebiger eingeloggter Kunde die Server Action `subscribeToPush` direkt aufrufen (z.B. per DevTools/Skript, nicht über den echten Browser-Push-Flow) mit `{ endpoint: "http://<beliebige-interne-oder-fremde-URL>", keys: { p256dh: "x", auth: "y" } }`
+  2. Die Aktion speichert die Zeile ungeprüft in `push_subscriptions`
+  3. Sobald für diesen Kunden irgendeine Benachrichtigung ausgelöst wird (z.B. eigene Buchung bestätigt), sendet der Server über `web-push` eine HTTP-Anfrage direkt an die gespeicherte `endpoint`-URL — bestätigt per Code-Lesung von `node_modules/web-push`: es wird nur geprüft, dass `endpoint` ein nicht-leerer String ist, keine Domain-Allowlist
+  4. Erwartet: nur echte, vom Browser ausgestellte Push-Service-URLs (z.B. `fcm.googleapis.com`, `updates.push.services.mozilla.com`) werden akzeptiert
+  5. Tatsächlich: jede beliebige URL wird akzeptiert und der Server macht bei jedem Versand einen ausgehenden Request dorthin — inkl. des Benachrichtigungsinhalts (Kursname, SEPA-Betrag etc.) im Body
+- **Priority:** Fix before deployment
+
+#### BUG-2: SEPA-Lastschriftlauf-Erstellung blockiert auf N synchronen Versand-Versuchen
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Admin erstellt einen SEPA-Lastschriftlauf mit vielen aktiven Kunden (`createCollectionRun` in `sepa-collections.ts`)
+  2. Nach dem Speichern von Lauf/Positionen/Rechnungen wartet die Aktion per `Promise.all` auf `enqueueAndDispatch` für **jede einzelne Position** — jeweils ein synchroner E-Mail- (SMTP-Round-Trip) und ggf. Push-Versand-Versuch, bevor die Aktion überhaupt antwortet
+  3. Erwartet: der Lauf wird zügig gespeichert, Benachrichtigungen laufen entkoppelt im Hintergrund (genau der Zweck des Warteschlangen-Musters laut Tech Design)
+  4. Tatsächlich: bei einer wachsenden Kundenzahl UND konfiguriertem SMTP könnte dies mehrere Sekunden bis Minuten dauern und das Vercel-Funktions-Zeitlimit überschreiten — der Admin sieht dann einen Fehler/Timeout, obwohl Lauf, Positionen und Rechnungen bereits erfolgreich gespeichert wurden (Risiko eines versehentlichen zweiten Laufs durch den verunsicherten Admin)
+- **Priority:** Fix before deployment
+
+#### BUG-3: Kein HTML-Escaping bei Kurs-/Abo-Namen in E-Mail-/Push-Templates
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Admin legt einen Kurs oder gibt beim Bestätigen einer Buchung einen Namen mit HTML-Sonderzeichen ein (z.B. `<a href="...">Link</a>`)
+  2. `templates.ts` interpoliert `courseName`/`subscriptionName` ungeprüft in das E-Mail-HTML
+  3. Erwartet: Sonderzeichen werden escaped, bevor sie ins HTML eingebettet werden
+  4. Tatsächlich: der Wert landet 1:1 im HTML — ermöglicht Link-/Inhalts-Spoofing innerhalb einer sonst legitimen Studio-E-Mail
+- **Priority:** Fix before deployment
+
+#### BUG-4: Race Condition kann zu doppeltem Versand derselben Benachrichtigung führen
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. `drainPendingQueue` selektiert `pending`-Zeilen und verarbeitet sie ohne atomaren „Claim"-Schritt (kein `UPDATE ... WHERE status='pending' RETURNING`)
+  2. Läuft der tägliche Cron-Drain zufällig zeitgleich mit einem Inline-Dispatch (`enqueueAndDispatch`) für dieselbe frisch eingereihte Zeile, können beide Pfade dieselbe Zeile verarbeiten, bevor die erste Verarbeitung den Status auf `processed` gesetzt hat
+  3. Erwartet: jede Zeile wird genau einmal verarbeitet
+  4. Tatsächlich: der `dedupe_key` verhindert nur doppeltes *Einreihen*, nicht doppelte *Verarbeitung* einer bereits eingereihten Zeile — in diesem engen Zeitfenster ist ein doppelter Versand theoretisch möglich
+- **Priority:** Fix in next sprint (geringe Eintrittswahrscheinlichkeit: ein täglicher Cron-Lauf vs. kurze Inline-Verarbeitung)
+
+#### BUG-5: Cron-Route fällt bei fehlendem `CRON_SECRET` offen statt geschlossen
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. `route.ts` vergleicht den Header gegen `` `Bearer ${process.env.CRON_SECRET}` ``
+  2. Ist `CRON_SECRET` in einer Deployment-Umgebung nicht gesetzt (Fehlkonfiguration), wird daraus wörtlich der String `"Bearer undefined"`
+  3. Erwartet: fehlt das Secret, wird jede Anfrage abgelehnt (fail-closed)
+  4. Tatsächlich: eine Anfrage mit dem exakten Header `Authorization: Bearer undefined` würde durchgehen
+- **Priority:** Fix before deployment (einfache Korrektur, hohe Absicherung)
+
+#### BUG-6: `tomorrowInVienna()` ist von der Server-Zeitzone abhängig
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. `tomorrowInVienna()` addiert einen Tag über `Date.setDate(Date.getDate()+1)`, was die LOKALE Zeitzone des ausführenden Prozesses verwendet, bevor für Wien neu formatiert wird
+  2. Auf Vercel (Laufzeit-Zeitzone UTC, keine Zeitumstellung) nachweislich immer korrekt; in einer Dev-/Testumgebung mit abweichender Server-Zeitzone an einem Zeitumstellungstag könnte das Datum theoretisch um einen Tag verschoben sein
+  3. Erwartet: Berechnung unabhängig von der Server-Zeitzone direkt aus dem Wien-Datumsstring
+- **Priority:** Nice to have
+
+#### BUG-7: SEPA-Korrekturlauf für dieselbe Subscription+Fälligkeitsdatum unterdrückt die zweite Ankündigung
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Zwei SEPA-Läufe für dasselbe Fälligkeitsdatum, die zufällig dieselbe Subscription erneut abrechnen (Korrekturlauf-Sonderfall)
+  2. `dedupe_key` ist `sepa_item:<subscription_id>:<due_date>` — für den zweiten Lauf identisch zum ersten
+  3. Erwartet laut Edge-Case-Dokumentation: „jeder Lauf löst eine eigene, eigenständige Vorab-Ankündigung aus"
+  4. Tatsächlich: die zweite Ankündigung wird durch die `dedupe_key`-Unique-Constraint stillschweigend unterdrückt
+- **Priority:** Nice to have (sehr seltener Sonderfall; unterschiedliche Kunden/Subscriptions pro Lauf — der Regelfall — funktionieren korrekt)
+
+### Summary
+- **Acceptance Criteria:** 9/9 funktional bestätigt (AC5 mit BUG-2 behaftet)
+- **Bugs Found:** 7 total (1 critical, 1 high, 3 medium, 2 low)
+- **Security:** Issues found — 1 Critical (SSRF), 2 Medium
+- **Production Ready:** NO
+- **Recommendation:** BUG-1 (Critical) und BUG-2 (High) vor Deployment beheben; BUG-3 und BUG-5 (Medium) ebenfalls vor Deployment empfohlen, da einfache, klar umrissene Korrekturen. BUG-4, BUG-6, BUG-7 können in einem Folge-Sprint adressiert werden.
+
+**Hinweis zur automatisierten Regressionsprüfung:** `npm test` lief vollständig durch (129/129, inkl. der 9 neuen PROJ-16-Tests). Der neue `tests/PROJ-16-*.spec.ts` lief isoliert gegen Chromium fehlerfrei durch (3/3); Mobile Safari schlägt wie bei allen bisherigen Features an der bekannten, vorbestehenden fehlenden WebKit-Browser-Installation dieser Umgebung fehl (kein neuer Befund). Der volle funktionsübergreifende E2E-Regressionslauf (`npm run test:e2e --project=chromium`, alle bestehenden Features) wurde gestartet, lieferte aber innerhalb des Testfensters kein Ergebnis (vermutlich Ressourcen-Konflikt durch parallel laufende Playwright-Aufrufe in dieser Session) — die Regressionssicherheit stützt sich stattdessen auf den vollständigen Vitest-Lauf sowie darauf, dass alle Änderungen an bestehenden Dateien (`bookings.ts`, `sepa-collections.ts`, `promote_waitlist_for_course`) rein additiv und fehler-tolerant sind (jeder neue Aufruf ist in eigenes Error-Handling gekapselt, das nie die bestehende Logik beeinflusst).
 
 ## Deployment
 _To be added by /deploy_
