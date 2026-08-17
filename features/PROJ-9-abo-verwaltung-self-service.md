@@ -1,6 +1,6 @@
 # PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -157,7 +157,111 @@ Keine neuen Fremdpakete nötig — alle UI-Bausteine sind mit den bereits instal
 Getestet und bestanden: aktives Abo zeigt korrekte Aktionen → Pausieren zeigt Hinweis mit Datum → Rückgängig machen entfernt Hinweis → Umbuchen wechselt Kurs sofort bei unverändertem Preis (inkl. Namens-Bugfix oben) → Kündigen zeigt Hinweis, Admin sieht „Geplante Änderung", noch kein „Jetzt übernehmen" vor Fälligkeit → nach simuliertem Erreichen des Datums erscheint „Jetzt übernehmen", Klick setzt echten Status, Kunde sieht „Gekündigt" ohne Reaktivieren-Option → derselbe Ablauf für Pausierung, Kunde sieht „Pausiert" mit Reaktivieren, Klick setzt sofort „Aktiv". SEPA-Ausschlusslogik gegen reale Abo-/Mandatsdaten simuliert verifiziert. Volle Sicherheits-Red-Team-Prüfung (RLS/RPC-Umgehungsversuche) folgt im `/qa`-Schritt.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-17
+**App URL:** http://localhost:3000 (against production Supabase project `kqdnaevyzgtrmaatinrx`)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Pausieren speichert geplante Pausierung zum nächsten Zyklusende, Abo bleibt „Aktiv" mit Hinweis
+- [x] Passed — Hinweis „Wird pausiert ab [Datum]" erscheint, Status bleibt „Aktiv"
+
+#### AC-2: Kündigen speichert geplante Kündigung zum nächsten Zyklusende, Abo bleibt „Aktiv" mit Hinweis
+- [x] Passed — Hinweis „Wird gekündigt ab [Datum]" erscheint, Status bleibt „Aktiv"
+
+#### AC-3: Rückgängig machen entfernt die geplante Änderung vor dem Wirksamkeitsdatum
+- [x] Passed — Hinweis verschwindet, Aktionen kehren zu Pausieren/Kündigen zurück
+
+#### AC-4: Reaktivieren setzt ein pausiertes Abo sofort auf „Aktiv"
+- [x] Passed — kein Wartezeit-Mechanismus, sofortige Statusänderung
+
+#### AC-5: Gekündigtes Abo zeigt keine Reaktivieren-Option
+- [x] Passed — nach Statusübernahme durch Admin sieht Kunde „Gekündigt" ohne jede Aktion außer den nicht zutreffenden
+
+#### AC-6: Umbuchen ändert den Kurs-Bezug sofort, Preis bleibt unverändert
+- [x] Passed — inkl. Regressionscheck: Umbuchen funktioniert auch bei gleichzeitig laufender geplanter Kündigung und löscht diese nicht versehentlich
+
+#### AC-7: Flatrate-Abo (kein Kurs-Bezug) zeigt keine Umbuchen-Option
+- [x] Passed
+
+#### AC-8: SEPA-Lauf schließt Abo mit fälliger geplanter Änderung automatisch aus
+- [x] Passed — Lauf für 2026-12-24 enthält exakt die 3 erwarteten aktiven Abos mit Mandat; das Abo mit bereits fälliger geplanter Kündigung wurde korrekt ausgeschlossen (verifiziert per DB-Abfrage nach Lauf-Erstellung)
+
+#### AC-9: Admin „Jetzt übernehmen" setzt den tatsächlichen Status bei fälliger geplanter Änderung
+- [x] Passed — Button erscheint erst ab Fälligkeitsdatum, Klick setzt Status und entfernt die geplante Änderung
+
+### Edge Cases Status
+
+#### EC-1: Kunde ohne Abo sieht Leerzustand
+- [x] Passed — „Kein aktives Abo vorhanden."
+
+#### EC-2: Kunde mit mehreren aktiven Abos
+- [x] Passed — jedes Abo einzeln mit eigenen Aktionen
+
+#### EC-3: Zyklus-Ankerdatum liegt weit in der Vergangenheit
+- [x] Passed — `next_cycle_end()` projiziert korrekt in 4-Wochen-Schritten in die Zukunft (verifiziert per SQL: Anker vor 10/40/60 Tagen ergibt jeweils korrekt das nächste zukünftige Vielfache, nicht einfach Anker+28)
+
+#### EC-4: Gleichzeitiges Pausieren und Kündigen — eine Aktion ersetzt die andere
+- [x] Passed — verifiziert per Live-Test in der Frontend-Phase (Kündigen nach geplanter Pausierung ersetzt den Hinweis, keine zwei parallelen geplanten Änderungen möglich, durch die DB-Struktur mit genau einem `pending_status`-Feld strukturell garantiert)
+
+#### EC-5: Admin ändert Preis während Kunde umbucht
+- [x] Passed by design — unabhängige Felder (Umbuchen ändert nur `course_id`, Preisänderung ist ein separates Admin-Feld), keine Konfliktmöglichkeit; nicht separat live getestet, da strukturell ausgeschlossen
+
+#### EC-6: Bestehendes Abo ohne Zyklus-Ankerdatum (Altdaten aus PROJ-4)
+- [x] Satisfied by design — Migration hat `cycle_anchor_date` für alle Bestandsabos aus `created_at` befüllt und die Spalte ist `NOT NULL` mit Default; es kann in der aktuellen UI kein Abo ohne Ankerdatum entstehen
+
+### Security Audit Results (Red Team)
+
+Durchgeführt per SQL-Impersonation der exakten JWT-Claims, die PostgREST bei einer echten Session mitgeben würde (`SET LOCAL ROLE authenticated; SET LOCAL request.jwt.claims = ...`) — testet die tatsächliche Autorisierungsgrenze direkt an der Quelle.
+
+- [x] **Cross-Customer-Angriff auf alle 4 RPCs:** Kunde A versucht, Abo von Kunde B zu pausieren/kündigen/reaktivieren/umzubuchen/rückgängig zu machen → jede RPC lehnt mit „subscription not eligible..." ab, keine Zustandsänderung
+- [x] **Anonymer Zugriff:** `anon`-Rolle versucht RPC-Aufruf → `permission denied for function` (EXECUTE korrekt entzogen)
+- [x] **Direkter Tabellenzugriff (RPC-Umgehung):** Kunde versucht `UPDATE subscriptions SET price = 0.01, name = 'HACKED'` direkt auf eigenes Abo → 0 Zeilen betroffen (RLS lässt keine Kunden-UPDATE-Policy zu, nur Admin); Preis/Name unverändert
+- [x] **Direktes Insert:** Kunde versucht sich selbst ein neues (kostenloses) Abo anzulegen → RLS-Verstoß, abgelehnt
+- [x] **Server-seitige Kursvalidierung:** Umbuchen auf eine nicht existierende `course_id` → „course not found", abgelehnt (nicht nur Client-seitig validiert)
+- [x] **Keine Informationslecks in Fehlermeldungen:** Fehlermeldungen bei fremden/nicht-existenten IDs unterscheiden sich nicht („not eligible" statt spezifischer Gründe) — verhindert Enumeration fremder Abo-IDs
+- [x] **Positivkontrolle:** derselbe Aufruf mit dem tatsächlichen Besitzer als Claim gelingt einwandfrei — bestätigt, dass die Ablehnungen oben echte Autorisierungsgrenzen sind und keine generellen Funktionsfehler
+
+Keine Sicherheitsfunde.
+
+### Regression Testing
+- `npm test` (Vitest): 68/68 passed (64 bestehende + 4 neue für `subscriptionSchema`s neue Felder)
+- `npm run build`: erfolgreich
+- Neue permanente Suite `tests/PROJ-9-abo-verwaltung-self-service.spec.ts`: 10/10 passed im isolierten Einzellauf (alle 9 ACs + Mehrfach-Abo-Edge-Case)
+- Vollständiger E2E-Regressionslauf (alle Feature-Suiten, `--project=chromium`): 36/88 bestanden, 52 fehlgeschlagen. Beide Fehlerursachen sind **nicht durch PROJ-9 verursacht** (siehe BUG-2 und BUG-3) — im Detail unten aufgeschlüsselt und durch gezielte Einzel-Nachtests bestätigt.
+
+### Bugs Found
+
+#### BUG-1: `self_switch_subscription_course` überschrieb den Abo-Namen mit dem Kursnamen (bereits behoben)
+- **Severity:** Medium
+- **Gefunden:** während der Frontend-Phase per Live-Test, noch vor Beginn dieser QA-Session
+- **Status:** Behoben (Migration `proj9_fix_switch_course_preserves_name`) und in dieser QA-Session erneut verifiziert (AC-6-Test bestätigt, dass „E2E9 Testabo" nach Kurswechsel seinen Namen behält)
+- **Priority:** N/A — bereits vor Deployment behoben
+
+#### BUG-2: Vorbestehende, von PROJ-9 unabhängige Fixture-Alterung/-Häufung in PROJ-7/PROJ-8-E2E-Suiten
+- **Severity:** Low
+- **Beschreibung:** Im vollständigen Regressionslauf schlagen mehrere PROJ-7- und PROJ-8-Tests fehl. Ursache ist in jedem Fall nachweislich Fixture-Alterung bzw. -Häufung, nicht PROJ-9-Code:
+  - `e2e7-customer-multi` hat bereits seit 2026-08-16 (einem früheren Testlauf) ein aktives Mandat + zwei Abos, wodurch die „keine Kunden für diesen Lauf"-Annahme eines anderen Tests nicht mehr zutrifft; dieser Fehlschlag zieht weitere PROJ-7-Tests im selben File mit (Kaskadeneffekt einer nicht-isolierten Testreihenfolge).
+  - `e2e8-customer@...`s Probestunde-Buchung wurde am 2026-08-16 für „morgen" (2026-08-17) angelegt — das ist inzwischen „heute", wodurch die 1-Tages-Stornofrist bereits abgelaufen ist und Umbuchen/Stornieren-Buttons korrekterweise ausgeblendet werden.
+  - Zusätzlich hat das mehrfache Ausführen der PROJ-8-Suite **innerhalb dieser Session** (units Frontend-Selbsttest + zwei QA-Regressionsläufe) bei `e2e8-customer` mittlerweile 3 „Probestunde"-Buchungen angehäuft (jede Ausführung legt automatisch eine neue an); ein Test mit `getByText("Bestätigt")` ohne `.first()` schlägt dadurch mit einem Playwright-„strict mode violation" fehl, reproduzierbar auch in einem isolierten Einzellauf **direkt jetzt** verifiziert — kein Zufallsbefund des langen Gesamtlaufs.
+- **Beweis, dass PROJ-9 nicht ursächlich ist:** Der einzige PROJ-9-Codeeingriff in PROJ-7/8 ist (a) ein zusätzlicher Ausschluss-Filter in `createCollectionRun`, der Zeilen nur entfernen, nie hinzufügen kann, und (b) eine Erweiterung von `confirmRegularBooking` (nur für `type: 'regular'`, die fehlschlagenden Tests betreffen aber ausschließlich `type: 'trial'`-Buchungen bzw. bereits vor PROJ-9 bestehende Mandats-/Abo-Daten).
+- **Priority:** Nice to have — bestehendes Problem der Suiten-Wiederholbarkeit über mehrere Tage/Sessions hinweg, nicht spezifisch für PROJ-9; würde eine projektweite Lösung brauchen (z. B. automatisches Fixture-Reset vor jedem vollständigen Lauf), außerhalb des Scopes dieses Features
+
+#### BUG-3: Fixture-Konten für PROJ-2/PROJ-3/PROJ-4/PROJ-5/PROJ-6/PROJ-23 existieren nicht mehr in der Produktions-DB (vorbestehend, nicht durch PROJ-9 verursacht)
+- **Severity:** Medium (betrifft die Verlässlichkeit der Regressionssuite für 6 bereits deployte Features, nicht deren tatsächliche Produktionsfunktion)
+- **Beschreibung:** Beim vollständigen Regressionslauf schlagen ALLE Tests dieser 6 Spec-Dateien fehl. Ursache: die dort hartkodierten Konten (`qa-proj2-*`, `qa-proj3-*`, `qa-proj4-*`, `qa-proj5-*`, `qa-proj6-*`, `qa-proj23-*`, jeweils `@viennasalsastudio.test`) existieren aktuell überhaupt nicht in `auth.users` — verifiziert per direkter DB-Abfrage (nur 12 Nutzer insgesamt in der Produktions-DB vorhanden, keiner mit `qa-proj*`-Präfix).
+- **Beweis, dass PROJ-9 nicht ursächlich ist:** Diese Konten wurden in keinem Tool-Aufruf dieser gesamten Session referenziert, gelesen oder verändert — die einzige auth.users-Manipulation dieser Session betraf ausschließlich drei `e2e9-*`-Testkonten, die exakt namentlich wieder gelöscht wurden (verifiziert). Das Fehlen der `qa-proj*`-Konten ist folglich bereits vor Beginn dieser Session eingetreten — vermutlich wurden sie bei einer früheren Aufräumaktion versehentlich als „Wegwerf"-Konten behandelt (dieselbe Fehlerklasse, die bei PROJ-24s `e2e24-*`-Konten während der Frontend-Phase auftrat und dort noch rechtzeitig selbst korrigiert wurde, siehe PROJ-24 Implementation Notes).
+- **Auswirkung:** Die Regressionssuiten für PROJ-2, PROJ-3, PROJ-4, PROJ-5, PROJ-6 und PROJ-23 sind aktuell nicht aussagekräftig — das sagt nichts über die tatsächliche Produktionsfunktion dieser Features aus (die App selbst ist unverändert), sondern nur, dass ihre automatisierten Tests nicht mehr laufen können, bis die Konten neu angelegt werden.
+- **Priority:** Fix in next sprint — außerhalb des Scopes von PROJ-9, sollte aber zeitnah als eigenständige Aufgabe behoben werden (Konten neu anlegen, ggf. mit denselben Fixture-Daten wie ursprünglich), da sonst kein verlässliches Regressions-Sicherheitsnetz für sechs Features besteht
+
+### Summary
+- **Acceptance Criteria:** 9/9 passed
+- **Edge Cases:** 6/6 passed (verifiziert oder by-design erfüllt)
+- **Bugs Found:** 3 total (0 critical, 0 high, 1 medium — vorbestehend & außerhalb Scope [BUG-3], 1 medium — bereits vor QA behoben [BUG-1], 1 low — vorbestehend, nicht PROJ-9-spezifisch [BUG-2])
+- **Security:** Pass — keine Funde bei RLS/RPC-Red-Team-Prüfung (Cross-Customer-Zugriff, anonymer Zugriff, direkte Tabellen-Umgehung, Server-seitige Kursvalidierung, Informationslecks — alle abgedeckt)
+- **Production Ready:** YES für PROJ-9 selbst — alle 9 Acceptance Criteria bestehen isoliert und im dedizierten Regressionslauf; die gefundenen Bugs sind entweder bereits behoben (BUG-1) oder nachweislich nicht durch PROJ-9 verursacht und liegen außerhalb seines Scopes (BUG-2, BUG-3)
+- **Recommendation:** Deploy PROJ-9. Unabhängig davon: BUG-3 (fehlende Test-Konten für 6 bereits deployte Features) sollte als eigenständige Aufgabe zeitnah behoben werden, da die Regressionssicherheit dieser Features aktuell nicht automatisiert überprüfbar ist.
 
 ## Deployment
 _To be added by /deploy_
