@@ -1,6 +1,6 @@
 # PROJ-11: Beispiel-Videos (YouTube-Einbettung)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -216,4 +216,15 @@ Keine neuen Fremdpakete nötig — YouTube-Einbettung per nativem iframe, Zugrif
 **READY** — keine Critical/High-Bugs, alle 3 gefundenen Bugs (inkl. des vorbestehenden PROJ-23-Formularproblems) wurden auf Nutzerwunsch vor dem Deployment behoben und verifiziert.
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-17
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-11
+**Commit:** 92b5b55
+
+**Post-Deployment-Verifikation (gegen Produktion, real):**
+- `/kurse` und `/kurse/[id]` laden mit HTTP 200.
+- Anonymer Besucher sieht auf der Detailseite keinen „Videolektionen"-Abschnitt.
+- Eingeloggter Kunde mit passendem Abo sieht den Abschnitt, eingebettetes YouTube-Video lädt (`youtube-nocookie.com`).
+- Klick auf eine Katalogkarte navigiert korrekt zur neuen Detailseite.
+- Keine Konsolen-/Seitenfehler während der Verifikation.

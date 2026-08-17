@@ -25,7 +25,7 @@
 | PROJ-8 | Kursbuchung (Buchungsanfrage, Probestunde & Drop-in) | Deployed | [PROJ-8](../features/PROJ-8-kursbuchung.md) | 2026-08-12 |
 | PROJ-9 | Abo-Verwaltung (Self-Service Pause/Kündigung) | Deployed | [PROJ-9](../features/PROJ-9-abo-verwaltung-self-service.md) | 2026-08-12 |
 | PROJ-10 | Rechnungsarchiv | Roadmap | — | 2026-08-12 |
-| PROJ-11 | Beispiel-Videos (YouTube-Einbettung) | Approved | [PROJ-11](../features/PROJ-11-beispiel-videos-youtube-einbettung.md) | 2026-08-12 |
+| PROJ-11 | Beispiel-Videos (YouTube-Einbettung) | Deployed | [PROJ-11](../features/PROJ-11-beispiel-videos-youtube-einbettung.md) | 2026-08-12 |
 | PROJ-12 | Warteliste & automatische Nachrückung | Roadmap | — | 2026-08-12 |
 | PROJ-13 | Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen) | Roadmap | — | 2026-08-12 |
 | PROJ-14 | Events & Workshops (Tickets, QR-Check-in) | Roadmap | — | 2026-08-12 |
