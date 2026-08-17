@@ -7,6 +7,10 @@ import { MyBookingsSection, type MyBookingRow } from "@/components/booking/my-bo
 import { MySubscriptionsSection, type MySubscriptionRow } from "@/components/subscription/my-subscriptions-section";
 import { MyInvoicesSection, type MyInvoiceRow } from "@/components/invoices/my-invoices-section";
 import { MyWaitlistSection, type MyWaitlistRow } from "@/components/waitlist/my-waitlist-section";
+import {
+  NotificationSettingsSection,
+  type NotificationPreferenceRow,
+} from "@/components/notifications/notification-settings-section";
 import { createClient } from "@/lib/supabase/server";
 import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
 import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
@@ -30,6 +34,7 @@ export default async function ProfilePage() {
     { data: courseRows },
     { data: invoiceRows },
     { data: waitlistRows },
+    { data: notificationPreferenceRows },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, birthdate, gender").eq("id", user.id).single(),
     supabase
@@ -57,6 +62,10 @@ export default async function ProfilePage() {
       .eq("customer_id", user.id)
       .order("invoice_date", { ascending: false }),
     supabase.rpc("list_my_waitlist"),
+    supabase
+      .from("notification_preferences")
+      .select("event_group, channel, enabled")
+      .eq("customer_id", user.id),
   ]);
 
   const mandate: MandateData | null = mandateRow
@@ -124,6 +133,12 @@ export default async function ProfilePage() {
     description: i.description,
     grossAmount: i.gross_amount,
     bounced: !!i.bounced_at,
+  }));
+
+  const notificationPreferences: NotificationPreferenceRow[] = (notificationPreferenceRows ?? []).map((p) => ({
+    eventGroup: p.event_group as NotificationPreferenceRow["eventGroup"],
+    channel: p.channel as NotificationPreferenceRow["channel"],
+    enabled: p.enabled,
   }));
 
   return (
@@ -196,6 +211,16 @@ export default async function ProfilePage() {
           </CardHeader>
           <CardContent>
             <MyInvoicesSection invoices={invoices} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading text-lg">Benachrichtigungen</CardTitle>
+            <CardDescription>Wähle, worüber du per E-Mail und Push informiert werden möchtest</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <NotificationSettingsSection preferences={notificationPreferences} />
           </CardContent>
         </Card>
       </div>

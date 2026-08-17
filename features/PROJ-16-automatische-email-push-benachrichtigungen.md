@@ -1,6 +1,6 @@
 # PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -149,6 +149,25 @@ Gespeichert in: Supabase Postgres (wie der Rest des Projekts). Jeder Kunde sieht
 
 ### Voraussetzung vor `/deploy`
 Der Studio-Betreiber muss vor dem Live-Gang die SMTP-Zugangsdaten der Studio-Mailadresse (Host, Port, Benutzername, Passwort) bereitstellen. Ohne diese Zugangsdaten kann kein E-Mail-Versand stattfinden; Push funktioniert unabhängig davon.
+
+## Implementation Notes (Frontend)
+
+**Gebaut:**
+- Migration `proj16_notification_preferences_and_push_subscriptions`: Tabellen `notification_preferences` (customer_id, event_group, channel, enabled — Default an) und `push_subscriptions` (customer_id, endpoint, p256dh, auth_key), beide mit RLS „nur eigene Zeilen" wie bei `sepa_mandates`.
+- `src/lib/constants/notifications.ts` — Ereignisgruppen/Kanäle + deutsche Labels und Beschreibungstexte.
+- `src/lib/actions/notifications.ts` — `setNotificationPreference`, `subscribeToPush`, `unsubscribeFromPush` (alle RLS-geschützt über den eingeloggten Nutzer, kein SECURITY DEFINER nötig, da reine Own-Row-Daten wie bei PROJ-9).
+- `public/sw.js` — Service Worker: zeigt eingehende Push-Nachrichten an, öffnet/fokussiert die App bei Klick.
+- `src/hooks/use-push-notifications.ts` — Browser-seitiger Status (unterstützt/inaktiv/aktiv), Aktivieren/Deaktivieren inkl. VAPID-Subscription.
+- `src/components/notifications/notification-settings-section.tsx` — Push-Status/Aktivieren-Block + 4×2-Einstellungstabelle (optimistisches Umschalten mit Rollback bei Fehler); Push-Schalter sind deaktiviert (ausgegraut), solange auf diesem Gerät kein aktives Push-Abo besteht — erfüllt AC „Button anstelle aktivierbarer Push-Schalter".
+- Neue Card „Benachrichtigungen" in `src/app/(site)/profil/page.tsx`, lädt die bestehenden Einstellungen des Kunden serverseitig vor.
+- VAPID-Schlüsselpaar einmalig generiert und in `.env.local` hinterlegt (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`); Platzhalter in `.env.local.example` ergänzt, ebenso ein dokumentierter SMTP-Platzhalterblock.
+- Manuell im Browser verifiziert: Einstellungs-Umschalten persistiert korrekt in der DB (per SQL geprüft), Push-Spalte ist bis zur Aktivierung sichtbar deaktiviert, keine Konsolenfehler, `npm run build` und `npm run lint` sauber.
+
+**Bewusst noch NICHT gebaut (folgt in `/backend`):**
+- Benachrichtigungs-Warteschlange (Outbox-Tabelle) und der Versand-Job, der sie abarbeitet
+- Tatsächlicher E-Mail-Versand (Nodemailer/SMTP) und Push-Versand (web-push) — Pakete sind bereits installiert, aber noch nicht verdrahtet
+- Anbindung der auslösenden Ereignisse an die Warteschlange: Buchungsstatus-Änderung (`bookings.ts`), automatisches Nachrücken (`promote_waitlist_for_course`), SEPA-Lauf-Erstellung (`createCollectionRun`)
+- Täglicher Hintergrund-Job (Kursstart-Erinnerung + Erkennung „Kündigung wird heute wirksam")
 
 ## QA Test Results
 _To be added by /qa_

@@ -629,6 +629,30 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_preferences: {
+        Row: {
+          channel: string
+          customer_id: string
+          enabled: boolean
+          event_group: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          customer_id: string
+          enabled?: boolean
+          event_group: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          customer_id?: string
+          enabled?: boolean
+          event_group?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           birthdate: string | null
@@ -659,6 +683,33 @@ export type Database = {
           phone?: string | null
           referral_source?: string | null
           role?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth_key: string
+          created_at: string
+          customer_id: string
+          endpoint: string
+          id: string
+          p256dh: string
+        }
+        Insert: {
+          auth_key: string
+          created_at?: string
+          customer_id: string
+          endpoint: string
+          id?: string
+          p256dh: string
+        }
+        Update: {
+          auth_key?: string
+          created_at?: string
+          customer_id?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
         }
         Relationships: []
       }

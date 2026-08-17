@@ -1,0 +1,146 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { setNotificationPreference } from "@/lib/actions/notifications";
+import {
+  notificationEventGroupValues,
+  notificationChannelValues,
+  notificationEventGroupLabel,
+  notificationEventGroupDescription,
+  type NotificationEventGroup,
+  type NotificationChannel,
+} from "@/lib/constants/notifications";
+
+export type NotificationPreferenceRow = {
+  eventGroup: NotificationEventGroup;
+  channel: NotificationChannel;
+  enabled: boolean;
+};
+
+function buildPreferenceMap(rows: NotificationPreferenceRow[]) {
+  const map = new Map<string, boolean>();
+  for (const row of rows) {
+    map.set(`${row.eventGroup}:${row.channel}`, row.enabled);
+  }
+  return map;
+}
+
+export function NotificationSettingsSection({
+  preferences: initialPreferences,
+}: {
+  preferences: NotificationPreferenceRow[];
+}) {
+  const [preferenceMap, setPreferenceMap] = useState(buildPreferenceMap(initialPreferences));
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  const push = usePushNotifications();
+
+  function isEnabled(eventGroup: NotificationEventGroup, channel: NotificationChannel) {
+    const key = `${eventGroup}:${channel}`;
+    return preferenceMap.has(key) ? preferenceMap.get(key)! : true;
+  }
+
+  function handleToggle(eventGroup: NotificationEventGroup, channel: NotificationChannel, next: boolean) {
+    const key = `${eventGroup}:${channel}`;
+    const previous = isEnabled(eventGroup, channel);
+    setPreferenceMap((prev) => new Map(prev).set(key, next));
+    setPendingKey(key);
+
+    startTransition(async () => {
+      const result = await setNotificationPreference(eventGroup, channel, next);
+      setPendingKey(null);
+      if ("error" in result) {
+        setPreferenceMap((prev) => new Map(prev).set(key, previous));
+        toast.error(result.error);
+      }
+    });
+  }
+
+  async function handleActivatePush() {
+    const result = await push.activate();
+    if (result.error) toast.error(result.error);
+    else toast.success("Push-Benachrichtigungen sind jetzt aktiv.");
+  }
+
+  async function handleDeactivatePush() {
+    const result = await push.deactivate();
+    if (result.error) toast.error(result.error);
+  }
+
+  const pushReady = push.status === "active";
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border p-3 text-sm">
+        {push.status === "checking" && <p className="text-muted-foreground">Push-Status wird geprüft…</p>}
+        {push.status === "unsupported" && (
+          <p className="text-muted-foreground">
+            Push-Benachrichtigungen werden von diesem Browser nicht unterstützt.
+          </p>
+        )}
+        {push.status === "inactive" && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-muted-foreground">Push ist auf diesem Gerät noch nicht aktiviert.</p>
+            <Button type="button" size="sm" disabled={push.busy} onClick={handleActivatePush}>
+              {push.busy ? "Wird aktiviert…" : "Push-Benachrichtigungen aktivieren"}
+            </Button>
+          </div>
+        )}
+        {push.status === "active" && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-muted-foreground">Push ist auf diesem Gerät aktiv.</p>
+            <Button type="button" size="sm" variant="outline" disabled={push.busy} onClick={handleDeactivatePush}>
+              {push.busy ? "Wird deaktiviert…" : "Push deaktivieren"}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Ereignis</TableHead>
+              <TableHead className="text-center">E-Mail</TableHead>
+              <TableHead className="text-center">Push</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {notificationEventGroupValues.map((eventGroup) => (
+              <TableRow key={eventGroup}>
+                <TableCell>
+                  <p className="font-medium">{notificationEventGroupLabel[eventGroup]}</p>
+                  <p className="text-xs text-muted-foreground">{notificationEventGroupDescription[eventGroup]}</p>
+                </TableCell>
+                {notificationChannelValues.map((channel) => {
+                  const key = `${eventGroup}:${channel}`;
+                  const disabled = (channel === "push" && !pushReady) || pendingKey === key;
+                  return (
+                    <TableCell key={channel} className="text-center">
+                      <Switch
+                        checked={isEnabled(eventGroup, channel)}
+                        disabled={disabled}
+                        onCheckedChange={(checked) => handleToggle(eventGroup, channel, checked)}
+                        aria-label={`${notificationEventGroupLabel[eventGroup]} per ${channel === "email" ? "E-Mail" : "Push"}`}
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Die SEPA-Vorab-Ankündigung vor jedem Lastschrifteinzug wird immer per E-Mail verschickt und kann nicht
+        deaktiviert werden.
+      </p>
+    </div>
+  );
+}
