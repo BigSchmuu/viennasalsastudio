@@ -1,6 +1,6 @@
 # PROJ-22: Admin: Lehrer-Rollen verwalten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -234,4 +234,27 @@ Keine neuen Bugs während QA gefunden. Zwei echte Probleme wurden bereits währe
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-17
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-22
+**Commit:** 8b5d861
+
+**Pre-Deployment Checks:**
+- `npm run build` erfolgreich
+- `npm test`: 71/71 grün
+- E2E-Suite (`tests/PROJ-22-admin-lehrer-rollen-verwalten.spec.ts`): 8/8 grün auf Chromium
+- QA-Status: Approved, keine Bugs
+- Neue Pflicht-Umgebungsvariable `SUPABASE_SERVICE_ROLE_KEY` vor dem Push vom Nutzer in Vercel (Production) eingetragen
+- Keine DB-Migration nötig
+- `npm run lint`: weiterhin repo-weit defekt (Next.js 16), unverändert seit PROJ-3
+
+**Post-Deployment-Verifikation (Produktion):**
+- Login mit echtem Produktions-Testkonto (`e2e22-admin@viennasalsastudio.test`) erfolgreich
+- `/admin/lehrer` lädt korrekt, zeigt bestehende Lehrer, beide Haupt-Buttons sichtbar
+- Service-Role-Key funktioniert korrekt in Vercels Serverless-Umgebung: Einladungs-Aufruf an Supabase erfolgreich (verifiziert über den „bereits registriert"-Fehlerpfad, der einen erfolgreichen Admin-Client-Aufruf voraussetzt)
+- Keine `pageerror`-Events
+- Kleiner Selbstfehler bei der ersten Verifikation: Testerwartung bezog sich auf einen Fixture-Rollenzustand vor dem letzten QA-Testlauf (der die Rollen der Fixtures verändert hatte) — sofort erkannt und mit aktuellem Zustand korrigiert, kein Deploy-Problem
+
+**Bekannte offene Punkte (nicht blockierend):**
+- Repo-weiter ESLint-Ausfall (Next.js 16), unverändert seit PROJ-3
