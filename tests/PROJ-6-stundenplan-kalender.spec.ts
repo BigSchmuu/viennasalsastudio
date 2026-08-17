@@ -73,9 +73,24 @@ test.describe("PROJ-6: Stundenplan & Kalender", () => {
   test("Admin markiert eine Woche als Pause; Kurs verschwindet nur für diese Woche", async ({ page }) => {
     await loginAsAdmin(page);
     await openCourseEdit(page, "E2E6 Kurs Heute");
-    const today = new Date().toISOString().slice(0, 10);
+    // "E2E6 Kurs Heute" is scheduled on Freitag — pause the date of the next
+    // actual Friday occurrence (not literal "today", which won't generally
+    // land on a Friday). Local date components, not toISOString() — see
+    // PROJ-8 QA notes on the UTC-conversion date-shift bug that causes.
+    const d = new Date();
+    const daysUntilFriday = (5 - d.getDay() + 7) % 7; // JS getDay(): 0=Sonntag..5=Freitag
+    d.setDate(d.getDate() + daysUntilFriday);
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     await page.locator("#schedule-pause-date").fill(today);
-    await page.getByRole("button", { name: "Hinzufügen" }).click();
+    // Two "Hinzufügen" buttons exist since PROJ-8 added its own entry-dates
+    // section with the same label to the same admin course edit page —
+    // scope to the immediate flex-row container the pause-date input sits
+    // in (input -> its own wrapper div -> the shared row with the button).
+    await page
+      .locator("#schedule-pause-date")
+      .locator("xpath=../..")
+      .getByRole("button", { name: "Hinzufügen" })
+      .click();
     await page.waitForTimeout(800);
     await expect(page.getByText(today)).toBeVisible();
 

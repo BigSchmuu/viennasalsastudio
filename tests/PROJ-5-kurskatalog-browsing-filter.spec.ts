@@ -96,10 +96,14 @@ test.describe("PROJ-5: Kurskatalog (Browsing & Filter)", () => {
     await expect(card.getByText("—")).toBeVisible();
   });
 
-  test("Jetzt-buchen-Button zeigt Hinweis-Meldung statt echter Buchung", async ({ page }) => {
+  // Originally asserted a "bald verfügbar" placeholder toast — obsolete
+  // since PROJ-8 replaced that placeholder with a real booking flow.
+  // Anonymous visitors are now redirected to log in first; the actual
+  // booking dialog itself is covered by PROJ-8's own E2E suite.
+  test("Jetzt-buchen-Button leitet anonyme Besucher zum Login", async ({ page }) => {
     await page.goto("/kurse");
     await courseCard(page, "E2E5 Kizomba Beginner").getByRole("button", { name: "Jetzt buchen" }).click();
     await page.waitForTimeout(500);
-    await expect(page.getByText(/bald verfügbar/)).toBeVisible();
+    await expect(page).toHaveURL(/\/login\?redirect=\/kurse/);
   });
 });

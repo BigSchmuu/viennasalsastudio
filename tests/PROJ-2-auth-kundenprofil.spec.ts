@@ -89,7 +89,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.waitForTimeout(2000);
     await page.getByLabel("Name").fill("QA Test Kundin");
     await page.getByLabel("Telefon").fill("+43 660 1234567");
-    await page.getByRole("button", { name: "Speichern" }).click();
+    await page.getByRole("button", { name: "Speichern", exact: true }).click();
 
     await expect(page.getByText("Profil gespeichert.")).toBeVisible();
     await page.reload();
@@ -106,7 +106,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
 
     const futureYear = new Date().getFullYear() + 1;
     await page.getByLabel("Geburtsdatum").fill(`${futureYear}-01-01`);
-    await page.getByRole("button", { name: "Speichern" }).click();
+    await page.getByRole("button", { name: "Speichern", exact: true }).click();
 
     await expect(page.getByText("Geburtsdatum darf nicht in der Zukunft liegen")).toBeVisible();
   });
@@ -120,7 +120,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
 
     // See BUG-1 in QA results — same hydration-timing caveat as the profile save test.
     await page.waitForTimeout(2000);
-    await page.getByRole("button", { name: "Logout" }).click();
+    // Two "Logout" buttons exist since PROJ-24 added a nav-level logout
+    // alongside this page's own profile-card logout — .last() targets the
+    // profile card's button specifically.
+    await page.getByRole("button", { name: "Logout" }).last().click();
     await expect(page).toHaveURL("/");
 
     await page.goto("/profil");

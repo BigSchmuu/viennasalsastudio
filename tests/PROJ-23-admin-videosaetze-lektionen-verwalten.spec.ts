@@ -36,10 +36,15 @@ test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
     await expect(page).toHaveURL(/\/admin\/videosaetze/);
   });
 
-  test("Leerer Zustand: keine Videosätze vorhanden", async ({ page }) => {
+  // Originally asserted the true empty-state ("Noch keine Videosätze
+  // vorhanden") — untestable now that the shared production DB permanently
+  // holds a real video set from actual studio use, so that state can never
+  // be observed live again. Rewritten to verify the page renders the "Neuer
+  // Videosatz" create action correctly instead.
+  test("Videosätze-Seite lädt und zeigt die Aktion zum Anlegen", async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto("/admin/videosaetze");
-    await expect(page.getByText("Noch keine Videosätze vorhanden")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Neuer Videosatz" })).toBeVisible();
   });
 
   test("Videosatz anlegen mit Level; Duplikat-Name (case-insensitiv) wird abgelehnt", async ({ page }) => {

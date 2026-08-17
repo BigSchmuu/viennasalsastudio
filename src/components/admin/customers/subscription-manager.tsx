@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { subscriptionSchema, type SubscriptionInput } from "@/lib/validations/admin";
@@ -93,6 +93,14 @@ export function SubscriptionManager({
   courses: SubscriptionCourseOption[];
 }) {
   const [subscriptions, setSubscriptions] = useState(initialSubscriptions);
+  // Create/update/delete go through Server Actions that call revalidatePath
+  // rather than returning the mutated row, so the parent Server Component
+  // re-renders with a fresh `subscriptions` prop after each mutation — sync
+  // that back into local state (which otherwise only self-updates for the
+  // optimistic "Jetzt übernehmen" flow below).
+  useEffect(() => {
+    setSubscriptions(initialSubscriptions);
+  }, [initialSubscriptions]);
   const [editing, setEditing] = useState<SubscriptionRow | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<SubscriptionRow | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
