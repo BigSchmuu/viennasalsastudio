@@ -113,7 +113,7 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     expect(page.url()).not.toContain(`/lehrer/${COURSE_ID}`);
   });
 
-  test("Edge Case: Kunde mit Abo UND bestätigter Buchung am selben Termin erscheint nur einmal (BUG-1)", async ({
+  test("Edge Case: Kunde mit Abo UND bestätigter Buchung am selben Termin erscheint nur einmal", async ({
     page,
   }) => {
     await login(page, LEHRER_A);

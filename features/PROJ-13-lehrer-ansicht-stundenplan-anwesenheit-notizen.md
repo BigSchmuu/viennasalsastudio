@@ -225,9 +225,9 @@ Ran the full existing Playwright suite as a baseline. **Zero `chromium` failures
 
 **Conclusion: no regressions caused by PROJ-13.**
 
-### Bugs Found
+### Bugs Found — fixed (2026-08-17)
 
-#### BUG-1: Customer with both an active subscription and a confirmed booking for the same date appears twice on the attendance roster
+#### BUG-1: Customer with both an active subscription and a confirmed booking for the same date appears twice on the attendance roster — FIXED
 - **Severity:** High
 - **Steps to Reproduce:**
   1. As admin, give a customer both an active course-bound subscription for a course AND a confirmed trial/dropin booking for the exact same upcoming/past date of that course (documented as a real, if narrow, scenario in the spec's own edge cases).
@@ -236,16 +236,16 @@ Ran the full existing Playwright suite as a baseline. **Zero `chromium` failures
   4. Actual: the customer appears **twice** — once with the "Abo" badge, once with the "Buchung" badge — each with its own independent Anwesend/Abwesend button pair.
 - **Root cause:** `get_course_attendance_roster`'s `expected` CTE combines the abo-sourced and booking-sourced customer lists with a plain SQL `UNION`, which only de-duplicates identical `(customer_id, source)` pairs. Since the two branches deliberately produce *different* `source` values for the same `customer_id`, the union doesn't collapse them into one row.
 - **Impact:** confusing/broken UI (the same person shown as two separate roster entries), not a data-integrity issue — both entries write to the exact same `course_attendance` primary key (`course_id, customer_id, occurrence_date`), so marking one doesn't create a duplicate database row; a teacher clicking both independently would just have the second click overwrite the first.
-- **Suggested direction (not implemented — QA doesn't fix):** deduplicate by `customer_id` alone before joining against `course_attendance`, e.g. group the `expected` CTE by `customer_id` and pick one representative `source` (abo taking priority over booking, since it's the more durable relationship) rather than `UNION`-ing two different-shaped rows per person.
+- **Fix applied:** `get_course_attendance_roster` now ranks the three sources by priority (`abo` > `buchung` > `manuell`) in a `UNION ALL`, then picks exactly one row per `customer_id` via `DISTINCT ON (customer_id) ... ORDER BY customer_id, priority`, instead of relying on a plain `UNION` across differently-shaped rows. Re-verified: the same fixture customer (active abo + confirmed dropin, same date) now appears exactly once (with the `abo` source, correctly prioritized). Full `tests/PROJ-13-...spec.ts` suite re-run: 11/11 pass, including the previously-failing edge-case test. `get_advisors(security)` re-checked clean; `npm run build`/`lint`/`test` all green.
 - **Priority:** Fix before deployment — directly contradicts a named, spec'd edge case with clear reproduction steps.
 
-### Summary
+### Summary (post-fix)
 - **Acceptance Criteria:** 10/10 pass.
-- **Bugs Found:** 1 (High). 1 Low-severity informational security note (no blocking issue).
+- **Bugs Found:** 1 (High) — **fixed and re-verified**. 1 Low-severity informational security note remains (note field has no DB-level length cap; not blocking).
 - **Security:** authorization boundaries (RLS-zero-policy + in-function checks) hold up under direct RPC bypass attempts; XSS on the free-text note field confirmed safe; no SQL injection surface.
 - **Regressions:** none — full existing suite green on `chromium` (Mobile Safari gap is a pre-existing, unrelated environment issue).
-- **Production Ready:** **NO** — BUG-1 is High severity and directly contradicts an explicit, spec'd requirement.
-- **Recommendation:** Fix BUG-1 before deploying.
+- **Production Ready:** **YES.**
+- **Recommendation:** Ready for `/deploy`.
 
 ## Deployment
 _To be added by /deploy_
