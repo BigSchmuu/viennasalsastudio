@@ -9,9 +9,14 @@ export function computeInvoiceAmounts(grossAmount: number, vatRatePercent: numbe
   };
 }
 
-/** Escapes a single CSV field per RFC 4180 (quotes fields containing commas, quotes, or newlines). */
+/** Escapes a single CSV field per RFC 4180, and neutralizes leading formula-trigger
+ * characters (=, +, -, @, tab, CR) that spreadsheet apps would otherwise evaluate —
+ * user-controlled values like a customer's profile name flow into this export. */
 export function toCsvField(value: string | number): string {
-  const str = String(value);
+  let str = String(value);
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
   return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 

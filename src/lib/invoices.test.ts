@@ -35,6 +35,26 @@ describe("toCsvField", () => {
   it("quotes and escapes internal double quotes", () => {
     expect(toCsvField('Say "hi"')).toBe('"Say ""hi"""');
   });
+
+  it("neutralizes a leading = to prevent formula injection (CWE-1236)", () => {
+    expect(toCsvField("=1+1")).toBe("'=1+1");
+  });
+
+  it("neutralizes a leading formula-triggering =HYPERLINK payload", () => {
+    expect(toCsvField('=HYPERLINK("http://evil.example","click")')).toBe(
+      '"\'=HYPERLINK(""http://evil.example"",""click"")"'
+    );
+  });
+
+  it("neutralizes leading +, -, and @ as well", () => {
+    expect(toCsvField("+1+1")).toBe("'+1+1");
+    expect(toCsvField("-1+1")).toBe("'-1+1");
+    expect(toCsvField("@SUM(1,1)")).toBe('"\'@SUM(1,1)"');
+  });
+
+  it("does not touch an invoice number that happens to contain a dash mid-string", () => {
+    expect(toCsvField("2026-0001")).toBe("2026-0001");
+  });
 });
 
 describe("toCsvRow", () => {
