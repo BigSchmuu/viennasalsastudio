@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { weekdayOptions } from "@/lib/constants/weekdays";
-import { levelLabel, levelColor } from "@/lib/constants/levels";
+import { levelLabel, levelColor, levelBadgeStyle } from "@/lib/constants/levels";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -53,7 +53,11 @@ export function WeeklyScheduleView({
               </p>
             ) : (
               entries.map((entry) => (
-                <Card key={entry.courseId}>
+                <Card
+                  key={entry.courseId}
+                  className="border-l-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                  style={{ borderLeftColor: levelColor(entry.level) }}
+                >
                   <CardHeader>
                     <CardTitle className="flex items-baseline justify-between gap-2 text-lg">
                       <span>{entry.courseName}</span>
@@ -65,7 +69,7 @@ export function WeeklyScheduleView({
                   <CardContent className="space-y-2">
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="secondary">{entry.danceStyleName}</Badge>
-                      <Badge style={{ backgroundColor: levelColor(entry.level), color: "white" }}>
+                      <Badge variant="outline" style={levelBadgeStyle(entry.level)}>
                         {levelLabel(entry.level)}
                       </Badge>
                     </div>
