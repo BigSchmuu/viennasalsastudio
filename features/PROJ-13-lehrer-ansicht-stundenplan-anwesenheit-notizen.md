@@ -1,6 +1,6 @@
 # PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -248,4 +248,26 @@ Ran the full existing Playwright suite as a baseline. **Zero `chromium` failures
 - **Recommendation:** Ready for `/deploy`.
 
 ## Deployment
-_To be added by /deploy_
+
+**Production URL:** https://viennasalsastudio.vercel.app
+**Deployed:** 2026-08-17
+**Commits:** `d32ee82` (frontend) → `73de756` (QA) → `98263ad` (BUG-1 fix, this deploy)
+
+### Pre-Deployment Checks
+- `npm run build`, `npm run lint`, `npm test` (120/120): all clean.
+- QA: Approved, 0 Critical/High bugs remaining (BUG-1 fixed and re-verified — see QA Test Results above).
+- No new environment variables needed for this feature.
+- No secrets committed.
+- DB migrations: both applied directly to the production Supabase project during `/frontend`/`/qa` (`proj13_attendance_and_session_notes`, `proj13_fix_roster_duplicate_bug`) — no separate migration step needed at deploy time.
+- All code committed and pushed to `main`.
+
+### Deploy
+- Pushed to `main` → Vercel auto-deploy fired correctly and completed successfully (confirmed via the GitHub commit status API going `pending` → `success`).
+
+### Post-Deployment Verification
+- Production loads: `/`, `/kurse` return 200; `/lehrer`, `/admin/kurse` correctly redirect (307) when logged out.
+- **Verified live in production, authenticated as a real teacher fixture:** logged in as `e2e13-lehrer-a`, confirmed the "Meine Kurse" nav link, navigated to the course's termin view, and confirmed the full roster renders correctly — critically, **"E2E13 Kombi Kunde" (the BUG-1 repro case) now appears exactly once** with the correctly-prioritized "Abo" source, matching the fix.
+- No new environment variables, no auth/DB connection changes — no new failure surface introduced there.
+
+### Production-Ready Essentials
+Already covered by earlier deployments in this project (error tracking, security headers, etc.); nothing new required for this feature.
