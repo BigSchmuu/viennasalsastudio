@@ -83,7 +83,7 @@ test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
     await page.getByPlaceholder("https://youtube.com/…").nth(1).fill("nicht-eine-url");
     await page.getByRole("button", { name: "Speichern" }).click();
     await page.waitForTimeout(500);
-    await expect(page.getByText("Bitte eine gültige URL eingeben")).toBeVisible();
+    await expect(page.getByText("Bitte eine gültige YouTube-URL eingeben")).toBeVisible();
 
     // korrigieren und erneut speichern
     await page.getByPlaceholder("https://youtube.com/…").nth(1).fill("https://youtube.com/watch?v=e2e23-2");

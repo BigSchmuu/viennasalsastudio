@@ -1,6 +1,16 @@
 import { z } from "zod";
 import { levelValues } from "@/lib/constants/levels";
 import { subscriptionStatusValues } from "@/lib/constants/subscription-status";
+import { getYoutubeVideoId } from "@/lib/youtube";
+
+// Empty string is accepted here (an unfilled optional slot) — callers that
+// require a value must chain `.min(1, ...)` or similar on top of this.
+const youtubeUrlField = z
+  .string()
+  .trim()
+  .refine((value) => value === "" || getYoutubeVideoId(value) !== null, {
+    message: "Bitte eine gültige YouTube-URL eingeben",
+  });
 
 export const locationSchema = z.object({
   name: z.string().trim().min(1, "Name ist erforderlich").max(200),
@@ -39,8 +49,8 @@ export type VideoSetInput = z.infer<typeof videoSetSchema>;
 export const lessonSchema = z.object({
   title: z.string().trim().min(1, "Titel ist erforderlich").max(200),
   video_set_id: z.string().uuid("Ungültiger Videosatz"),
-  video_urls: z.array(z.string().trim().url("Bitte eine gültige URL eingeben")),
-  customer_video_url: z.string().trim().url("Bitte eine gültige URL eingeben").optional().or(z.literal("")),
+  video_urls: z.array(youtubeUrlField),
+  customer_video_url: youtubeUrlField,
 });
 export type LessonInput = z.infer<typeof lessonSchema>;
 
