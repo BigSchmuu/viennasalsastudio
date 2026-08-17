@@ -1,6 +1,6 @@
 # PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -264,4 +264,28 @@ Keine Sicherheitsfunde.
 - **Recommendation:** Deploy PROJ-9. Unabhängig davon: BUG-3 (fehlende Test-Konten für 6 bereits deployte Features) sollte als eigenständige Aufgabe zeitnah behoben werden, da die Regressionssicherheit dieser Features aktuell nicht automatisiert überprüfbar ist.
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-17
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-9
+**Commit:** 56c3b70
+
+**Pre-Deployment Checks:**
+- `npm run build` erfolgreich
+- `npm test`: 68/68 grün (64 bestehende + 4 neue für `subscriptionSchema`)
+- E2E-Suite (`tests/PROJ-9-abo-verwaltung-self-service.spec.ts`): 10/10 grün auf Chromium (isolierter Lauf)
+- QA-Status: Approved, keine Critical/High-Bugs (siehe QA Test Results)
+- Keine neuen Umgebungsvariablen, keine Secrets
+- DB-Migrationen bereits während Frontend-/QA-Phase direkt gegen Produktion angewendet (kein separates Staging): `proj9_subscription_self_service`, `proj9_fix_rpc_grants_and_search_path`, `proj9_revoke_anon_execute_on_self_service_rpcs`, `proj9_fix_switch_course_preserves_name`
+- `npm run lint`: weiterhin repo-weit defekt (Next.js 16 hat `next lint` entfernt, ESLint 9 braucht Flat-Config, die im Repo fehlt) — unverändert seit PROJ-3-Deploy, nicht PROJ-9-spezifisch
+
+**Post-Deployment-Verifikation (Produktion):**
+- Login mit echtem Produktions-Testkonto (`e2e24-customer@viennasalsastudio.test`) erfolgreich
+- Neuer Bereich „Mein Abo" live sichtbar auf `/profil`, zeigt das Test-Abo mit Name, Kurs, Preis und den korrekten Aktionen (Pausieren/Kündigen/Umbuchen)
+- Umbuchen-Dialog öffnet/schließt fehlerfrei in Produktion, keine `pageerror`-Events
+- Kein Cold-Start-Verifikationsartefakt diesmal aufgetreten (90 Sekunden Wartezeit nach Push eingeplant, danach direkt sauber verifiziert)
+
+**Bekannte offene Punkte (nicht blockierend):**
+- BUG-2 aus QA: veraltete/gehäufte Fixture-Daten in PROJ-7/PROJ-8-E2E-Suiten — vorbestehend, nicht PROJ-9-spezifisch
+- BUG-3 aus QA: Fixture-Konten für PROJ-2/3/4/5/6/23 fehlen komplett in der Produktions-DB — vorbestehend, unabhängig von PROJ-9 entdeckt; empfohlen als eigene Aufgabe zeitnah zu beheben
+- Repo-weiter ESLint-Ausfall (Next.js 16), unverändert seit PROJ-3
