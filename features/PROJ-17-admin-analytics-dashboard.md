@@ -1,6 +1,6 @@
 # PROJ-17: Admin-Analytics-Dashboard
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -157,7 +157,103 @@ Alles wird zur Anzeigezeit direkt aus der Datenbank gelesen und in der Seite sel
 - `npm run build`, `npm run lint`, `npm test` (148/148, inkl. 13 neuer Tests) alle sauber
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-18
+**App URL:** http://localhost:3000 (live gegen die Produktions-Supabase-DB, kein Staging vorhanden)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC1: Admin-Login landet direkt auf dem Dashboard
+- [ ] BUG: siehe BUG-1 — ein regulärer Login (`/login` ohne `?redirect=`) leitet weiterhin auf `/profil` weiter, nicht auf `/admin`. Der Redirect-zu-„Standorte" INNERHALB von `/admin` wurde zwar entfernt (das war der Kern der Architektur-Entscheidung), aber der Login-Flow selbst wurde nie angepasst
+
+#### AC2: Umsatz-Kachel (laufender Monat, ohne Rücklastschriften)
+- [x] Live verifiziert: €0,00 bei leerem Zeitraum, korrekte Summe (€955,00) bei einem Zeitraum mit echten Rechnungen; E2E-Test bestätigt
+
+#### AC3: Umsatz-Trend-Chart (12 Monate)
+- [x] E2E-Test + Unit-Tests (`trailing12MonthsPeriod`, `buildBuckets`) bestätigen Fenster und Bucket-Bildung; live mit echten Rechnungsdaten verifiziert, dass Balken korrekt erscheinen
+
+#### AC4: Auslastungs-Kachel (aktueller Stand)
+- [x] Live verifiziert (2/2 Plätze, 100%), E2E-Test bestätigt Sichtbarkeit
+
+#### AC5: Auslastungs-Liste (nur Kurse mit Teilnehmerlimit, sortiert)
+- [x] Live + E2E-Test bestätigt: nur die beiden Kurse mit gesetztem Limit erscheinen; ein Kurs ohne Limit („Salsa Beginner 1") erscheint nachweislich nicht in der Liste
+
+#### AC6: Auslastung unverändert bei Zeitraum-Wechsel
+- [x] Live + E2E-Test bestätigt: identischer Wert vor und nach Anwenden eines eigenen Zeitraums
+
+#### AC7: Kündigungs-Kachel (Anzahl + getrennt pausiert)
+- [x] Live verifiziert: 0 gekündigt / 2 pausiert im Ausgangszustand, korrekt auf 1 gestiegen nach einer über die echte Admin-UI angewendeten Kündigung
+
+#### AC8: Kündigungs-Trend-Chart (12 Monate)
+- [x] Live verifiziert: Balken erscheint korrekt im richtigen Monat, nachdem eine Kündigung über „Jetzt übernehmen" angewendet wurde
+
+#### AC9: Eigener Zeitraum aktualisiert Kacheln UND beide Trend-Charts
+- [x] Live + E2E-Test bestätigt für beide Seiten getrennt: Umsatz-Kachel+Chart UND Kündigungs-Kachel+Chart aktualisieren sich korrekt bei Navigation zu einem eigenen Zeitraum; Granularität wechselt dabei korrekt auf Tage (< 60 Tage Spanne)
+
+#### AC10: Enddatum vor Startdatum → Validierungsfehler
+- [x] Live + E2E-Test bestätigt: Fehlermeldung erscheint, keine Navigation, vorheriger Zeitraum bleibt sichtbar
+
+#### AC11: Leerer Zeitraum → Nullwerte statt Fehler
+- [x] Live + E2E-Test bestätigt: „€ 0,00", „0", Hinweistext statt leerer Grafik
+
+#### AC12: Zugriffsschutz für Nicht-Admins
+- [x] Live + E2E-Test bestätigt: Kunde wird von `/admin` weg auf „/" umgeleitet (bestehendes `requireAdmin`-Verhalten, redirect statt 403 — konsistent mit alle anderen Admin-Routen)
+
+### Edge Cases Status
+
+#### EC1: Neues Studio ganz ohne Daten
+- [x] Live verifiziert (leerer Zeitraum in der Vergangenheit gewählt): Kacheln 0/€0, beide Charts zeigen Hinweistext
+
+#### EC2: Rechnung wird nachträglich als Rückgebucht markiert
+- [x] Kein Live-Update erforderlich laut Spec — durch serverseitiges Rendering ohnehin gegeben (kein Cache, jeder Seitenaufruf liest frisch)
+
+#### EC3: Kurs wird gelöscht, während er in der Liste stand
+- [x] Code-Review: Liste wird bei jedem Aufruf frisch aus der DB gebaut, ein gelöschter Kurs kann nicht mehr auftauchen — kein Fehlerzustand möglich
+
+#### EC4: Abo wird pausiert und im selben Zeitraum reaktiviert
+- [x] Code-Review + Datenmodell: nur `cancelled_at` wird für Churn ausgewertet, Pause/Reaktivierung setzt dieses Feld nie — kann nicht als Kündigung gezählt werden
+
+#### EC5: Sehr langer eigener Zeitraum
+- [x] Code-Review + Unit-Tests: `trendGranularity` schaltet ab 60 Tagen auf Monats-Buckets um, unabhängig von der Zeitraum-Länge (auch bei mehreren Jahren) — bleibt lesbar
+
+#### EC6: Aktive Abos UND offene Buchungsanfragen für denselben Kurs
+- [x] Nicht erneut getestet — nutzt unverändert `get_course_occupancy` aus PROJ-12, dort bereits abgedeckt
+
+### Security Audit Results
+- [x] Authentication/Authorization: `requireAdmin` im Layout schützt `/admin` und damit auch das Dashboard zuverlässig; live mit Kunden-Login bestätigt (Redirect weg von `/admin`)
+- [x] Input-Validierung: `resolvePeriod` validiert `from`/`to` serverseitig strikt (Regex + Datums-Parse + `from <= to`); live mit `<script>`-Payload, SQL-artigem String, ungültigem Datum und Datums-Überlauf (`9999-99-99`) getestet — alle fallen sauber auf den Standard-Zeitraum zurück, kein Crash, keine Ausführung, kein Konsolen-Fehler
+- [x] XSS: Kursnamen werden über reguläres JSX gerendert (kein `dangerouslySetInnerHTML`), React escaped automatisch
+- [x] Keine sensiblen Daten in den Datenbank-Abfragen des Dashboards (nur Beträge, Daten, Status — keine Kundennamen oder IBANs abgefragt)
+- [x] Keine neue Rate-Limiting-Lücke — konsistent mit dem Rest des Projekts (kein Rate-Limiting irgendwo vorhanden, keine Regression)
+
+### Bugs Found
+
+#### BUG-1: Regulärer Admin-Login landet auf „Mein Profil" statt auf dem Dashboard
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Als Admin über die normale Login-Seite (`/login`, z.B. über den Nav-Link „Login", ohne vorherigen Redirect-Versuch auf eine geschützte Admin-Seite) einloggen
+  2. Erwartet laut AC1: direkte Landung auf `/admin` (dem neuen Dashboard)
+  3. Tatsächlich: `LoginForm` (`src/components/auth/login-form.tsx`) leitet nach jedem erfolgreichen Login unconditional auf `redirectTo || "/profil"` weiter — die Komponente kennt die Rolle des eingeloggten Nutzers nicht und behandelt Admins genauso wie Kunden
+  4. Admin landet auf `/profil`, muss zusätzlich auf den Nav-Link „Admin" klicken, um das Dashboard zu sehen (ein Klick, aber nicht „direkt")
+- **Priority:** Fix before deployment (widerspricht direkt der im Decision Log festgehaltenen Absicht „ohne erst navigieren zu müssen")
+
+#### BUG-2: Admin-Navigation läuft bei 375px (Mobile) horizontal über den Bildschirmrand hinaus
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Als Admin auf einem 375px-Viewport (Mobile) auf einer beliebigen `/admin/*`-Seite einloggen, inkl. dem neuen Dashboard
+  2. Erwartet: Navigation bricht um oder scrollt innerhalb ihres eigenen Containers horizontal, Rest der Seite bleibt scrollfrei
+  3. Tatsächlich: `AdminNav` (`src/components/admin/admin-nav.tsx`) hat weder `flex-wrap` noch einen eigenen `overflow-x-auto`-Container — bei jetzt 10 Einträgen (durch PROJ-17 kam „Dashboard" als zusätzlicher Link hinzu) überläuft die gesamte Seite horizontal (`body.scrollWidth: 1027px` bei 375px Viewport)
+  4. Dashboard-Inhalte selbst (Kacheln, Charts, Tabelle) sind korrekt auf die Spaltenbreite beschränkt — der Überlauf kommt ausschließlich von der Nav-Leiste
+- **Hinweis:** War vermutlich schon vorher mit 9 Links grenzwertig/vorhanden — PROJ-17s zusätzlicher Link hat es sichtbar gemacht bzw. verschärft. Betrifft die gemeinsame `AdminNav`-Komponente, nicht nur PROJ-17-Code
+- **Priority:** Fix before deployment (einfache Korrektur: `overflow-x-auto` auf den Nav-Container)
+
+### Summary
+- **Acceptance Criteria:** 11/12 bestanden (AC1 mit BUG-1 behaftet)
+- **Bugs Found:** 2 total (0 critical, 0 high, 2 medium, 0 low)
+- **Security:** Pass — keine Schwachstellen gefunden (Zugriffsschutz, Input-Validierung, XSS alle bestätigt robust)
+- **Production Ready:** YES (keine Critical/High-Bugs)
+- **Recommendation:** Beide Medium-Bugs sind klein und klar umrissen (BUG-1: Rolle nach Login prüfen und Ziel entsprechend wählen; BUG-2: eine CSS-Klasse auf einer bestehenden Komponente) — vor dem Deploy beheben wird empfohlen, blockiert das Deployment aber nicht zwingend.
 
 ## Deployment
 _To be added by /deploy_
