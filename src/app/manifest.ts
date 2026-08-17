@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Vienna Salsa Studio",
-    short_name: "Salsa Wien",
+    short_name: "Vienna Salsa Studio",
     description: "Kurse buchen, Abo verwalten und Beispiel-Videos ansehen.",
     start_url: "/",
     display: "standalone",
