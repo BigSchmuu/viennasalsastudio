@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { subscriptionSchema, teacherInviteSchema, lessonSchema } from "./admin";
+import { subscriptionSchema, teacherInviteSchema, lessonSchema, courseSchema } from "./admin";
 
 const validCourseId = "3b11eea8-cab5-46b0-9a2f-ad35bc99115f";
 const validVideoSetId = "ad07a4ed-ce9c-4d37-ae79-a549513ef839";
+const validDanceStyleId = "6b0f9f2d-9d2a-4e5a-8b1b-6e6d3d0a1b2c";
+const validRoomId = "9f1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071";
 
 describe("subscriptionSchema", () => {
   const base = { name: "Flatrate Studierende", price: 45, status: "active" as const };
@@ -40,6 +42,62 @@ describe("subscriptionSchema", () => {
       course_id: "",
       cycle_anchor_date: "",
     });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("courseSchema (max_participants / price, PROJ-12)", () => {
+  const base = {
+    name: "E2E12 Kurs",
+    dance_style_id: validDanceStyleId,
+    level: "beginner" as const,
+    room_id: validRoomId,
+    video_set_id: "",
+    teacher_ids: [],
+  };
+
+  it("accepts empty strings for both fields (unlimited capacity, no fixed price)", () => {
+    const result = courseSchema.safeParse({ ...base, max_participants: "", price: "" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a positive integer max_participants and a non-negative price", () => {
+    const result = courseSchema.safeParse({ ...base, max_participants: "12", price: "55.5" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a price of exactly 0 (free course)", () => {
+    const result = courseSchema.safeParse({ ...base, max_participants: "", price: "0" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a zero max_participants", () => {
+    const result = courseSchema.safeParse({ ...base, max_participants: "0", price: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a negative max_participants", () => {
+    const result = courseSchema.safeParse({ ...base, max_participants: "-3", price: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a non-integer max_participants", () => {
+    const result = courseSchema.safeParse({ ...base, max_participants: "2.5", price: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a non-numeric max_participants", () => {
+    const result = courseSchema.safeParse({ ...base, max_participants: "abc", price: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a negative price", () => {
+    const result = courseSchema.safeParse({ ...base, max_participants: "", price: "-1" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a non-numeric price", () => {
+    const result = courseSchema.safeParse({ ...base, max_participants: "", price: "free" });
     expect(result.success).toBe(false);
   });
 });

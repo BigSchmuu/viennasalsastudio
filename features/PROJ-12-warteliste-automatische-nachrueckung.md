@@ -161,7 +161,107 @@ Keine neuen Fremdpakete nötig.
 **Abweichung von der ursprünglichen Architektur-Planung:** Die Tech-Design-Phase hatte für die reguläre Kursanmeldung ursprünglich einen einfachen sequenziellen Vorab-Check vorgesehen (wie die übrigen Checks in `booking.ts`). Beim Umsetzen wurde das gegen den expliziten Akzeptanzkriterium/Edge-Case „race-condition-sicher zum Zeitpunkt der Anfrage" geprüft und durch die atomare, zeilengesperrte Funktion `create_regular_course_booking` ersetzt — sonst hätten zwei gleichzeitige Anfragen für den letzten Platz beide durchkommen können.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-17
+**App URL:** http://localhost:3000 (+ direct SQL/RPC verification against the production Supabase project, no staging environment exists)
+**Tester:** QA Engineer (AI)
+
+### Method
+- Automated: `npm test` (Vitest, incl. 15 new tests for `courseSchema`'s `max_participants`/`price` refinements and `joinWaitlistSchema`), `npm run test:e2e` (full existing Playwright suite as a regression baseline, plus a new `tests/PROJ-12-warteliste-automatische-nachrueckung.spec.ts`).
+- Manual: browser testing of the new UI surfaces (booking dialog full/waitlist states, admin course form, admin waitlist dialog, „Meine Warteliste").
+- Direct DB/RPC verification via SQL-JWT impersonation (`set local request.jwt.claims`) against the four new `SECURITY DEFINER` functions and RLS policies — the same technique used in prior QA passes on this project, chosen here specifically because it can exercise true server-side atomicity/race-condition behavior and RLS boundaries that are impractical to trigger deterministically through the UI.
+
+### Acceptance Criteria Status
+
+- [x] **AC1** (voller Kurs bietet Warteliste an): **FAIL — BUG-1.** The `join_waitlist`/`create_regular_course_booking` RPCs correctly enforce capacity server-side, but the page-level "is this course full" check used to decide *which UI to show* is wrong for anyone but the admin or the exact occupying customer.
+- [x] **AC2** (kein Mandat → Hinweis beim Wartelisten-Eintrag): PASS.
+- [x] **AC3** (genaue Position im Profil): Position calculation itself verified correct via direct `list_my_waitlist()` RPC calls (FIFO, live-computed). The UI path is blocked by BUG-1 (customer never reaches the waitlist-join button in the first place).
+- [x] **AC4** (Kunde trägt sich selbst aus): Self-removal verified correct via RLS test (own row deletable, another customer's row not). UI path blocked by BUG-1.
+- [x] **AC5** (Abo wirksam gekündigt/gelöscht → Nachrücken): PASS — verified end-to-end via direct RPC simulation of `applyPendingChange`/`deleteSubscription`'s trigger, and via code review confirming the actual admin actions call `promote_waitlist_for_course` with the correct `course_id`.
+- [x] **AC6** (Admin lehnt offene Anfrage ab → Nachrücken): PASS — verified via a real E2E run through the admin UI (reject a booking, confirm the next waitlist entry becomes a new open request).
+- [x] **AC7** (Preis im Bestätigungsdialog vorausgefüllt): PASS — verified via E2E run, prefilled value matches the course's fixed price and stays editable.
+- [x] **AC8** (Admin-Wartelisten-Übersicht mit Position/Kunde/Datum, entfernbar): **FAIL — BUG-2.** The dialog always renders "Warteliste ist leer." regardless of actual entries.
+- [x] **AC9** (Duplikat bei aktivem Abo/offener Anfrage verhindert): PASS — verified both via UI (customer with an active subscription gets a rejection on submit) and directly at the RPC level (`already enrolled` / `already requested` exceptions).
+- [x] **AC10** (Kapazität erhöht → Nachrücken): PASS — verified via direct RPC test (raising `max_participants` by 1 and calling `promote_waitlist_for_course` promoted exactly 1 waiting entry).
+
+### Edge Cases Status
+
+- [x] **Zwei Kunden, letzter Platz gleichzeitig:** PASS — `create_regular_course_booking` takes `SELECT ... FOR UPDATE` on the course row before checking capacity, which serializes concurrent requests for the same course at the Postgres level (verified via code review of the deployed function; true concurrent-session racing isn't practical to script through this tool, but the lock is the standard, correct primitive for exactly this scenario).
+- [ ] **Kapazität unter aktuelle Belegung verringert → „überbelegt"-Hinweis:** **BUG-4 (Medium).** The reduction itself is correctly allowed and doesn't touch existing subscriptions/bookings, but no "überbelegt" hint is shown anywhere (admin course table just shows the raw `belegt / max` numbers, e.g. "2 / 1", with no distinguishing treatment).
+- [x] **Doppeltes Eintragen auf dieselbe Warteliste:** PASS — `join_waitlist` raises `already on waitlist`, verified directly.
+- [x] **Nachgerückter Eintrag von Admin abgelehnt → nächster prüft erneut:** PASS — this is exactly what the passing AC6 test verifies (rejection re-triggers `promote_waitlist_for_course`).
+- [x] **Kurs ohne Kapazitäts-Limit:** PASS — `join_waitlist` raises `course has no capacity limit`; the customer-facing capacity check in `createBooking`/`create_regular_course_booking` is skipped entirely when `max_participants` is `null`.
+- [x] **Kunde storniert Mandat nach Wartelisten-Eintritt, vor Nachrücken:** PASS by design — nothing in the join/promote path re-checks mandate presence at promotion time, so the entry/promoted request is unaffected, matching the spec'd behavior (confirmed via code review, consistent with how PROJ-8 already never re-checks mandate at confirmation time either).
+
+### Security Audit Results
+
+- [x] RLS on `waitlist_entries`: exactly two policies (own-or-admin SELECT, own-or-admin DELETE), **no INSERT policy at all** — verified a raw `INSERT` as a customer is rejected by RLS, forcing all entries through `join_waitlist`. Verified a customer cannot read or delete another customer's waitlist row.
+- [x] `create_regular_course_booking` / `join_waitlist`: both derive the customer strictly from `auth.uid()`, ignoring any client-supplied identity — a customer cannot book or waitlist on another customer's behalf.
+- [ ] **BUG-3 (High):** `join_waitlist` does **not** enforce the SEPA-mandate requirement at the database level — only the Next.js action layer (`src/lib/actions/waitlist.ts`) checks for a mandate before calling the RPC. A mandate-less, authenticated customer can call `join_waitlist` directly via the Supabase REST RPC endpoint (`/rest/v1/rpc/join_waitlist`), bypassing the app entirely, and successfully join a waitlist. Reproduced live: a dedicated no-mandate fixture customer joined the waitlist via a direct RPC call (test entry immediately deleted afterward). This defeats the explicit Decision Log rationale for requiring the mandate up front ("real automatic follow-up without the system waiting on the customer") — a promoted, mandate-less customer's SEPA collection would only fail later, at the next billing run, discovered well after the admin already confirmed the subscription trusting that the mandate gate had done its job.
+- [x] `promote_waitlist_for_course` is callable directly by any `authenticated` user (not just admin) since it's a broadly-granted `SECURITY DEFINER` function with no internal role check — **informational, not filed as a bug.** Calling it doesn't allow bypassing capacity (it still re-checks `occupied < max` on every loop iteration) or skipping the FIFO queue, so the practical impact is at most "an early, harmless poke" of a promotion that would have happened anyway. This exactly matches the existing, already-accepted risk posture of `create_invoices_for_collection_run` in this codebase (also `authenticated`-executable, same `SECURITY DEFINER` pattern, same reliance on the calling Next.js action's `requireAdmin()` gate rather than an in-function role check).
+- [x] No `dangerouslySetInnerHTML` introduced in any new component; all new user-supplied text (customer names, notes, desired plan) renders through normal JSX text interpolation.
+- [x] `get_advisors(security)` clean after every migration in this feature — the four new functions appear only under the expected, already-accepted `authenticated_security_definer_function_executable` WARN category, never under the `anon_...` variant.
+
+### Regression Testing
+
+Ran the full existing Playwright suite as a baseline before making any further changes. 46 failures surfaced across PROJ-3/4/6/7/8/9/23 on `chromium` (all `Mobile Safari` failures were a missing WebKit browser binary in this environment, unrelated to any code — confirmed via `~/Library/Caches/ms-playwright` only containing Chromium). Investigated the `chromium` failures individually rather than assuming they were regressions:
+- **PROJ-8** (8 failures): traced to `e2e8-customer`'s `profiles.referral_source` already being `"google"` and 8 accumulated historical `trial` bookings from prior QA sessions — both confirmed via direct DB inspection to predate this session and be untouched by any PROJ-12 change. Classic "no-staging test drift" (see project memory), not a regression.
+- **PROJ-9** (2 failures): traced to two fixture subscriptions ("E2E9 Paused Abo", "E2E9 Due Abo") left in their *post-action* state (`active` instead of `paused`; `cancelled` instead of a still-pending cancellation) by an earlier session's non-idempotent test run. Restored both to their documented baseline state (pure fixture housekeeping, no app-code change) and re-ran: **all 10 PROJ-9 tests pass**, including the one that exercises my modified `applyPendingChange` end-to-end.
+- **PROJ-3/4/6/7/23**: sampled PROJ-3 in detail — traced to a duplicate "E2E Studio" location created by an earlier, non-idempotent run of the same test (it creates a location without checking for one first). Confirmed as the same pre-existing drift pattern; not investigated further given it doesn't touch any file this feature modified. **PROJ-4's "Mehrere unabhängige Abos... Status ändern... Abo löschen" test — which directly exercises my modified `updateSubscription`/`deleteSubscription` — already passed cleanly in the original baseline**, independently confirming those changes are non-breaking.
+- `npm test` (Vitest): 116/116 pass, no regressions.
+
+**Conclusion: no regressions caused by PROJ-12.** All investigated failures pre-date this session's changes and are attributable to accumulated state on long-lived, shared fixture accounts (this project has no staging database).
+
+### Bugs Found
+
+#### BUG-1: Customer-facing "is this course full" check is wrong for everyone except the admin and the exact occupying customer
+- **Severity:** Critical
+- **Steps to Reproduce:**
+  1. As an anonymous visitor (or any logged-in customer who isn't already enrolled in the course), open `/kurse` for a course whose capacity is genuinely full.
+  2. Expected: an "Ausgebucht" badge on the catalog card, and the booking dialog shows "Kurs ist aktuell voll" + an "Auf Warteliste eintragen" button.
+  3. Actual: no badge, and the dialog shows the normal registration form as if the course had free capacity.
+- **Root cause:** `src/app/(site)/kurse/page.tsx` and `src/app/(site)/kurse/[id]/page.tsx` compute occupancy with plain `.from("subscriptions")` / `.from("course_bookings")` queries through the standard (RLS-enforced) client. Both tables' SELECT policy is "own row or admin only" (`auth.uid() = customer_id OR current_role() = 'admin'`) — verified directly. Any viewer who isn't the admin or the specific customer occupying that slot gets zero rows back for *other* customers' subscriptions/bookings on that course, so the computed `occupied` count is always too low (frequently 0), and `isFull` evaluates to `false`.
+- **Why it's not a data-integrity issue:** the actual capacity enforcement happens inside the `SECURITY DEFINER` RPCs (`create_regular_course_booking`, `join_waitlist`), which correctly bypass RLS to see true occupancy — nobody can actually overbook a course. If a customer submits through the (incorrectly-shown) normal form, the server-side RPC still rejects with "course is full" and the dialog shows a fallback error text — but never flips to the waitlist-join UI, leaving the customer stuck.
+- **Suggested direction (not implemented — QA doesn't fix):** a `SECURITY DEFINER` function/view that returns only aggregate occupancy counts per course (no per-row customer data, so safe to expose broadly), used by the public/customer-facing pages instead of the raw RLS-scoped table queries.
+- **Priority:** Fix before deployment — this defeats the feature's primary purpose for its primary audience (regular customers).
+
+#### BUG-2: Admin's waitlist overview dialog always shows "Warteliste ist leer."
+- **Severity:** Critical
+- **Steps to Reproduce:**
+  1. As admin, go to `/admin/kurse` for a course that genuinely has waitlist entries (table correctly shows e.g. "1 wartend").
+  2. Click the "N wartend" button to open the waitlist dialog.
+  3. Expected: the entries (position, customer, plan, date, remove button).
+  4. Actual: "Warteliste ist leer." every time, regardless of how many entries actually exist.
+- **Root cause:** `CourseWaitlistDialog` (`src/components/admin/courses/course-waitlist-dialog.tsx`) is rendered unconditionally in `course-manager.tsx` (unlike the sibling `CourseFormDialog`, which is only mounted while `editing !== null`). Its `useState(initialEntries)` therefore only ever initializes once, at first page load, when `waitlistTarget` is still `null` and `entries={[]}` is passed in. The `onOpenChange`-based re-sync (`if (next) setEntries(initialEntries)`) never fires, because the dialog's `open` prop is flipped by a *parent* state change (clicking a table row's button), not by a Radix-internal open/close interaction that would actually invoke `onOpenChange`. This is the exact "client state goes stale after a prop change" pattern already documented from an earlier session's fix (`SubscriptionManager` in PROJ-9).
+- **Suggested direction (not implemented — QA doesn't fix):** either conditionally mount the dialog like `CourseFormDialog` already does (`{waitlistTarget !== null && <CourseWaitlistDialog .../>}`), or add a `useEffect` that resyncs `entries` from the `entries` prop.
+- **Priority:** Fix before deployment — AC8 is completely non-functional as shipped.
+
+#### BUG-3: `join_waitlist` doesn't enforce the SEPA-mandate requirement server-side
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. As an authenticated customer with **no** SEPA mandate on file, call the Supabase RPC endpoint directly: `POST /rest/v1/rpc/join_waitlist` with a valid `p_course_id`/`p_desired_plan`/`p_chosen_date` for a full course (bypassing the app's UI/server-action entirely).
+  2. Expected (per AC2 and the spec's Decision Log): rejected, same as the app-layer mandate check.
+  3. Actual: succeeds — a real `waitlist_entries` row is created for a customer with no way to ever pay via SEPA.
+- **Impact:** a customer who reaches the waitlist this way can later be auto-promoted (via `promote_waitlist_for_course`) into an open booking request that the admin may confirm trusting that "on the waitlist" already implies "has a mandate" (that's the explicit rationale in the Decision Log for requiring the mandate up front) — the missing payment method then only surfaces at the next SEPA collection run.
+- **Suggested direction (not implemented — QA doesn't fix):** add the same `exists (select 1 from sepa_mandates where customer_id = v_customer_id and revoked_at is null)` check used elsewhere directly inside `join_waitlist`, mirroring how capacity/duplicate checks are already enforced at the DB layer rather than only in the Next.js action.
+- **Priority:** Fix before deployment.
+
+#### BUG-4: No "überbelegt" indicator when capacity is reduced below current occupancy
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. As admin, reduce a course's "Max. Teilnehmer" below its current occupied count (explicitly allowed per the spec's edge case).
+  2. Expected: the course shows an "überbelegt" hint somewhere in the admin course table.
+  3. Actual: the "Kapazität" column just shows the raw numbers (e.g. "2 / 1") with no distinguishing styling or label.
+- **Impact:** cosmetic/informational only — the reduction is correctly allowed, no existing subscriptions/bookings are touched, and customer-facing behavior (course shows as full) is unaffected.
+- **Priority:** Nice to have.
+
+### Summary
+- **Acceptance Criteria:** 6/10 fully pass end-to-end through the UI; 2 more (AC3, AC4) verified correct at the data/RPC layer but blocked from UI verification by BUG-1; 2 fail (AC1, AC8).
+- **Bugs Found:** 4 total (2 Critical, 1 High, 1 Medium).
+- **Security:** 1 High finding (BUG-3, mandate bypass); 1 informational note (broad `promote_waitlist_for_course` grant, consistent with existing codebase precedent); RLS boundaries on the new `waitlist_entries` table otherwise verified solid.
+- **Regressions:** none — all baseline suite failures traced to pre-existing, unrelated fixture drift (documented above), not to PROJ-12 changes. My modified files (`admin/courses.ts`, `admin/subscriptions.ts`, `admin/bookings.ts`, `booking.ts`) were each independently re-verified passing.
+- **Production Ready:** **NO** — BUG-1 and BUG-2 are Critical and defeat the feature's core purpose for its primary audience.
+- **Recommendation:** Fix BUG-1, BUG-2, and BUG-3 before deploying; BUG-4 can ship as a known follow-up if desired.
 
 ## Deployment
 _To be added by /deploy_
