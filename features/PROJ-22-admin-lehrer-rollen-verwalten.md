@@ -69,12 +69,57 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Keine neue Tabelle — alles läuft über das bestehende `role`-Feld in `profiles` | `profiles.role` unterstützt bereits `customer`/`teacher`/`admin`; Befördern/Zurückstufen ist nur eine Wertänderung an einem bestehenden Feld, keine neue Datenstruktur nötig | 2026-08-17 |
+| Einladung neuer Lehrer nutzt Supabases privilegierte Admin-Funktion (Service-Role-Schlüssel), ausschließlich serverseitig | Das ist der einzige Weg, ein Konto samt Einladungs-Mail zu erzeugen, ohne dass der Admin ein Passwort kennt oder vergibt; dieser Schlüssel darf niemals an den Browser gelangen, deshalb läuft die gesamte Einladungs-Logik in einer serverseitigen Aktion | 2026-08-17 |
+| Kundensuche auf `/admin/lehrer` nutzt dasselbe Muster wie die bestehende Kundenliste (PROJ-4) | Kein neuer Suchmechanismus nötig; reduziert Code-Duplikation und Inkonsistenz | 2026-08-17 |
+| Warnhinweis bei Degradierung liest live aus `course_teachers`, statt einen eigenen Zähler zu pflegen | Einfacher und immer aktuell; die Tabelle existiert bereits aus PROJ-3, es muss nur eine Abfrage vor der Bestätigung erfolgen | 2026-08-17 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Komponentenstruktur
+
+```
+/admin/lehrer (neue Admin-Seite, neuer Nav-Punkt "Lehrer")
+├── Leerzustand „Noch keine Lehrer vorhanden" (falls keine Lehrer existieren)
+├── Lehrer-Tabelle (Name, E-Mail)
+│   └── Pro Zeile: „Zum Kunden zurückstufen"
+│       ├── Ist bei keinem Kurs eingetragen → sofortige Zurückstufung
+│       └── Ist bei mind. einem Kurs eingetragen → Bestätigungsdialog mit Kursliste
+├── „Lehrer einladen" (Button, öffnet Dialog)
+│   └── Einladungs-Dialog: Name, E-Mail → Absenden → Einladungs-Mail wird verschickt
+└── „Bestehenden Kunden befördern" (Button, öffnet Dialog)
+    └── Beförderungs-Dialog: Kundensuche (nur Personen mit Rolle „customer") → Auswahl → Bestätigen
+```
+
+Die bestehende `AdminNav`-Komponente (PROJ-3) wird um den Punkt „Lehrer" erweitert. Die bestehende Kundendetailseite (PROJ-4) bleibt unverändert.
+
+### B) Datenmodell (fachlich)
+
+Es wird **keine neue Tabelle** benötigt. Alles läuft über das bestehende Kundenprofil:
+
+**Profil** (bestehend, aus PROJ-1):
+- Rolle: `customer`, `teacher` oder `admin` — dieses Feld existiert bereits und wird von diesem Feature lediglich zwischen `customer` und `teacher` umgeschaltet
+- Name, E-Mail-Adresse (bestehend)
+
+**Kurs-Lehrer-Zuordnung** (bestehend, aus PROJ-3): wird von PROJ-22 nur *gelesen* (um die Warnung bei Degradierung anzuzeigen), nicht verändert.
+
+Neu ist lediglich der **Ablauf**, wie ein Profil entsteht bzw. seine Rolle wechselt:
+- Befördern: bestehendes Profil, Rolle wird geändert
+- Einladen: komplett neues Konto samt Profil wird angelegt, mit Rolle „teacher" von Anfang an, und einer Einladungs-Mail statt eines vom Kunden selbst gewählten Passworts
+
+### C) Tech-Entscheidungen (Begründung)
+
+- **Kein neues Datenmodell:** Die Rolle „teacher" existiert bereits im System (wird schon vom Lehrer-Auswahlfeld im Kurs-Formular genutzt) — es fehlte bisher nur eine Bedienoberfläche, um diese Rolle zu vergeben.
+- **Einladung statt Admin-Passwort:** Das Anlegen eines komplett neuen Kontos erfordert eine erhöhte Berechtigung, die ausschließlich serverseitig verwendet werden darf, niemals im Browser sichtbar sein darf. Dadurch bleibt die Passwortvergabe wie bei der normalen Registrierung allein in der Hand der eingeladenen Person.
+- **Zentrale Seite statt verteilter Buttons:** Alle Lehrer-bezogenen Aktionen (Liste ansehen, einladen, befördern, zurückstufen) an einem Ort zu bündeln hält die bestehende Kundenverwaltung (PROJ-4) unangetastet und macht PROJ-22 unabhängig testbar.
+- **Warnung statt Sperre bei Degradierung:** Der Admin behält die Kontrolle, wird aber informiert, bevor er jemanden zurückstuft, der noch aktiv unterrichtet — ohne unnötige Hürden aufzubauen.
+
+### D) Abhängigkeiten (Pakete)
+
+Keine neuen Fremdpakete nötig — die Einladungsfunktion ist Teil des bereits installierten Supabase-Pakets, wird hier nur erstmals mit einer erhöhten Berechtigung statt der öffentlichen Standard-Berechtigung verwendet. Diese Berechtigung (ein zusätzlicher geheimer Schlüssel) muss einmalig in der Serverkonfiguration (lokal und in Vercel) hinterlegt werden, bevor `/backend` beginnt.
 
 ## QA Test Results
 _To be added by /qa_
