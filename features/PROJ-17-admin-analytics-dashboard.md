@@ -1,6 +1,6 @@
 # PROJ-17: Admin-Analytics-Dashboard
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -165,7 +165,7 @@ Alles wird zur Anzeigezeit direkt aus der Datenbank gelesen und in der Seite sel
 ### Acceptance Criteria Status
 
 #### AC1: Admin-Login landet direkt auf dem Dashboard
-- [ ] BUG: siehe BUG-1 — ein regulärer Login (`/login` ohne `?redirect=`) leitet weiterhin auf `/profil` weiter, nicht auf `/admin`. Der Redirect-zu-„Standorte" INNERHALB von `/admin` wurde zwar entfernt (das war der Kern der Architektur-Entscheidung), aber der Login-Flow selbst wurde nie angepasst
+- [x] BUG-1 behoben: `signIn` gibt jetzt die Rolle zurück, `LoginForm` leitet Admins ohne expliziten `redirectTo` direkt auf `/admin` weiter
 
 #### AC2: Umsatz-Kachel (laufender Monat, ohne Rücklastschriften)
 - [x] Live verifiziert: €0,00 bei leerem Zeitraum, korrekte Summe (€955,00) bei einem Zeitraum mit echten Rechnungen; E2E-Test bestätigt
@@ -248,12 +248,21 @@ Alles wird zur Anzeigezeit direkt aus der Datenbank gelesen und in der Seite sel
 - **Hinweis:** War vermutlich schon vorher mit 9 Links grenzwertig/vorhanden — PROJ-17s zusätzlicher Link hat es sichtbar gemacht bzw. verschärft. Betrifft die gemeinsame `AdminNav`-Komponente, nicht nur PROJ-17-Code
 - **Priority:** Fix before deployment (einfache Korrektur: `overflow-x-auto` auf den Nav-Container)
 
+### Fix Verification (2026-08-18, nach Nutzeranfrage „both")
+
+Beide Bugs wurden behoben:
+
+- **BUG-1 (Medium):** `signIn` (`src/lib/actions/auth.ts`) liest jetzt nach erfolgreichem Login die Rolle aus `profiles` und gibt sie zurück; `LoginForm` leitet bei fehlendem `redirectTo` jetzt rollenabhängig weiter (`/admin` für Admins, weiterhin `/profil` für alle anderen). Live verifiziert: regulärer Admin-Login landet direkt auf `/admin`; regulärer Kunden-Login landet weiterhin auf `/profil`; der bestehende `?redirect=`-Vorrang (z.B. von einer geschützten Seite kommend) bleibt unverändert erhalten — bestätigt durch den vollständigen PROJ-2-Regressionslauf (alle 9 Tests weiterhin grün, inkl. des Tests für „nach Login zurückgeleitet"). **outcome: fixed**
+- **BUG-2 (Medium):** `AdminNav` (`src/components/admin/admin-nav.tsx`) hat jetzt `overflow-x-auto` auf dem Nav-Container sowie `shrink-0 whitespace-nowrap` auf den einzelnen Links. Live bei 375px verifiziert: `body.scrollWidth` jetzt exakt 375px (vorher 1027px) — die Navigation scrollt innerhalb ihres eigenen Rahmens, der Rest der Seite hat keinen horizontalen Überlauf mehr. **outcome: fixed**
+
+**Regressionsprüfung nach den Fixes:** `npm run build`, `npm run lint`, `npm test` (148/148) sauber. `tests/PROJ-17-*.spec.ts` erneut vollständig grün (8/8). Zusätzlich `tests/PROJ-2-auth-kundenprofil.spec.ts` (Login/Auth-Kernfunktionalität, durch die BUG-1-Korrektur mitbetroffener Code) vollständig grün (9/9) — keine Regression im Login-Flow für Kunden oder beim bestehenden Redirect-Vorrang.
+
 ### Summary
-- **Acceptance Criteria:** 11/12 bestanden (AC1 mit BUG-1 behaftet)
-- **Bugs Found:** 2 total (0 critical, 0 high, 2 medium, 0 low)
+- **Acceptance Criteria:** 12/12 bestanden
+- **Bugs Found:** 2 total (0 critical, 0 high, 2 medium, 0 low) — **beide behoben**
 - **Security:** Pass — keine Schwachstellen gefunden (Zugriffsschutz, Input-Validierung, XSS alle bestätigt robust)
-- **Production Ready:** YES (keine Critical/High-Bugs)
-- **Recommendation:** Beide Medium-Bugs sind klein und klar umrissen (BUG-1: Rolle nach Login prüfen und Ziel entsprechend wählen; BUG-2: eine CSS-Klasse auf einer bestehenden Komponente) — vor dem Deploy beheben wird empfohlen, blockiert das Deployment aber nicht zwingend.
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_

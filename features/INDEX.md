@@ -31,7 +31,7 @@
 | PROJ-14 | Events & Workshops (Tickets, QR-Check-in) | Roadmap | — | 2026-08-12 |
 | PROJ-15 | Gutscheine & Rabattcodes | Roadmap | — | 2026-08-12 |
 | PROJ-16 | Automatische E-Mail-/Push-Benachrichtigungen | Deployed | [PROJ-16](../features/PROJ-16-automatische-email-push-benachrichtigungen.md) | 2026-08-12 |
-| PROJ-17 | Admin-Analytics-Dashboard | In Review | [PROJ-17](../features/PROJ-17-admin-analytics-dashboard.md) | 2026-08-12 |
+| PROJ-17 | Admin-Analytics-Dashboard | Approved | [PROJ-17](../features/PROJ-17-admin-analytics-dashboard.md) | 2026-08-12 |
 | PROJ-18 | Online-Kurs-Plattform | Roadmap | — | 2026-08-12 |
 | PROJ-19 | Community/Newsfeed | Roadmap | — | 2026-08-12 |
 | PROJ-20 | Gamification (Badges, Streaks, Level) | Roadmap | — | 2026-08-12 |

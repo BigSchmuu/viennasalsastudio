@@ -49,7 +49,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         return;
       }
 
-      window.location.href = redirectTo || "/profil";
+      window.location.href = redirectTo || (result.role === "admin" ? "/admin" : "/profil");
     } finally {
       setLoading(false);
     }

@@ -11,8 +11,9 @@ import {
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 export type ActionResult = { error: string } | { success: true };
+export type SignInResult = { error: string } | { success: true; role: string };
 
-export async function signIn(formData: FormData): Promise<ActionResult> {
+export async function signIn(formData: FormData): Promise<SignInResult> {
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -22,7 +23,7 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
     if (error.code === "email_not_confirmed") {
@@ -31,7 +32,9 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
     return { error: "E-Mail oder Passwort falsch" };
   }
 
-  return { success: true };
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single();
+
+  return { success: true, role: profile?.role ?? "customer" };
 }
 
 export async function signUp(formData: FormData): Promise<ActionResult> {
