@@ -1,8 +1,8 @@
 # PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-17
-**Last Updated:** 2026-08-17
+**Last Updated:** 2026-08-18
 
 ## Dependencies
 - Requires: PROJ-2 (Auth & Kundenprofil) — Kunde muss eingeloggt sein und hat eine E-Mail-Adresse
@@ -348,4 +348,32 @@ Der volle funktionsübergreifende E2E-Regressionslauf (`npm run test:e2e --proje
 Keine der untersuchten Fehlermeldungen deutet auf einen Absturz, einen 500er oder ein durch PROJ-16 verändertes gemeinsames Verhalten hin; alle betroffenen Features sind fachlich unabhängig von Benachrichtigungen. Die Regressionsbewertung stützt sich daher auf: den vollständigen, wiederholbaren Vitest-Lauf (129/129), den gezielten Live-Test aller von PROJ-16 tatsächlich veränderten Codepfade (siehe oben), und die additive, fehler-tolerante Natur der Änderungen an `bookings.ts`/`sepa-collections.ts`/`promote_waitlist_for_course`. **Einschätzung: keine der 37 Fehlschläge ist eine durch PROJ-16 verursachte Regression** — sie sind vorbestehende Artefakte des Re-Runs einer nicht für Wiederholung ausgelegten Suite.
 
 ## Deployment
-_To be added by /deploy_
+
+**Production URL:** https://viennasalsastudio.vercel.app
+**Deployed:** 2026-08-18
+**Tag:** `v1.0.0-PROJ-16`
+
+**Pre-Deployment Checks:**
+- [x] `npm run build` erfolgreich
+- [x] `npm run lint` sauber
+- [x] QA freigegeben (Status: Approved, alle 7 Bugs behoben)
+- [x] Keine Critical/High-Bugs offen
+- [x] Alle Env-Vars in `.env.local.example` dokumentiert
+- [x] Keine Secrets committed (`.env.local` bestätigt nie in der Git-Historie)
+- [x] Alle Migrationen bereits angewendet (`proj16_notification_preferences_and_push_subscriptions`, `proj16_notification_queue`, `proj16_qa_fixes_queue_claim_status`)
+- [x] Code committed und gepusht (`main`, 7 Commits)
+
+**Environment Variables (neu in Vercel Dashboard ergänzt):**
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — Web-Push-Schlüsselpaar
+- `CRON_SECRET` — sichert `/api/cron/notifications` ab
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` — Strato-Postfach `info@viennasalsastudio.at` des Studio-Betreibers (das offene Thema aus den Open Questions ist damit erledigt)
+
+**Post-Deployment-Verifikation (live gegen Produktion):**
+- [x] Produktions-URL lädt korrekt (Startseite, `/kurse`, Manifest, `sw.js` alle 200)
+- [x] `/api/cron/notifications` lehnt Anfragen ohne/mit falschem `CRON_SECRET` weiterhin mit 401 ab
+- [x] Cron-Dispatch mit korrektem Token erfolgreich getestet — Warteschlangen-Zeile wurde korrekt verarbeitet
+- [x] SMTP in Produktion verifiziert: erster Test schlug mit „SMTP nicht konfiguriert" fehl (Env-Vars noch nicht im laufenden Deployment aktiv) → nach Redeploy zweiter Test zeigte SMTP-Auth-Erfolg (Fehler wechselte zu „Domain existiert nicht" für die absichtlich verwendete Test-Adresse `@viennasalsastudio.test`) → SMTP-Konfiguration in Produktion bestätigt korrekt
+- [x] Echter Testversand vom Studio-Betreiber persönlich bestätigt (E-Mail über dieselben Strato-Zugangsdaten lokal empfangen, bevor die Werte in Vercel übernommen wurden)
+- [x] Keine Vercel-Function-Log-Fehler bei den Testaufrufen
+
+**Bekannter, akzeptierter Zustand:** Push-Benachrichtigungen sind funktional bereit (VAPID-Schlüssel konfiguriert), aber noch von keinem echten Kunden aktiviert — das ist erwartet, da die Aktivierung ein bewusster Klick im Profilbereich ist (siehe Product Decision „Push-Opt-in über expliziten Button"). Der tägliche Cron-Job (`vercel.json`, 06:00 UTC) wurde für den nächsten regulären Lauf noch nicht live beobachtet, die Logik ist aber durch die manuellen Dispatch-Aufrufe identisch abgedeckt.
