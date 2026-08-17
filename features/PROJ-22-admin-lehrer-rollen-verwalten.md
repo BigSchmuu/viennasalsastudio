@@ -1,6 +1,6 @@
 # PROJ-22: Admin: Lehrer-Rollen verwalten
 
-## Status: Planned
+## Status: Approved
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -145,7 +145,93 @@ Frontend und Backend wurden zusammen in einem Durchgang umgesetzt (wie bei PROJ-
 Getestet und bestanden: Leerzustand/Liste zeigt bestehende Lehrer → Kundensuche filtert korrekt (nur `role='customer'`) → Beförderung eines bestehenden Kunden funktioniert, verschwindet danach aus `/admin/kunden` → Degradierung ohne Kurs-Zuordnung erfolgt sofort ohne Dialog → Degradierung mit Kurs-Zuordnung zeigt Bestätigungsdialog mit korrektem Kursnamen → Einladung mit bereits registrierter E-Mail zeigt den vorgesehenen Fehlertext → Einladung mit echter E-Mail-Adresse (Nutzer-bereitgestellt) komplett end-to-end verifiziert: Mail kommt an, Link führt zu „Neues Passwort festlegen", Konto/Rolle/Name korrekt gesetzt.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-17
+**App URL:** http://localhost:3000 (gegen die Produktions-Supabase-Instanz `kqdnaevyzgtrmaatinrx`)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Beförderung über Kundensuche setzt Rolle „teacher"
+- [x] Passed — Rolle gesetzt, Person erscheint im Lehrer-Picker der Kurs-Verwaltung und in der Lehrer-Liste
+
+#### AC-2: Kundensuche zeigt nur Personen mit Rolle „customer"
+- [x] Passed — bestehende Lehrer/Admins erscheinen nicht in der Auswahl
+
+#### AC-3: Beförderter Kunde verschwindet aus `/admin/kunden`
+- [x] Passed
+
+#### AC-4: „Lehrer einladen" legt neues Konto mit Rolle „teacher" an und verschickt Einladungs-Mail
+- [x] Passed — vollständig end-to-end mit echter E-Mail-Adresse verifiziert während der Frontend-Phase (inkl. Weiterleitung zu „Neues Passwort festlegen" nach Fix); die reine Formularvalidierung zusätzlich in der permanenten E2E-Suite abgedeckt. Ein automatisierter E2E-Test mit echtem Mail-Versand ist nicht Teil der permanenten Suite, da `.test`-Adressen grundsätzlich nicht zustellbar sind (siehe Implementation Notes) — identisches, bereits etabliertes Muster wie bei PROJ-2s Registrierungs-/Bestätigungs-Flow, der aus demselben Grund ebenfalls nicht per E2E-Test auf echten Mail-Versand prüft
+
+#### AC-5: Einladung mit bereits registrierter E-Mail zeigt verständlichen Fehlerhinweis
+- [x] Passed
+
+#### AC-6: Lehrer-Liste zeigt alle Personen mit Rolle „teacher" (Name, E-Mail)
+- [x] Passed
+
+#### AC-7: Degradierung mit Kurs-Zuordnung zeigt Bestätigungsdialog mit betroffenen Kursen
+- [x] Passed
+
+#### AC-8: Bestätigte Degradierung setzt Rolle „customer"; `course_teachers`-Einträge bleiben in der DB bestehen
+- [x] Passed — zusätzlich per direkter DB-Abfrage nach der E2E-Degradierung verifiziert, dass der `course_teachers`-Eintrag unverändert erhalten bleibt, während die öffentliche Kursanzeige die Person korrekt nicht mehr zeigt (da diese auf `role = 'teacher'` filtert)
+
+#### AC-9: Degradierung ohne Kurs-Zuordnung erfolgt sofort ohne Bestätigungsdialog
+- [x] Passed
+
+### Edge Cases Status
+
+#### EC-1: Admin lädt bereits existierende E-Mail ein
+- [x] Handled correctly (siehe AC-5)
+
+#### EC-2: Kunde mit aktivem Abo wird zum Lehrer befördert
+- [x] Handled by design — Beförderung ändert ausschließlich `profiles.role`, keine Berührung mit `subscriptions`; nicht separat live getestet, da strukturell ausgeschlossen (unabhängige Tabellen)
+
+#### EC-3: Admin versucht, sich selbst zu befördern/degradieren
+- [x] Handled correctly — zusätzlich zur ursprünglichen Spec-Einschätzung („unwahrscheinlich, da Admin-Konten nicht in der Kundenliste erscheinen") beim Security-Audit ein **zweiter, unabhängiger Schutzmechanismus** entdeckt: ein bereits bestehender DB-Trigger `prevent_role_self_escalation()` blockiert jede Rollenänderung, deren Auslöser nicht selbst `current_role() = 'admin'` ist — unabhängig von RLS. Siehe Security Audit unten.
+
+#### EC-4: Leerzustand — keine Lehrer vorhanden
+- [x] Handled by design (Code-Review) — nicht live beobachtbar, da die permanente Test-Suite selbst dauerhaft Lehrer-Fixtures anlegt (identische, bereits dokumentierte Einschränkung wie bei PROJ-3/PROJ-23s „Leerer Zustand"-Fällen: der geteilte Produktions-DB-Zustand macht eine echte Leere nicht mehr beobachtbar)
+
+#### EC-5: Ungültige E-Mail / leerer Name beim Einladen
+- [x] Handled correctly, per E2E-Test abgedeckt
+
+#### EC-6: Einladungs-Mail kann nicht zugestellt werden
+- [x] Handled correctly — verifiziert während der Frontend-Phase: bei Zustellfehler (z. B. `.test`-Domain) zeigt der Dialog den generischen Fehlertext, und Supabase rollt die Kontoerstellung selbst zurück (kein verwaistes Konto in der DB, per direkter Abfrage bestätigt)
+
+### Security Audit Results (Red Team)
+
+Durchgeführt per SQL-Impersonation der exakten JWT-Claims, die PostgREST bei einer echten Session mitgeben würde (`SET LOCAL ROLE authenticated; SET LOCAL request.jwt.claims = ...`) — testet die tatsächliche Autorisierungsgrenze direkt an der Quelle, dasselbe rigorose Verfahren wie bei PROJ-9s Security-Audit.
+
+- [x] **Zugriffskontrolle auf `/admin/lehrer`:** Anonym → Login-Redirect; Kunde → Redirect zu `/`; Lehrer → ebenfalls Redirect zu `/` (Lehrer-Rolle ist kein Admin-Ersatz); Admin → voller Zugriff. Per E2E-Test verifiziert.
+- [x] **Selbst-Eskalation (Kunde ändert eigene Rolle auf „admin"):** Blockiert — sowohl durch die bestehende RLS-Policy als auch redundant durch den DB-Trigger `prevent_role_self_escalation()` (löst „Only admins can change a user role" aus)
+- [x] **Fremd-Manipulation (Kunde ändert Rolle einer ANDEREN Person):** Blockiert durch RLS — die UPDATE-Policy erlaubt Kunden ausschließlich Änderungen am eigenen Profil-Datensatz, betrifft 0 Zeilen bei fremden IDs
+- [x] **Anonymer Zugriff:** `anon`-Rolle kann weder lesen noch schreiben — 0 betroffene/sichtbare Zeilen bei UPDATE- und SELECT-Versuchen auf `profiles`
+- [x] **Positivkontrolle:** derselbe Rollenänderungs-Versuch mit einem echten Admin als Claim gelingt einwandfrei — bestätigt, dass die obigen Ablehnungen echte Autorisierungsgrenzen sind, keine allgemeinen Funktionsfehler
+- [x] **Service-Role-Key-Exposition:** Der privilegierte Client (`createAdminClient()`) wird ausschließlich in `src/lib/actions/admin/teachers.ts` importiert (per `grep` über das gesamte `src/`-Verzeichnis verifiziert) — keine Client-Component-Nutzung, kein `NEXT_PUBLIC_`-Präfix, daher von Next.js automatisch aus jedem Client-Bundle ausgeschlossen
+- [x] **`requireAdmin()`-Gate:** Alle drei neuen Server Actions (`inviteTeacher`, `promoteToTeacher`, `demoteToCustomer`) rufen `requireAdmin()` als ersten Schritt auf, bevor irgendeine Mutation stattfindet — identisches, bereits etabliertes Muster wie in jeder anderen Admin-Aktion dieser Codebase
+- [x] **Fehlerhafte Zustandsübergänge:** `promoteToTeacher`/`demoteToCustomer` prüfen zusätzlich `.eq("role", "customer")` bzw. `.eq("role", "teacher")` — ein Versuch, einen Admin zu „befördern" oder eine bereits-customer-Person zu „degradieren" betrifft 0 Zeilen, kein Fehler, keine ungewollte Nebenwirkung
+
+Keine Sicherheitsfunde. Im Gegenteil: ein zusätzlicher, vorbestehender Schutzmechanismus (Trigger) wurde entdeckt und bestätigt.
+
+### Regression Testing
+- `npm test` (Vitest): 71/71 passed (68 bestehende + 3 neue für `teacherInviteSchema`)
+- `npm run build`: erfolgreich
+- Neue permanente Suite `tests/PROJ-22-admin-lehrer-rollen-verwalten.spec.ts`: 8/8 passed (alle ACs + Zugriffskontrolle)
+- Regressionslauf PROJ-3/PROJ-4/PROJ-23 (alle nutzen die geänderte `AdminNav`-Komponente): 20/20 passed, keine Auswirkung durch den neuen „Lehrer"-Nav-Punkt
+
+### Bugs Found
+Keine neuen Bugs während QA gefunden. Zwei echte Probleme wurden bereits während der Frontend-Phase (Live-Test) entdeckt und dort behoben (siehe Implementation Notes) — hier während QA erneut verifiziert, dass sie korrekt behoben bleiben:
+- Fehlende `redirectTo`-Weiterleitung nach Einladung (Code-Fix)
+- Generische Einladungs-Mail-Vorlage (Supabase-Dashboard-Konfiguration durch den Nutzer)
+
+### Summary
+- **Acceptance Criteria:** 9/9 passed
+- **Edge Cases:** 6/6 passed (verifiziert oder by-design/Code-Review erfüllt)
+- **Bugs Found:** 0 neu (2 bereits vor QA behoben und hier re-verifiziert)
+- **Security:** Pass — keine Funde; zusätzlicher vorbestehender Schutzmechanismus (Rollen-Eskalations-Trigger) bestätigt
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_
