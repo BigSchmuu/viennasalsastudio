@@ -39,7 +39,7 @@ export function CourseDetailBooking({
 
   return (
     <>
-      <Button onClick={handleBook}>Jetzt buchen</Button>
+      <Button className="rounded-full" onClick={handleBook}>Jetzt buchen</Button>
 
       {bookingOpen && (
         <BookingDialog

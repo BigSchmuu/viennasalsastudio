@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { levelOptions, levelLabel, levelColor } from "@/lib/constants/levels";
+import { levelOptions, levelLabel, levelColor, levelBadgeStyle } from "@/lib/constants/levels";
 import { BookingDialog } from "@/components/booking/booking-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -158,7 +158,11 @@ export function CourseCatalog({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((course) => (
-            <Card key={course.id}>
+            <Card
+              key={course.id}
+              className="border-l-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+              style={{ borderLeftColor: levelColor(course.level) }}
+            >
               <Link href={`/kurse/${course.id}`} className="block">
                 <CardHeader>
                   <CardTitle>{course.name}</CardTitle>
@@ -166,7 +170,7 @@ export function CourseCatalog({
                 <CardContent className="space-y-2">
                   <div className="flex flex-wrap gap-2">
                     <Badge variant="secondary">{course.danceStyleName}</Badge>
-                    <Badge style={{ backgroundColor: levelColor(course.level), color: "white" }}>
+                    <Badge variant="outline" style={levelBadgeStyle(course.level)}>
                       {levelLabel(course.level)}
                     </Badge>
                   </div>
@@ -179,7 +183,7 @@ export function CourseCatalog({
                 </CardContent>
               </Link>
               <CardFooter>
-                <Button className="w-full" onClick={() => handleBook(course)}>
+                <Button className="w-full rounded-full" onClick={() => handleBook(course)}>
                   Jetzt buchen
                 </Button>
               </CardFooter>

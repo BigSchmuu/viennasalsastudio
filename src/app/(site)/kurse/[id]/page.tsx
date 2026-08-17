@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
-import { levelLabel, levelColor } from "@/lib/constants/levels";
+import { levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CourseDetailBooking, type CourseDetailData } from "@/components/catalog/course-detail-booking";
@@ -110,7 +110,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
         <h1 className="font-heading text-3xl font-bold">{course.name}</h1>
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary">{course.dance_styles?.name ?? "—"}</Badge>
-          <Badge style={{ backgroundColor: levelColor(course.level), color: "white" }}>
+          <Badge variant="outline" style={levelBadgeStyle(course.level)}>
             {levelLabel(course.level)}
           </Badge>
         </div>

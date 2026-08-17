@@ -23,3 +23,10 @@ export function levelLabel(value: string | null): string {
 export function levelColor(value: string | null): string {
   return levelOptions.find((o) => o.value === value)?.color ?? "#94a3b8";
 }
+
+/** Tinted pill style (translucent level-colored background, level-colored text/border) —
+ * matches the level tag styling on the marketing website's course cards. */
+export function levelBadgeStyle(value: string | null): { backgroundColor: string; color: string; borderColor: string } {
+  const color = levelColor(value);
+  return { backgroundColor: `${color}2e`, color, borderColor: `${color}59` };
+}
