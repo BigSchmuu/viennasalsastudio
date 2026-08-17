@@ -46,6 +46,7 @@ export type LessonRow = {
   id: string;
   title: string;
   videoUrls: string[];
+  customerVideoUrl: string | null;
 };
 
 export function LessonManager({ videoSetId, lessons }: { videoSetId: string; lessons: LessonRow[] }) {
@@ -80,6 +81,7 @@ export function LessonManager({ videoSetId, lessons }: { videoSetId: string; les
             <TableRow>
               <TableHead>Titel</TableHead>
               <TableHead>Videos</TableHead>
+              <TableHead>Kunden-Video</TableHead>
               <TableHead>Reihenfolge</TableHead>
               <TableHead className="text-right">Aktionen</TableHead>
             </TableRow>
@@ -89,6 +91,7 @@ export function LessonManager({ videoSetId, lessons }: { videoSetId: string; les
               <TableRow key={lesson.id}>
                 <TableCell className="font-medium">{lesson.title}</TableCell>
                 <TableCell>{lesson.videoUrls.length}</TableCell>
+                <TableCell>{lesson.customerVideoUrl ? "✓" : "—"}</TableCell>
                 <TableCell className="space-x-1">
                   <Button
                     variant="outline"
@@ -190,6 +193,7 @@ function LessonFormDialog({
       title: lesson?.title ?? "",
       video_set_id: videoSetId,
       video_urls: lesson?.videoUrls && lesson.videoUrls.length > 0 ? lesson.videoUrls : [""],
+      customer_video_url: lesson?.customerVideoUrl ?? "",
     },
   });
 
@@ -205,6 +209,7 @@ function LessonFormDialog({
       const formData = new FormData();
       formData.set("title", values.title);
       formData.set("video_set_id", values.video_set_id);
+      formData.set("customer_video_url", values.customer_video_url ?? "");
       values.video_urls.filter((url) => url.trim() !== "").forEach((url) => formData.append("video_urls", url));
 
       const result = lesson
@@ -281,6 +286,24 @@ function LessonFormDialog({
                 Video hinzufügen
               </Button>
             </div>
+
+            <FormField
+              control={form.control}
+              name="customer_video_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Kunden-Video (PROJ-11)</FormLabel>
+                  <FormControl>
+                    <Input type="url" placeholder="https://youtube.com/… (optional)" {...field} />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Einfaches Demo-Video für angemeldete Kunden (Counts + Musik) — separat von den
+                    Lehrer-Videos oben.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter>
               <Button type="submit" disabled={loading}>

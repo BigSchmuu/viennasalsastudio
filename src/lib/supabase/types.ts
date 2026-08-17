@@ -718,6 +718,7 @@ export type Database = {
       video_set_lessons: {
         Row: {
           created_at: string
+          customer_video_url: string | null
           id: string
           position: number
           title: string
@@ -725,6 +726,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          customer_video_url?: string | null
           id?: string
           position?: number
           title: string
@@ -732,6 +734,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          customer_video_url?: string | null
           id?: string
           position?: number
           title?: string

@@ -24,7 +24,7 @@ export default async function VideoSetDetailPage({
 
   const { data: lessonsData } = await supabase
     .from("video_set_lessons")
-    .select("id, title, video_set_lesson_videos(url, position)")
+    .select("id, title, customer_video_url, video_set_lesson_videos(url, position)")
     .eq("video_set_id", id)
     .order("position", { ascending: true });
 
@@ -34,6 +34,7 @@ export default async function VideoSetDetailPage({
     videoUrls: [...l.video_set_lesson_videos]
       .sort((a, b) => a.position - b.position)
       .map((v) => v.url),
+    customerVideoUrl: l.customer_video_url,
   }));
 
   return (

@@ -10,6 +10,7 @@ function parseLessonFormData(formData: FormData) {
     title: formData.get("title"),
     video_set_id: formData.get("video_set_id"),
     video_urls: formData.getAll("video_urls"),
+    customer_video_url: formData.get("customer_video_url") ?? "",
   });
 }
 
@@ -48,6 +49,7 @@ export async function createLesson(formData: FormData): Promise<ActionResult> {
       title: parsed.data.title,
       video_set_id: parsed.data.video_set_id,
       position: nextPosition,
+      customer_video_url: parsed.data.customer_video_url || null,
     })
     .select("id")
     .single();
@@ -71,7 +73,7 @@ export async function updateLesson(id: string, formData: FormData): Promise<Acti
   const { supabase } = await requireAdmin();
   const { error } = await supabase
     .from("video_set_lessons")
-    .update({ title: parsed.data.title })
+    .update({ title: parsed.data.title, customer_video_url: parsed.data.customer_video_url || null })
     .eq("id", id);
 
   if (error) {

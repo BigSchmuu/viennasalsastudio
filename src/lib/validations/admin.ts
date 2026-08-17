@@ -40,6 +40,7 @@ export const lessonSchema = z.object({
   title: z.string().trim().min(1, "Titel ist erforderlich").max(200),
   video_set_id: z.string().uuid("Ungültiger Videosatz"),
   video_urls: z.array(z.string().trim().url("Bitte eine gültige URL eingeben")),
+  customer_video_url: z.string().trim().url("Bitte eine gültige URL eingeben").optional().or(z.literal("")),
 });
 export type LessonInput = z.infer<typeof lessonSchema>;
 

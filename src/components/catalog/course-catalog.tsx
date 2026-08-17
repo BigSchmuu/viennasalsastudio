@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { levelOptions, levelLabel, levelColor } from "@/lib/constants/levels";
 import { BookingDialog } from "@/components/booking/booking-dialog";
 import { Button } from "@/components/ui/button";
@@ -158,23 +159,25 @@ export function CourseCatalog({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((course) => (
             <Card key={course.id}>
-              <CardHeader>
-                <CardTitle>{course.name}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{course.danceStyleName}</Badge>
-                  <Badge style={{ backgroundColor: levelColor(course.level), color: "white" }}>
-                    {levelLabel(course.level)}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{course.locationName}</p>
-                <p className="text-sm text-muted-foreground">
-                  {course.teacherNames.length > 0
-                    ? course.teacherNames.join(", ")
-                    : "Lehrer wird noch bekanntgegeben"}
-                </p>
-              </CardContent>
+              <Link href={`/kurse/${course.id}`} className="block">
+                <CardHeader>
+                  <CardTitle>{course.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary">{course.danceStyleName}</Badge>
+                    <Badge style={{ backgroundColor: levelColor(course.level), color: "white" }}>
+                      {levelLabel(course.level)}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{course.locationName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {course.teacherNames.length > 0
+                      ? course.teacherNames.join(", ")
+                      : "Lehrer wird noch bekanntgegeben"}
+                  </p>
+                </CardContent>
+              </Link>
               <CardFooter>
                 <Button className="w-full" onClick={() => handleBook(course)}>
                   Jetzt buchen

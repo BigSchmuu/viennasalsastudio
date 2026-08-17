@@ -1,6 +1,6 @@
 # PROJ-11: Beispiel-Videos (YouTube-Einbettung)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -121,6 +121,34 @@ Es wird **keine neue Tabelle und kein neues „Berechtigung"-Konzept** gespeiche
 ### D) Abhängigkeiten (Pakete)
 
 Keine neuen Fremdpakete nötig — YouTube-Einbettung per nativem iframe, Zugriffsprüfung nutzt bereits bestehende Abo-Datenstrukturen aus PROJ-9.
+
+## Implementation Notes (Frontend)
+
+**Datenbank:**
+- Migration `proj11_customer_video_url_on_lessons`: `video_set_lessons.customer_video_url text` (nullable, optional pro Lektion).
+- Migration `proj11_customer_video_lessons_rls`: neue additive RLS-Policy „VideoSetLessons: enrolled customer read" — Kunde sieht eine Lektion nur, wenn er ein aktives Abo mit `course_id = <Kurs des Videosatzes>` ODER `course_id IS NULL` (Flatrate) hat. Bestehende Admin/Lehrer-Policy aus PROJ-23 bleibt unverändert bestehen. `get_advisors(security)` zeigt keine neuen Findings.
+
+**Admin-Seite (Wiederverwendung PROJ-23):**
+- `lessonSchema`, `lessons.ts`-Actions und `lesson-manager.tsx` um optionales Feld „Kunden-Video (PROJ-11)" erweitert — Admin pflegt es direkt im bestehenden Lektionen-Editor unter `/admin/videosaetze/[id]`.
+
+**Kundenseite (neu):**
+- `src/lib/youtube.ts` — `getYoutubeVideoId`/`getYoutubeEmbedUrl`, unterstützt watch/youtu.be/embed/shorts-URLs.
+- `src/components/video/youtube-embed.tsx` — `YoutubeEmbed`-Komponente, natives `<iframe>` auf `youtube-nocookie.com`, responsive `aspect-video`.
+- `src/app/(site)/kurse/[id]/page.tsx` — neue öffentliche Kursdetailseite. Server-seitiges Access-Gating: Lektionen mit `customer_video_url` werden nur dann überhaupt aus der DB geladen, wenn der eingeloggte Kunde ein aktives Abo mit `course_id` = dieser Kurs oder `course_id IS NULL` hat — nicht eingeloggte/nicht-berechtigte Besucher erhalten die Daten gar nicht erst im Seiten-Payload.
+- `src/components/catalog/course-detail-booking.tsx` — schlanker Wrapper um den bestehenden `BookingDialog`, reine Auslagerung der „Jetzt buchen"-Logik für die Detailseite.
+- `src/components/catalog/course-catalog.tsx` — Katalogkarten sind jetzt zusätzlich klickbar (verlinken auf `/kurse/[id]`); der „Jetzt buchen"-Button bleibt als eigenständiges Geschwisterelement außerhalb des Links bestehen und öffnet weiterhin direkt den Buchungsdialog ohne Navigation.
+
+**Live-Tests durchgeführt (gegen echte Produktions-DB, Fixtures `e2e11-*`):**
+- Anonymer Besucher: Detailseite lädt, Videolektionen-Bereich vollständig weggelassen (kein Teaser). ✅
+- Kunde mit aktivem, kursgebundenem Abo: Bereich sichtbar, Lektion mit Kunden-Video eingebettet, Lektion ohne Kunden-Video ausgeblendet. ✅
+- Kunde mit aktivem Flatrate-Abo (`course_id IS NULL`): Bereich sichtbar. ✅
+- Kunde mit pausiertem Abo auf genau diesem Kurs: Bereich nicht sichtbar. ✅
+- Kunde mit aktivem Abo auf einem anderen Kurs: Bereich nicht sichtbar. ✅
+- RLS direkt per SQL-JWT-Impersonation geprüft: nicht-berechtigter Kunde erhält 0 Zeilen aus `video_set_lessons` für den Videosatz. ✅
+- Katalogkarte: Klick auf Kartenkörper navigiert zur Detailseite; Klick auf „Jetzt buchen" öffnet weiterhin direkt den Buchungsdialog ohne Navigation. ✅
+- `npm run build` erfolgreich (inkl. TypeScript-Check).
+
+**Fixtures angelegt (permanent, `e2e11-*`, werden von /qa als Basis für die E2E-Testsuite übernommen):** Videosatz „E2E11 Videosatz" mit 2 Lektionen (eine mit, eine ohne Kunden-Video), Kurs „E2E11 Kurs mit Video", vier Testkunden (`e2e11-enrolled`, `e2e11-flatrate`, `e2e11-paused`, `e2e11-other`) mit passenden Abo-Konstellationen.
 
 ## QA Test Results
 _To be added by /qa_
