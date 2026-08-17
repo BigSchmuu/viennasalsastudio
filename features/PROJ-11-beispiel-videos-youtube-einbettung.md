@@ -74,12 +74,53 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Zugriffsprüfung passiert serverseitig beim Laden der Kursdetailseite, nicht im Browser | Ein Kunde ohne Berechtigung darf die Kunden-Video-URLs nicht einmal im Seiten-Quelltext sehen können — reines Verstecken per UI würde die Daten trotzdem an den Browser schicken | 2026-08-17 |
+| YouTube-Einbettung per einfachem iframe, kein zusätzliches Paket | Natives Embedding reicht für die reine Wiedergabe; ein Player-Paket wäre unnötiger Overhead für diesen einfachen Anwendungsfall | 2026-08-17 |
+| „Jetzt buchen"-Button bleibt zusätzlich direkt auf der Katalogkarte (PROJ-5) bestehen, Klick auf die restliche Karte führt neu zur Detailseite | Der bestehende, bereits getestete Buchungsfluss aus PROJ-8 bleibt unangetastet; die Detailseite ist eine reine Ergänzung, kein Ersatz für den bisherigen Weg | 2026-08-17 |
+| Kursdetailseite nutzt dieselbe Datenabfrage wie der Katalog (PROJ-5), nur für einen einzelnen Kurs statt gefiltert für alle | Vermeidet eine zweite, parallele Abfrage-Logik für dieselben Kursinfos | 2026-08-17 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Komponentenstruktur
+
+```
+/kurse (bestehend, PROJ-5)
+└── Kurskarte ist jetzt klickbar
+    ├── Klick auf Karte → Navigation zur neuen Detailseite
+    └── „Jetzt buchen"-Button bleibt wie bisher direkt auf der Karte
+
+/kurse/[id] (neu — öffentliche Kursdetailseite)
+├── Kursinfos (Name, Tanzstil, Level, Standort, Lehrer, Zeiten) — dieselben Daten wie bisher auf der Katalogkarte, nur ausführlicher dargestellt
+├── „Jetzt buchen"-Button (öffnet denselben bestehenden Buchungsdialog aus PROJ-8)
+└── „Videolektionen" (NUR sichtbar für eingeloggte, bei diesem Kurs berechtigte Kunden)
+    └── Pro Lektion mit hinterlegtem Kunden-Video: Lektionstitel + eingebetteter YouTube-Player
+    └── Für alle anderen Besucher: Abschnitt existiert schlicht nicht auf der Seite
+
+Admin-Erweiterung (bestehende Seite aus PROJ-23):
+/admin/videosaetze/[id]
+└── Pro Lektionszeile: bestehende Lehrer-Video-Liste + neues Eingabefeld „Kunden-Video-URL" (optional)
+```
+
+### B) Datenmodell (fachlich)
+
+**Lektion** (bestehend aus PROJ-23) bekommt eine neue, optionale Information:
+- Kunden-Video-Link — eine einzelne Video-URL (im Gegensatz zur Liste mehrerer Lehrer-Videos), leer lassbar
+
+Es wird **keine neue Tabelle und kein neues „Berechtigung"-Konzept** gespeichert — ob ein Kunde eine Lektion sehen darf, wird bei jedem Seitenaufruf frisch aus den bestehenden Abo-Daten berechnet (aktives Abo mit passendem Kurs-Bezug ODER aktives Flatrate-Abo, siehe Product Decisions), nicht als eigener Datensatz abgelegt.
+
+### C) Tech-Entscheidungen (Begründung)
+
+- **Serverseitige Zugriffsprüfung:** Die Berechtigungsprüfung (hat dieser Kunde ein passendes aktives Abo?) passiert, bevor die Seite an den Browser geschickt wird. Ein nicht berechtigter Besucher bekommt die Video-Links technisch gar nicht erst übermittelt — nicht nur optisch versteckt.
+- **Einfaches iframe-Embedding:** Kein zusätzliches Fremdpaket nötig, da nur die reine Wiedergabe gebraucht wird, keine erweiterte Player-Steuerung.
+- **Bestehender Buchungsweg bleibt unangetastet:** Der „Jetzt buchen"-Button bleibt weiterhin direkt im Katalog nutzbar; die neue Detailseite ergänzt, ersetzt aber nichts aus PROJ-8.
+- **Wiederverwendung der Katalog-Datenabfrage:** Die Detailseite lädt dieselben Kurs-Informationen (Tanzstil, Level, Standort, Lehrer) wie der bestehende Katalog aus PROJ-5, nur für einen einzelnen Kurs statt für alle gefiltert — keine doppelte Abfrage-Logik.
+
+### D) Abhängigkeiten (Pakete)
+
+Keine neuen Fremdpakete nötig — YouTube-Einbettung per nativem iframe, Zugriffsprüfung nutzt bereits bestehende Abo-Datenstrukturen aus PROJ-9.
 
 ## QA Test Results
 _To be added by /qa_
