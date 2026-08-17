@@ -1,6 +1,6 @@
 # PROJ-11: Beispiel-Videos (YouTube-Einbettung)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -151,7 +151,65 @@ Keine neuen Fremdpakete nötig — YouTube-Einbettung per nativem iframe, Zugrif
 **Fixtures angelegt (permanent, `e2e11-*`, werden von /qa als Basis für die E2E-Testsuite übernommen):** Videosatz „E2E11 Videosatz" mit 2 Lektionen (eine mit, eine ohne Kunden-Video), Kurs „E2E11 Kurs mit Video", vier Testkunden (`e2e11-enrolled`, `e2e11-flatrate`, `e2e11-paused`, `e2e11-other`) mit passenden Abo-Konstellationen.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Datum:** 2026-08-17 · **Getestet gegen:** Produktions-DB (kein Staging vorhanden)
+
+### Acceptance Criteria
+
+| # | Kriterium | Ergebnis |
+|---|-----------|----------|
+| AC1 | Klick auf Kurskarte → Detailseite (unabhängig vom Login-Status) | ✅ Pass |
+| AC2 | Nicht eingeloggt / nicht angemeldet → kein Videolektionen-Abschnitt | ✅ Pass |
+| AC3 | Aktives kursgebundenes Abo → Abschnitt mit allen Lektionen mit Kunden-Video | ✅ Pass |
+| AC4 | Aktives Flatrate-Abo → Abschnitt für beliebigen Kurs | ✅ Pass |
+| AC5 | Pausiertes Abo → kein Abschnitt | ✅ Pass |
+| AC6 | YouTube-Video eingebettet abspielbar, kein Wechsel zu youtube.com | ✅ Pass |
+| AC7 | Admin trägt Kunden-Video ein und speichert → sofort für Kunden sichtbar | ✅ Pass |
+| AC8 | Lektion ohne Kunden-Video → wird nicht gelistet | ✅ Pass |
+| AC9 | Kurs ohne Videosatz → kein Abschnitt | ✅ Pass |
+
+**9/9 Acceptance Criteria bestanden.**
+
+### Edge Cases (aus Spec)
+
+| Edge Case | Ergebnis |
+|-----------|----------|
+| Videosatz zugeordnet, aber keine Lektion hat Kunden-Video → Abschnitt weggelassen | ✅ Pass |
+| Kunde mit kursgebundenem UND Flatrate-Abo gleichzeitig → Zugriff besteht (OR-Verknüpfung in RLS-Policy) | ✅ Pass (per Policy-Logik verifiziert) |
+| Admin trägt ungültige URL ein → Fehlermeldung „Bitte eine gültige URL eingeben" | ✅ Pass |
+| Admin entfernt Kunden-Video (Feld leeren) → Lektion verschwindet sofort aus Kunden-Abschnitt | ✅ Pass |
+| Videosatz wird vom Kurs entfernt → Abschnitt verschwindet von der Kursdetailseite | ✅ Pass |
+| Kunde storniert/kündigt Abo → Zugriff verschwindet unmittelbar (kein Caching, jede Anfrage prüft frisch) | ✅ Pass (durch serverseitiges Access-Gating pro Request inhärent) |
+
+### Security-Audit (Red Team)
+
+- **Serverseitiges Access-Gating verifiziert:** Ein nicht-berechtigter Kunde erhält die Kunden-Video-URLs nicht im HTML-Response — direkt per Response-Body-Inspektion geprüft (kein `dQw4w9WgXcQ` im Seiten-Quelltext für `e2e11-other`).
+- **RLS direkt per SQL-JWT-Impersonation geprüft** (`SET LOCAL request.jwt.claims`): nicht-berechtigter Kunde → 0 Zeilen, pausierter Kunde → 0 Zeilen, berechtigter Kunde → 2 Zeilen aus `video_set_lessons`.
+- **Admin-Actions serverseitig abgesichert:** `createLesson`/`updateLesson`/`deleteLesson` verlangen `requireAdmin()` — ein Nicht-Admin kann die Server Action gar nicht aufrufen.
+- **`get_advisors(security)`:** keine neuen Findings durch die PROJ-11-Migrationen; alle gemeldeten Advisories sind vorbestehend und unabhängig von PROJ-11.
+- **Injection-Test (Kunden-Video-Feld):** Eine `javascript:alert(1)`-URL wird von der Zod-`.url()`-Validierung akzeptiert und in der DB gespeichert (siehe BUG-1 unten) — live verifiziert, dass sie **nicht** ausführbar ist: `getYoutubeEmbedUrl()` prüft den Host explizit gegen eine Allowlist (`youtube.com`/`youtu.be`/`m.youtube.com`) und liefert `null` für alles andere, wodurch `YoutubeEmbed` nichts rendert. Kein `<iframe src="javascript:...">`, kein ausgeführtes Skript, keine `alert()`-Dialogbox ausgelöst.
+
+### Regressionstests (verwandte Features)
+
+- `npm test` (Vitest): **71/71 bestanden**, inkl. 13 neuer Tests für `src/lib/youtube.ts`.
+- `npm run test:e2e` für PROJ-5, PROJ-8, PROJ-9, PROJ-23: mehrere Fehlschläge gefunden, alle root-caused auf **vorbestehende Testdaten-Drift durch wiederholte Läufe gegen die einzige geteilte Produktions-DB** (kein Staging), NICHT durch PROJ-11 verursacht:
+  - PROJ-8: Fixture-Kunde `e2e8-customer` hat aus früheren Läufen bereits `referral_source = 'google'` gesetzt → die „beim ersten Mal wird gefragt"-Testannahme trifft nicht mehr zu. Buchungsdialog selbst öffnet weiterhin korrekt über die (jetzt klickbare) Kurskarte — die PROJ-11-Änderung an `course-catalog.tsx` verursacht keine Regression.
+  - PROJ-23: Zwei Tests scheiterten an mehrfach angelegten Duplikaten von „E2E23 Kurs ohne Videosatz" aus vorherigen (auch meinen eigenen) Testläufen; zwei überzählige Duplikate wurden aufgeräumt.
+  - Konsistent mit dem bereits dokumentierten Muster in [[feedback-no-staging-test-assumptions]] — kein PROJ-11-Bug, aber Wartungsbedarf für PROJ-8/PROJ-23s eigene Testsuiten (außerhalb des Scopes dieser QA).
+- Cross-Browser: Chromium ✅, Firefox ✅, Mobile Safari (WebKit) ✅ (nach einmaliger Browser-Installation).
+- Responsive: Mobile 375px ✅, Tablet 768px ✅, Desktop 1440px ✅ — iframe skaliert korrekt, kein horizontales Overflow.
+
+### Gefundene Bugs
+
+| # | Schweregrad | Beschreibung | Reproduktion |
+|---|-------------|--------------|--------------|
+| BUG-1 | **Medium** | `customer_video_url` (Zod `.url()`-Check) akzeptiert jedes syntaktisch gültige URL-Schema, auch `javascript:`. Aktuell **nicht aktiv ausnutzbar** (Kundenseite rendert nur über `getYoutubeEmbedUrl()`, das per Host-Allowlist fail-closed ist; Admin-Tabelle zeigt nur ✓/— statt der rohen URL), aber ein Defense-in-Depth-Gap: jede künftige Stelle, die die URL anders rendert (z. B. direkter Link „Original ansehen"), wäre potenziell verwundbar. Betrifft auch die bestehenden Lehrer-Video-URLs aus PROJ-23 (dieselbe Validierung). | Admin trägt `javascript:alert(1)` als Kunden-Video ein → wird gespeichert, kein Validierungsfehler. |
+| BUG-2 | **Low** | Trägt ein Admin eine syntaktisch gültige, aber nicht-YouTube-URL ein (z. B. `https://vimeo.com/12345`), wird sie klaglos gespeichert. Für den Kunden erscheint die Lektion dann so, als hätte sie kein Video (Abschnitt zeigt sie nicht, da `getYoutubeEmbedUrl()` `null` liefert) — der Admin bekommt keinerlei Hinweis, dass sein Eintrag wirkungslos ist. | Admin trägt `https://vimeo.com/12345` ein → speichert erfolgreich, Lektion bleibt für Kunden unsichtbar, keine Fehlermeldung. |
+| BUG-3 | **Low** (vorbestehend, PROJ-23, nicht PROJ-11) | Das Lektionen-Formular initialisiert das Feld „Video-Links" bei einer Lektion mit 0 hinterlegten Lehrer-Videos mit einem leeren Pflicht-Eingabefeld. Jeder Speicherversuch (auch wenn nur `customer_video_url` geändert wird) schlägt dann mit einer für den Admin verwirrenden Fehlermeldung fehl, die dem falschen Feld zugeordnet erscheint. In der Praxis über die normale UI kaum erreichbar (das UI verhindert das Entfernen des letzten Feldes), wurde aber während der PROJ-11-QA entdeckt, als eine per SQL angelegte Test-Lektion ohne Lehrer-Video bearbeitet werden sollte. | Lektion mit 0 `video_set_lesson_videos`-Zeilen bearbeiten, Speichern klicken → Fehler „Bitte eine gültige URL eingeben" am leeren Video-Links-Feld, Formular lässt sich nicht absenden. |
+
+### Produktionsreife-Empfehlung
+
+**READY** — keine Critical/High-Bugs. BUG-1 und BUG-2 sind Medium/Low und nicht aktiv ausnutzbar bzw. rein kosmetisch; BUG-3 ist ein vorbestehendes PROJ-23-Problem außerhalb des PROJ-11-Scopes. Empfehlung: BUG-1 zeitnah nachschärfen (Zod-Schema auf `http`/`https`-Schema und idealerweise YouTube-Host beschränken), muss aber kein Deployment-Blocker sein.
 
 ## Deployment
 _To be added by /deploy_
