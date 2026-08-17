@@ -1,6 +1,6 @@
 # PROJ-10: Rechnungsarchiv
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -248,4 +248,15 @@ Keine neuen Fremdpakete nötig — der CSV-Export ist reiner Text (kommagetrennt
 **READY** — BUG-1 (Critical) wurde auf Nutzerwunsch noch während der QA behoben, live mit demselben Angriffs-Payload verifiziert und durch neue Unit-Tests dauerhaft abgesichert. Keine offenen Critical-/High-Bugs mehr.
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-08-17
+**Production URL:** https://viennasalsastudio.vercel.app
+**Git tag:** v1.0.0-PROJ-10
+**Commit:** 79a9286
+
+**Post-Deployment-Verifikation (gegen Produktion, real):**
+- `/admin/rechnungen` und `/profil` laden korrekt (Redirect zu `/login` für anonyme Zugriffe wie erwartet).
+- Admin-Rechnungsliste zeigt die bestehenden Fixture-Rechnungen korrekt an.
+- CSV-Export liefert die korrekte Kopfzeile inkl. der CSV-Injection-Absicherung.
+- Kunde sieht „Meine Rechnungen" im Profil, Klick auf eine Rechnung öffnet die druckbare Detailseite mit „Drucken"-Button.
+- Keine Konsolen-/Seitenfehler während der Verifikation.
