@@ -6,7 +6,7 @@
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup) — `profiles.role` unterstützt bereits `'teacher'` als Wert
-- Requires: PROJ-4 (Admin: Kunden-/Mitgliederverwaltung) — Kundendetailseite wird um den Beförderungs-Button erweitert
+- Requires: PROJ-4 (Admin: Kunden-/Mitgliederverwaltung) — die Kundensuche auf `/admin/lehrer` zum Befördern eines bestehenden Kunden nutzt dasselbe Datenmodell/Suchmuster wie die Kundenliste; die Kundendetailseite selbst bleibt unverändert
 - Nutzt bereits bestehende Infrastruktur: der Lehrer-Picker im Kurs-Formular (PROJ-3) filtert bereits auf `role = 'teacher'` über die `teacher_directory`-View — PROJ-22 füllt die bisher einzige Lücke, wie Profile diese Rolle überhaupt bekommen
 - Ermöglicht: PROJ-13 (Lehrer-Ansicht) — eine eigene Lehrer-Oberfläche ergibt erst Sinn, wenn Lehrer-Konten sauber verwaltbar sind
 
@@ -29,7 +29,8 @@
 
 **Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
 
-- [ ] Angenommen der Admin ist auf der Kundendetailseite eines Kunden mit Rolle „customer", wenn er „Zum Lehrer machen" klickt und bestätigt, dann wird die Rolle des Profils auf „teacher" gesetzt und die Person erscheint ab sofort im Lehrer-Picker der Kurs-Verwaltung
+- [ ] Angenommen der Admin ist auf `/admin/lehrer`, wenn er über die Kundensuche einen bestehenden Kunden auswählt und die Beförderung bestätigt, dann wird die Rolle des Profils auf „teacher" gesetzt und die Person erscheint ab sofort im Lehrer-Picker der Kurs-Verwaltung sowie in der Lehrer-Liste auf `/admin/lehrer`
+- [ ] Angenommen der Admin ist auf `/admin/lehrer` und öffnet die Kundensuche, wenn er einen Namen eingibt, dann werden nur Personen mit Rolle „customer" vorgeschlagen (bereits bestehende Lehrer/Admins erscheinen nicht in der Auswahl)
 - [ ] Angenommen ein Kunde wurde zum Lehrer befördert, wenn der Admin die Kundenliste (`/admin/kunden`) ansieht, dann erscheint diese Person dort nicht mehr (Liste filtert weiterhin auf `role = 'customer'`)
 - [ ] Angenommen der Admin ist auf `/admin/lehrer`, wenn er „Lehrer einladen" wählt und eine gültige E-Mail sowie einen Namen eingibt, dann wird ein neues Konto mit Rolle „teacher" angelegt und eine Einladungs-E-Mail verschickt, über die die Person ihr eigenes Passwort setzen kann
 - [ ] Angenommen der Admin versucht, eine E-Mail-Adresse einzuladen, die bereits ein Konto hat, wenn er absendet, dann wird ein verständlicher Fehlerhinweis angezeigt („Diese E-Mail ist bereits registriert — bitte stattdessen über die Kundenliste befördern")
@@ -61,7 +62,7 @@
 | Beide Wege erlaubt: bestehenden Kunden befördern UND direkt neues Lehrer-Konto per Einladung anlegen | Deckt beide realen Fälle ab — manche Lehrer sind bereits registrierte Kunden, andere kommen komplett neu dazu | 2026-08-17 |
 | Neue Konten ausschließlich per Einladungs-E-Mail, kein vom Admin gesetztes Startpasswort | Vermeidet, dass der Admin Passwörter kennt/verteilt; Person setzt eigenes Passwort wie bei der normalen Registrierung | 2026-08-17 |
 | Degradierung: Warnung mit betroffenen Kursen anzeigen, aber nicht blockieren; `course_teachers`-Einträge bleiben technisch bestehen | Blockieren wäre unnötige Reibung für den Admin; Zuordnungen automatisch zu löschen wäre stiller Datenverlust. Da die öffentliche Anzeige ohnehin auf `role = 'teacher'` filtert, verschwindet die Person dort korrekt, auch ohne die Datenbank-Einträge zu löschen | 2026-08-17 |
-| Neue eigene Seite `/admin/lehrer` plus „Zum Lehrer machen"-Button auf der bestehenden Kundendetailseite | Konsistent mit der bestehenden Nav-Struktur (jede Entität hat ihre eigene Seite); Beförderung ist dort am naheliegendsten, wo der Admin die Person bereits betrachtet | 2026-08-17 |
+| Alles läuft über eine neue eigene Seite `/admin/lehrer` — auch das Befördern eines bestehenden Kunden über eine integrierte Kundensuche dort, keine Änderung an der bestehenden Kundendetailseite | Ein einziger, zentraler Ort für alle Lehrer-Rollen-Aktionen (Liste, Einladen, Befördern, Zurückstufen) ist übersichtlicher als über zwei Seiten verteilt; die Kundendetailseite (PROJ-4) bleibt dadurch unverändert und unabhängig testbar | 2026-08-17 |
 | Keine zusätzlichen Lehrer-Profilfelder (Bio, Foto) in diesem Feature | Nicht MVP-relevant laut PRD; würde den Scope unnötig vergrößern, gehört eher zu einer künftigen Lehrer-Ansicht (PROJ-13) | 2026-08-17 |
 
 ### Technical Decisions
