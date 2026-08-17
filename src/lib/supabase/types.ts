@@ -86,6 +86,72 @@ export type Database = {
           },
         ]
       }
+      course_attendance: {
+        Row: {
+          course_id: string
+          created_at: string
+          customer_id: string
+          marked_by: string | null
+          occurrence_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          customer_id: string
+          marked_by?: string | null
+          occurrence_date: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          customer_id?: string
+          marked_by?: string | null
+          occurrence_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_attendance_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_attendance_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_attendance_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_attendance_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_attendance_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_bookings: {
         Row: {
           chosen_date: string
@@ -249,6 +315,52 @@ export type Database = {
             columns: ["schedule_id"]
             isOneToOne: false
             referencedRelation: "course_schedule"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_session_notes: {
+        Row: {
+          course_id: string
+          note: string
+          occurrence_date: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          course_id: string
+          note: string
+          occurrence_date: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          course_id?: string
+          note?: string
+          occurrence_date?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_session_notes_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_session_notes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_session_notes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -988,6 +1100,15 @@ export type Database = {
         }
       }
       current_role: { Args: never; Returns: string }
+      get_course_attendance_roster: {
+        Args: { p_course_id: string; p_occurrence_date: string }
+        Returns: {
+          customer_id: string
+          full_name: string
+          source: string
+          status: string
+        }[]
+      }
       get_course_occupancy: {
         Args: never
         Returns: {
@@ -995,6 +1116,11 @@ export type Database = {
           occupied_count: number
         }[]
       }
+      get_course_session_note: {
+        Args: { p_course_id: string; p_occurrence_date: string }
+        Returns: string
+      }
+      is_course_teacher: { Args: { p_course_id: string }; Returns: boolean }
       join_waitlist: {
         Args: {
           p_chosen_date: string
@@ -1016,6 +1142,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      list_attendance_eligible_customers: {
+        Args: never
+        Returns: {
+          customer_id: string
+          full_name: string
+        }[]
+      }
       list_my_waitlist: {
         Args: never
         Returns: {
@@ -1026,6 +1159,15 @@ export type Database = {
           id: string
           position: number
         }[]
+      }
+      mark_attendance: {
+        Args: {
+          p_course_id: string
+          p_customer_id: string
+          p_occurrence_date: string
+          p_status: string
+        }
+        Returns: undefined
       }
       next_cycle_end: { Args: { p_anchor: string }; Returns: string }
       promote_waitlist_for_course: {
@@ -1115,6 +1257,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      upsert_session_note: {
+        Args: { p_course_id: string; p_note: string; p_occurrence_date: string }
+        Returns: undefined
       }
     }
     Enums: {

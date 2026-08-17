@@ -1,6 +1,6 @@
 # PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-17
 
@@ -145,6 +145,35 @@ Die Anwesenheitsliste selbst (wer angezeigt wird) ist **kein gespeicherter Daten
 ### D) Abhängigkeiten (Pakete)
 
 Keine neuen Fremdpakete nötig.
+
+## Implementation Notes
+
+**Datenbank (Migration `proj13_attendance_and_session_notes`):**
+- Neue Tabellen `course_attendance` (composite PK `course_id, customer_id, occurrence_date`) und `course_session_notes` (composite PK `course_id, occurrence_date`) — folgt derselben Konvention wie das bestehende `course_teachers` (reine Zuordnungstabellen ohne eigene surrogate ID).
+- **Wichtige, im Architektur-Entwurf noch nicht sichtbare Erkenntnis:** `subscriptions`, `course_bookings` und `profiles` sind RLS-seitig strikt auf „eigene Zeile oder Admin" beschränkt — ein Lehrer kann darüber grundsätzlich **keine** Daten anderer Kunden lesen, auch nicht für die eigenen Kurse. Das betrifft praktisch den gesamten Datenzugriff dieses Features. Beide neuen Tabellen haben deshalb RLS aktiviert, aber **bewusst keine einzige Policy** — jeder Zugriff (lesend wie schreibend) läuft ausschließlich über sechs neue `SECURITY DEFINER`-Funktionen, die jeweils selbst prüfen, ob der Aufrufer für den betroffenen Kurs zugewiesener Lehrer oder Admin ist:
+  - `is_course_teacher(p_course_id)` — Hilfsfunktion für die Zuweisungsprüfung, analog zum bestehenden `current_role()`-Muster.
+  - `get_course_attendance_roster(p_course_id, p_occurrence_date)` — liefert die live zusammengestellte Anwesenheitsliste (aktive kursgebundene Abos + für das Datum bestätigte Probe-/Drop-in-Buchungen + manuell hinzugefügte Kunden), inklusive Namen — umgeht RLS gezielt, aber nur nach bestandener Zugriffsprüfung.
+  - `mark_attendance(...)` — setzt/ändert eine Markierung; lehnt zukünftige Datumswerte serverseitig ab (nicht nur clientseitig gesperrt).
+  - `get_course_session_note(...)` / `upsert_session_note(...)` — lesen/schreiben die gemeinsame Termin-Notiz.
+  - `list_attendance_eligible_customers()` — für „Kunde hinzufügen"; einzige Funktion in diesem Projekt, die einer **nicht-Admin-Rolle** eine kundenübergreifende Liste (Name, keine E-Mail/Zahlungsdaten) zurückgibt, deshalb mit eigener Rollenprüfung (`teacher` oder `admin`) statt sich auf eine aufrufende Admin-Aktion zu verlassen.
+- Alle sechs Funktionen: `anon` explizit gesperrt, nur `authenticated` darf ausführen (Rollenprüfung passiert innerhalb der Funktion) — verifiziert über `get_advisors(security)`, keine unerwarteten Befunde.
+- `src/lib/scheduling/dates.ts` um `pastOccurrences()` ergänzt (Gegenstück zum bestehenden `upcomingOccurrences()`) für die „letzte 8 Termine"-Berechnung.
+
+**Server Actions:** `src/lib/actions/teacher/attendance.ts` (`markAttendance`), `src/lib/actions/teacher/notes.ts` (`saveSessionNote`) — beide dünne Wrapper um die jeweilige RPC mit freundlicher Fehlermeldung für den Zukunfts-Fall.
+
+**Zugriffskontrolle:** `src/lib/auth/require-teacher.ts` — `requireTeacher()` (nur Rolle `teacher`, für `/lehrer`) und `requireCourseAccess(courseId)` (zugewiesener Lehrer ODER Admin, für `/lehrer/[courseId]` und `/lehrer/[courseId]/[date]`), analog zum bestehenden `requireAdmin()`.
+
+**Seiten & Komponenten:**
+- `/lehrer` (neu) — „Meine Kurse"-Liste, wiederverwendet das Karten-Design aus dem Kurskatalog.
+- `/lehrer/[courseId]` (neu) — Terminliste (anstehend + letzte 8 vergangene), leerer Zustand bei fehlendem Wochentermin.
+- `/lehrer/[courseId]/[date]` (neu) — Anwesenheitsliste (`AttendanceRoster`) inkl. „Kunde hinzufügen"-Dialog (wiederverwendet das Such-Pattern aus PROJ-22s Kundensuche) + Termin-Notiz (`SessionNoteEditor`). Notizen sind bewusst **nicht** auf vergangene/heutige Termine beschränkt (anders als Anwesenheit) — das erlaubt Unterrichtsplanung im Voraus, ohne dem Spec zu widersprechen (nur Anwesenheit hatte diese explizite Einschränkung).
+- Globale Navigation (`site-header.tsx`, `(site)/layout.tsx`): neuer Link „Meine Kurse" für Rolle `teacher`, analog zum bestehenden Admin-Link.
+- `/admin/kurse` (`course-manager.tsx`): neuer „Anwesenheit"-Button pro Kurszeile, verlinkt auf dieselbe `/lehrer/[courseId]`-Route — kein separates Admin-UI.
+
+**Live-Verifikation (vor Abschluss von `/frontend`):**
+- Direkt per SQL/JWT-Impersonation: Rollenprüfung aller sechs Funktionen (nicht-zugewiesener Lehrer/Kunde abgelehnt, zugewiesener Lehrer und Admin durchgelassen), Zukunfts-Datum-Sperre serverseitig bestätigt.
+- Per Browser (temporäre, danach wieder entfernte Testzuweisung auf einen bestehenden Kurs mit Termin+Abo): kompletter Fluss Login → „Meine Kurse" → Kurs → Termin → Anwesenheit markieren → Reload (Persistenz bestätigt) → Notiz speichern (per direkter DB-Abfrage bestätigt) → „Kunde hinzufügen" (Liste korrekt ohne bereits gelistete Kunden). Sicherheitsgrenze doppelt bestätigt: nicht-zugewiesener Kunde per Direkt-URL abgewiesen (Redirect zu `/`), Admin per derselben URL durchgelassen mit identischer Ansicht. Admin-Einstiegspunkt in `/admin/kurse` bestätigt (Anwesenheit-Link pro Zeile vorhanden). Zukunfts-Termin zeigt Sperrhinweis und deaktivierte Buttons.
+- `npm run build`, `npm run lint`, `npm test` (116/116) alle grün.
 
 ## QA Test Results
 _To be added by /qa_

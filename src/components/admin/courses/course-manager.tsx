@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { courseSchema, type CourseInput } from "@/lib/validations/admin";
@@ -188,6 +189,9 @@ export function CourseManager({
                   )}
                 </TableCell>
                 <TableCell className="text-right space-x-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/lehrer/${course.id}`}>Anwesenheit</Link>
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setEditing(course)}>
                     Bearbeiten
                   </Button>

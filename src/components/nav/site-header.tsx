@@ -17,13 +17,22 @@ import {
 
 type NavLink = { href: string; label: string };
 
-export function SiteHeader({ isLoggedIn, isAdmin }: { isLoggedIn: boolean; isAdmin: boolean }) {
+export function SiteHeader({
+  isLoggedIn,
+  isAdmin,
+  isTeacher,
+}: {
+  isLoggedIn: boolean;
+  isAdmin: boolean;
+  isTeacher: boolean;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const links: NavLink[] = [
     { href: "/kurse", label: "Kurse" },
     { href: "/stundenplan", label: "Stundenplan" },
+    ...(isTeacher ? [{ href: "/lehrer", label: "Meine Kurse" }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Admin" }] : []),
     ...(isLoggedIn ? [{ href: "/profil", label: "Mein Profil" }] : [{ href: "/login", label: "Login" }]),
   ];

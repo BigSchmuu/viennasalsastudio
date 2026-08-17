@@ -8,14 +8,16 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   } = await supabase.auth.getUser();
 
   let isAdmin = false;
+  let isTeacher = false;
   if (user) {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
     isAdmin = profile?.role === "admin";
+    isTeacher = profile?.role === "teacher";
   }
 
   return (
     <>
-      <SiteHeader isLoggedIn={!!user} isAdmin={isAdmin} />
+      <SiteHeader isLoggedIn={!!user} isAdmin={isAdmin} isTeacher={isTeacher} />
       {children}
     </>
   );

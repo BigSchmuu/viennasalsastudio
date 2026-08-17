@@ -43,6 +43,35 @@ export function upcomingOccurrences(
   return dates;
 }
 
+/** Last `count` past dates (strictly before today) matching `weekday`, skipping any date in `pauseDates`. Most recent first. */
+export function pastOccurrences(
+  weekday: number,
+  { count, pauseDates = [] }: { count: number; pauseDates?: string[] }
+): string[] {
+  const pauseSet = new Set(pauseDates);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayWeekday = jsDayToWeekday(today.getDay());
+  const daysSinceLast = (todayWeekday - weekday + 7) % 7 || 7;
+
+  const first = new Date(today);
+  first.setDate(today.getDate() - daysSinceLast);
+
+  const dates: string[] = [];
+  let cursor = first;
+  while (dates.length < count) {
+    const dateString = formatDateLocal(cursor);
+    if (!pauseSet.has(dateString)) {
+      dates.push(dateString);
+    }
+    const prev = new Date(cursor);
+    prev.setDate(cursor.getDate() - 7);
+    cursor = prev;
+  }
+  return dates;
+}
+
 /** Whole days between today and `dateString` (negative if in the past). */
 export function daysUntil(dateString: string): number {
   const today = new Date();
