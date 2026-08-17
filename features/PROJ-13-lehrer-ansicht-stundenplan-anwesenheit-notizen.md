@@ -176,7 +176,76 @@ Keine neuen Fremdpakete nötig.
 - `npm run build`, `npm run lint`, `npm test` (116/116) alle grün.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-17
+**App URL:** http://localhost:3000 (+ direct SQL/RPC verification against the production Supabase project, no staging environment exists)
+**Tester:** QA Engineer (AI)
+
+### Method
+- Automated: `npm test` (Vitest, incl. 4 new tests for the new `pastOccurrences()` date utility), `npm run test:e2e` (full existing Playwright suite as a regression baseline, plus a new `tests/PROJ-13-lehrer-ansicht-stundenplan-anwesenheit-notizen.spec.ts`).
+- Dedicated fixtures created for this feature: course "E2E13 Kurs" (Monday weekly schedule) with two assigned teachers (`e2e13-lehrer-a/b`) and one deliberately unassigned teacher (`e2e13-lehrer-c`, doubles as the "zero courses" empty-state fixture), plus customers covering every roster-source case: active course-bound abo, active flatrate abo (course-independent), confirmed trial booking, confirmed dropin booking, and one customer with **both** an active abo and a confirmed dropin on the same date (for the documented no-duplicates edge case).
+- Direct DB/RPC verification via SQL-JWT impersonation (`set local request.jwt.claims`) — chosen specifically because most of this feature's real logic lives in the six new `SECURITY DEFINER` functions, and this technique can exercise authorization boundaries and edge cases deterministically.
+
+### Acceptance Criteria Status
+All 10 verified via both direct RPC calls and a real browser session (Playwright).
+
+- [x] **AC1** (Nav-Link „Meine Kurse" für Lehrer): PASS.
+- [x] **AC2** (Leerzustand ohne Kurse): PASS.
+- [x] **AC3** (Terminliste: anstehend + letzte 8 vergangene): PASS — verified exactly 8 items under "Vergangene Termine".
+- [x] **AC4** (Automatische Vorbefüllung): PASS for the course-bound-abo and confirmed-booking sources individually.
+- [x] **AC5** (Markieren + Persistenz nach Reload): PASS.
+- [x] **AC6** (Zukunfts-Sperre): PASS — verified both the warning text **and** that the Anwesend/Abwesend/„Kunde hinzufügen" buttons are actually `disabled`, not just visually similar. Also verified server-side: `mark_attendance` rejects a future date directly at the RPC level (defense in depth, not just a UI-level lock).
+- [x] **AC7** („Kunde hinzufügen" nur aktive Abos/Buchungen): PASS — flatrate customer correctly appears; verified the dialog list excludes customers already on the roster.
+- [x] **AC8** (Notiz sichtbar/bearbeitbar für alle zugewiesenen Lehrer): PASS — Lehrer A writes a note, Lehrer B (separate login) sees and successfully overwrites it; `updated_by` correctly tracks the last editor.
+- [x] **AC9** (Zugriff auf fremden Kurs verweigert): PASS — verified both at the page level (redirect away from the course) and directly at the RPC level (`not authorized` exception for a teacher not in `course_teachers`).
+- [x] **AC10** (Admin sieht/bearbeitet identisch): PASS — verified via the actual `/admin/kurse` → „Anwesenheit" entry point, landing on the exact same route a teacher would use.
+
+### Edge Cases Status
+- [x] Kurs ohne Wochentermin → Hinweistext (verified via code path; the empty-state branch is unconditional on `schedule` being null, same code already exercised by AC2's course-list empty state pattern).
+- [ ] **Kunde mit Abo UND bestätigter Buchung am selben Termin → BUG-1 (High).** Appears **twice**, not once — see below.
+- [x] Buchung storniert nach bereits erfasster Anwesenheit → der Datensatz bleibt bestehen und weiterhin sichtbar (Quelle wechselt korrekt auf „Manuell", da die Person nicht mehr automatisch im aktiven Abo-/Buchungs-Set ist). Verified directly via RPC: cancelled a dropin booking after marking attendance, re-queried the roster, entry persisted with `status: present`, `source: manuell`.
+- [x] Probestunde auf neues Datum umgebucht → altes Datum behält die ursprünglich erfasste Anwesenheit (mit `source: manuell`), neues Datum zeigt die Person frisch, unmarkiert. Verified directly via RPC on both dates.
+- [x] Lehrer von Kurs entfernt → verliert sofort den Zugriff (RPC lehnt mit `not authorized` ab), Notiz-/Anwesenheitsdaten bleiben für Admin und verbleibende Lehrer unverändert erhalten. Verified directly via RPC.
+- [ ] Gleichzeitige Bearbeitung derselben Notiz durch zwei Lehrer — not independently tested (would require two genuinely concurrent requests); the `upsert`-based write (last write wins) matches the documented "no conflict handling" decision by construction, so this is a design guarantee rather than something to empirically race.
+
+### Security Audit Results
+- [x] **Authorization is enforced inside the database functions, not just server-side app code or UI.** Confirmed a teacher not assigned to a course gets `not authorized` when calling `get_course_attendance_roster`/`mark_attendance` etc. directly via RPC (bypassing the Next.js app entirely), and that `course_attendance`/`course_session_notes` return **zero rows** on a raw `SELECT` even for the legitimately assigned teacher — RLS has no policies at all, so there is no direct-table-access path around the functions, only the vetted RPCs.
+- [x] `list_attendance_eligible_customers()` (the one function in this project granted to a non-admin role for cross-customer data) correctly rejects a plain `customer` role caller.
+- [x] **XSS:** stored an `<img src=x onerror="window.__xss=true">` payload as a session note, reloaded the page — payload rendered as inert plain text inside the `<textarea>`, `window.__xss` never set, no JS dialog fired. No `dangerouslySetInnerHTML` anywhere in the new components.
+- [x] SQL injection: not applicable — all six new functions take typed parameters via PostgREST RPC calls (no dynamic/string-concatenated SQL anywhere in the new functions).
+- [ ] **Low, informational:** `upsert_session_note`'s `note` column has no length limit at the database layer — the 2000-character cap only exists in the Next.js action's Zod validation, so a teacher/admin calling the RPC directly could store an arbitrarily large note. Not exploitable by an unauthenticated or non-privileged party, and not a realistic DoS vector for a single row — noting for completeness rather than filing as a blocking bug.
+- [x] `get_advisors(security)` clean — all six new functions appear only under the expected, already-accepted `authenticated_security_definer_function_executable` WARN category.
+- [x] `get_advisors(performance)` — only the same class of pre-existing INFO-level "unindexed FK" notices already present throughout this schema (e.g. `course_bookings`, `invoices`); nothing new or elevated.
+
+### Regression Testing
+Ran the full existing Playwright suite as a baseline. **Zero `chromium` failures** — all failures were the same pre-existing, environment-only missing-WebKit-binary issue already documented during PROJ-12's QA (`Mobile Safari` project can't run without `npx playwright install webkit`), unrelated to any code in this repo. `npm test`: 120/120 pass (116 existing + 4 new). Spot-checked the components this feature directly touches:
+- `site-header.tsx` / `(site)/layout.tsx` (added the teacher nav link): existing nav-related tests (PROJ-24) passed in the full run.
+- `course-manager.tsx` (added the "Anwesenheit" action): existing PROJ-3 course-management tests passed in the full run.
+- `dates.ts` (added `pastOccurrences`, did not modify `upcomingOccurrences`): existing `upcomingOccurrences` tests unaffected, confirmed via the full Vitest run.
+
+**Conclusion: no regressions caused by PROJ-13.**
+
+### Bugs Found
+
+#### BUG-1: Customer with both an active subscription and a confirmed booking for the same date appears twice on the attendance roster
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. As admin, give a customer both an active course-bound subscription for a course AND a confirmed trial/dropin booking for the exact same upcoming/past date of that course (documented as a real, if narrow, scenario in the spec's own edge cases).
+  2. As the assigned teacher, open that course's termin view for that date.
+  3. Expected (per the spec's explicit edge case): the customer appears once.
+  4. Actual: the customer appears **twice** — once with the "Abo" badge, once with the "Buchung" badge — each with its own independent Anwesend/Abwesend button pair.
+- **Root cause:** `get_course_attendance_roster`'s `expected` CTE combines the abo-sourced and booking-sourced customer lists with a plain SQL `UNION`, which only de-duplicates identical `(customer_id, source)` pairs. Since the two branches deliberately produce *different* `source` values for the same `customer_id`, the union doesn't collapse them into one row.
+- **Impact:** confusing/broken UI (the same person shown as two separate roster entries), not a data-integrity issue — both entries write to the exact same `course_attendance` primary key (`course_id, customer_id, occurrence_date`), so marking one doesn't create a duplicate database row; a teacher clicking both independently would just have the second click overwrite the first.
+- **Suggested direction (not implemented — QA doesn't fix):** deduplicate by `customer_id` alone before joining against `course_attendance`, e.g. group the `expected` CTE by `customer_id` and pick one representative `source` (abo taking priority over booking, since it's the more durable relationship) rather than `UNION`-ing two different-shaped rows per person.
+- **Priority:** Fix before deployment — directly contradicts a named, spec'd edge case with clear reproduction steps.
+
+### Summary
+- **Acceptance Criteria:** 10/10 pass.
+- **Bugs Found:** 1 (High). 1 Low-severity informational security note (no blocking issue).
+- **Security:** authorization boundaries (RLS-zero-policy + in-function checks) hold up under direct RPC bypass attempts; XSS on the free-text note field confirmed safe; no SQL injection surface.
+- **Regressions:** none — full existing suite green on `chromium` (Mobile Safari gap is a pre-existing, unrelated environment issue).
+- **Production Ready:** **NO** — BUG-1 is High severity and directly contradicts an explicit, spec'd requirement.
+- **Recommendation:** Fix BUG-1 before deploying.
 
 ## Deployment
 _To be added by /deploy_

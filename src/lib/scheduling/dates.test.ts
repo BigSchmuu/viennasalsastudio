@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { jsDayToWeekday, formatDateLocal, upcomingOccurrences, daysUntil } from "./dates";
+import { jsDayToWeekday, formatDateLocal, upcomingOccurrences, pastOccurrences, daysUntil } from "./dates";
 
 describe("jsDayToWeekday", () => {
   it("maps JS Sunday (0) to app Sonntag (6)", () => {
@@ -54,6 +54,38 @@ describe("upcomingOccurrences", () => {
   it("skips dates present in pauseDates while keeping the requested count", () => {
     const dates = upcomingOccurrences(0, { count: 3, pauseDates: ["2026-08-17"] });
     expect(dates).toEqual(["2026-08-24", "2026-08-31", "2026-09-07"]);
+  });
+});
+
+describe("pastOccurrences", () => {
+  beforeEach(() => {
+    // Sunday 2026-08-16 (app weekday 6)
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 16, 12, 0, 0));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns the last N Mondays before today when today is Sunday", () => {
+    const dates = pastOccurrences(0, { count: 3 });
+    expect(dates).toEqual(["2026-08-10", "2026-08-03", "2026-07-27"]);
+  });
+
+  it("excludes today even when today matches the requested weekday (PROJ-13: attendance for today comes from the upcoming list, not past)", () => {
+    const dates = pastOccurrences(6, { count: 2 }); // Sonntag = 6, today is Sunday
+    expect(dates).toEqual(["2026-08-09", "2026-08-02"]);
+  });
+
+  it("skips dates present in pauseDates while keeping the requested count", () => {
+    const dates = pastOccurrences(0, { count: 3, pauseDates: ["2026-08-10"] });
+    expect(dates).toEqual(["2026-08-03", "2026-07-27", "2026-07-20"]);
+  });
+
+  it("returns dates in most-recent-first order", () => {
+    const dates = pastOccurrences(0, { count: 2 });
+    expect(new Date(dates[0]).getTime()).toBeGreaterThan(new Date(dates[1]).getTime());
   });
 });
 
