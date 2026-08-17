@@ -81,12 +81,70 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Neue eigenständige Route `/lehrer` statt Erweiterung von `/profil` | Eigener Bereich mit mehreren Unterseiten (Kursliste, Terminliste, Termin-Detail) passt strukturell nicht als Abschnitt einer Profilseite; spiegelt die bestehende `/admin`-Konvention | 2026-08-17 |
+| Anwesenheit und Notiz werden direkt über Kurs + Kalenderdatum verknüpft, kein neuer „Termin"-Datensatz | Kurstermine existieren in der App nicht als eigene gespeicherte Zeilen — sie ergeben sich rechnerisch aus Wochentag, Pausen und Einstiegsterminen des Kurses (bestehendes Muster aus PROJ-6/PROJ-8). Ein zusätzlicher Termin-Datensatz wäre redundant und müsste ständig synchron gehalten werden | 2026-08-17 |
+| Anwesenheitsliste wird bei jedem Aufruf frisch aus den aktuellen Abo-/Buchungsdaten berechnet, nicht einmalig eingefroren | Bleibt automatisch korrekt, auch wenn sich z.B. eine Drop-in-Buchung erst nach dem ersten Öffnen der Liste ändert; nur die tatsächlich gesetzten Anwesend/Abwesend-Markierungen werden dauerhaft gespeichert | 2026-08-17 |
+| Serverseitige Zugriffsprüfung „zugewiesener Lehrer ODER Admin" pro Kurs, nicht nur UI-seitig verborgen | Erfüllt die explizite Sicherheitsanforderung aus dem Spec; verhindert Zugriff über direkt aufgerufene URLs (entspricht dem in dieser App durchgängig verwendeten RLS-Muster) | 2026-08-17 |
+| Admin nutzt dieselbe Lehrer-Ansicht statt einer separaten Admin-Oberfläche, erreichbar über einen neuen Einstiegspunkt in der bestehenden Kursverwaltung (`/admin/kurse`) | Vermeidet doppelt gebaute/gepflegte Oberflächen; stellt sicher, dass Admin exakt das sieht und bearbeitet, was der Lehrer sieht | 2026-08-17 |
+| „Kunde hinzufügen" nutzt eine Kundensuche nach demselben Muster wie die bestehende Kundensuche bei der Lehrer-Beförderung (PROJ-22) | Bewährtes, bereits vorhandenes UI-Muster für „aus einer eingeschränkten Kundenmenge auswählen" wiederverwenden statt neu zu erfinden | 2026-08-17 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Komponentenstruktur
+
+```
+Globale Navigation (bestehend, PROJ-24)
+└── Neuer Link „Meine Kurse" — nur sichtbar für eingeloggte Nutzer mit Rolle Lehrer
+
+/lehrer (neu)
+├── Kursliste „Meine Kurse"
+│   ├── Pro Kurs: Name, Level, Tanzstil, Standort/Raum
+│   └── Leerzustand „Dir sind noch keine Kurse zugewiesen", falls keine Zuweisung existiert
+│
+└── Kurs-Detailansicht (Klick auf einen Kurs in der Liste)
+    ├── Terminliste: anstehende Termine + letzte 8 vergangene Termine dieses Kurses
+    │   └── Klick auf einen Termin öffnet die Termin-Ansicht
+    │
+    └── Termin-Ansicht (pro Kurs + Datum)
+        ├── Anwesenheitsliste
+        │   ├── Automatisch vorbefüllt: aktive kursgebundene Abonnenten
+        │   │   + für dieses Datum bestätigte Probestunden-/Drop-in-Buchungen
+        │   ├── Anwesend/Abwesend-Umschalter pro Kunde
+        │   │   (gesperrt, solange der Termin in der Zukunft liegt)
+        │   └── „Kunde hinzufügen" — Suche unter Kunden mit aktivem Abo/Buchung,
+        │       für Fälle, die nicht automatisch erscheinen (z.B. Flatrate-Kunden)
+        └── Notizfeld — ein gemeinsamer Freitext für diesen Termin,
+            sichtbar & bearbeitbar für alle dem Kurs zugewiesenen Lehrer + Admin
+
+/admin/kurse (bestehend, PROJ-3)
+└── Neue Aktion „Anwesenheit" pro Kurszeile
+    └── Führt zur selben Kurs-Detail-/Termin-Ansicht wie oben,
+        nur ohne die Einschränkung „nur eigene Kurse" (Admin sieht jeden Kurs)
+```
+
+### B) Datenmodell (fachlich)
+
+**Anwesenheit** (neu): Für jede Kombination aus Kurs, Kalenderdatum und Kunde genau ein Eintrag mit dem Status „Anwesend" oder „Abwesend", inklusive Info, wer die letzte Änderung vorgenommen hat. Ein Kunde kann pro Kurs und Termin nur einen Anwesenheitsstatus haben.
+
+**Termin-Notiz** (neu): Für jede Kombination aus Kurs und Kalenderdatum ein Freitext-Feld, gemeinsam gepflegt von allen diesem Kurs zugewiesenen Lehrern und vom Admin.
+
+Da Kurstermine in der App bereits heute nicht als eigene Datensätze existieren — sie werden aus dem hinterlegten Wochentag, den Einstiegsterminen und eventuellen Pausen des Kurses berechnet (siehe Stundenplan/Buchung) — werden Anwesenheit und Notiz direkt über „Kurs + Datum" identifiziert, ohne einen zusätzlichen „Termin"-Datensatz einzuführen.
+
+Die Anwesenheitsliste selbst (wer angezeigt wird) ist **kein gespeicherter Datensatz**, sondern wird bei jedem Aufruf live aus den aktuellen aktiven Abos und bestätigten Buchungen zusammengestellt — nur die tatsächlich vom Lehrer gesetzten Anwesend/Abwesend-Markierungen werden dauerhaft gespeichert.
+
+### C) Tech-Entscheidungen (Begründung)
+
+- **Kurs+Datum statt eigenem Termin-Datensatz:** Vermeidet eine zweite, parallele Terminverwaltung, die mit dem bestehenden Wochentag/Einstiegstermin-Modell synchron gehalten werden müsste.
+- **Live berechnete Anwesenheitsliste:** Bleibt automatisch korrekt bei Änderungen an Buchungen, ohne dass der Lehrer die Liste manuell aktualisieren muss.
+- **Serverseitige Zugriffsprüfung „zugewiesener Lehrer oder Admin":** Erfüllt die explizite Sicherheitsanforderung aus dem Spec und folgt demselben Absicherungsmuster, das in der gesamten App bereits verwendet wird.
+- **Gemeinsame Oberfläche für Lehrer und Admin:** Ein Einstiegspunkt weniger zu pflegen, und Admin sieht garantiert dasselbe wie der Lehrer.
+
+### D) Abhängigkeiten (Pakete)
+
+Keine neuen Fremdpakete nötig.
 
 ## QA Test Results
 _To be added by /qa_
