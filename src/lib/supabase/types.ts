@@ -1331,6 +1331,36 @@ export type Database = {
           p_course_id: string
           p_desired_plan: string
           p_note: string
+          p_prerequisite_confirmed?: boolean
+        }
+        Returns: {
+          chosen_date: string
+          course_id: string
+          created_at: string
+          customer_id: string
+          desired_plan: string | null
+          id: string
+          note: string | null
+          price: number | null
+          status: string
+          subscription_id: string | null
+          type: string
+          wants_student_price: boolean | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "course_bookings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_self_service_booking: {
+        Args: {
+          p_chosen_date: string
+          p_course_id: string
+          p_prerequisite_confirmed?: boolean
+          p_type: string
+          p_wants_student_price?: boolean
         }
         Returns: {
           chosen_date: string

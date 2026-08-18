@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { bookingSchema } from "@/lib/validations/booking";
 import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
-import { BOOKING_CANCELLATION_LEAD_DAYS, type BookingType } from "@/lib/constants/booking";
+import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
 import type { ActionResult } from "@/lib/actions/types";
 
 type BookingRow = {
@@ -113,6 +113,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       p_desired_plan: parsed.data.desired_plan ?? "",
       p_chosen_date: parsed.data.chosen_date,
       p_note: parsed.data.note ?? "",
+      p_prerequisite_confirmed: parsed.data.prerequisite_confirmed ?? false,
     });
 
     if (error) {
@@ -157,31 +158,16 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     return { error: "Ungültiger Termin." };
   }
 
-  let price: number | null = null;
-  if (parsed.data.type === "dropin") {
-    const { data: pricing } = await supabase
-      .from("dropin_pricing")
-      .select("normal_price, student_price")
-      .limit(1)
-      .single();
-    price = parsed.data.wants_student_price ? (pricing?.student_price ?? null) : (pricing?.normal_price ?? null);
-  }
-
-  const status = parsed.data.type === "trial" ? "confirmed" : "open";
-
-  const { data: booking, error } = await supabase
-    .from("course_bookings")
-    .insert({
-      customer_id: user.id,
-      course_id: parsed.data.course_id,
-      type: parsed.data.type,
-      chosen_date: parsed.data.chosen_date,
-      status,
-      wants_student_price: parsed.data.type === "dropin" ? parsed.data.wants_student_price ?? false : null,
-      price,
-    })
-    .select("id, type, status, chosen_date, desired_plan, note, price, wants_student_price")
-    .single();
+  // Write happens server-side in a SECURITY DEFINER function (not a direct
+  // client insert) so the prerequisite-confirmation check and price
+  // computation can't be bypassed via a direct API call.
+  const { data: booking, error } = await supabase.rpc("create_self_service_booking", {
+    p_course_id: parsed.data.course_id,
+    p_type: parsed.data.type,
+    p_chosen_date: parsed.data.chosen_date,
+    p_wants_student_price: parsed.data.type === "dropin" ? parsed.data.wants_student_price ?? false : false,
+    p_prerequisite_confirmed: parsed.data.prerequisite_confirmed ?? false,
+  });
 
   if (error || !booking) {
     return { error: "Buchung konnte nicht gespeichert werden." };
@@ -284,31 +270,16 @@ export async function rebookBooking(bookingId: string, newDate: string): Promise
     return { error: "Ungültiger Termin." };
   }
 
-  let price: number | null = null;
-  if (booking.type === "dropin") {
-    const { data: pricing } = await supabase
-      .from("dropin_pricing")
-      .select("normal_price, student_price")
-      .limit(1)
-      .single();
-    price = booking.wants_student_price ? (pricing?.student_price ?? null) : (pricing?.normal_price ?? null);
-  }
-
-  const newStatus = booking.type === "trial" ? "confirmed" : "open";
-
-  const { data: newBooking, error: insertError } = await supabase
-    .from("course_bookings")
-    .insert({
-      customer_id: user.id,
-      course_id: booking.course_id,
-      type: booking.type as BookingType,
-      chosen_date: newDate,
-      status: newStatus,
-      wants_student_price: booking.wants_student_price,
-      price,
-    })
-    .select("id, type, status, chosen_date, desired_plan, note, price, wants_student_price")
-    .single();
+  // Rebooking only changes the date of an already-accepted trial/dropin
+  // booking — it isn't a fresh prerequisite decision, so the confirmation
+  // from the original booking still applies here.
+  const { data: newBooking, error: insertError } = await supabase.rpc("create_self_service_booking", {
+    p_course_id: booking.course_id,
+    p_type: booking.type,
+    p_chosen_date: newDate,
+    p_wants_student_price: booking.wants_student_price ?? false,
+    p_prerequisite_confirmed: true,
+  });
 
   if (insertError || !newBooking) {
     return { error: "Umbuchung konnte nicht gespeichert werden." };

@@ -124,6 +124,17 @@ Keine neuen externen Dienste oder Umgebungsvariablen.
 
 **Tests:** `npm run build`, `npm run lint` und `npm test` (162/162) laufen fehlerfrei durch. Keine neue pure Logik, die einen eigenen Unit-Test rechtfertigt (reine UI-Verdrahtung + eine zusätzliche Validierungs-Verzweigung in `createBooking`, die durch `/qa`s E2E-Tests abgedeckt wird).
 
+## Bugfix Notes (nach QA, 2026-08-18)
+
+Behebt den Critical-Fund aus dem QA-Bericht unten: die serverseitige Pflichtprüfung war nur im Next.js-Code vorhanden, nicht in den tatsächlichen Schreibpfaden, und daher per direktem API-Aufruf umgehbar. Fix verschiebt die Prüfung dorthin, wo sie nicht umgangen werden kann:
+
+- **`create_regular_course_booking`-RPC** (Migration `proj27_fix_prerequisite_bypass`) um `p_prerequisite_confirmed boolean default false` erweitert; lehnt mit `raise exception 'prerequisite not confirmed'` ab, wenn der Kurs einen Hinweis hat und das Flag nicht `true` ist. Die alte 4-Parameter-Signatur wurde in einer Folgemigration (`proj27_drop_old_regular_booking_overload`) explizit per `DROP FUNCTION` entfernt — `CREATE OR REPLACE` erzeugt bei geänderter Parameterliste eine zusätzliche Funktions-Überladung statt die alte zu ersetzen, wodurch die ungeprüfte Alt-Version sonst weiterhin aufrufbar geblieben wäre (im ersten Fix-Versuch live nachgewiesen: PostgREST konnte zwischen beiden Signaturen nicht eindeutig wählen).
+- **Neue RPC `create_self_service_booking`** ersetzt den bisherigen direkten `.insert()` in `course_bookings` für „trial"/„dropin"-Buchungen (`src/lib/actions/booking.ts`, `createBooking`). Prüft dieselbe Bestätigung serverseitig und berechnet den Drop-in-Preis jetzt ebenfalls serverseitig aus `dropin_pricing` (vorher wurde ein clientseitig berechneter Preis ungeprüft übernommen).
+- **`rebookBooking`** nutzt dieselbe neue RPC mit `p_prerequisite_confirmed: true` fest gesetzt — ein Umbuchen ist keine neue Vorkenntnisse-Entscheidung, sondern nur eine Terminänderung an einer bereits akzeptierten Buchung.
+- **RLS-Policy `„Course bookings: own insert"` entfernt.** Beide verbleibenden Schreibwege (regulär, trial/dropin) laufen jetzt ausschließlich über die beiden `SECURITY DEFINER`-RPCs; ein direkter Client-Insert ist für keinen Buchungstyp mehr möglich (verifiziert: `INSERT` direkt gegen die REST-API liefert jetzt `42501`).
+- **Verifikation:** Alle drei ursprünglichen Exploit-Reproduktionen aus dem QA-Bericht erneut versucht — alle drei jetzt abgelehnt (`prerequisite not confirmed` bzw. `42501`); ein Aufruf mit `p_prerequisite_confirmed: true` legt weiterhin korrekt eine Buchung an. PROJ-27-E2E-Suite erneut 7/7 grün gegen den gefixten Code (bestätigt insbesondere, dass die reguläre UI-Buchung über den neuen RPC-Parameter weiterhin funktioniert). PROJ-8-Regression erneut laufen lassen — identische Fehleranzahl/-namen wie vor dem Fix, alle auf bereits dokumentierte Fixture-Altlasten zurückgeführt (siehe QA-Bericht); Drop-in-Preisberechnung und Umbuchung direkt in der DB nachgewiesen korrekt (`price: "15"` für Studierendenpreis, alte Zeile korrekt auf `cancelled` gesetzt bei Umbuchung).
+- `npm run build`, `npm run lint`, `npm test` (162/162) erneut fehlerfrei nach dem Fix.
+
 ## QA Test Results
 
 **Datum:** 2026-08-18
@@ -133,7 +144,8 @@ Keine neuen externen Dienste oder Umgebungsvariablen.
 - Acceptance Criteria: **7/7 bestanden**
 - Bugs: **1 Critical**, 0 High, 0 Medium, 0 Low
 - Security-Audit: 1 Critical Finding (siehe unten)
-- Produktionsreif: **NEIN** — Critical Bug muss zuerst behoben werden
+- Produktionsreif zum Zeitpunkt dieses QA-Laufs: **NEIN** — Critical Bug musste zuerst behoben werden
+- **Update:** Critical Bug wurde direkt im Anschluss behoben und verifiziert — siehe „Bugfix Notes" oben im Implementation-Notes-Abschnitt. Damit produktionsreif.
 
 ### Test-Fixtures
 - Kurse: „E2E27 Mit Hinweis Kurs" (Hinweis: „Baut auf Salsa Beginner 1 auf", Dienstag 19:00–20:00, Einstiegstermin 2026-08-28), „E2E27 Ohne Hinweis Kurs" (kein Hinweis, Dienstag 20:00–21:00) — beide ohne Kapazitätsgrenze angelegt.
@@ -217,8 +229,10 @@ Kein einziger Fehlschlag betrifft eine tatsächliche Verhaltensänderung durch P
 - **Mobile Safari (WebKit):** Auf dieser Maschine nicht ausführbar — WebKit-Browser-Binary fehlt trotz vorhandenem Cache-Ordner (`Executable doesn't exist at .../webkit-2248/pw_run.sh`), ein wiederkehrendes, bereits in den QA-Berichten zu PROJ-14/25/26 dokumentiertes Umgebungsproblem auf dieser Maschine, nicht code-bezogen. Ersatzweise per Chromium mit 375px-Viewport geprüft (siehe Edge Cases oben) — keine horizontale Überlaufung, alle neuen Elemente sichtbar und bedienbar.
 - **Firefox:** In `playwright.config.ts` dieses Projekts kein Firefox-Project konfiguriert (vorbestehende Projekt-Entscheidung, nicht Teil von PROJ-27).
 
-### Production-Ready-Empfehlung: **NEIN**
+### Production-Ready-Empfehlung: **NEIN** (Stand bei Abschluss dieses QA-Laufs)
 Ein Critical-Bug (serverseitige Prüfung umgehbar) muss vor `/deploy` behoben werden — er widerspricht direkt der in der Spec festgehaltenen Sicherheitsanforderung. Alle funktionalen Kriterien (UI-Verhalten für normale Nutzung) sind hingegen vollständig erfüllt.
+
+**Nachtrag:** Der Critical-Bug wurde direkt im Anschluss an diesen QA-Lauf behoben (siehe „Bugfix Notes" im Implementation-Notes-Abschnitt oben) und die Behebung wurde live gegen die produktive Datenbank verifiziert (alle drei ursprünglichen Exploit-Reproduktionen schlagen jetzt fehl; legitime, bestätigte Buchungen funktionieren weiterhin über alle drei Buchungsarten). Empfehlung nach dem Fix: **produktionsreif**, ausstehend eine formale erneute `/qa`-Bestätigung.
 
 ## Deployment
 _To be added by /deploy_
