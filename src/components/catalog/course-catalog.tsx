@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { levelOptions, levelLabel, levelColor, levelBadgeStyle } from "@/lib/constants/levels";
-import { BookingDialog } from "@/components/booking/booking-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/select";
 
 const ALL = "__all__";
+
+// Loaded only once a customer actually opens a booking dialog, instead of
+// being bundled into every /kurse page load.
+const BookingDialog = dynamic(
+  () => import("@/components/booking/booking-dialog").then((mod) => mod.BookingDialog),
+  { ssr: false }
+);
 
 export type CatalogCourseRow = {
   id: string;

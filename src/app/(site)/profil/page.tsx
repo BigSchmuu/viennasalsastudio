@@ -1,22 +1,35 @@
 import { redirect } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileForm } from "@/components/auth/profile-form";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { PaymentMethodSection, type MandateData } from "@/components/payments/payment-method-section";
+import type { MandateData } from "@/components/payments/payment-method-section";
 import { MyBookingsSection, type MyBookingRow } from "@/components/booking/my-bookings-section";
 import { MySubscriptionsSection, type MySubscriptionRow } from "@/components/subscription/my-subscriptions-section";
 import { MyInvoicesSection, type MyInvoiceRow } from "@/components/invoices/my-invoices-section";
 import { MyWaitlistSection, type MyWaitlistRow } from "@/components/waitlist/my-waitlist-section";
-import {
-  NotificationSettingsSection,
-  type NotificationPreferenceRow,
-} from "@/components/notifications/notification-settings-section";
-import { MyTicketsSection, type MyTicketRow } from "@/components/tickets/my-tickets-section";
+import type { NotificationPreferenceRow } from "@/components/notifications/notification-settings-section";
+import type { MyTicketRow } from "@/components/tickets/my-tickets-section";
 import { createClient } from "@/lib/supabase/server";
 import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
 import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
 import { TICKET_CANCELLATION_LEAD_DAYS } from "@/lib/constants/events";
 import type { ProfileInput } from "@/lib/validations/auth";
+
+// Code-split out of the main /profil bundle: each pulls in real extra weight
+// (react-hook-form+zod, the QR-code generator, the push-notification hook)
+// that most visits to this page don't need to download up front.
+const PaymentMethodSection = dynamic(() =>
+  import("@/components/payments/payment-method-section").then((mod) => mod.PaymentMethodSection)
+);
+const MyTicketsSection = dynamic(() =>
+  import("@/components/tickets/my-tickets-section").then((mod) => mod.MyTicketsSection)
+);
+const NotificationSettingsSection = dynamic(() =>
+  import("@/components/notifications/notification-settings-section").then(
+    (mod) => mod.NotificationSettingsSection
+  )
+);
 
 export default async function ProfilePage() {
   const supabase = await createClient();
