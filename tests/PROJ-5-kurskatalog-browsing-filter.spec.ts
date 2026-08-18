@@ -21,9 +21,25 @@ function courseCard(page: Page, courseName: string): Locator {
   return page.locator(".rounded-lg.border.bg-card", { hasText: courseName });
 }
 
+// /kurse paginates at 12 cards; the E2E5 fixtures sort well past that on the
+// unfiltered (created_at-ascending) catalog, so tests locating them by name
+// without an active filter need to click through "Mehr laden" first.
+async function loadAllCourses(page: Page) {
+  // Give client-side hydration time to attach the button's onClick before
+  // clicking it — otherwise the click fires on inert (not-yet-hydrated)
+  // markup and silently does nothing, see PROJ-2 BUG-1.
+  await page.waitForTimeout(1000);
+  const moreButton = page.getByRole("button", { name: /Mehr laden/ });
+  for (let i = 0; i < 10 && (await moreButton.count()) > 0; i++) {
+    await moreButton.click();
+    await page.waitForTimeout(500);
+  }
+}
+
 test.describe("PROJ-5: Kurskatalog (Browsing & Filter)", () => {
   test("Anonymer Besucher sieht Kurse mit Name, Tanzstil, Level, Standort, Lehrer", async ({ page }) => {
     await page.goto("/kurse");
+    await loadAllCourses(page);
     const card = courseCard(page, "E2E5 Kizomba Beginner");
     await expect(card).toBeVisible();
     await expect(card.getByText("E2E5 Kizomba", { exact: true })).toBeVisible();
@@ -35,6 +51,7 @@ test.describe("PROJ-5: Kurskatalog (Browsing & Filter)", () => {
   test("Eingeloggter Kunde sieht denselben Katalog wie ein anonymer Besucher", async ({ page }) => {
     await login(page, CUSTOMER_EMAIL);
     await page.goto("/kurse");
+    await loadAllCourses(page);
     const card = courseCard(page, "E2E5 Kizomba Beginner");
     await expect(card).toBeVisible();
     await expect(card.getByText("E2E5 Lehrerin")).toBeVisible();
@@ -85,11 +102,13 @@ test.describe("PROJ-5: Kurskatalog (Browsing & Filter)", () => {
     // Zurücksetzen funktioniert
     await page.getByRole("button", { name: "Filter zurücksetzen" }).click();
     await page.waitForTimeout(300);
+    await loadAllCourses(page);
     await expect(courseCard(page, "E2E5 Kizomba Beginner")).toBeVisible();
   });
 
   test("Kurs ohne Lehrer und ohne Level zeigt klar erkennbare Platzhalter", async ({ page }) => {
     await page.goto("/kurse");
+    await loadAllCourses(page);
     const card = courseCard(page, "E2E5 Kizomba Ohne Lehrer");
     await expect(card).toBeVisible();
     await expect(card.getByText("Lehrer wird noch bekanntgegeben")).toBeVisible();
@@ -102,6 +121,7 @@ test.describe("PROJ-5: Kurskatalog (Browsing & Filter)", () => {
   // booking dialog itself is covered by PROJ-8's own E2E suite.
   test("Jetzt-buchen-Button leitet anonyme Besucher zum Login", async ({ page }) => {
     await page.goto("/kurse");
+    await loadAllCourses(page);
     await courseCard(page, "E2E5 Kizomba Beginner").getByRole("button", { name: "Jetzt buchen" }).click();
     await page.waitForTimeout(500);
     await expect(page).toHaveURL(/\/login\?redirect=\/kurse/);

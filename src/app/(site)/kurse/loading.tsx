@@ -13,7 +13,7 @@ export default function KurseLoading() {
         <Skeleton className="h-16 w-[180px]" />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array.from({ length: 9 }).map((_, i) => (
+        {Array.from({ length: 12 }).map((_, i) => (
           <div key={i} className="rounded-lg border p-4 space-y-3">
             <Skeleton className="h-6 w-3/4" />
             <div className="flex gap-2">

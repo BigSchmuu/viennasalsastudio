@@ -12,6 +12,21 @@ async function login(page: import("@playwright/test").Page, email: string) {
   await page.waitForTimeout(1500);
 }
 
+// /kurse paginates at 12 cards; the E2E27 fixtures sort near the end of the
+// (created_at-ascending) unfiltered catalog, so tests need to click through
+// "Mehr laden" before locating them by name.
+async function loadAllCourses(page: import("@playwright/test").Page) {
+  // Give client-side hydration time to attach the button's onClick before
+  // clicking it — otherwise the click fires on inert (not-yet-hydrated)
+  // markup and silently does nothing, see PROJ-2 BUG-1.
+  await page.waitForTimeout(1000);
+  const moreButton = page.getByRole("button", { name: /Mehr laden/ });
+  for (let i = 0; i < 10 && (await moreButton.count()) > 0; i++) {
+    await moreButton.click();
+    await page.waitForTimeout(500);
+  }
+}
+
 test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
   test("AC1: Admin trägt Hinweis im Kurs-Formular ein und speichert", async ({ page }) => {
     await login(page, "e2e8-admin@viennasalsastudio.test");
@@ -35,6 +50,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
   test("AC2: Hinweis sichtbar auf Kurskarte in /kurse und /stundenplan", async ({ page }) => {
     await page.goto("/kurse");
     await page.waitForTimeout(1500);
+    await loadAllCourses(page);
     const catalogCard = page.locator(".rounded-lg.border").filter({ hasText: "E2E27 Mit Hinweis Kurs" });
     await expect(catalogCard.getByText(HINWEIS_TEXT)).toBeVisible();
 
@@ -48,6 +64,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     await login(page, "e2e8-customer@viennasalsastudio.test");
     await page.goto("/kurse");
     await page.waitForTimeout(1500);
+    await loadAllCourses(page);
 
     const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E27 Ohne Hinweis Kurs" });
     await expect(card).toBeVisible();
@@ -63,6 +80,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     await login(page, "e2e8-customer@viennasalsastudio.test");
     await page.goto("/kurse");
     await page.waitForTimeout(1500);
+    await loadAllCourses(page);
 
     const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E27 Mit Hinweis Kurs" });
     await card.getByRole("button", { name: "Jetzt buchen" }).click();
@@ -80,6 +98,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     await login(page, "e2e8-customer@viennasalsastudio.test");
     await page.goto("/kurse");
     await page.waitForTimeout(1500);
+    await loadAllCourses(page);
 
     const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E27 Mit Hinweis Kurs" });
     await card.getByRole("button", { name: "Jetzt buchen" }).click();
@@ -98,6 +117,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     await login(page, "e2e8-customer@viennasalsastudio.test");
     await page.goto("/kurse");
     await page.waitForTimeout(1500);
+    await loadAllCourses(page);
 
     const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E27 Mit Hinweis Kurs" });
     await card.getByRole("button", { name: "Jetzt buchen" }).click();
@@ -131,6 +151,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
 
     await page.goto("/kurse");
     await page.waitForTimeout(1500);
+    await loadAllCourses(page);
     const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E27 Mit Hinweis Kurs" });
     await expect(card.getByText(HINWEIS_TEXT)).not.toBeVisible();
 

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 
 const ALL = "__all__";
+const PAGE_SIZE = 12;
 
 // Loaded only once a customer actually opens a booking dialog, instead of
 // being bundled into every /kurse page load.
@@ -67,6 +68,7 @@ export function CourseCatalog({
   const [level, setLevel] = useState(ALL);
   const [locationId, setLocationId] = useState(ALL);
   const [bookingCourse, setBookingCourse] = useState<CatalogCourseRow | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const filtered = useMemo(() => {
     return courses.filter((course) => {
@@ -77,12 +79,16 @@ export function CourseCatalog({
     });
   }, [courses, danceStyleId, level, locationId]);
 
+  const visible = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
+
   const filtersActive = danceStyleId !== ALL || level !== ALL || locationId !== ALL;
 
   function resetFilters() {
     setDanceStyleId(ALL);
     setLevel(ALL);
     setLocationId(ALL);
+    setVisibleCount(PAGE_SIZE);
   }
 
   function handleBook(course: CatalogCourseRow) {
@@ -98,7 +104,13 @@ export function CourseCatalog({
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <label className="text-sm font-medium">Tanzstil</label>
-          <Select value={danceStyleId} onValueChange={setDanceStyleId}>
+          <Select
+            value={danceStyleId}
+            onValueChange={(value) => {
+              setDanceStyleId(value);
+              setVisibleCount(PAGE_SIZE);
+            }}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
@@ -115,7 +127,13 @@ export function CourseCatalog({
 
         <div className="space-y-1">
           <label className="text-sm font-medium">Level</label>
-          <Select value={level} onValueChange={setLevel}>
+          <Select
+            value={level}
+            onValueChange={(value) => {
+              setLevel(value);
+              setVisibleCount(PAGE_SIZE);
+            }}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
@@ -132,7 +150,13 @@ export function CourseCatalog({
 
         <div className="space-y-1">
           <label className="text-sm font-medium">Standort</label>
-          <Select value={locationId} onValueChange={setLocationId}>
+          <Select
+            value={locationId}
+            onValueChange={(value) => {
+              setLocationId(value);
+              setVisibleCount(PAGE_SIZE);
+            }}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
@@ -167,46 +191,55 @@ export function CourseCatalog({
           .
         </p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((course) => (
-            <Card
-              key={course.id}
-              className="border-l-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-              style={{ borderLeftColor: levelColor(course.level) }}
-            >
-              <Link href={`/kurse/${course.id}`} className="block">
-                <CardHeader>
-                  <CardTitle>{course.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">{course.danceStyleName}</Badge>
-                    <Badge variant="outline" style={levelBadgeStyle(course.level)}>
-                      {levelLabel(course.level)}
-                    </Badge>
-                    {course.isFull && <Badge variant="destructive">Ausgebucht</Badge>}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {course.roomName ? `${course.locationName} · ${course.roomName}` : course.locationName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {course.teacherNames.length > 0
-                      ? course.teacherNames.join(", ")
-                      : "Lehrer wird noch bekanntgegeben"}
-                  </p>
-                  {course.prerequisiteNote && (
-                    <p className="text-xs bg-muted rounded-md px-2 py-1">{course.prerequisiteNote}</p>
-                  )}
-                </CardContent>
-              </Link>
-              <CardFooter>
-                <Button className="w-full rounded-full" onClick={() => handleBook(course)}>
-                  Jetzt buchen
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {visible.map((course) => (
+              <Card
+                key={course.id}
+                className="border-l-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                style={{ borderLeftColor: levelColor(course.level) }}
+              >
+                <Link href={`/kurse/${course.id}`} className="block">
+                  <CardHeader>
+                    <CardTitle>{course.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="secondary">{course.danceStyleName}</Badge>
+                      <Badge variant="outline" style={levelBadgeStyle(course.level)}>
+                        {levelLabel(course.level)}
+                      </Badge>
+                      {course.isFull && <Badge variant="destructive">Ausgebucht</Badge>}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {course.roomName ? `${course.locationName} · ${course.roomName}` : course.locationName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {course.teacherNames.length > 0
+                        ? course.teacherNames.join(", ")
+                        : "Lehrer wird noch bekanntgegeben"}
+                    </p>
+                    {course.prerequisiteNote && (
+                      <p className="text-xs bg-muted rounded-md px-2 py-1">{course.prerequisiteNote}</p>
+                    )}
+                  </CardContent>
+                </Link>
+                <CardFooter>
+                  <Button className="w-full rounded-full" onClick={() => handleBook(course)}>
+                    Jetzt buchen
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+          {hasMore && (
+            <div className="flex justify-center">
+              <Button variant="outline" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
+                Mehr laden ({filtered.length - visibleCount} weitere)
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {bookingCourse && (
