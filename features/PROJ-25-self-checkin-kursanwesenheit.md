@@ -1,6 +1,6 @@
 # PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -72,12 +72,50 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Self-Check-In läuft über eine eigene, serverseitig abgesicherte Datenbankfunktion, kein direkter Tabellen-Schreibzugriff für Kunden | Verhindert dieselbe Art von Sicherheitslücke wie PROJ-14 BUG-1 (ungeschützte direkte Tabellenschreibrechte ließen dort beliebige Spaltenänderungen zu); Zeitfenster- und Berechtigungsprüfung müssen serverseitig, nicht nur in der Oberfläche, durchgesetzt werden | 2026-08-18 |
+| Kein neues Datenbank-Feld für „Self-Check-In vs. Lehrer-Markierung" | Die bestehende Spalte „wer zuletzt gesetzt hat" aus PROJ-13 reicht bereits aus, um Kunde von Lehrer/Admin zu unterscheiden — kein Schema-Update nötig | 2026-08-18 |
+| Wiederverwendung derselben „aktives Abo"-Prüfung, die schon PROJ-13s automatische Vorbefüllung steuert | Vermeidet zwei unterschiedliche Definitionen von „aktives Abo" zwischen Lehrer-Ansicht und Kunden-Self-Check-In | 2026-08-18 |
+| Zeitfenster-Berechnung nutzt `course_schedule.start_time`/`end_time` (bereits vorhanden) statt eines neuen Zeit-Feldes | Jeder Kurs hat schon eine feste Start-/Endzeit hinterlegt (PROJ-3) — daraus lässt sich „30 Minuten vor Kursbeginn" und „bis Kursende" direkt ableiten | 2026-08-18 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+/stundenplan (bestehend, PROJ-6) — erweitert
++-- Bestehende Kurstermin-Liste
+    +-- NEU: Self-Check-In-Bereich bei eigenem, heutigem Kurstermin
+        +-- Zustand "Ich bin da" (Zeitfenster aktiv, noch nicht eingecheckt)
+        +-- Zustand "✓ Eingecheckt" (bereits eingecheckt; Klick = Rückgängig, nur bis Kursende möglich)
+        +-- Kein Self-Check-In-Bereich sichtbar (außerhalb Zeitfenster / kein aktives Abo für diesen Kurs / Kurs pausiert)
+
+Lehrer-Ansicht — Anwesenheitsliste (bestehend, PROJ-13) — erweitert
++-- Bestehende Teilnehmerzeile
+    +-- NEU: kleines Hinweis-Icon/Tooltip „Self-Check-In" bei Einträgen, die der Kunde selbst gesetzt hat
+```
+
+### B) Data Model (plain language)
+
+Kein neues Datenmodell — der Self-Check-In schreibt in dieselbe Anwesenheits-Datengrundlage, die PROJ-13 bereits für den Lehrer eingeführt hat:
+- Ein Anwesenheits-Eintrag besteht weiterhin aus: Kurs, Termin-Datum, Kunde, Status (Anwesend/Abwesend), sowie wer die Markierung zuletzt gesetzt hat.
+- Neu ist ausschließlich die Erlaubnis: der Kunde darf jetzt selbst — aber nur für seinen EIGENEN Eintrag (eigener Kurs, heutiges Termin-Datum, vorausgesetzt aktives Abo und erlaubtes Zeitfenster) — den Status auf „Anwesend" setzen bzw. wieder zurücknehmen. Bisher konnte das ausschließlich der zuständige Lehrer oder der Admin.
+- Über das bestehende Feld „wer zuletzt gesetzt hat" lässt sich anschließend ableiten, ob ein Eintrag vom Kunden selbst (Self-Check-In) oder von Lehrer/Admin stammt — genau darüber zeigt die Lehrer-Ansicht die neue Kennzeichnung an.
+
+### C) Tech Decisions (justified for PM)
+
+- **Eigene, serverseitig abgesicherte Schreib-Funktion statt direktem Tabellenzugriff**: Analog zu den bereits bestehenden geschützten Abläufen in der App (z.B. Ticket-Kauf/-Check-in aus PROJ-14) bekommt der Self-Check-In einen eigenen, geschützten Schreibweg. Das ist keine Standard-Vorsichtsmaßnahme, sondern eine gezogene Lehre: genau ein ungeschützter direkter Tabellenzugriff hatte bei PROJ-14 zu einer kritischen Sicherheitslücke geführt (Kunden konnten beliebige Spalten der eigenen Zeile ändern) — das wird hier von Anfang an vermieden.
+- **Zeitfenster-Prüfung (30 Min. vorher, Rückgängig nur bis Kursende) läuft serverseitig bei jedem Schreibversuch**, nicht nur beim Anzeigen des Buttons in der Oberfläche — verhindert, dass ein Kunde außerhalb des erlaubten Fensters trickst (z.B. über einen direkten API-Aufruf).
+- **Wiederverwendung der bestehenden „aktives Abo"-Logik aus PROJ-13**: kein neuer, abweichender Begriff von „aktivem Abo" — vermeidet Inkonsistenzen zwischen Lehrer-Ansicht und Kunden-Self-Check-In.
+- **Self-Check-In nutzt dieselbe Konfliktregel „letzter Schreibzugriff gewinnt"**, die auch sonst im Anwesenheits-Datenmodell gilt (siehe PROJ-13 „Zwei Lehrer bearbeiten gleichzeitig..."), jetzt erweitert um: ein Self-Check-In gilt als der zuletzt gewinnende Schreibzugriff gegenüber einer vorher gesetzten Lehrer-Markierung.
+
+### D) Dependencies (packages to install)
+- Keine neuen Pakete — reine Erweiterung bestehender Seiten/Komponenten (`/stundenplan`, Lehrer-Anwesenheitsliste) mit vorhandenen shadcn-Bausteinen und den bereits vorhandenen Datums-/Zeit-Hilfsfunktionen aus PROJ-8/PROJ-13.
+
+### Voraussetzung vor `/deploy`
+Keine neuen externen Dienste oder Umgebungsvariablen.
 
 ## QA Test Results
 _To be added by /qa_
