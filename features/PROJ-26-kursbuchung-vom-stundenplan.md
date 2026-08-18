@@ -33,7 +33,7 @@
 - [ ] Angenommen ein Kunde hat bereits ein aktives Abo für einen Kurs, dann sieht er bei diesem Kurstermin keinen Buchen-Button
 - [ ] Angenommen ein Kurs mit begrenzter Kapazität ist ausgebucht, dann zeigt die Stundenplan-Karte einen „Ausgebucht"-Hinweis, analog zu `/kurse`
 - [ ] Angenommen eine Buchung wird über den Stundenplan-Dialog erfolgreich abgeschlossen, dann verhält sie sich identisch zu einer Buchung über `/kurse` (gleiche Bestätigungs-/Wartelisten-Logik, gleiche Sichtbarkeit unter „Meine Buchungen" im Profil)
-- [ ] Angenommen ein Kurstermin erscheint an mehreren Wochentagen, dann hat jede Karte ihren eigenen, unabhängig funktionierenden Buchen-Button für denselben Kurs
+- [x] ~~Angenommen ein Kurstermin erscheint an mehreren Wochentagen, dann hat jede Karte ihren eigenen, unabhängig funktionierenden Buchen-Button für denselben Kurs~~ — **Nicht anwendbar** (siehe QA Test Results): `course_schedule` hat eine `UNIQUE`-Constraint auf `course_id`, ein Kurs hat also technisch immer höchstens einen Wochentermin. Diese AC beschreibt ein Szenario, das mit dem aktuellen Datenmodell nicht auftreten kann — Annahmefehler aus der Spec-Interview-Phase, kein Implementierungsfehler.
 
 ## Edge Cases
 - Kurs ohne Kapazitätsbegrenzung (`max_participants` nicht gesetzt) → nie „Ausgebucht", wie auf `/kurse`
@@ -58,6 +58,7 @@
 | Buchen-Button wird ausgeblendet, wenn der Kunde bereits ein aktives Abo für den Kurs hat | Verhindert zwei widersprüchliche Call-to-Actions (Buchen + Self-Check-In, PROJ-25) auf derselben Karte — der Kunde ist bereits Teilnehmer | 2026-08-18 |
 | „Ausgebucht"-Hinweis direkt auf der Stundenplan-Karte | Konsistent mit der bestehenden Anzeige auf `/kurse` und dem gleichartigen Muster bei Events (PROJ-14) | 2026-08-18 |
 | Keine Verlinkung zur vollständigen Kursdetailseite von der Karte aus | Hält den Umfang auf die eigentliche Anfrage (Schnellbuchung) fokussiert; eine Detailseiten-Verlinkung wäre eine separate, spätere Ergänzung | 2026-08-18 |
+| AC7 nachträglich als „nicht anwendbar" markiert (nicht entfernt, zur Nachvollziehbarkeit durchgestrichen stehen gelassen) | In der `/qa`-Phase festgestellt: `course_schedule` erzwingt per `UNIQUE`-Constraint auf `course_id` genau einen Wochentermin pro Kurs — das in AC7 beschriebene Szenario (ein Kurs an mehreren Wochentagen) kann mit dem bestehenden Datenmodell nicht auftreten. Interview-Annahme, die der Realität widersprach, kein Implementierungsfehler | 2026-08-18 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
