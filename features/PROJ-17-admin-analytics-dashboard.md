@@ -1,6 +1,6 @@
 # PROJ-17: Admin-Analytics-Dashboard
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -265,4 +265,26 @@ Beide Bugs wurden behoben:
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+
+**Production URL:** https://viennasalsastudio.vercel.app
+**Deployed:** 2026-08-18
+**Tag:** `v1.0.0-PROJ-17`
+
+**Pre-Deployment Checks:**
+- [x] `npm run build` erfolgreich
+- [x] `npm run lint` sauber
+- [x] QA freigegeben (Status: Approved, beide Bugs behoben)
+- [x] Keine Critical/High-Bugs offen
+- [x] Keine neuen Umgebungsvariablen — `.env.local.example` unverändert (Feature nutzt ausschließlich bestehenden Admin-Datenzugriff)
+- [x] Keine Secrets committed
+- [x] Migration bereits angewendet (`proj17_subscriptions_cancelled_at`)
+- [x] Code committed und gepusht (`main`, 5 Commits)
+
+**Post-Deployment-Verifikation (live gegen Produktion):**
+- [x] Produktions-URL lädt korrekt (Startseite 200, `/admin` ohne Login korrekt 307-Redirect)
+- [x] Admin-Login landet live direkt auf `/admin` mit dem vollständig gerenderten Dashboard (BUG-1-Fix in Produktion bestätigt)
+- [x] Mobile Nav-Overflow-Fix in Produktion bestätigt: `body.scrollWidth` bei 375px exakt 375px (BUG-2-Fix in Produktion bestätigt)
+- [x] Echte Kündigungs-Daten (permanente E2E17-Fixture) korrekt in Kachel und Trend-Chart sichtbar
+- [x] Keine Browser-Konsolen- oder Seitenfehler beim Live-Test
+
+**Bekannter, akzeptierter Zustand:** Keine neuen Produktions-Voraussetzungen — dieses Feature liest ausschließlich bereits vorhandene Daten und führt keine neuen externen Integrationen ein.
