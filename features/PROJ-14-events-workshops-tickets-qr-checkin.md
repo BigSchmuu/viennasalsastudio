@@ -1,6 +1,6 @@
 # PROJ-14: Events & Workshops (Tickets, QR-Check-in)
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -219,7 +219,76 @@ Keine neuen externen Dienste oder Umgebungsvariablen — beide neuen Pakete lauf
 - Beim ersten Build schlug die TypeScript-Prüfung fehl: `buildNotificationContent`s Parametertyp enthielt sowohl `NotificationEventGroup` (worin `event_tickets`/Plural bereits enthalten ist) als auch ein zusätzliches, redundantes `event_ticket`/Singular — das switch-Statement hatte aber keinen Fall für `event_tickets`, wodurch die Exhaustiveness-Prüfung fehlschlug. Behoben, indem das redundante Singular entfernt und der switch-Fall sowie beide Aufrufstellen in `dispatch.ts` auf `event_tickets` (Plural) vereinheitlicht wurden.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-18
+**App URL:** http://localhost:3000 (dev server against production Supabase — no staging environment exists for this project)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+- [x] AC1 — Event-Übersicht zeigt kommende Events mit Termin, Preis und Kapazitäts-Hinweis
+- [x] AC2 — Nicht eingeloggter Besucher wird beim Kaufversuch zum Login weitergeleitet
+- [x] AC3 — SEPA-Ticket-Kauf wird sofort automatisch bestätigt, Kapazität reduziert
+- [x] AC4 — Kunde ohne SEPA-Mandat kann nur „Vor Ort zahlen" wählen
+- [x] AC5 — „Vor Ort zahlen" legt Ticket als „reserviert" an, Kapazität sofort reduziert
+- [x] AC6 — Ausgebuchtes Event zeigt „Ausgebucht", weiterer Kauf gesperrt
+- [x] AC7 — Gekauftes Ticket erscheint mit QR-Code unter „Meine Tickets"
+- [x] AC8 — Admin/Lehrer checkt gültiges Ticket per Namenssuche ein (Vor-Ort-Ticket zusätzlich als bezahlt markiert, da Check-in = Zahlungsbestätigung)
+- [x] AC9 — Bereits eingechecktes Ticket zeigt bei erneuter Suche einen deaktivierten „Eingecheckt HH:MM"-Button statt eines erneuten Check-ins
+- [x] AC10 — Stornierung innerhalb der Frist gibt die Kapazität sofort frei
+- [x] AC11 — Stornierung nach Ablauf der Frist wird verhindert (Aktion wird ausgeblendet statt eines Fehlers nach Klick — deckt sich mit der bereits akzeptierten PROJ-8-Konvention für exakt dasselbe Frist-Muster, siehe dortiges QA-Ergebnis AC11)
+- [x] AC12 — Event-Absage entfernt es von `/events` und benachrichtigt alle aktiven Ticket-Inhaber (per DB verifiziert: `notification_queue`-Eintrag mit `event_type: event_tickets`, `sub_type: event_cancelled` wurde beim echten Absagen-Klick erzeugt)
+- [x] AC13 — Deaktivierte „Event-Tickets"-Benachrichtigung: Umschalten funktioniert und persistiert, Ticket bleibt im Profil sichtbar
+- [x] AC14 — Zugriff auf `/checkin` ohne Admin-/Lehrer-Rolle wird verweigert (Redirect auf „/")
+- [x] Zusatzcheck — Lehrer-Rolle hat ebenfalls Zugriff auf `/checkin` (nicht nur Admin)
+
+**14/14 Acceptance Criteria passed** (plus 1 additional role-coverage check).
+
+### Edge Cases Status
+
+- [x] Zwei Kunden konkurrieren um den letzten Platz — durch Code-Review verifiziert: `purchase_event_ticket()` sperrt die `events`-Zeile per `for update`, bevor die Kapazität geprüft wird — exakt dasselbe Sperrmuster wie `create_regular_course_booking` (PROJ-8), das dort bereits unter echter Nebenläufigkeit geprüft wurde. Kein separater Nebenläufigkeits-Livetest für PROJ-14 nötig, da identischer, bereits bewährter Mechanismus.
+- [x] Doppel-Scan-Schutz (Screenshot-Weitergabe) — abgedeckt durch AC9 (zweite Suche nach Check-in zeigt deaktivierten Button, kein erneuter Check-in möglich)
+- [x] Admin reduziert Kapazität nachträglich unter bereits verkaufte Tickets — live verifiziert: Kapazität eines Events mit 1 verkauften Ticket auf 1 gesetzt, weiterer Kaufversuch korrekt mit „event is full" abgelehnt, bestehendes Ticket blieb unangetastet
+- [x] SEPA-Mandat wird zwischen Kauf und Termin widerrufen — laut Design bleibt das bereits bestätigte Ticket gültig (kein erneuter Mandats-Check nach Kauf); Verhalten des nächsten Sammellaufs entspricht 1:1 der bestehenden Abo-Logik (PROJ-7), kein PROJ-14-spezifisches Risiko
+- [x] Kamera-Zugriff verweigert → manuelle Namenssuche als Fallback — in AC8/AC9 ausschließlich über die manuelle Suche getestet; die eigentliche Kamera-Scan-Funktion (`html5-qrcode`) ist mangels Kamera in der Headless-Testumgebung weiterhin ungetestet (bereits in den Frontend-Implementation-Notes als bekannte Lücke dokumentiert)
+- [x] Admin legt Event mit Datum in der Vergangenheit an → Validierungsfehler — durch neue Unit-Tests abgedeckt (`src/lib/validations/events.test.ts`: `createEventSchema` lehnt Vergangenheits-Termine ab, `eventSchema` erlaubt sie beim Bearbeiten weiterhin)
+- [x] Reserviertes (Vor-Ort-)Ticket wird storniert, keine Zahlung war je erfolgt — abgedeckt durch AC10
+
+### Security Audit Results
+
+- [x] Authentication: `/checkin` ohne Login → Redirect zu `/login?redirect=/checkin`; Ticket-Kauf ohne Login zeigt nur den Login-Link, keinen Kauf-Button
+- [x] Authorization: `checkin_event_ticket()`-RPC direkt als normaler Kunde aufgerufen → korrekt mit „not authorized" abgelehnt (verifiziert per Skript, nicht nur über die UI)
+- [x] Authorization: `purchase_event_ticket()` mit SEPA ohne Mandat → korrekt mit „no active mandate" abgelehnt, unabhängig vom Client
+- [x] Row-Level-Security: `tickets`-SELECT-Policy beschränkt auf eigene Zeile oder Admin/Lehrer — verifiziert per `pg_policies`
+- [x] Input validation / XSS: Event-Name/-Beschreibung/-Ort sind Admin-only-Felder (kein Kunden-Input), werden über reguläres JSX gerendert (kein `dangerouslySetInnerHTML` in allen neuen PROJ-14-Komponenten) und in den Benachrichtigungs-Templates korrekt escaped (per bestehendem `escapeHtml`, durch die neuen Unit-Tests in `templates.test.ts` mitgeprüft)
+- [ ] **BUG-1 (Critical):** Row-Level-Security auf `tickets` erlaubt Kunden, beliebige Spalten der eigenen Ticket-Zeile zu verändern — nicht nur den Stornierungs-Status. Details siehe unten.
+
+### Bugs Found
+
+#### BUG-1: Kunden können per direktem API-Aufruf ihr eigenes Ticket auf „eingecheckt" setzen und den Preis auf 0 ändern
+- **Severity:** Critical
+- **Steps to Reproduce:**
+  1. Als eingeloggter Kunde ein Ticket kaufen (SEPA oder Vor-Ort), z. B. Status „reserviert" oder „bestätigt"
+  2. Mit dem eigenen Supabase-Anon-Key + der eigenen Session (beides im Browser jedes Nutzers verfügbar) direkt gegen die REST-API aufrufen: `PATCH /rest/v1/tickets?id=eq.<eigene-ticket-id>` mit Body `{ "status": "checked_in", "price": 0 }`
+  3. Erwartet: Die Row-Level-Security-Policy „Tickets: own cancel" sollte nur `status = 'cancelled'` erlauben (analog zur bestehenden, korrekten Policy „Course bookings: own cancel" bei PROJ-8, die exakt `WITH CHECK ((auth.uid() = customer_id) AND (status = 'cancelled'))` verwendet)
+  4. Tatsächlich: Der Request gelingt vollständig — `status` wird auf „checked_in" gesetzt (obwohl der Kunde nie am Einlass gescannt wurde) und `price` auf 0 (obwohl der reguläre Preis 20€ war). Live verifiziert mit einem Wegwerf-Testticket, per Skript gegen die Produktions-DB, danach sofort zurückgesetzt.
+  - **Root Cause:** Die Migration hat für die `UPDATE`-Policy „Tickets: own cancel" nur eine `USING`-Klausel (`auth.uid() = customer_id`) gesetzt, aber keine `WITH CHECK`-Klausel, die die neue Zeile validiert. Ohne explizite `WITH CHECK` übernimmt Postgres bei `UPDATE`-Policies zwar implizit die `USING`-Klausel auch als Check, aber diese prüft nur die Kunden-Zuordnung (`customer_id`), nicht welche Spalten sich ändern dürfen — der Kunde kann daher jede Spalte der eigenen Zeile beliebig setzen, solange `customer_id` unverändert bleibt.
+  - **Impact:** (1) Kunden können sich selbst am Einlass vorbeischleusen, indem sie ihr Ticket ohne Scan auf „eingecheckt" setzen. (2) Kunden können den Ticketpreis vor dem nächsten SEPA-Sammellauf auf 0 setzen und so die Zahlung umgehen — verifiziert, dass `createCollectionRun` den zum Abrechnungszeitpunkt aktuellen `price`-Wert der Ticket-Zeile abfragt, eine Preis-Manipulation vor dem Lauf würde also unbemerkt zu einer Falschabrechnung führen. (3) Weitere Spalten wie `payment_method`, `checked_in_by`, `checked_in_at` sind ebenso ungeschützt und könnten zur Verschleierung genutzt werden.
+  - **Empfohlener Fix (nicht von QA umgesetzt):** `WITH CHECK` an die „Tickets: own cancel"-Policy ergänzen, analog zu PROJ-8s „Course bookings: own cancel": `WITH CHECK ((auth.uid() = customer_id) AND (status = 'cancelled'))`. Das allein reicht allerdings nicht ganz aus, da eine `WITH CHECK`-Klausel nur die resultierende Zeile prüft, nicht welche der ÜBRIGEN Spalten sich zusätzlich geändert haben (ein Kunde könnte theoretisch `status` korrekt auf „cancelled" setzen und gleichzeitig `price` mitändern) — eine zusätzliche Spalten-Schutzmaßnahme (z. B. ein `BEFORE UPDATE`-Trigger, der bei Kunden-Updates alle Spalten außer `status` auf Unverändert prüft) oder das vollständige Entfernen dieser Policy zugunsten einer SECURITY-DEFINER-RPC `cancel_event_ticket()` (exakt das bereits in diesem Feature etablierte Muster von `purchase_event_ticket()`/`checkin_event_ticket()`) wird empfohlen.
+- **Priority:** Fix before deployment
+
+### Summary
+- **Acceptance Criteria:** 14/14 passed (+ 1 additional check)
+- **Bugs Found:** 1 total (1 Critical, 0 High, 0 Medium, 0 Low)
+- **Security:** Issues found — see BUG-1
+- **Production Ready:** NO
+- **Recommendation:** Fix BUG-1 (RLS `WITH CHECK` gap on `tickets` UPDATE policy) before deployment, then re-run `/qa`. All functional acceptance criteria already pass and do not need to be re-tested unless the fix changes ticket-cancellation behavior.
+
+### Automated Test Coverage
+- **Unit tests:** `src/lib/validations/events.test.ts` (8 new tests: `eventSchema`/`createEventSchema` future-date rule, capacity/price validation, end-before-start rejection), `src/lib/notifications/templates.test.ts` (3 new tests for the `event_tickets` notification content: purchased confirmed vs. reserved wording, event-cancellation wording, HTML-escaping of event names). Full suite: **159/159 passing** (`npm test`).
+- **E2E tests:** `tests/PROJ-14-events-workshops-tickets-qr-checkin.spec.ts` (12 tests covering all 14 ACs). **12/12 passing** on Chromium (first clean run against fresh fixtures — this project's established convention is that E2E specs are one-shot against the single shared production DB, so a second run without resetting fixtures produces expected state-dependent mismatches, not real failures; see `feedback_no_staging_test_assumptions` memory). Mobile-Safari (WebKit) automated run was blocked by a Playwright browser-install lockfile held by a concurrent, unrelated process on this machine; substituted a 375px-viewport chromium check of `/events`, `/checkin`, `/profil`, and `/admin/events` — no horizontal overflow on any of them.
+- **New E2E fixtures created** (production DB, prefixed `e2e14-`/`E2E14`): 4 auth users (`e2e14-customer-mandate`, `e2e14-customer-nomandate`, `e2e14-admin`, `e2e14-teacher`), 1 SEPA mandate, 5 events (`E2E14 Kaufen Event`, `E2E14 Ausgebucht Event`, `E2E14 Checkin Event`, `E2E14 Cancel Notify Event`, `E2E14 Stornofrist Event`). These persist as the permanent regression fixtures for this spec, matching the project's established convention for other features' E2E suites.
+- **Memory update:** extended the existing `gotrue-null-token-bug` memory — `auth.users.created_at`/`updated_at` also need to be set explicitly on direct-SQL test-account creation (no DB default), same failure class as the already-documented token columns.
 
 ## Deployment
 _To be added by /deploy_
