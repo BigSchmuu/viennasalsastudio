@@ -45,6 +45,7 @@ export type BookingDialogCourse = {
   hasOpenRegularBooking: boolean;
   isFull: boolean;
   isOnWaitlist: boolean;
+  prerequisiteNote: string | null;
 };
 
 export function BookingDialog({
@@ -73,6 +74,7 @@ export function BookingDialog({
   const [dropinDate, setDropinDate] = useState("");
   const [wantsStudentPrice, setWantsStudentPrice] = useState(false);
   const [referralSource, setReferralSource] = useState("");
+  const [prerequisiteConfirmed, setPrerequisiteConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -82,7 +84,7 @@ export function BookingDialog({
     tab === "regular" && course.isFull && !course.isOnWaitlist && !course.hasOpenRegularBooking && hasMandate;
 
   const canSubmit =
-    !hasReferralSource && !referralSource
+    (!!course.prerequisiteNote && !prerequisiteConfirmed) || (!hasReferralSource && !referralSource)
       ? false
       : tab === "regular"
         ? hasMandate &&
@@ -124,6 +126,7 @@ export function BookingDialog({
       formData.set("course_id", course.id);
       formData.set("type", tab);
       formData.set("referral_source", referralSource);
+      formData.set("prerequisite_confirmed", String(prerequisiteConfirmed));
 
       if (tab === "regular") {
         formData.set("chosen_date", regularDate);
@@ -323,6 +326,24 @@ export function BookingDialog({
             )}
           </TabsContent>
         </Tabs>
+
+        {course.prerequisiteNote && (
+          <div className="space-y-2 pt-2 border-t">
+            <Alert>
+              <AlertDescription>{course.prerequisiteNote}</AlertDescription>
+            </Alert>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="prerequisite-confirmed"
+                checked={prerequisiteConfirmed}
+                onCheckedChange={(checked) => setPrerequisiteConfirmed(checked === true)}
+              />
+              <Label htmlFor="prerequisite-confirmed" className="font-normal">
+                Ich bestätige, dass ich die genannte Voraussetzung erfülle.
+              </Label>
+            </div>
+          </div>
+        )}
 
         {!hasReferralSource && (
           <div className="space-y-1 pt-2 border-t">

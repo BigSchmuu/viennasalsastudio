@@ -51,6 +51,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     note: formData.get("note") ?? "",
     wants_student_price: formData.get("wants_student_price") === "true",
     referral_source: formData.get("referral_source") ?? "",
+    prerequisite_confirmed: formData.get("prerequisite_confirmed") === "true",
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
@@ -72,6 +73,16 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
 
   if (!profile?.referral_source && !parsed.data.referral_source) {
     return { error: "Bitte gib an, wie du von uns erfahren hast." };
+  }
+
+  const { data: course } = await supabase
+    .from("courses")
+    .select("prerequisite_note")
+    .eq("id", parsed.data.course_id)
+    .single();
+
+  if (course?.prerequisite_note && !parsed.data.prerequisite_confirmed) {
+    return { error: "Bitte bestätige den Hinweis zu den Vorkenntnissen." };
   }
 
   if (parsed.data.type === "regular") {

@@ -22,7 +22,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants"
+        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, prerequisite_note"
       )
       .eq("id", id)
       .single(),
@@ -114,6 +114,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     hasOpenRegularBooking,
     isFull,
     isOnWaitlist,
+    prerequisiteNote: course.prerequisite_note,
   };
 
   return (
@@ -140,6 +141,9 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
                 .join(", ")
             : "Lehrer wird noch bekanntgegeben"}
         </p>
+        {course.prerequisite_note && (
+          <p className="text-sm bg-muted rounded-md px-3 py-2">{course.prerequisite_note}</p>
+        )}
       </div>
 
       <CourseDetailBooking

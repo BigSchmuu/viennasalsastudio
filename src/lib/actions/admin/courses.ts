@@ -15,6 +15,7 @@ function parseCourseFormData(formData: FormData) {
     teacher_ids: formData.getAll("teacher_ids"),
     max_participants: formData.get("max_participants"),
     price: formData.get("price"),
+    prerequisite_note: formData.get("prerequisite_note"),
   });
 }
 
@@ -64,6 +65,7 @@ export async function createCourse(formData: FormData): Promise<ActionResult> {
       video_set_id: parsed.data.video_set_id || null,
       max_participants: parsed.data.max_participants ? Number(parsed.data.max_participants) : null,
       price: parsed.data.price ? Number(parsed.data.price) : null,
+      prerequisite_note: parsed.data.prerequisite_note || null,
     })
     .select("id")
     .single();
@@ -98,6 +100,7 @@ export async function updateCourse(id: string, formData: FormData): Promise<Acti
       video_set_id: parsed.data.video_set_id || null,
       max_participants: parsed.data.max_participants ? Number(parsed.data.max_participants) : null,
       price: parsed.data.price ? Number(parsed.data.price) : null,
+      prerequisite_note: parsed.data.prerequisite_note || null,
     })
     .eq("id", id);
 

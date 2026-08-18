@@ -1,6 +1,6 @@
 # PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -105,6 +105,24 @@ Buchungsdialog (bestehend, PROJ-8, wiederverwendet von /kurse UND /stundenplan) 
 
 ### Voraussetzung vor `/deploy`
 Keine neuen externen Dienste oder Umgebungsvariablen.
+
+## Implementation Notes
+
+**Datenbank:** Migration `proj27_course_prerequisite_note` fügt der bestehenden `courses`-Tabelle die optionale Spalte `prerequisite_note text` hinzu (kein neues Table, wie im Tech Design festgelegt). Leerer Admin-Freitext wird konsequent als `null` gespeichert (nicht als leerer String), damit die "kein Hinweis = komplett unsichtbar"-Regel (AC3) unabhängig vom UI-Zustand serverseitig gilt.
+
+**Admin-Formular** (`src/components/admin/courses/course-manager.tsx`, `src/lib/validations/admin.ts`, `src/lib/actions/admin/courses.ts`): Neues optionales Textarea-Feld "Hinweis/Vorkenntnisse" im bestehenden Kurs-Formular, validiert mit `max(500)` (analog zu anderen Freitextfeldern im Admin-Bereich wie `description`/`address`). `parseCourseFormData`/`createCourse`/`updateCourse` lesen und persistieren das Feld.
+
+**Buchungsdialog** (`src/components/booking/booking-dialog.tsx`): `BookingDialogCourse` bekommt `prerequisiteNote: string | null`. Ist es gesetzt, erscheint unterhalb der drei Tabs (Anmeldung/Probestunde/Drop-in) — also unabhängig vom gewählten Tab, wie in AC4 gefordert — ein Info-Block mit dem Admin-Text sowie eine Checkbox mit festem Bestätigungssatz ("Ich bestätige, dass ich die genannte Voraussetzung erfülle."). `canSubmit` blockiert das Absenden, solange die Checkbox nicht aktiviert ist.
+
+**Serverseitige Durchsetzung** (`src/lib/actions/booking.ts`): `createBooking` lädt `prerequisite_note` des Kurses direkt nach der Login-/Referral-Prüfung und lehnt die Anfrage ab, wenn ein Hinweis gesetzt ist, aber `prerequisite_confirmed` nicht `true` mitgeschickt wurde — für alle drei Buchungsarten (regular/trial/dropin), da dieser Check vor der Verzweigung nach Buchungsart sitzt. Die Bestätigung selbst wird nicht persistiert, exakt wie im Tech Design festgelegt.
+
+**Anzeige auf den Kurskarten:** `course-catalog.tsx` (`/kurse`) und `weekly-schedule-view.tsx` (`/stundenplan`) zeigen den Hinweistext direkt auf der Karte, sofern gesetzt — zusätzlich auch auf der Kursdetailseite `/kurse/[id]`. Alle drei zugehörigen Server-Components (`kurse/page.tsx`, `stundenplan/page.tsx`, `kurse/[id]/page.tsx`) laden `prerequisite_note` als zusätzliches Feld in ihren bereits bestehenden Kurs-Abfragen (keine neue eigene Abfrage, wie im Tech Design vorgesehen).
+
+**Scope-Entscheidung (nicht explizit im Interview behandelt):** Der Beitritt zur Warteliste (`joinWaitlist`, ausgelöst wenn ein Kurs voll ist) nutzt einen separaten Server-Action-Pfad als `createBooking` und wird von der serverseitigen Pflichtprüfung nicht erfasst — die Checkbox wird UI-seitig trotzdem einheitlich für alle Zustände des Anmeldung-Tabs verlangt (inkl. Warteliste), da der tatsächliche Buchungsvorgang erst bei einer späteren automatischen Nachrückung entsteht (PROJ-12), zu der es ohnehin keine erneute Bestätigungs-UI gibt. Diese Einschränkung betrifft nur den seltenen Fall eines vollen Kurses mit Vorkenntnisse-Hinweis.
+
+**Kein `/backend` nötig:** Analog zu PROJ-13/25/26 wurde das Schema direkt im Rahmen von `/frontend` gebaut, da es sich um ein reines Kurs-Attribut handelt (kein Integrations-Feature).
+
+**Tests:** `npm run build`, `npm run lint` und `npm test` (162/162) laufen fehlerfrei durch. Keine neue pure Logik, die einen eigenen Unit-Test rechtfertigt (reine UI-Verdrahtung + eine zusätzliche Validierungs-Verzweigung in `createBooking`, die durch `/qa`s E2E-Tests abgedeckt wird).
 
 ## QA Test Results
 _To be added by /qa_

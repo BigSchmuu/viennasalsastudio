@@ -9,6 +9,7 @@ import { createCourse, updateCourse, deleteCourse } from "@/lib/actions/admin/co
 import { levelOptions, levelLabel, levelColor } from "@/lib/constants/levels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -76,6 +77,7 @@ export type CourseRow = {
   entryDates: EntryDateData[];
   maxParticipants: number | null;
   price: number | null;
+  prerequisiteNote: string | null;
   occupiedCount: number;
   waitlistEntries: WaitlistEntryRow[];
 };
@@ -298,6 +300,7 @@ function CourseFormDialog({
       teacher_ids: course?.teacherIds ?? [],
       max_participants: course?.maxParticipants != null ? String(course.maxParticipants) : "",
       price: course?.price != null ? String(course.price) : "",
+      prerequisite_note: course?.prerequisiteNote ?? "",
     },
   });
 
@@ -315,6 +318,7 @@ function CourseFormDialog({
       formData.set("video_set_id", values.video_set_id ?? "");
       formData.set("max_participants", values.max_participants ?? "");
       formData.set("price", values.price ?? "");
+      formData.set("prerequisite_note", values.prerequisite_note ?? "");
       (values.teacher_ids ?? []).forEach((id) => formData.append("teacher_ids", id));
 
       const result = course
@@ -531,6 +535,26 @@ function CourseFormDialog({
                   <FormLabel>Preis pro Monat in € (optional, wird beim Bestätigen vorausgefüllt)</FormLabel>
                   <FormControl>
                     <Input type="number" min="0" step="0.01" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="prerequisite_note"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Hinweis/Vorkenntnisse (optional, muss vor der Buchung bestätigt werden)
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="z.B. Baut auf Salsa Beginner 1 auf"
+                      rows={2}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

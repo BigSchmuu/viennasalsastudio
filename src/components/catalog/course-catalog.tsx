@@ -33,6 +33,7 @@ export type CatalogCourseRow = {
   hasOpenRegularBooking: boolean;
   isFull: boolean;
   isOnWaitlist: boolean;
+  prerequisiteNote: string | null;
 };
 
 export type SimpleOption = { id: string; name: string };
@@ -186,6 +187,9 @@ export function CourseCatalog({
                       ? course.teacherNames.join(", ")
                       : "Lehrer wird noch bekanntgegeben"}
                   </p>
+                  {course.prerequisiteNote && (
+                    <p className="text-xs bg-muted rounded-md px-2 py-1">{course.prerequisiteNote}</p>
+                  )}
                 </CardContent>
               </Link>
               <CardFooter>

@@ -10,6 +10,7 @@ export const bookingSchema = z
     note: z.string().trim().max(500, "Notiz ist zu lang").optional().or(z.literal("")),
     wants_student_price: z.boolean().optional(),
     referral_source: z.enum(referralSourceValues).optional().or(z.literal("")),
+    prerequisite_confirmed: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === "regular" && !data.desired_plan) {

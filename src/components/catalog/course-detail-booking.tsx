@@ -13,6 +13,7 @@ export type CourseDetailData = {
   hasOpenRegularBooking: boolean;
   isFull: boolean;
   isOnWaitlist: boolean;
+  prerequisiteNote: string | null;
 };
 
 export function CourseDetailBooking({

@@ -413,6 +413,7 @@ export type Database = {
           level: string | null
           max_participants: number | null
           name: string
+          prerequisite_note: string | null
           price: number | null
           room_id: string
           video_set_id: string | null
@@ -424,6 +425,7 @@ export type Database = {
           level?: string | null
           max_participants?: number | null
           name: string
+          prerequisite_note?: string | null
           price?: number | null
           room_id: string
           video_set_id?: string | null
@@ -435,6 +437,7 @@ export type Database = {
           level?: string | null
           max_participants?: number | null
           name?: string
+          prerequisite_note?: string | null
           price?: number | null
           room_id?: string
           video_set_id?: string | null

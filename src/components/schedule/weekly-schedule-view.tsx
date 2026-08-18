@@ -20,6 +20,8 @@ export type ScheduleEntry = {
   teacherNames: string[];
   startTime: string;
   endTime: string;
+  // PROJ-27: shown on the card whenever set, independent of booking/self-checkin.
+  prerequisiteNote: string | null;
   // PROJ-25: only set for today's occurrence of a course the logged-in
   // customer has an active subscription for.
   selfCheckin?: { opensAtIso: string; endsAtIso: string; checkedIn: boolean };
@@ -90,6 +92,9 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
             ? entry.teacherNames.join(", ")
             : "Lehrer wird noch bekanntgegeben"}
         </p>
+        {entry.prerequisiteNote && (
+          <p className="text-xs bg-muted rounded-md px-2 py-1">{entry.prerequisiteNote}</p>
+        )}
         {entry.selfCheckin && (
           <SelfCheckinButton
             courseId={entry.courseId}
@@ -108,6 +113,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
               hasOpenRegularBooking: entry.booking.hasOpenRegularBooking,
               isFull: entry.booking.isFull,
               isOnWaitlist: entry.booking.isOnWaitlist,
+              prerequisiteNote: entry.prerequisiteNote,
             }}
             isLoggedIn={entry.booking.isLoggedIn}
             hasMandate={entry.booking.hasMandate}

@@ -53,6 +53,7 @@ export const courseSchema = z.object({
     })
     .optional()
     .or(z.literal("")),
+  prerequisite_note: z.string().trim().max(500, "Hinweis ist zu lang").optional().or(z.literal("")),
 });
 export type CourseInput = z.infer<typeof courseSchema>;
 
