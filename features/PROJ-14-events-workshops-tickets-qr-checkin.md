@@ -1,6 +1,6 @@
 # PROJ-14: Events & Workshops (Tickets, QR-Check-in)
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -60,7 +60,7 @@
 - Datenintegrität: Kapazitäts-Prüfung und Ticket-Reservierung müssen race-condition-sicher sein (siehe Edge Case „gleichzeitiger letzter Platz")
 
 ## Open Questions
-- [ ] Genauer technischer Mechanismus, wie SEPA-Ticket-Beträge in einen SEPA-Sammellauf (PROJ-7) aufgenommen werden (Erweiterung der bestehenden Sammellauf-Erstellung um Ticket-Positionen vs. eigener Mechanismus) — wird in `/architecture` festgelegt
+- [x] Technischer Mechanismus für SEPA-Ticket-Beträge — gelöst in `/architecture`: bestehende `sepa_collection_items`-Tabelle (PROJ-7) wird um eine optionale Ticket-Verknüpfung erweitert, kein neuer Sammellauf-Typ (siehe Technical Decisions)
 
 ## Decision Log
 
@@ -86,12 +86,85 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Kapazitäts-Prüfung + Ticket-Reservierung laufen über eine SECURITY-DEFINER-Datenbankfunktion, die die Event-Zeile für die Dauer der Prüfung sperrt (row lock) | Löst die offene Frage aus dem Spec-Interview zur Race-Condition-Sicherheit — exakt dasselbe bewährte Muster, das bereits bei der regulären Kursbuchung (`create_regular_course_booking`, PROJ-8) verwendet wird | 2026-08-18 |
+| `sepa_collection_items` (PROJ-7) wird erweitert: `subscription_id` wird optional, eine neue optionale Spalte `event_ticket_id` kommt hinzu (genau eine der beiden muss gesetzt sein) | Löst die offene Frage aus dem Spec-Interview zum SEPA-Mechanismus — SEPA-Tickets nutzen dieselbe „wird beim nächsten Sammellauf automatisch mit erfasst"-Logik wie Abo-Zahlungen, statt eine komplett neue Sammel-Logik zu bauen | 2026-08-18 |
+| Event-Ort ist ein freies Textfeld, keine Verknüpfung zur bestehenden „Standorte"-Tabelle | Events finden nicht immer in den festen Studio-Räumen statt (z.B. angemietete Location für einen Workshop) — eine Pflicht-Verknüpfung zur Studio-Standort-Tabelle wäre zu einschränkend | 2026-08-18 |
+| QR-Code enthält direkt die Ticket-ID (UUID), kein zusätzliches Geheim-Token nötig | UUIDs sind bereits ausreichend unvorhersehbar (128 Bit Zufall) — ein zusätzliches Token wäre doppelte Absicherung ohne echten Mehrwert, analog dazu, wie andere IDs im Projekt bereits verwendet werden | 2026-08-18 |
+| Neue Rolle-Prüfung `requireAdminOrTeacher()` für die Check-in-Seite | Bestehende Helfer (`requireAdmin`, `requireTeacher` aus PROJ-13) decken nur je eine Rolle ab; Check-in braucht beide | 2026-08-18 |
+| Neuer Ereignistyp `event_ticket` in der bestehenden PROJ-16-Warteschlange, deckt Bestätigung UND Absage über ein Status-Feld im Payload ab | Exakt dasselbe Muster wie `buchungsstatus` (bestätigt/abgelehnt als eine Einstellungsgruppe) — keine neue Infrastruktur, nur ein weiterer Eintrag in der bestehenden Ereignistyp-Liste | 2026-08-18 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+/events (neu, öffentlich, analog zu /kurse)
++-- Event-Karten: Name, Termin, Ort, Preis, Kapazitäts-Hinweis ("Noch X Plätze" / "Ausgebucht")
++-- Ticket-Kauf-Dialog (Login-geschützt)
+    +-- Normal-/Studierendenpreis-Auswahl
+    +-- Zahlungsart-Auswahl (SEPA-Lastschrift nur bei vorhandenem Mandat / Vor Ort zahlen)
+    +-- Bestätigung
+
+Profil-Seite — NEU: Abschnitt "Meine Tickets"
++-- Ticket-Karte je Event: Name, Termin, Status (reserviert/bestätigt/eingecheckt), QR-Code
++-- Stornieren-Button (nur innerhalb der Frist, wie bei Buchungen)
+
+/admin/events (neu, analog zu /admin/kurse)
++-- Event-Liste: anlegen, bearbeiten, absagen
++-- Je Event: Gästeliste (Name, Zahlungsart, Status, Check-in-Zeitpunkt)
+
+/checkin (neu, Zugriff: Admin + Lehrer)
++-- Event-Auswahl (bei mehreren aktuell laufenden/anstehenden Events)
++-- Kamera-Scan-Ansicht (Handy-Browser)
++-- Manuelle Namenssuche als Fallback
++-- Scan-Ergebnis: Erfolg / "Bereits eingecheckt um HH:MM" / Ungültiger Code
+
+Admin-Navigation
++-- NEU: Nav-Link "Events"
+
+Profil-Benachrichtigungs-Abschnitt (PROJ-16)
++-- NEU: 5. Zeile "Event-Tickets" in der bestehenden Einstellungs-Tabelle
+```
+
+### B) Data Model (plain language)
+
+**Events** (neu)
+- Name, Beschreibung, Ort (freier Text)
+- Start-Zeitpunkt, optionaler End-Zeitpunkt (für mehrtägige Workshops)
+- Kapazität (Pflichtfeld, anders als bei Kursen — ein Event ohne feste Obergrenze ergibt hier keinen Sinn)
+- Preis normal / Preis Studierende
+- Status: geplant oder abgesagt
+
+**Tickets** (neu)
+- Bezug zu Event und Kunde
+- Gewählte Zahlungsart (SEPA-Lastschrift / Vor Ort)
+- Ob Studierendenpreis gewählt wurde, tatsächlicher Preis zum Kaufzeitpunkt (Preisänderungen am Event wirken sich nicht auf bereits gekaufte Tickets aus — wie bei bestehenden Kurs-Buchungen)
+- Status: reserviert (Vor-Ort, noch nicht eingecheckt) / bestätigt (SEPA, automatisch) / eingecheckt / storniert
+- Zeitpunkt und durchführende Person des Check-ins (Admin oder Lehrer)
+
+**SEPA-Sammellauf-Positionen** (bestehende Tabelle aus PROJ-7, erweitert)
+- Kann jetzt entweder zu einem Abo ODER zu einem Event-Ticket gehören, nicht mehr nur zu Abos
+
+**Benachrichtigungs-Einstellungen** (bestehende Tabelle aus PROJ-16, erweitert)
+- Neue fünfte Ereignisgruppe „Event-Tickets" neben den bestehenden vier
+
+### C) Tech Decisions (justified for PM)
+
+- **Race-Condition-sichere Kapazität**: Wiederverwendung desselben bewährten Sperr-Mechanismus, der schon verhindert, dass zwei Kunden gleichzeitig den letzten Kursplatz bekommen (PROJ-8) — hier auf Events übertragen.
+- **SEPA-Tickets fließen in den bestehenden Sammellauf-Mechanismus ein**: Kein zweites, paralleles Abrechnungssystem — der Admin erstellt weiterhin nur EINEN Sammellauf-Typ (PROJ-7), der jetzt zusätzlich fällige Ticket-Zahlungen mit erfasst.
+- **Freier Ort statt Standort-Pflichtfeld**: Events können auch außerhalb der festen Studio-Räume stattfinden.
+- **Check-in für Admin und Lehrer**: nutzt die bereits bestehende Rollen-Unterscheidung aus PROJ-13, keine neue Rolle nötig.
+- **Benachrichtigung nutzt bestehende PROJ-16-Infrastruktur**: kein neues Zustellsystem, nur ein weiterer Ereignistyp in der bereits bestehenden Warteschlange.
+
+### D) Dependencies (packages to install)
+- `qrcode` — erzeugt den QR-Code für die Ticket-Anzeige im Profil
+- Eine Kamera-Scan-Bibliothek (z.B. `html5-qrcode`) — liest QR-Codes über die Handy-Kamera im Browser beim Check-in aus
+
+### Voraussetzung vor `/deploy`
+Keine neuen externen Dienste oder Umgebungsvariablen — beide neuen Pakete laufen vollständig im Browser bzw. serverseitig ohne externe API.
 
 ## QA Test Results
 _To be added by /qa_
