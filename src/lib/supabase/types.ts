@@ -833,11 +833,12 @@ export type Database = {
           bounced_at: string | null
           created_at: string
           customer_id: string
+          event_ticket_id: string | null
           iban: string
           id: string
           mandate_reference: string
           run_id: string
-          subscription_id: string
+          subscription_id: string | null
         }
         Insert: {
           account_holder_name: string
@@ -845,11 +846,12 @@ export type Database = {
           bounced_at?: string | null
           created_at?: string
           customer_id: string
+          event_ticket_id?: string | null
           iban: string
           id?: string
           mandate_reference: string
           run_id: string
-          subscription_id: string
+          subscription_id?: string | null
         }
         Update: {
           account_holder_name?: string
@@ -857,11 +859,12 @@ export type Database = {
           bounced_at?: string | null
           created_at?: string
           customer_id?: string
+          event_ticket_id?: string | null
           iban?: string
           id?: string
           mandate_reference?: string
           run_id?: string
-          subscription_id?: string
+          subscription_id?: string | null
         }
         Relationships: [
           {
@@ -890,6 +893,13 @@ export type Database = {
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sepa_collection_items_event_ticket_id_fkey"
+            columns: ["event_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
             referencedColumns: ["id"]
           },
         ]

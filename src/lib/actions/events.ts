@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { TICKET_CANCELLATION_LEAD_DAYS, type TicketPaymentMethod } from "@/lib/constants/events";
 import { daysUntil } from "@/lib/scheduling/dates";
+import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 import type { ActionResult } from "@/lib/actions/types";
 
 type TicketRow = {
@@ -53,9 +54,18 @@ export async function purchaseTicket(
     return { error: "Ticket-Kauf war nicht möglich. Bitte versuche es erneut." };
   }
 
+  const ticket = data as TicketRow;
+
+  await enqueueAndDispatch({
+    customerId: user.id,
+    eventType: "event_tickets",
+    payload: { ticket_id: ticket.id },
+    dedupeKey: `event_ticket_purchased:${ticket.id}`,
+  });
+
   revalidatePath("/events");
   revalidatePath("/profil");
-  return { success: true, ticket: data as TicketRow };
+  return { success: true, ticket };
 }
 
 export async function cancelTicket(ticketId: string): Promise<ActionResult> {

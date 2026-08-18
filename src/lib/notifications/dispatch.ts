@@ -85,6 +85,34 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         dueDate: payload.due_date as string,
       });
     }
+    case "event_tickets": {
+      if (payload.sub_type === "event_cancelled") {
+        const { data } = await service
+          .from("events")
+          .select("name, starts_at")
+          .eq("id", payload.event_id as string)
+          .maybeSingle();
+        if (!data) return null;
+        return buildNotificationContent("event_tickets", {
+          subType: "event_cancelled",
+          eventName: data.name,
+          startsAt: data.starts_at,
+        });
+      }
+
+      const { data } = await service
+        .from("tickets")
+        .select("status, events(name, starts_at)")
+        .eq("id", payload.ticket_id as string)
+        .maybeSingle();
+      if (!data || !data.events) return null;
+      return buildNotificationContent("event_tickets", {
+        subType: "purchased",
+        eventName: data.events.name,
+        startsAt: data.events.starts_at,
+        ticketStatus: data.status as "confirmed" | "reserved",
+      });
+    }
     default:
       return null;
   }

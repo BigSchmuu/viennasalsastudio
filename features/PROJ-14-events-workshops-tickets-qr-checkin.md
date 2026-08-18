@@ -196,6 +196,28 @@ Keine neuen externen Dienste oder Umgebungsvariablen — beide neuen Pakete lauf
 - Keine Benachrichtigungen bei Ticket-Kauf/Event-Absage — der neue PROJ-16-Ereignistyp `event_ticket` (Warteschlange, Vorlagen, Trigger in `purchaseTicket`/`cancelEvent`) ist noch nicht angebunden
 - Kamera-Berechtigungs-Fallback (`QrScanner`) wurde nicht mit einer echten Kamera getestet (Headless-Browser-Einschränkung) — nur der Verweigerungs-Fallback-Pfad über die manuelle Suche wurde end-to-end verifiziert
 
+## Implementation Notes (Backend)
+
+**Gebaut:**
+- Migrationen: `proj14_backend_sepa_and_notifications` (`sepa_collection_items.subscription_id` nullable gemacht, neue nullable `event_ticket_id`-FK auf `tickets(id)`, Check-Constraint „genau eine der beiden Spalten gesetzt"; `notification_queue.event_type` und `notification_preferences.event_group` um `event_tickets` erweitert), `proj14_fix_event_type_naming` (Korrektur: `notification_queue.event_type` nutzte anfangs `event_ticket`/Singular statt `event_tickets`/Plural — im Projekt stimmen diese beiden Constraints an jeder anderen Stelle exakt überein, z. B. `abo_kuendigung`)
+- `create_invoices_for_collection_run()` (SQL) auf `LEFT JOIN` von `subscriptions` UND `tickets→events` umgestellt, Rechnungsbeschreibung via `coalesce(s.name, e.name, 'Abo')`
+- `src/lib/actions/admin/sepa-collections.ts`: `createCollectionRun` holt jetzt zusätzlich SEPA-Tickets (Status `confirmed`/`checked_in`), schließt bereits abgerechnete Tickets über einen Blick auf vorhandene `sepa_collection_items.event_ticket_id` aus (verhindert Doppel-Abrechnung über mehrere Läufe hinweg), und mischt `subscriptionItems` + `ticketItems` zu einer gemeinsamen `items`-Liste; `generateRunXml` liest zusätzlich `tickets(events(name))` und nutzt den Event-Namen als Fallback für die Zahlungsreferenz, wenn kein Abo dahintersteht
+- `src/lib/constants/notifications.ts`: neue Gruppe `event_tickets` („Event-Tickets") ergänzt
+- `src/lib/notifications/templates.ts`: neuer `EventTicketDetails`-Typ (Unterscheidung `purchased` vs. `event_cancelled`), neuer `formatDateTime()`-Helfer (Events speichern einen vollen Zeitstempel, nicht nur ein Datum wie die übrigen Vorlagen), neuer `case "event_tickets"` mit eigenem Wortlaut für bestätigt/reserviert/abgesagt
+- `src/lib/notifications/dispatch.ts`: neuer `case "event_tickets"` in `resolveContent()` — lädt bei `sub_type: "purchased"` Ticket+Event nach, bei `sub_type: "event_cancelled"` nur das Event
+- `src/lib/actions/events.ts`: `purchaseTicket` ruft nach erfolgreichem Kauf `enqueueAndDispatch` auf (Dedupe-Key `event_ticket_purchased:<ticket_id>`) — Echtzeit-Zustellung, da nur ein einzelner Kunde betroffen ist
+- `src/lib/actions/admin/events.ts`: `cancelEvent` lädt nach dem Absagen alle aktiven Tickets (reserviert/bestätigt) und ruft für jedes `enqueueNotification` auf (Dedupe-Key `event_ticket_cancelled:<ticket_id>`) — nur Warteschlange, kein synchroner Versand, da hier potenziell viele Kunden gleichzeitig betroffen sind (analog zum SEPA-Sammellauf-Muster)
+
+**Live verifiziert (direkte Abfragen gegen die Produktions-DB mit Wegwerf-Testdaten, sofort aufgeräumt):**
+- Die beiden neuen `resolveContent`-Zweige (`tickets→events`-Embed für `purchased`, direktes `events`-Select für `event_cancelled`) liefern die erwarteten Felder korrekt
+- Die `cancelEvent`-Abfrage für aktive Tickets liefert die richtigen Kunden-IDs
+- `notification_preferences`-Lookup für die Gruppe `event_tickets` funktioniert
+- DB-Constraints geprüft: `notification_queue_event_type_check` und `notification_preferences_event_group_check` beide auf `event_tickets` (Plural) ausgerichtet; `sepa_collection_items_source_check` erzwingt „genau eine von `subscription_id`/`event_ticket_id`"
+- `npm run build`, `npm run lint`, `npm test` (151/151, davon 3 neue Tests für die Ticket-Benachrichtigungsvorlagen) alle sauber
+
+**Gefundener und behobener Fehler während der Umsetzung:**
+- Beim ersten Build schlug die TypeScript-Prüfung fehl: `buildNotificationContent`s Parametertyp enthielt sowohl `NotificationEventGroup` (worin `event_tickets`/Plural bereits enthalten ist) als auch ein zusätzliches, redundantes `event_ticket`/Singular — das switch-Statement hatte aber keinen Fall für `event_tickets`, wodurch die Exhaustiveness-Prüfung fehlschlug. Behoben, indem das redundante Singular entfernt und der switch-Fall sowie beide Aufrufstellen in `dispatch.ts` auf `event_tickets` (Plural) vereinheitlicht wurden.
+
 ## QA Test Results
 _To be added by /qa_
 

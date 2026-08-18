@@ -91,4 +91,43 @@ describe("buildNotificationContent", () => {
     expect(content.emailHtml).not.toContain("<a href=evil>");
     expect(content.emailHtml).toContain("&lt;a href=evil&gt;");
   });
+
+  it("distinguishes confirmed (SEPA) from reserved (onsite) ticket purchases", () => {
+    const confirmed = buildNotificationContent("event_tickets", {
+      subType: "purchased",
+      eventName: "Salsa Congress",
+      startsAt: "2026-09-01T20:00:00Z",
+      ticketStatus: "confirmed",
+    });
+    const reserved = buildNotificationContent("event_tickets", {
+      subType: "purchased",
+      eventName: "Salsa Congress",
+      startsAt: "2026-09-01T20:00:00Z",
+      ticketStatus: "reserved",
+    });
+    expect(confirmed.subject).toContain("bestätigt");
+    expect(reserved.subject).toContain("reserviert");
+    expect(reserved.emailHtml).toContain("vor Ort bezahlen");
+  });
+
+  it("builds an event-cancellation ticket message mentioning refunds happen outside the app", () => {
+    const content = buildNotificationContent("event_tickets", {
+      subType: "event_cancelled",
+      eventName: "Salsa Congress",
+      startsAt: "2026-09-01T20:00:00Z",
+    });
+    expect(content.subject).toContain("abgesagt");
+    expect(content.emailHtml).toContain("außerhalb der App");
+  });
+
+  it("escapes HTML in event names before embedding them in the email body", () => {
+    const content = buildNotificationContent("event_tickets", {
+      subType: "purchased",
+      eventName: '<img src=x onerror=alert(1)>"Congress"',
+      startsAt: "2026-09-01T20:00:00Z",
+      ticketStatus: "confirmed",
+    });
+    expect(content.emailHtml).not.toContain("<img");
+    expect(content.emailHtml).toContain("&lt;img");
+  });
 });

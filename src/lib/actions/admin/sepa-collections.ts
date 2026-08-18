@@ -35,11 +35,18 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     }
   }
 
-  const [subscriptionsRes, mandatesRes] = await Promise.all([
+  const [subscriptionsRes, ticketsRes, collectedTicketIdsRes, mandatesRes] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("id, customer_id, name, price, pending_effective_date")
       .eq("status", "active"),
+    supabase
+      .from("tickets")
+      .select("id, customer_id, price")
+      .eq("payment_method", "sepa")
+      .in("status", ["confirmed", "checked_in"]),
+    // Tickets already picked up by an earlier run must not be billed twice.
+    supabase.from("sepa_collection_items").select("event_ticket_id").not("event_ticket_id", "is", null),
     supabase
       .from("sepa_mandates")
       .select("customer_id, iban, account_holder_name, mandate_reference")
@@ -47,21 +54,40 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   ]);
 
   const mandateByCustomer = new Map((mandatesRes.data ?? []).map((m) => [m.customer_id, m]));
+  const alreadyCollectedTicketIds = new Set((collectedTicketIdsRes.data ?? []).map((i) => i.event_ticket_id));
 
-  const items = (subscriptionsRes.data ?? [])
+  const subscriptionItems = (subscriptionsRes.data ?? [])
     .filter((s) => s.price !== null && mandateByCustomer.has(s.customer_id))
     .filter((s) => !s.pending_effective_date || s.pending_effective_date > dueDate)
     .map((s) => {
       const mandate = mandateByCustomer.get(s.customer_id)!;
       return {
         customer_id: s.customer_id,
-        subscription_id: s.id,
+        subscription_id: s.id as string | null,
+        event_ticket_id: null as string | null,
         amount: s.price as number,
         iban: mandate.iban,
         account_holder_name: mandate.account_holder_name,
         mandate_reference: mandate.mandate_reference,
       };
     });
+
+  const ticketItems = (ticketsRes.data ?? [])
+    .filter((t) => mandateByCustomer.has(t.customer_id) && !alreadyCollectedTicketIds.has(t.id))
+    .map((t) => {
+      const mandate = mandateByCustomer.get(t.customer_id)!;
+      return {
+        customer_id: t.customer_id,
+        subscription_id: null as string | null,
+        event_ticket_id: t.id as string | null,
+        amount: t.price,
+        iban: mandate.iban,
+        account_holder_name: mandate.account_holder_name,
+        mandate_reference: mandate.mandate_reference,
+      };
+    });
+
+  const items = [...subscriptionItems, ...ticketItems];
 
   if (items.length === 0) {
     return { error: "Keine Kunden für diesen Lauf gefunden." };
@@ -105,7 +131,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
         customerId: item.customer_id,
         eventType: "sepa_ankuendigung",
         payload: { amount: item.amount, due_date: dueDate },
-        dedupeKey: `sepa_item:${item.subscription_id}:${run.id}`,
+        dedupeKey: `sepa_item:${item.subscription_id ?? item.event_ticket_id}:${run.id}`,
       })
     )
   );
@@ -143,7 +169,9 @@ export async function generateRunXml(runId: string): Promise<RunXmlResult> {
 
   const { data: rawItems, error: itemsError } = await supabase
     .from("sepa_collection_items")
-    .select("id, amount, iban, account_holder_name, mandate_reference, created_at, subscriptions(name)")
+    .select(
+      "id, amount, iban, account_holder_name, mandate_reference, created_at, subscriptions(name), tickets(events(name))"
+    )
     .eq("run_id", runId)
     .order("created_at", { ascending: true });
 
@@ -177,7 +205,10 @@ export async function generateRunXml(runId: string): Promise<RunXmlResult> {
       mandateReference: item.mandate_reference,
       mandateSignedDate: signedDateByReference.get(item.mandate_reference) ?? run.due_date,
       sequenceType: hasEarlierUse ? "RCUR" : "FRST",
-      remittanceInfo: (item.subscriptions as { name: string | null } | null)?.name ?? "Mitgliedsbeitrag",
+      remittanceInfo:
+        (item.subscriptions as { name: string | null } | null)?.name ??
+        (item.tickets as { events: { name: string } | null } | null)?.events?.name ??
+        "Mitgliedsbeitrag",
     };
   });
 

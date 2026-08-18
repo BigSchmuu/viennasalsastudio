@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { eventSchema, createEventSchema } from "@/lib/validations/events";
+import { enqueueNotification } from "@/lib/notifications/dispatch";
 import type { ActionResult } from "@/lib/actions/types";
 
 function parseEventFormData(formData: FormData) {
@@ -85,6 +86,23 @@ export async function cancelEvent(eventId: string): Promise<ActionResult> {
   if (error) {
     return { error: "Event konnte nicht abgesagt werden." };
   }
+
+  const { data: activeTickets } = await supabase
+    .from("tickets")
+    .select("id, customer_id")
+    .eq("event_id", eventId)
+    .in("status", ["reserved", "confirmed"]);
+
+  await Promise.all(
+    (activeTickets ?? []).map((t) =>
+      enqueueNotification({
+        customerId: t.customer_id,
+        eventType: "event_tickets",
+        payload: { sub_type: "event_cancelled", event_id: eventId },
+        dedupeKey: `event_ticket_cancelled:${t.id}`,
+      })
+    )
+  );
 
   revalidatePath("/admin/events");
   revalidatePath("/events");

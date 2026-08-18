@@ -3,6 +3,7 @@ export const notificationEventGroupValues = [
   "warteliste",
   "abo_kuendigung",
   "kursstart_erinnerung",
+  "event_tickets",
 ] as const;
 export type NotificationEventGroup = (typeof notificationEventGroupValues)[number];
 
@@ -14,6 +15,7 @@ export const notificationEventGroupLabel: Record<NotificationEventGroup, string>
   warteliste: "Warteliste rückt nach",
   abo_kuendigung: "Abo-Kündigung wirksam",
   kursstart_erinnerung: "Kursstart-Erinnerung",
+  event_tickets: "Event-Tickets",
 };
 
 export const notificationEventGroupDescription: Record<NotificationEventGroup, string> = {
@@ -21,4 +23,5 @@ export const notificationEventGroupDescription: Record<NotificationEventGroup, s
   warteliste: "Du rückst automatisch von der Warteliste nach",
   abo_kuendigung: "Eine geplante Kündigung oder Pausierung wird wirksam",
   kursstart_erinnerung: "Erinnerung am Vortag einer Probestunde oder eines Drop-ins",
+  event_tickets: "Dein Event-Ticket wurde bestätigt oder das Event wurde abgesagt",
 };

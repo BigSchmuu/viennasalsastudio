@@ -18,6 +18,17 @@ function formatDate(iso: string): string {
   });
 }
 
+/** Events store a full timestamp (not just a date), unlike everything else here. */
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("de-AT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 /** Escapes text for safe interpolation into HTML — course/subscription names
  *  are admin-provided, not hardcoded, so must never be embedded raw (BUG-3). */
 function escapeHtml(text: string): string {
@@ -55,6 +66,9 @@ export type AboKuendigungDetails = {
 };
 export type KursstartErinnerungDetails = { courseName: string; chosenDate: string; type: "trial" | "dropin" };
 export type SepaAnkuendigungDetails = { amount: number; dueDate: string };
+export type EventTicketDetails =
+  | { subType: "purchased"; eventName: string; startsAt: string; ticketStatus: "confirmed" | "reserved" }
+  | { subType: "event_cancelled"; eventName: string; startsAt: string };
 
 export function buildNotificationContent(
   eventType: NotificationEventGroup | "sepa_ankuendigung",
@@ -64,6 +78,7 @@ export function buildNotificationContent(
     | AboKuendigungDetails
     | KursstartErinnerungDetails
     | SepaAnkuendigungDetails
+    | EventTicketDetails
 ): NotificationContent {
   switch (eventType) {
     case "buchungsstatus": {
@@ -146,6 +161,38 @@ export function buildNotificationContent(
         pushTitle: subject,
         pushBody: `${amountText} am ${formatDate(d.dueDate)}.`,
         url: "/rechnungen",
+      };
+    }
+    case "event_tickets": {
+      const d = details as EventTicketDetails;
+      const eventNameHtml = escapeHtml(d.eventName);
+      const whenText = formatDateTime(d.startsAt);
+
+      if (d.subType === "event_cancelled") {
+        const subject = `Event abgesagt: ${d.eventName}`;
+        return {
+          subject,
+          emailHtml: emailShell(
+            subject,
+            `<p>Das Event <strong>${eventNameHtml}</strong> am ${whenText} wurde leider abgesagt. Dein Ticket ist damit hinfällig; eine eventuelle Rückerstattung erfolgt außerhalb der App.</p>`
+          ),
+          pushTitle: subject,
+          pushBody: `${d.eventName} wurde abgesagt.`,
+          url: "/profil",
+        };
+      }
+
+      const confirmed = d.ticketStatus === "confirmed";
+      const subject = confirmed ? `Ticket bestätigt: ${d.eventName}` : `Ticket reserviert: ${d.eventName}`;
+      const body = confirmed
+        ? `<p>Dein Ticket für <strong>${eventNameHtml}</strong> am ${whenText} ist bestätigt. Den QR-Code für den Einlass findest du in deinem Profil.</p>`
+        : `<p>Dein Ticket für <strong>${eventNameHtml}</strong> am ${whenText} ist reserviert. Bitte den Betrag vor Ort bezahlen — den QR-Code für den Einlass findest du in deinem Profil.</p>`;
+      return {
+        subject,
+        emailHtml: emailShell(subject, body),
+        pushTitle: subject,
+        pushBody: confirmed ? `${d.eventName} ist bestätigt.` : `${d.eventName} ist reserviert — vor Ort zahlen.`,
+        url: "/profil",
       };
     }
   }
