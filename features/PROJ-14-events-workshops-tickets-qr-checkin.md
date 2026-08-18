@@ -1,6 +1,6 @@
 # PROJ-14: Events & Workshops (Tickets, QR-Check-in)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -293,4 +293,24 @@ Keine neuen externen Dienste oder Umgebungsvariablen — beide neuen Pakete lauf
 - **Memory update:** extended the existing `gotrue-null-token-bug` memory — `auth.users.created_at`/`updated_at` also need to be set explicitly on direct-SQL test-account creation (no DB default), same failure class as the already-documented token columns.
 
 ## Deployment
-_To be added by /deploy_
+
+**Production URL:** https://viennasalsastudio.vercel.app
+**Deployed:** 2026-08-18
+**Git tag:** `v1.0.0-PROJ-14`
+
+**Pre-deployment checks:**
+- `npm run build`, `npm run lint`, `npm test` (159/159) all clean immediately before push
+- No new environment variables required (confirmed in the architecture phase: both new packages, `qrcode` and `html5-qrcode`, run entirely client-side/without external APIs)
+- No secrets in git (`.env.local.example` only, `.env*.local` gitignored)
+- All migrations already applied directly to the production Supabase project throughout `/backend` and the QA bug fix (no separate migration step needed at deploy time)
+- Working tree clean, 6 commits ahead of `origin/main` (spec → architecture → frontend → backend → QA → bug fix), pushed to trigger Vercel's auto-deploy
+
+**Post-deployment verification (live on production):**
+- New deployment picked up within ~15s of push (polled `/events` until it stopped 404ing)
+- `/events` renders real events with correct price/capacity/occupancy data and the login-gated purchase CTA for anonymous visitors
+- `/checkin`, `/profil`, `/admin/events` all correctly redirect unauthenticated requests (307) — access control confirmed live, not just in dev
+- Regression check: `/login`, `/kurse`, `/`, `/admin` (redirect) all respond correctly — no unrelated pages broken by the deploy
+- Full authenticated smoke test against production (not dev) via a disposable Playwright script: customer login → `/profil` shows "Meine Tickets" with the real ticket, no browser console errors on reload; admin login → `/admin/events` shows the event list correctly
+- This confirms the BUG-1 fix (the new `cancel_event_ticket()` RPC and the removed RLS policy) is live in production, not just verified in the QA pass
+
+No new production-ready essentials needed (error tracking, security headers, VAPID/SMTP/SEPA env vars, etc. were already set up in prior deployments and are unaffected by this feature).
