@@ -9,6 +9,7 @@ const links = [
   { href: "/admin/standorte", label: "Standorte" },
   { href: "/admin/tanzstile", label: "Tanzstile" },
   { href: "/admin/kurse", label: "Kurse" },
+  { href: "/admin/events", label: "Events" },
   { href: "/admin/videosaetze", label: "Videosätze" },
   { href: "/admin/kunden", label: "Kunden" },
   { href: "/admin/lehrer", label: "Lehrer" },

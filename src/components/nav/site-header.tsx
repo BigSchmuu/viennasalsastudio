@@ -32,7 +32,9 @@ export function SiteHeader({
   const links: NavLink[] = [
     { href: "/kurse", label: "Kurse" },
     { href: "/stundenplan", label: "Stundenplan" },
+    { href: "/events", label: "Events" },
     ...(isTeacher ? [{ href: "/lehrer", label: "Meine Kurse" }] : []),
+    ...(isAdmin || isTeacher ? [{ href: "/checkin", label: "Check-in" }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Admin" }] : []),
     ...(isLoggedIn ? [{ href: "/profil", label: "Mein Profil" }] : [{ href: "/login", label: "Login" }]),
   ];

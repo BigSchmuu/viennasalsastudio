@@ -11,9 +11,11 @@ import {
   NotificationSettingsSection,
   type NotificationPreferenceRow,
 } from "@/components/notifications/notification-settings-section";
+import { MyTicketsSection, type MyTicketRow } from "@/components/tickets/my-tickets-section";
 import { createClient } from "@/lib/supabase/server";
 import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
 import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
+import { TICKET_CANCELLATION_LEAD_DAYS } from "@/lib/constants/events";
 import type { ProfileInput } from "@/lib/validations/auth";
 
 export default async function ProfilePage() {
@@ -35,6 +37,7 @@ export default async function ProfilePage() {
     { data: invoiceRows },
     { data: waitlistRows },
     { data: notificationPreferenceRows },
+    { data: ticketRows },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, birthdate, gender").eq("id", user.id).single(),
     supabase
@@ -66,6 +69,11 @@ export default async function ProfilePage() {
       .from("notification_preferences")
       .select("event_group, channel, enabled")
       .eq("customer_id", user.id),
+    supabase
+      .from("tickets")
+      .select("id, payment_method, status, price, events(name, starts_at)")
+      .eq("customer_id", user.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   const mandate: MandateData | null = mandateRow
@@ -141,6 +149,22 @@ export default async function ProfilePage() {
     enabled: p.enabled,
   }));
 
+  const tickets: MyTicketRow[] = (ticketRows ?? [])
+    .filter((t) => t.events !== null)
+    .map((t) => {
+      const isActive = t.status === "reserved" || t.status === "confirmed";
+      const withinLeadTime = daysUntil(t.events!.starts_at.slice(0, 10)) >= TICKET_CANCELLATION_LEAD_DAYS;
+      return {
+        id: t.id,
+        eventName: t.events!.name,
+        eventStartsAt: t.events!.starts_at,
+        paymentMethod: t.payment_method,
+        status: t.status,
+        price: t.price,
+        canCancel: isActive && withinLeadTime,
+      };
+    });
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
@@ -201,6 +225,16 @@ export default async function ProfilePage() {
           </CardHeader>
           <CardContent>
             <MyWaitlistSection entries={waitlistEntries} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading text-lg">Meine Tickets</CardTitle>
+            <CardDescription>Event- und Workshop-Tickets mit QR-Code</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MyTicketsSection tickets={tickets} />
           </CardContent>
         </Card>
 

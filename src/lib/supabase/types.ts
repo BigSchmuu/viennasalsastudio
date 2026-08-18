@@ -502,6 +502,48 @@ export type Database = {
         }
         Relationships: []
       }
+      events: {
+        Row: {
+          capacity: number
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          id: string
+          location: string | null
+          name: string
+          price_normal: number
+          price_student: number
+          starts_at: string
+          status: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          price_normal: number
+          price_student: number
+          starts_at: string
+          status?: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          price_normal?: number
+          price_student?: number
+          starts_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       invoice_number_counters: {
         Row: {
           last_number: number
@@ -1000,6 +1042,67 @@ export type Database = {
           },
         ]
       }
+      tickets: {
+        Row: {
+          checked_in_at: string | null
+          checked_in_by: string | null
+          created_at: string
+          customer_id: string
+          event_id: string
+          id: string
+          payment_method: string
+          price: number
+          status: string
+          wants_student_price: boolean
+        }
+        Insert: {
+          checked_in_at?: string | null
+          checked_in_by?: string | null
+          created_at?: string
+          customer_id: string
+          event_id: string
+          id?: string
+          payment_method: string
+          price: number
+          status?: string
+          wants_student_price?: boolean
+        }
+        Update: {
+          checked_in_at?: string | null
+          checked_in_by?: string | null
+          created_at?: string
+          customer_id?: string
+          event_id?: string
+          id?: string
+          payment_method?: string
+          price?: number
+          status?: string
+          wants_student_price?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_set_lesson_videos: {
         Row: {
           created_at: string
@@ -1163,6 +1266,27 @@ export type Database = {
           id: string
         }[]
       }
+      checkin_event_ticket: {
+        Args: { p_ticket_id: string }
+        Returns: {
+          checked_in_at: string | null
+          checked_in_by: string | null
+          created_at: string
+          customer_id: string
+          event_id: string
+          id: string
+          payment_method: string
+          price: number
+          status: string
+          wants_student_price: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_invoices_for_collection_run: {
         Args: { p_run_id: string }
         Returns: undefined
@@ -1219,6 +1343,13 @@ export type Database = {
         Returns: {
           course_id: string
           occupied_count: number
+        }[]
+      }
+      get_event_occupancy: {
+        Args: never
+        Returns: {
+          event_id: string
+          ticket_count: number
         }[]
       }
       get_course_session_note: {
@@ -1278,6 +1409,31 @@ export type Database = {
       promote_waitlist_for_course: {
         Args: { p_course_id: string }
         Returns: number
+      }
+      purchase_event_ticket: {
+        Args: {
+          p_event_id: string
+          p_payment_method: string
+          p_wants_student_price: boolean
+        }
+        Returns: {
+          checked_in_at: string | null
+          checked_in_by: string | null
+          created_at: string
+          customer_id: string
+          event_id: string
+          id: string
+          payment_method: string
+          price: number
+          status: string
+          wants_student_price: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       self_reactivate_subscription: {
         Args: { p_subscription_id: string }

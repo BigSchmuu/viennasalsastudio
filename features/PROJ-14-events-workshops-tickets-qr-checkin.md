@@ -1,6 +1,6 @@
 # PROJ-14: Events & Workshops (Tickets, QR-Check-in)
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -165,6 +165,36 @@ Profil-Benachrichtigungs-Abschnitt (PROJ-16)
 
 ### Voraussetzung vor `/deploy`
 Keine neuen externen Dienste oder Umgebungsvariablen — beide neuen Pakete laufen vollständig im Browser bzw. serverseitig ohne externe API.
+
+## Implementation Notes (Frontend)
+
+**Gebaut:**
+- Migrationen: `proj14_events_and_tickets` (Tabellen `events`/`tickets`, RLS, `purchase_event_ticket()` mit Row-Lock analog zu `create_regular_course_booking`, `checkin_event_ticket()` mit atomarem Claim-Muster analog zu PROJ-16s Warteschlangen-Dispatch), `proj14_tickets_customer_id_fk_fix` (Korrektur: `customer_id` muss wie überall im Projekt auf `profiles`, nicht auf `auth.users` zeigen, sonst funktionieren keine Namens-Joins für Gästeliste/Suche), `proj14_get_event_occupancy` (öffentlich sichere Auslastungs-Funktion analog zu `get_course_occupancy`, PROJ-12)
+- `src/lib/constants/events.ts`, `src/lib/validations/events.ts` (mit separatem `createEventSchema`, das die „Termin muss in der Zukunft liegen"-Regel nur beim Anlegen prüft, nicht beim nachträglichen Bearbeiten bereits vergangener Events)
+- `src/lib/auth/require-admin-or-teacher.ts` (neuer Rollen-Gate für Admin+Lehrer)
+- `src/lib/actions/events.ts` (`purchaseTicket`, `cancelTicket`), `src/lib/actions/admin/events.ts` (`createEvent`, `updateEvent`, `cancelEvent`, `getEventGuestList`), `src/lib/actions/checkin.ts` (`listCheckinEvents`, `searchEventTickets`, `checkinTicket`)
+- `src/app/(site)/events/page.tsx` (öffentliche Übersicht) + `event-card.tsx` + `ticket-purchase-dialog.tsx`
+- `src/app/(site)/profil/page.tsx` erweitert um „Meine Tickets" (`my-tickets-section.tsx` + `ticket-qr-code.tsx`, QR-Code-Erzeugung via `qrcode`, direkt die Ticket-ID als Inhalt)
+- `src/app/admin/events/page.tsx` + `event-manager.tsx` (Anlegen/Bearbeiten/Absagen/Gästeliste, analog zum bestehenden `course-manager.tsx`-Muster)
+- `src/app/(site)/checkin/page.tsx` + `checkin-client.tsx` + `qr-scanner.tsx` (Kamera-Scan via `html5-qrcode` + manuelle Namenssuche als Fallback)
+- Navigation: „Events" (öffentlich) und „Check-in" (Admin+Lehrer) in `site-header.tsx`, „Events" in `admin-nav.tsx`
+
+**Live verifiziert (echte Kauf-/Check-in-Durchläufe über die UI, keine direkten DB-Manipulationen):**
+- Event anlegen als Admin → erscheint korrekt in der Liste
+- Anonymer Besucher sieht Events, aber „Zum Ticket-Kauf einloggen" statt Kauf-Button
+- Ticket-Kauf mit SEPA (Mandat vorhanden) → sofort „Bestätigt", QR-Code erscheint im Profil
+- Ticket-Kauf „Vor Ort zahlen" (kein Mandat nötig) → Status „Reserviert"
+- Kapazität korrekt: Event mit Kapazität 1 zeigt nach einem Kauf „Ausgebucht", Kauf-Button deaktiviert
+- Check-in per manueller Namenssuche (Admin) → Ticket wird „Eingecheckt", Kunde sieht in seinem Profil keinen Stornieren-Button mehr für ein eingechecktes Ticket
+- Doppel-Scan-Schutz: erneute Suche zeigt den Button deaktiviert mit „Eingecheckt HH:MM" statt eines erneuten Check-ins
+- Event-Absage als Admin → Event verschwindet sofort von der öffentlichen `/events`-Seite
+- Zugriffsschutz: Kunde ohne Admin/Lehrer-Rolle wird von `/checkin` weg auf „/" umgeleitet
+- `npm run build`, `npm run lint`, `npm test` (148/148) alle sauber, keine Konsolenfehler bei allen obigen Durchläufen
+
+**Bewusst noch NICHT gebaut (folgt in `/backend`, siehe Architektur-Entscheidungen):**
+- SEPA-Ticket-Beträge fließen noch nicht in einen SEPA-Sammellauf ein — `sepa_collection_items` muss noch um eine optionale Ticket-Verknüpfung erweitert werden, `createCollectionRun` (PROJ-7) muss confirmed-SEPA-Tickets mit erfassen
+- Keine Benachrichtigungen bei Ticket-Kauf/Event-Absage — der neue PROJ-16-Ereignistyp `event_ticket` (Warteschlange, Vorlagen, Trigger in `purchaseTicket`/`cancelEvent`) ist noch nicht angebunden
+- Kamera-Berechtigungs-Fallback (`QrScanner`) wurde nicht mit einer echten Kamera getestet (Headless-Browser-Einschränkung) — nur der Verweigerungs-Fallback-Pfad über die manuelle Suche wurde end-to-end verifiziert
 
 ## QA Test Results
 _To be added by /qa_
