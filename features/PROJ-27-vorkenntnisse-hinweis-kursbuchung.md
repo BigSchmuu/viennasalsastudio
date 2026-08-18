@@ -234,5 +234,37 @@ Ein Critical-Bug (serverseitige Prüfung umgehbar) muss vor `/deploy` behoben we
 
 **Nachtrag:** Der Critical-Bug wurde direkt im Anschluss an diesen QA-Lauf behoben (siehe „Bugfix Notes" im Implementation-Notes-Abschnitt oben) und die Behebung wurde live gegen die produktive Datenbank verifiziert (alle drei ursprünglichen Exploit-Reproduktionen schlagen jetzt fehl; legitime, bestätigte Buchungen funktionieren weiterhin über alle drei Buchungsarten). Empfehlung nach dem Fix: **produktionsreif**, ausstehend eine formale erneute `/qa`-Bestätigung.
 
+## QA Re-Verification (nach dem Fix, 2026-08-18)
+
+Formale erneute `/qa`-Bestätigung des Bugfix-Commits (`9efcdff`), unabhängig vom ursprünglichen Fund erneut durchgeführt.
+
+### Erweiterter Security-Retest
+Alle drei ursprünglichen Exploit-Versuche erneut ausgeführt, plus vier zusätzliche, beim ersten Fund noch nicht getestete Angriffswinkel:
+
+| # | Versuch | Ergebnis |
+|---|---------|----------|
+| 1 | `create_regular_course_booking` RPC direkt, keine Bestätigung | ✅ Abgelehnt (`prerequisite not confirmed`) |
+| 2 | Direktes `INSERT` in `course_bookings`, Typ „trial" | ✅ Abgelehnt (`42501`, RLS-Policy entfernt) |
+| 3 | Direktes `INSERT` in `course_bookings`, Typ „dropin" mit `price: 0`-Preis-Spoofing-Versuch | ✅ Abgelehnt (`42501`) — Preis wird jetzt ohnehin serverseitig berechnet, kein Preis-Feld mehr vom Client übernommen |
+| 4 | `create_self_service_booking` RPC direkt, keine Bestätigung | ✅ Abgelehnt (`prerequisite not confirmed`) |
+| 5 | `create_self_service_booking` RPC mit `p_type: "regular"` (Typ-Schmuggelversuch, um die Kapazitätsprüfung zu umgehen) | ✅ Abgelehnt (`invalid type`) |
+| 6 | Direktes `INSERT` mit fremder `customer_id` (Ownership-Spoofing) | ✅ Abgelehnt (`42501`) |
+| 7 | Legitimer Aufruf mit `p_prerequisite_confirmed: true` | ✅ Erfolgreich, Buchung korrekt angelegt |
+
+Alle Testbuchungen wurden nach der Verifikation aus der Datenbank entfernt.
+
+**Zusätzlicher Fund (außerhalb des Scopes von PROJ-27, nicht blockierend):** Während der Code-Recherche für diesen Fix wurde festgestellt, dass die `SECURITY DEFINER`-Funktion `promote_waitlist_for_course` (aus PROJ-12, von PROJ-27 nicht verändert) an `authenticated` gegrantet ist und selbst keine Admin-Rollenprüfung durchführt — heute wird sie nur admin-gated über die Next.js-Actions aufgerufen, wäre aber theoretisch auch von jedem eingeloggten Kunden direkt aufrufbar. Dies ist ein vorbestehendes Finding aus PROJ-12, nicht durch PROJ-27 eingeführt oder verschlimmert, und wird hier nur zur Nachverfolgung dokumentiert — empfohlen wird ein eigener kurzer Security-Nachtrag zu PROJ-12, nicht Teil dieser Freigabe.
+
+### E2E-Suite erneut ausgeführt
+- `tests/PROJ-27-vorkenntnisse-hinweis-kursbuchung.spec.ts`: **7/7 grün**, gegen den gefixten Code.
+- Zusätzlicher, gezielter Test für den „Anmeldung"-Tab (regulär) mit Hinweis end-to-end über die echte UI (bisher nur der „Probestunde"-Tab war in AC6 automatisiert abgedeckt) — Buchung schließt korrekt ab, in der DB verifiziert (`status: open`, `desired_plan: single_course`), danach entfernt.
+- `npm test`: **162/162 grün.**
+
+### Regressionstests (final)
+`tests/PROJ-8-kursbuchung.spec.ts` und `tests/PROJ-26-kursbuchung-vom-stundenplan.spec.ts` erneut laufen lassen. Eine zunächst neue Abweichung bei PROJ-26 AC6 („Drop-in-Buchung über /stundenplan") wurde untersucht: die Buchung selbst wurde korrekt über den neuen RPC-Pfad angelegt (Preis korrekt berechnet, Status korrekt) — der Testfehler war ein reiner `strict-mode`-Selektor-Konflikt, weil durch mehrfache Testläufe innerhalb dieser QA-Session zwei Dropin-Buchungen für dasselbe Fixture-Konto angesammelt hatten. Nach Bereinigung der doppelten Testdaten lief die PROJ-26-Suite erneut **6/6 grün**. Alle übrigen Fehlschläge in PROJ-8 sind unverändert dieselben, bereits im ursprünglichen QA-Bericht (oben) einzeln diagnostizierten, vorbestehenden Ursachen (veralteter `login()`-Helfer, akkumulierter Zustand auf langlebigen `e2e8-*`-Konten) — keine neuen Regressionen durch den Fix.
+
+### Finale Produktionsreif-Empfehlung: **JA**
+Der Critical-Bug ist behoben und durch einen unabhängigen, erweiterten Security-Retest bestätigt geschlossen (inklusive dreier zusätzlicher Angriffswinkel, die beim ursprünglichen Fund noch nicht geprüft wurden). Alle 7 Acceptance Criteria bestehen weiterhin, keine neuen Regressionen. Status wird auf **Approved** gesetzt.
+
 ## Deployment
 _To be added by /deploy_
