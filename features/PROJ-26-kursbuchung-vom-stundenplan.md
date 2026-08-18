@@ -1,6 +1,6 @@
 # PROJ-26: Kursbuchung direkt von /stundenplan aus
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -103,6 +103,27 @@ Kein neues Datenmodell — das Feature liest ausschließlich bereits bestehende 
 
 ### Voraussetzung vor `/deploy`
 Keine neuen externen Dienste oder Umgebungsvariablen.
+
+## Implementation Notes
+
+Kein `/backend`-Schritt nötig — dieses Feature führt keine neue Datenbank-Logik ein, sondern verbindet ausschließlich bereits bestehende Bausteine aus PROJ-8/PROJ-9/PROJ-12 mit einer zusätzlichen Seite. Analog zu PROJ-13 direkt weiter zu `/qa`.
+
+**Neue Komponente:** `src/components/schedule/schedule-booking-button.tsx` — nahezu identisch zu `CourseDetailBooking` (PROJ-8), aber mit „Buchen" statt „Jetzt buchen" als Label und Redirect zu `/login?redirect=/stundenplan` statt `/kurse/[id]`. Bindet den unveränderten `BookingDialog` (PROJ-8) ein.
+
+**`/stundenplan` (`page.tsx`) erweitert:**
+- Zusätzliche gesammelte Abfragen (alle in derselben `Promise.all`-Runde wie die bestehenden PROJ-25-Abfragen): `get_course_occupancy()` (öffentlich, dieselbe Funktion wie auf `/kurse`), `dropin_pricing` (öffentlich), sowie bei eingeloggtem Kunden zusätzlich `sepa_mandates`, `profiles.referral_source`, alle eigenen offenen `regular`-Buchungen und alle eigenen Wartelisten-Einträge — jeweils EINE Abfrage für den gesamten angezeigten Kurs-Satz, nicht pro Kurs einzeln (wie im Architektur-Entwurf festgelegt).
+- `courses`-Abfrage um `course_entry_dates(entry_date)` und `max_participants` ergänzt.
+- Für jeden Kurstermin, für den der Kunde **kein** aktives Abo hat, wird ein `booking`-Objekt am `ScheduleEntry` angehängt (Entry-Daten, nächste Termine via bestehendem `upcomingOccurrences()`, offene Anfrage, Auslastung, Wartelisten-Status, Login-Status, Mandat, Empfehlungsquelle, Drop-in-Preise) — bei aktivem Abo bleibt es weg (dort erscheint stattdessen der Self-Check-In-Bereich aus PROJ-25, beide Anzeigen schließen sich über dieselbe Abo-Prüfung exklusiv aus).
+
+**`src/components/schedule/weekly-schedule-view.tsx` erweitert:** `ScheduleEntry` um optionales `booking`-Feld ergänzt; `ScheduleCard` zeigt bei vorhandenem `booking` zusätzlich einen „Ausgebucht"-Hinweis (analog zu `/kurse`) sowie die neue `ScheduleBookingButton`-Komponente.
+
+**Live verifiziert (Browser-Durchlauf gegen die Produktions-DB mit Wegwerf-Testdaten, danach entfernt):**
+- Nicht eingeloggter Besucher sieht „Buchen", Klick leitet korrekt zu `/login?redirect=/stundenplan` weiter
+- Eingeloggter Kunde ohne Abo: Klick öffnet denselben Dialog wie `/kurse` mit allen drei Tabs (Anmeldung/Probestunde/Drop-in)
+- Ausgebuchter Kurs (Kapazität erreicht) zeigt den „Ausgebucht"-Hinweis direkt auf der Karte
+- Kunde mit bereits aktivem Abo für einen Kurs sieht dort keinen Buchen-Button
+- Vollständiger Drop-in-Buchungsdurchlauf über `/stundenplan` (Termin wählen, Absenden) — Buchung erscheint anschließend korrekt unter „Meine Buchungen" im Profil, identisches Verhalten wie eine Buchung über `/kurse`
+- `npm run build`, `npm run lint`, `npm test` (162/162) alle sauber
 
 ## QA Test Results
 _To be added by /qa_

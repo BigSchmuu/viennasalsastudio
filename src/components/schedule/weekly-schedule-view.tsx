@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SelfCheckinButton } from "@/components/schedule/self-checkin-button";
+import { ScheduleBookingButton } from "@/components/schedule/schedule-booking-button";
 
 export type ScheduleEntry = {
   courseId: string;
@@ -22,6 +23,19 @@ export type ScheduleEntry = {
   // PROJ-25: only set for today's occurrence of a course the logged-in
   // customer has an active subscription for.
   selfCheckin?: { opensAtIso: string; endsAtIso: string; checkedIn: boolean };
+  // PROJ-26: only set when the customer does NOT already have an active
+  // subscription for this course (mutually exclusive with selfCheckin).
+  booking?: {
+    entryDates: string[];
+    nextOccurrenceDates: string[];
+    hasOpenRegularBooking: boolean;
+    isFull: boolean;
+    isOnWaitlist: boolean;
+    isLoggedIn: boolean;
+    hasMandate: boolean;
+    hasReferralSource: boolean;
+    dropinPricing: { normal: number; student: number };
+  };
 };
 
 // Vertical offset per minute of start-time difference between rooms —
@@ -66,6 +80,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
           <Badge variant="outline" style={levelBadgeStyle(entry.level)}>
             {levelLabel(entry.level)}
           </Badge>
+          {entry.booking?.isFull && <Badge variant="destructive">Ausgebucht</Badge>}
         </div>
         <p className="text-sm text-muted-foreground">
           {entry.roomName ? `${entry.locationName} · ${entry.roomName}` : entry.locationName}
@@ -81,6 +96,23 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
             opensAtIso={entry.selfCheckin.opensAtIso}
             endsAtIso={entry.selfCheckin.endsAtIso}
             initialCheckedIn={entry.selfCheckin.checkedIn}
+          />
+        )}
+        {entry.booking && (
+          <ScheduleBookingButton
+            course={{
+              id: entry.courseId,
+              name: entry.courseName,
+              entryDates: entry.booking.entryDates,
+              nextOccurrenceDates: entry.booking.nextOccurrenceDates,
+              hasOpenRegularBooking: entry.booking.hasOpenRegularBooking,
+              isFull: entry.booking.isFull,
+              isOnWaitlist: entry.booking.isOnWaitlist,
+            }}
+            isLoggedIn={entry.booking.isLoggedIn}
+            hasMandate={entry.booking.hasMandate}
+            hasReferralSource={entry.booking.hasReferralSource}
+            dropinPricing={entry.booking.dropinPricing}
           />
         )}
       </CardContent>

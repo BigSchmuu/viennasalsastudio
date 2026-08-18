@@ -40,7 +40,7 @@
 | PROJ-23 | Admin: Videosätze & Lektionen verwalten (internes Lehrmaterial) | Deployed | [PROJ-23](../features/PROJ-23-admin-videosaetze-lektionen-verwalten.md) | 2026-08-13 |
 | PROJ-24 | Globale Navigation & Login-Status | Deployed | [PROJ-24](../features/PROJ-24-globale-navigation.md) | 2026-08-16 |
 | PROJ-25 | Self-Check-In für Kursanwesenheit (Abo-Kunden) | Deployed | [PROJ-25](../features/PROJ-25-self-checkin-kursanwesenheit.md) | 2026-08-18 |
-| PROJ-26 | Kursbuchung direkt von /stundenplan aus | Architected | [PROJ-26](../features/PROJ-26-kursbuchung-vom-stundenplan.md) | 2026-08-18 |
+| PROJ-26 | Kursbuchung direkt von /stundenplan aus | In Progress | [PROJ-26](../features/PROJ-26-kursbuchung-vom-stundenplan.md) | 2026-08-18 |
 
 <!-- Add features above this line -->
 
