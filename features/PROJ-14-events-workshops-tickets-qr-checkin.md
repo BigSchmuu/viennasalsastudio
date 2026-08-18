@@ -1,6 +1,6 @@
 # PROJ-14: Events & Workshops (Tickets, QR-Check-in)
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -261,11 +261,12 @@ Keine neuen externen Dienste oder Umgebungsvariablen — beide neuen Pakete lauf
 - [x] Authorization: `purchase_event_ticket()` mit SEPA ohne Mandat → korrekt mit „no active mandate" abgelehnt, unabhängig vom Client
 - [x] Row-Level-Security: `tickets`-SELECT-Policy beschränkt auf eigene Zeile oder Admin/Lehrer — verifiziert per `pg_policies`
 - [x] Input validation / XSS: Event-Name/-Beschreibung/-Ort sind Admin-only-Felder (kein Kunden-Input), werden über reguläres JSX gerendert (kein `dangerouslySetInnerHTML` in allen neuen PROJ-14-Komponenten) und in den Benachrichtigungs-Templates korrekt escaped (per bestehendem `escapeHtml`, durch die neuen Unit-Tests in `templates.test.ts` mitgeprüft)
-- [ ] **BUG-1 (Critical):** Row-Level-Security auf `tickets` erlaubt Kunden, beliebige Spalten der eigenen Ticket-Zeile zu verändern — nicht nur den Stornierungs-Status. Details siehe unten.
+- [x] **BUG-1 (Critical, FIXED):** Row-Level-Security auf `tickets` erlaubte Kunden, beliebige Spalten der eigenen Ticket-Zeile zu verändern — nicht nur den Stornierungs-Status. Details und Fix siehe unten.
 
 ### Bugs Found
 
 #### BUG-1: Kunden können per direktem API-Aufruf ihr eigenes Ticket auf „eingecheckt" setzen und den Preis auf 0 ändern
+- **Status:** FIXED (2026-08-18, unmittelbar nach dem QA-Fund, siehe Fix unten)
 - **Severity:** Critical
 - **Steps to Reproduce:**
   1. Als eingeloggter Kunde ein Ticket kaufen (SEPA oder Vor-Ort), z. B. Status „reserviert" oder „bestätigt"
@@ -274,15 +275,16 @@ Keine neuen externen Dienste oder Umgebungsvariablen — beide neuen Pakete lauf
   4. Tatsächlich: Der Request gelingt vollständig — `status` wird auf „checked_in" gesetzt (obwohl der Kunde nie am Einlass gescannt wurde) und `price` auf 0 (obwohl der reguläre Preis 20€ war). Live verifiziert mit einem Wegwerf-Testticket, per Skript gegen die Produktions-DB, danach sofort zurückgesetzt.
   - **Root Cause:** Die Migration hat für die `UPDATE`-Policy „Tickets: own cancel" nur eine `USING`-Klausel (`auth.uid() = customer_id`) gesetzt, aber keine `WITH CHECK`-Klausel, die die neue Zeile validiert. Ohne explizite `WITH CHECK` übernimmt Postgres bei `UPDATE`-Policies zwar implizit die `USING`-Klausel auch als Check, aber diese prüft nur die Kunden-Zuordnung (`customer_id`), nicht welche Spalten sich ändern dürfen — der Kunde kann daher jede Spalte der eigenen Zeile beliebig setzen, solange `customer_id` unverändert bleibt.
   - **Impact:** (1) Kunden können sich selbst am Einlass vorbeischleusen, indem sie ihr Ticket ohne Scan auf „eingecheckt" setzen. (2) Kunden können den Ticketpreis vor dem nächsten SEPA-Sammellauf auf 0 setzen und so die Zahlung umgehen — verifiziert, dass `createCollectionRun` den zum Abrechnungszeitpunkt aktuellen `price`-Wert der Ticket-Zeile abfragt, eine Preis-Manipulation vor dem Lauf würde also unbemerkt zu einer Falschabrechnung führen. (3) Weitere Spalten wie `payment_method`, `checked_in_by`, `checked_in_at` sind ebenso ungeschützt und könnten zur Verschleierung genutzt werden.
-  - **Empfohlener Fix (nicht von QA umgesetzt):** `WITH CHECK` an die „Tickets: own cancel"-Policy ergänzen, analog zu PROJ-8s „Course bookings: own cancel": `WITH CHECK ((auth.uid() = customer_id) AND (status = 'cancelled'))`. Das allein reicht allerdings nicht ganz aus, da eine `WITH CHECK`-Klausel nur die resultierende Zeile prüft, nicht welche der ÜBRIGEN Spalten sich zusätzlich geändert haben (ein Kunde könnte theoretisch `status` korrekt auf „cancelled" setzen und gleichzeitig `price` mitändern) — eine zusätzliche Spalten-Schutzmaßnahme (z. B. ein `BEFORE UPDATE`-Trigger, der bei Kunden-Updates alle Spalten außer `status` auf Unverändert prüft) oder das vollständige Entfernen dieser Policy zugunsten einer SECURITY-DEFINER-RPC `cancel_event_ticket()` (exakt das bereits in diesem Feature etablierte Muster von `purchase_event_ticket()`/`checkin_event_ticket()`) wird empfohlen.
-- **Priority:** Fix before deployment
+  - **Fix (umgesetzt):** Die unsichere `UPDATE`-Policy „Tickets: own cancel" wurde vollständig entfernt (Migration `proj14_fix_ticket_cancel_rls_bug1`) — Kunden haben jetzt keinerlei direkten `UPDATE`-Zugriff mehr auf `tickets`. Stornierung läuft stattdessen über eine neue SECURITY-DEFINER-RPC `cancel_event_ticket(p_ticket_id)`, die exakt dasselbe Muster wie `purchase_event_ticket()`/`checkin_event_ticket()` nutzt: prüft Eigentümerschaft, aktuellen Status (nur `reserved`/`confirmed` stornierbar) und Stornierungsfrist serverseitig, bevor ausschließlich `status = 'cancelled'` gesetzt wird — keine andere Spalte ist über diesen Pfad änderbar. `src/lib/actions/events.ts`s `cancelTicket` ruft jetzt diese RPC statt eines rohen `.update()`-Aufrufs auf.
+  - **Verifiziert:** (1) Der ursprüngliche Exploit (`PATCH .../tickets?id=eq.<id>` mit `{status: "checked_in", price: 0}`) betrifft jetzt 0 Zeilen (kein Fehler, aber auch keine Änderung — RLS lässt den Kunden keine passende Zeile mehr für `UPDATE` sehen). (2) Eine legitime Stornierung über die neue RPC funktioniert weiterhin für ein eigenes, weit genug in der Zukunft liegendes Ticket. (3) Die RPC lehnt ein Ticket kurz vor der Frist korrekt mit „cancellation deadline passed" ab. (4) Die RPC lehnt das Ticket eines anderen Kunden korrekt mit „not your ticket" ab. Alle vier Fälle live gegen die Produktions-DB mit Wegwerf-Testdaten geprüft, danach zurückgesetzt. Anschließend voller `npm run build`/`npm run lint`/`npm test` (159/159) sauber, kompletter E2E-Suite-Lauf (12/12) erneut grün.
+- **Priority:** Fixed before deployment
 
 ### Summary
 - **Acceptance Criteria:** 14/14 passed (+ 1 additional check)
-- **Bugs Found:** 1 total (1 Critical, 0 High, 0 Medium, 0 Low)
-- **Security:** Issues found — see BUG-1
-- **Production Ready:** NO
-- **Recommendation:** Fix BUG-1 (RLS `WITH CHECK` gap on `tickets` UPDATE policy) before deployment, then re-run `/qa`. All functional acceptance criteria already pass and do not need to be re-tested unless the fix changes ticket-cancellation behavior.
+- **Bugs Found:** 1 total, 1 fixed (1 Critical, 0 High, 0 Medium, 0 Low)
+- **Security:** BUG-1 found and fixed (see above); re-verified live that the exploit is closed and legitimate cancellation still works
+- **Production Ready:** YES
+- **Recommendation:** Deploy. BUG-1's fix (RLS policy removed in favor of a SECURITY DEFINER RPC, mirroring this feature's own purchase/checkin pattern) was verified both by direct exploit re-attempt and by a full clean re-run of the E2E suite (12/12) plus `npm run build`/`lint`/`test` (159/159).
 
 ### Automated Test Coverage
 - **Unit tests:** `src/lib/validations/events.test.ts` (8 new tests: `eventSchema`/`createEventSchema` future-date rule, capacity/price validation, end-before-start rejection), `src/lib/notifications/templates.test.ts` (3 new tests for the `event_tickets` notification content: purchased confirmed vs. reserved wording, event-cancellation wording, HTML-escaping of event names). Full suite: **159/159 passing** (`npm test`).

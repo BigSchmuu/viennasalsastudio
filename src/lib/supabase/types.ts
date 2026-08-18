@@ -882,6 +882,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sepa_collection_items_event_ticket_id_fkey"
+            columns: ["event_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sepa_collection_items_run_id_fkey"
             columns: ["run_id"]
             isOneToOne: false
@@ -893,13 +900,6 @@ export type Database = {
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "subscriptions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sepa_collection_items_event_ticket_id_fkey"
-            columns: ["event_ticket_id"]
-            isOneToOne: false
-            referencedRelation: "tickets"
             referencedColumns: ["id"]
           },
         ]
@@ -1091,13 +1091,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "tickets_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "tickets_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -1109,6 +1102,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
@@ -1276,6 +1276,27 @@ export type Database = {
           id: string
         }[]
       }
+      cancel_event_ticket: {
+        Args: { p_ticket_id: string }
+        Returns: {
+          checked_in_at: string | null
+          checked_in_by: string | null
+          created_at: string
+          customer_id: string
+          event_id: string
+          id: string
+          payment_method: string
+          price: number
+          status: string
+          wants_student_price: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       checkin_event_ticket: {
         Args: { p_ticket_id: string }
         Returns: {
@@ -1355,16 +1376,16 @@ export type Database = {
           occupied_count: number
         }[]
       }
+      get_course_session_note: {
+        Args: { p_course_id: string; p_occurrence_date: string }
+        Returns: string
+      }
       get_event_occupancy: {
         Args: never
         Returns: {
           event_id: string
           ticket_count: number
         }[]
-      }
-      get_course_session_note: {
-        Args: { p_course_id: string; p_occurrence_date: string }
-        Returns: string
       }
       is_course_teacher: { Args: { p_course_id: string }; Returns: boolean }
       join_waitlist: {

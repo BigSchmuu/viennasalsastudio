@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { TICKET_CANCELLATION_LEAD_DAYS, type TicketPaymentMethod } from "@/lib/constants/events";
-import { daysUntil } from "@/lib/scheduling/dates";
+import type { TicketPaymentMethod } from "@/lib/constants/events";
 import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 import type { ActionResult } from "@/lib/actions/types";
 
@@ -77,28 +76,22 @@ export async function cancelTicket(ticketId: string): Promise<ActionResult> {
     return { error: "Nicht eingeloggt" };
   }
 
-  const { data: ticket } = await supabase
-    .from("tickets")
-    .select("id, customer_id, status, events(starts_at)")
-    .eq("id", ticketId)
-    .single();
-
-  if (!ticket || ticket.customer_id !== user.id) {
-    return { error: "Ticket nicht gefunden." };
-  }
-  if (ticket.status === "cancelled") {
-    return { error: "Dieses Ticket ist bereits storniert." };
-  }
-  if (ticket.status === "checked_in") {
-    return { error: "Ein bereits eingechecktes Ticket kann nicht mehr storniert werden." };
-  }
-  if (!ticket.events || daysUntil(ticket.events.starts_at.slice(0, 10)) < TICKET_CANCELLATION_LEAD_DAYS) {
-    return { error: "Die Frist zum Stornieren ist abgelaufen." };
-  }
-
-  const { error } = await supabase.from("tickets").update({ status: "cancelled" }).eq("id", ticketId);
+  // Routed through a SECURITY DEFINER RPC (not a direct table update) so that
+  // customers can only ever flip their own ticket to "cancelled" — a raw RLS
+  // policy here would let a customer's own JWT PATCH arbitrary columns
+  // (status, price, ...) directly via the REST API (QA BUG-1).
+  const { error } = await supabase.rpc("cancel_event_ticket", { p_ticket_id: ticketId });
 
   if (error) {
+    if (error.message.includes("not found") || error.message.includes("not your ticket")) {
+      return { error: "Ticket nicht gefunden." };
+    }
+    if (error.message.includes("not cancellable")) {
+      return { error: "Dieses Ticket kann nicht mehr storniert werden." };
+    }
+    if (error.message.includes("deadline passed")) {
+      return { error: "Die Frist zum Stornieren ist abgelaufen." };
+    }
     return { error: "Ticket konnte nicht storniert werden." };
   }
 
