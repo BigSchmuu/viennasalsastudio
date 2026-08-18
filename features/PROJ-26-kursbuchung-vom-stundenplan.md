@@ -1,6 +1,6 @@
 # PROJ-26: Kursbuchung direkt von /stundenplan aus
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -63,12 +63,46 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Alle für den Buchen-Button/Dialog benötigten Zusatzdaten (offene Buchungen, Wartelisten-Einträge, Auslastung) werden je Datentyp in EINER gesammelten Abfrage für alle angezeigten Kurse auf einmal geladen, nicht einzeln pro Kurs | Verhindert, dass die Ladezeit von `/stundenplan` mit der Anzahl der Kurse in der Woche linear ansteigt; folgt demselben bewährten Muster, das `/kurse` bereits für die Auslastungsanzeige verwendet (`get_course_occupancy()`) | 2026-08-18 |
+| Bestehender `BookingDialog` (PROJ-8) wird unverändert wiederverwendet, nur an einer zusätzlichen Stelle eingebunden | Reduziert Risiko und Aufwand, hält das Buchungsverhalten an `/kurse` und `/stundenplan` garantiert identisch — keine zwei Implementierungen, die auseinanderlaufen können | 2026-08-18 |
+| „Buchen"-Sichtbarkeit und Self-Check-In-Sichtbarkeit (PROJ-25) nutzen dieselbe, bereits vorhandene „aktives Abo"-Information — keine neue Prüfung, nur unterschiedliche Anzeige je nach Ergebnis | Vermeidet zwei unterschiedliche Definitionen von „aktives Abo" und garantiert, dass sich beide Anzeigen exakt gegenseitig ausschließen | 2026-08-18 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+/stundenplan (bestehend, PROJ-6/PROJ-25) — erweitert
++-- Bestehende Kurstermin-Karte
+    +-- NEU: „Ausgebucht"-Hinweis, falls Kapazität erreicht (nur bei Kursen mit Kapazitätsgrenze)
+    +-- NEU: „Buchen"-Button — nur sichtbar, wenn der Kunde KEIN aktives Abo für diesen Kurs hat
+        +-- Nicht eingeloggt: führt zum Login, danach zurück zu /stundenplan
+        +-- Eingeloggt: öffnet denselben Buchungsdialog wie auf /kurse (PROJ-8), unverändert
+            +-- Tabs: Abo / Probestunde / Drop-in
+            +-- Bei ausgebucht + Warteliste vorhanden: Wartelisten-Beitritt (PROJ-12), wie gehabt
+    +-- Bestehend: Self-Check-In-Bereich (PROJ-25) — erscheint stattdessen, wenn ein aktives Abo vorliegt (schließt sich mit „Buchen" gegenseitig aus)
+```
+
+### B) Data Model (plain language)
+
+Kein neues Datenmodell — das Feature liest ausschließlich bereits bestehende Informationen aus, die bisher nur auf der einzelnen Kursdetailseite (`/kurse/[id]`) abgerufen wurden:
+- Offene Buchungsanfragen des Kunden, Wartelisten-Einträge, aktive Abos, SEPA-Mandat, Empfehlungsquelle, Drop-in-Preise, Kursauslastung — alles bereits vorhanden aus PROJ-7/8/9/12.
+- Neu ist ausschließlich, dass `/stundenplan` dieselben Informationen jetzt gesammelt für ALLE in der Woche angezeigten Kurse auf einmal abruft, statt wie bisher nur für einen einzelnen Kurs.
+
+### C) Tech Decisions (justified for PM)
+
+- **Gesammelte statt einzelne Abfragen pro Kurs**: Damit `/stundenplan` mit vielen Kursen in der Woche nicht spürbar langsamer wird, werden offene Buchungen, Wartelisten-Einträge und Auslastung jeweils in einer einzigen Abfrage für alle angezeigten Kurse gleichzeitig geladen — dasselbe bewährte Muster, das der Kurskatalog (`/kurse`) bereits für die Auslastungsanzeige nutzt.
+- **Bestehender Buchungsdialog bleibt unverändert**: Er wird nur an einer zweiten Stelle eingebunden, nicht neu gebaut oder angepasst — Buchungsverhalten bleibt an beiden Orten garantiert identisch, geringeres Risiko.
+- **„Buchen" und „Ich bin da" schließen sich gegenseitig aus**: Beide Anzeigen basieren auf derselben, bereits vorhandenen Information „hat der Kunde ein aktives Abo für diesen Kurs" — keine neue Prüfung nötig, nur eine Frage, welche der beiden Anzeigen je nach Ergebnis erscheint.
+
+### D) Dependencies (packages to install)
+- Keine neuen Pakete — reine Erweiterung bestehender Komponenten mit vorhandenen Bausteinen (`BookingDialog` aus PROJ-8, `get_course_occupancy()`-Funktion aus PROJ-12).
+
+### Voraussetzung vor `/deploy`
+Keine neuen externen Dienste oder Umgebungsvariablen.
 
 ## QA Test Results
 _To be added by /qa_
