@@ -1,6 +1,6 @@
 # PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -214,4 +214,21 @@ Keine.
 - **Neue E2E-Fixtures** (Produktions-DB, Präfix `e2e25-`/`E2E25`): 2 Auth-Nutzer (`e2e25-customer-with-abo`, `e2e25-customer-no-abo`), 4 Kurse mit Terminen, 4 aktive Abos. Persistieren als Regressions-Fixtures für diese Spec, konsistent mit der etablierten Konvention anderer Features — mit der oben genannten Einschränkung bezüglich Uhrzeit-Abhängigkeit.
 
 ## Deployment
-_To be added by /deploy_
+
+**Production URL:** https://viennasalsastudio.vercel.app
+**Deployed:** 2026-08-18
+**Git tag:** `v1.0.0-PROJ-25`
+
+**Pre-deployment checks:**
+- `npm run build`, `npm run lint` clean immediately before push; `npm test` (162/162) already confirmed clean during `/qa`
+- Keine neuen Umgebungsvariablen (bestätigt bereits im Architektur-Entwurf: reine Erweiterung bestehender Seiten mit vorhandenen Datenbank-Zugriffsmustern)
+- Keine Secrets im Git (`.env.local.example` unverändert)
+- Alle Migrationen bereits während `/frontend` direkt in der produktiven Supabase-Instanz angewendet (`proj25_self_checkin`) — kein separater Migrationsschritt beim Deploy nötig
+- Arbeitsverzeichnis sauber, 4 Commits vor `origin/main` (Spec → Architektur → Frontend → QA), gepusht zum Auslösen des Vercel-Auto-Deploys
+
+**Post-deployment verification (live in Produktion):**
+- Authentifizierter Produktions-Smoketest (Playwright, gegen `viennasalsastudio.vercel.app`, nicht nur dev): Kunde loggt sich ein, `/stundenplan` zeigt den „Ich bin da"-Button für „E2E25 Im Fenster Kurs" korrekt an, keine Browser-Konsolenfehler
+- Admin-Login → Lehrer-Anwesenheitsseite zeigt den Testkunden korrekt in der Liste
+- Da Frontend und Backend dieselbe produktive Supabase-Instanz nutzen wie während `/qa` bereits getestet (keine separate Staging-DB), war die eigentliche Klick-Interaktion (Check-in/Undo/Konfliktregeln) bereits vollständig gegen dieselbe Datengrundlage verifiziert — der Produktions-Smoketest bestätigt zusätzlich, dass die neue Next.js-Build tatsächlich live ist und keine deploy-spezifischen Fehler (z.B. fehlende Chunks, Konsolenfehler) auftreten
+
+Keine neuen Production-Ready-Essentials nötig (Error-Tracking, Security-Headers etc. bereits aus früheren Deployments vorhanden und von diesem Feature unberührt).
