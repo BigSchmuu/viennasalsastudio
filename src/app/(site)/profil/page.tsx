@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ProfileForm } from "@/components/auth/profile-form";
 import { LogoutButton } from "@/components/auth/logout-button";
 import type { MandateData } from "@/components/payments/payment-method-section";
@@ -202,73 +203,103 @@ export default async function ProfilePage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Zahlungsmethode</CardTitle>
-            <CardDescription>SEPA-Lastschriftmandat für deine Abo-Zahlungen</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PaymentMethodSection mandate={mandate} />
-          </CardContent>
-        </Card>
+          <Accordion type="multiple" className="px-6">
+            <AccordionItem value="zahlungsmethode">
+              <AccordionTrigger>
+                <div className="text-left">
+                  <p className="font-heading font-semibold">Zahlungsmethode</p>
+                  <p className="text-sm font-normal text-muted-foreground">
+                    SEPA-Lastschriftmandat für deine Abo-Zahlungen
+                  </p>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <PaymentMethodSection mandate={mandate} />
+              </AccordionContent>
+            </AccordionItem>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Mein Abo</CardTitle>
-            <CardDescription>Pausieren, kündigen oder umbuchen</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MySubscriptionsSection subscriptions={subscriptions} courses={courses} />
-          </CardContent>
-        </Card>
+            <AccordionItem value="abo">
+              <AccordionTrigger>
+                <div className="text-left">
+                  <p className="font-heading font-semibold">Mein Abo</p>
+                  <p className="text-sm font-normal text-muted-foreground">Pausieren, kündigen oder umbuchen</p>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <MySubscriptionsSection subscriptions={subscriptions} courses={courses} />
+              </AccordionContent>
+            </AccordionItem>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Meine Buchungen</CardTitle>
-            <CardDescription>Anfragen, Probestunden und Drop-ins</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MyBookingsSection bookings={bookings} />
-          </CardContent>
-        </Card>
+            <AccordionItem value="buchungen">
+              <AccordionTrigger>
+                <div className="text-left">
+                  <p className="font-heading font-semibold">Meine Buchungen</p>
+                  <p className="text-sm font-normal text-muted-foreground">
+                    Anfragen, Probestunden und Drop-ins
+                  </p>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <MyBookingsSection bookings={bookings} />
+              </AccordionContent>
+            </AccordionItem>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Meine Warteliste</CardTitle>
-            <CardDescription>Kurse, für die du auf einen freien Platz wartest</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MyWaitlistSection entries={waitlistEntries} />
-          </CardContent>
-        </Card>
+            <AccordionItem value="warteliste">
+              <AccordionTrigger>
+                <div className="text-left">
+                  <p className="font-heading font-semibold">Meine Warteliste</p>
+                  <p className="text-sm font-normal text-muted-foreground">
+                    Kurse, für die du auf einen freien Platz wartest
+                  </p>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <MyWaitlistSection entries={waitlistEntries} />
+              </AccordionContent>
+            </AccordionItem>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Meine Tickets</CardTitle>
-            <CardDescription>Event- und Workshop-Tickets mit QR-Code</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MyTicketsSection tickets={tickets} />
-          </CardContent>
-        </Card>
+            <AccordionItem value="tickets">
+              <AccordionTrigger>
+                <div className="text-left">
+                  <p className="font-heading font-semibold">Meine Tickets</p>
+                  <p className="text-sm font-normal text-muted-foreground">
+                    Event- und Workshop-Tickets mit QR-Code
+                  </p>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <MyTicketsSection tickets={tickets} />
+              </AccordionContent>
+            </AccordionItem>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Meine Rechnungen</CardTitle>
-            <CardDescription>Zahlungshistorie deiner Abo-Zahlungen</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MyInvoicesSection invoices={invoices} />
-          </CardContent>
-        </Card>
+            <AccordionItem value="rechnungen">
+              <AccordionTrigger>
+                <div className="text-left">
+                  <p className="font-heading font-semibold">Meine Rechnungen</p>
+                  <p className="text-sm font-normal text-muted-foreground">
+                    Zahlungshistorie deiner Abo-Zahlungen
+                  </p>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <MyInvoicesSection invoices={invoices} />
+              </AccordionContent>
+            </AccordionItem>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Benachrichtigungen</CardTitle>
-            <CardDescription>Wähle, worüber du per E-Mail und Push informiert werden möchtest</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <NotificationSettingsSection preferences={notificationPreferences} />
-          </CardContent>
+            <AccordionItem value="benachrichtigungen" className="border-b-0">
+              <AccordionTrigger>
+                <div className="text-left">
+                  <p className="font-heading font-semibold">Benachrichtigungen</p>
+                  <p className="text-sm font-normal text-muted-foreground">
+                    Wähle, worüber du per E-Mail und Push informiert werden möchtest
+                  </p>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <NotificationSettingsSection preferences={notificationPreferences} />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </Card>
       </div>
     </div>
