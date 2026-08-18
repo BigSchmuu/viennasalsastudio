@@ -1,6 +1,6 @@
 # PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -62,12 +62,49 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Neues, optionales Textfeld direkt an der bestehenden Kurs-Tabelle (PROJ-3), keine neue Tabelle | Der Hinweis ist einfach ein weiteres Attribut eines Kurses, genau wie Name oder Preis — eine eigene Tabelle wäre unnötige Komplexität für ein einzelnes optionales Feld | 2026-08-18 |
+| Die Bestätigung selbst wird nicht dauerhaft gespeichert — nur im Moment der Buchung serverseitig geprüft | Laut Spec keine Audit-Anforderung („wer hat wann bestätigt") — die serverseitige Prüfung reicht aus, um zu verhindern, dass eine Buchung ohne Bestätigung durchgeht, ohne zusätzliche Datenhaltung | 2026-08-18 |
+| Bestehende Buchungslogik (PROJ-8) wird um eine zusätzliche Pflichtprüfung erweitert, kein separater neuer Buchungsweg | Genau wie andere Pflichtfelder dort (z.B. gewähltes Datum) bereits serverseitig geprüft werden — konsistentes, etabliertes Muster statt einer komplett neuen Prüf-Logik | 2026-08-18 |
+| Der Hinweistext wird in die ohnehin schon bestehenden Kurs-Abfragen auf Kurskatalog, Stundenplan und im Buchungsdialog mit aufgenommen, keine neue eigene Abfrage | Diese drei Stellen laden bereits alle anderen Kursdaten (Name, Preis, Level, ...) — der neue Hinweistext ist einfach ein weiteres Feld derselben Abfrage | 2026-08-18 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Admin-Kursformular (bestehend, PROJ-3) — erweitert
++-- NEU: Feld „Vorkenntnisse-Hinweis" (optional, Freitext)
+
+Kurskarte (bestehend — Kurskatalog PROJ-5, Stundenplan PROJ-6/PROJ-26) — erweitert
++-- NEU: Hinweis-Anzeige auf der Karte, ausschließlich wenn ein Text hinterlegt ist
+
+Buchungsdialog (bestehend, PROJ-8, wiederverwendet von /kurse UND /stundenplan) — erweitert
++-- NEU (nur wenn Hinweis vorhanden, bei allen drei Tabs Anmeldung/Probestunde/Drop-in):
+    +-- Info-Anzeige mit dem Admin-Hinweistext
+    +-- Bestätigungs-Checkbox mit festem Text
+    +-- Absenden-Button bleibt gesperrt, bis die Checkbox aktiviert ist
+```
+
+### B) Data Model (plain language)
+
+- Jeder Kurs bekommt ein neues, optionales Feld „Vorkenntnisse-Hinweis" (Freitext). Leer = kein Hinweis, komplett unsichtbares Feature für diesen Kurs.
+- Die Bestätigung selbst wird nicht gespeichert — es gibt keinen neuen Datensatz „Kunde X hat am Datum Y bestätigt". Die Prüfung passiert einmalig im Moment der Buchung: Hat der Kurs einen Hinweis, muss die Buchungsanfrage eine Bestätigung mitschicken, sonst wird sie abgelehnt.
+
+### C) Tech Decisions (justified for PM)
+
+- **Ein weiteres Feld an der bestehenden Kurs-Tabelle statt einer neuen Tabelle**: Der Hinweis gehört inhaltlich zum Kurs, genau wie Name, Level oder Preis — technisch am selben Ort abgelegt wie diese, keine zusätzliche Struktur nötig.
+- **Keine dauerhafte Speicherung der Bestätigung**: Die Spec verlangt keine Nachverfolgung, wer wann bestätigt hat — nur, dass ohne Bestätigung keine Buchung zustande kommt. Das lässt sich als reine Prüfung im Moment der Buchung lösen, ohne zusätzliche Datenhaltung.
+- **Serverseitige Pflichtprüfung nach demselben Muster wie bestehende Pflichtfelder**: Der bestehende Buchungsweg (PROJ-8) prüft bereits heute z.B., ob ein Termin gewählt wurde, bevor er eine Buchung akzeptiert. Die neue Bestätigung wird nach demselben Muster ergänzt — kein neuer, eigenständiger Prüfmechanismus.
+- **Wiederverwendung bestehender Abfragen statt neuer eigener Abfrage**: Kurskatalog, Stundenplan und Buchungsdialog laden schon heute alle Kursdaten in einem Rutsch — der neue Hinweistext wird dort einfach als zusätzliches Feld mitgeladen.
+
+### D) Dependencies (packages to install)
+- Keine neuen Pakete.
+
+### Voraussetzung vor `/deploy`
+Keine neuen externen Dienste oder Umgebungsvariablen.
 
 ## QA Test Results
 _To be added by /qa_
