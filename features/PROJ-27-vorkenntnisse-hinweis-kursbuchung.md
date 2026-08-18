@@ -1,6 +1,6 @@
 # PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -267,4 +267,15 @@ Alle Testbuchungen wurden nach der Verifikation aus der Datenbank entfernt.
 Der Critical-Bug ist behoben und durch einen unabhängigen, erweiterten Security-Retest bestätigt geschlossen (inklusive dreier zusätzlicher Angriffswinkel, die beim ursprünglichen Fund noch nicht geprüft wurden). Alle 7 Acceptance Criteria bestehen weiterhin, keine neuen Regressionen. Status wird auf **Approved** gesetzt.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Produktions-URL:** https://viennasalsastudio.vercel.app
+- **Deployed:** 2026-08-18
+- **Git-Tag:** `v1.0.0-PROJ-27`
+- **Datenbank-Migrationen** (bereits vor diesem Deploy live angewendet, siehe Implementation Notes / Bugfix Notes): `proj27_course_prerequisite_note`, `proj27_fix_prerequisite_bypass`, `proj27_drop_old_regular_booking_overload` — keine weitere DB-Aktion beim Deploy nötig.
+- **Keine neuen Umgebungsvariablen** — bestätigt beim Pre-Deployment-Check (kein Diff in `.env.local.example` über die 6 PROJ-27-Commits).
+- **Pre-Deployment-Checks:** `npm run build` ✅, `npm run lint` ✅, keine Secrets in den Commits, Arbeitsverzeichnis sauber vor dem Push.
+- **Push:** 6 Commits (Spec → Architektur → Frontend → QA → Fix → Re-QA) auf `main` gepusht, Vercel-Auto-Deploy über die bestehende GitHub-Integration ausgelöst.
+- **Produktions-Verifikation:** Nach dem Deploy per Playwright direkt gegen die Produktions-URL getestet (nicht nur lokal):
+  - Kunde sieht den Hinweistext auf der Kurskarte in `/kurse`, öffnet den Buchungsdialog, sieht Hinweis + Checkbox, Absenden-Button ist gesperrt bis die Checkbox aktiviert wird — keine Konsolenfehler.
+  - Admin-Kursformular zeigt das neue Feld „Hinweis/Vorkenntnisse" mit korrektem Platzhaltertext für einen Kurs ohne Hinweis (leer, wie erwartet).
+  - Beide Checks bestätigen, dass der neue Build tatsächlich live ist (nicht nur ein gecachter Alt-Stand).
