@@ -39,7 +39,8 @@
 | PROJ-22 | Admin: Lehrer-Rollen verwalten | Deployed | [PROJ-22](../features/PROJ-22-admin-lehrer-rollen-verwalten.md) | 2026-08-13 |
 | PROJ-23 | Admin: Videosätze & Lektionen verwalten (internes Lehrmaterial) | Deployed | [PROJ-23](../features/PROJ-23-admin-videosaetze-lektionen-verwalten.md) | 2026-08-13 |
 | PROJ-24 | Globale Navigation & Login-Status | Deployed | [PROJ-24](../features/PROJ-24-globale-navigation.md) | 2026-08-16 |
+| PROJ-25 | Self-Check-In für Kursanwesenheit (Abo-Kunden) | Planned | [PROJ-25](../features/PROJ-25-self-checkin-kursanwesenheit.md) | 2026-08-18 |
 
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-25
+## Next Available ID: PROJ-26
