@@ -14,6 +14,7 @@ export type RosterEntry = {
   fullName: string;
   source: string;
   status: string | null;
+  selfCheckedIn: boolean;
 };
 
 export type EligibleCustomer = {
@@ -53,7 +54,9 @@ export function AttendanceRoster({
         setError(result.error);
         return;
       }
-      setEntries((prev) => prev.map((e) => (e.customerId === customerId ? { ...e, status } : e)));
+      setEntries((prev) =>
+        prev.map((e) => (e.customerId === customerId ? { ...e, status, selfCheckedIn: false } : e))
+      );
     } finally {
       setSavingId(null);
     }
@@ -61,7 +64,10 @@ export function AttendanceRoster({
 
   async function handleAdd(customer: EligibleCustomer) {
     setAddOpen(false);
-    setEntries((prev) => [...prev, { customerId: customer.id, fullName: customer.name, source: "manuell", status: null }]);
+    setEntries((prev) => [
+      ...prev,
+      { customerId: customer.id, fullName: customer.name, source: "manuell", status: null, selfCheckedIn: false },
+    ]);
     await handleMark(customer.id, "present");
   }
 
@@ -97,6 +103,11 @@ export function AttendanceRoster({
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary">{attendanceSourceLabel[entry.source] ?? entry.source}</Badge>
                   <span className="text-sm text-muted-foreground">{attendanceStatusLabel(entry.status)}</span>
+                  {entry.selfCheckedIn && (
+                    <Badge variant="outline" title="Der Kunde hat sich selbst eingecheckt">
+                      Self-Check-In
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2">

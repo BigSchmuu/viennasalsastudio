@@ -40,6 +40,7 @@ export default async function TeacherOccurrencePage({
     fullName: r.full_name || "Unbenannter Kunde",
     source: r.source,
     status: r.status,
+    selfCheckedIn: r.self_checked_in,
   }));
 
   const eligibleCustomers = (eligibleRes.data ?? []).map((c) => ({

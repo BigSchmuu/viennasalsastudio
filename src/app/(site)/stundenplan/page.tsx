@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
-import { jsDayToWeekday, formatDateLocal } from "@/lib/scheduling/dates";
+import { jsDayToWeekday, formatDateLocal, selfCheckinWindow } from "@/lib/scheduling/dates";
 
 function currentWeekDates(): string[] {
   const now = new Date();
@@ -18,20 +18,33 @@ function currentWeekDates(): string[] {
 export default async function StundenplanPage() {
   const supabase = await createClient();
 
-  const [coursesRes, teachersRes] = await Promise.all([
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const [coursesRes, teachersRes, mySubsRes, myAttendanceRes] = await Promise.all([
     supabase
       .from("courses")
       .select(
         "id, name, level, dance_styles(name), rooms(id, name, locations(name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date))"
       ),
     supabase.from("teacher_directory").select("id, full_name"),
+    // PROJ-25: own active course-bound subscriptions determine self-check-in eligibility.
+    user
+      ? supabase.from("subscriptions").select("course_id").eq("customer_id", user.id).eq("status", "active")
+      : Promise.resolve({ data: null }),
+    user ? supabase.rpc("get_my_todays_attendance") : Promise.resolve({ data: null }),
   ]);
 
   const teacherNameById = new Map(
     (teachersRes.data ?? []).map((t) => [t.id, t.full_name || "Unbenannter Lehrer"])
   );
 
+  const myActiveCourseIds = new Set((mySubsRes.data ?? []).map((s) => s.course_id).filter(Boolean));
+  const myTodaysStatusByCourse = new Map((myAttendanceRes.data ?? []).map((a) => [a.course_id, a.status]));
+
   const weekDates = currentWeekDates();
+  const todayDateString = formatDateLocal(new Date());
   const entriesByWeekday: Record<number, ScheduleEntry[]> = {};
 
   for (const course of coursesRes.data ?? []) {
@@ -58,6 +71,15 @@ export default async function StundenplanPage() {
       startTime: schedule.start_time,
       endTime: schedule.end_time,
     };
+
+    if (thisWeekDate === todayDateString && myActiveCourseIds.has(course.id)) {
+      const { opensAt, endsAt } = selfCheckinWindow(thisWeekDate, schedule.start_time, schedule.end_time);
+      entry.selfCheckin = {
+        opensAtIso: opensAt.toISOString(),
+        endsAtIso: endsAt.toISOString(),
+        checkedIn: myTodaysStatusByCourse.get(course.id) === "present",
+      };
+    }
 
     if (!entriesByWeekday[schedule.weekday]) entriesByWeekday[schedule.weekday] = [];
     entriesByWeekday[schedule.weekday].push(entry);

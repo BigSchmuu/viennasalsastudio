@@ -1,6 +1,6 @@
 # PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -116,6 +116,39 @@ Kein neues Datenmodell — der Self-Check-In schreibt in dieselbe Anwesenheits-D
 
 ### Voraussetzung vor `/deploy`
 Keine neuen externen Dienste oder Umgebungsvariablen.
+
+## Implementation Notes
+
+Gebaut in einem Durchgang (Datenbank + Server-seitige Logik + UI), analog zu PROJ-13 — kein separater `/backend`-Schritt nötig, da diese Funktion (anders als PROJ-14) keine Anbindung an andere Features wie SEPA-Abrechnung oder Benachrichtigungen benötigt.
+
+**Datenbank (Migration `proj25_self_checkin`):**
+- Neue Funktion `self_toggle_attendance(p_course_id)` (SECURITY DEFINER) — prüft nacheinander: eingeloggt, Kurs findet heute statt (Wochentag-Abgleich), kein Kursausfall laut `course_schedule_pauses`, aktives kursgebundenes Abo vorhanden, Zeitfenster (ab 30 Min. vor Kursbeginn). Ohne bestehenden Eintrag: legt `course_attendance` mit `status='present', marked_by=<eigene ID>` an. Mit bestehendem `status='present'`: löscht den Eintrag wieder (Rückgängig), aber nur, wenn die Kursstunde laut `end_time` noch nicht vorbei ist — sonst Fehler.
+- Folgt bewusst derselben Konvention wie `purchase_event_ticket()`/`checkin_event_ticket()` (PROJ-14): eigene, schmal zugeschnittene Funktion statt einer direkten `UPDATE`-Policy auf `course_attendance` — genau das hatte bei PROJ-14 BUG-1 zu einer kritischen Sicherheitslücke geführt (Kunden konnten beliebige Spalten der eigenen Zeile ändern). `course_attendance` hat weiterhin RLS aktiviert, aber bewusst keine einzige Policy (PROJ-13-Konvention) — auch für Kunden läuft jeder Zugriff über eine Funktion.
+- Neue Funktion `get_my_todays_attendance()` — liefert dem eingeloggten Kunden ausschließlich seine eigenen Anwesenheits-Einträge für heute (für die Button-Anzeige im UI).
+- `get_course_attendance_roster()` (PROJ-13) um eine neue Ausgabespalte `self_checked_in` erweitert (`marked_by = customer_id`) — Signaturänderung erforderte `DROP FUNCTION` vor `CREATE`.
+- Zeitfenster-Berechnung interpretiert `start_time`/`end_time` korrekt als Wien-Ortszeit (nicht naive UTC) via `AT TIME ZONE 'Europe/Vienna'` — ohne diese Korrektur wäre das 30-Minuten-Fenster um 1–2 Stunden (je nach Sommer-/Winterzeit) verschoben gewesen.
+
+**Frontend-Baustein:** `src/lib/scheduling/dates.ts` um `selfCheckinWindow()` ergänzt (JS-seitiges Gegenstück zur SQL-Zeitzonen-Korrektur, für die Button-Sichtbarkeit) — nutzt einen Intl-basierten Rundreise-Trick statt einer festen Offset-Zahl, damit Sommer-/Winterzeit korrekt automatisch erkannt wird (durch dedizierte Unit-Tests für beide Fälle abgesichert).
+
+**Server Action:** `src/lib/actions/self-checkin.ts` (`selfToggleAttendance`) — dünner Wrapper um die RPC mit freundlichen Fehlermeldungen je Ablehnungsgrund.
+
+**Seiten & Komponenten:**
+- `/stundenplan` (PROJ-6, `page.tsx`) erweitert: lädt bei eingeloggtem Kunden zusätzlich dessen aktive kursgebundene Abos sowie den heutigen Check-in-Status; berechnet je Termin, der heute stattfindet und zu einem eigenen Abo gehört, das Zeitfenster und hängt es an den `ScheduleEntry` an.
+- `src/components/schedule/weekly-schedule-view.tsx`: `ScheduleEntry` um optionales `selfCheckin`-Feld erweitert, `ScheduleCard` rendert bei Vorhandensein die neue `SelfCheckinButton`-Komponente.
+- `src/components/schedule/self-checkin-button.tsx` (neu) — rendert nichts vor Fensteröffnung; „Ich bin da" wenn offen und nicht eingecheckt; „✓ Eingecheckt" klickbar (Rückgängig) solange vor Kursende, danach als deaktivierter Zustand.
+- `src/components/teacher/attendance-roster.tsx`: neues `selfCheckedIn`-Feld in `RosterEntry`, zeigt ein kleines „Self-Check-In"-Badge; lokaler State setzt `selfCheckedIn` korrekt auf `false` zurück, sobald der Lehrer manuell markiert (spiegelt die Server-Logik).
+
+**Live verifiziert (direkt gegen die Produktions-DB mit Wegwerf-Testdaten, danach entfernt):**
+- Erfolgreicher Check-in innerhalb des Zeitfensters, `get_my_todays_attendance()` spiegelt den Status korrekt
+- Rückgängig-Machen vor Kursende funktioniert, erneutes Einchecken danach ebenfalls
+- Zu früher Check-in-Versuch (Kurs beginnt erst in ~7h) korrekt mit „too early" abgelehnt
+- Kunde ohne aktives Abo für den Kurs korrekt mit „no active subscription" abgelehnt
+- Später Erst-Check-in für eine bereits beendete Stunde funktioniert weiterhin (erlaubt bis Mitternacht); ein anschließender Rückgängig-Versuch wird korrekt mit „cannot undo after class end" abgelehnt
+- Pausierter Kurstag korrekt mit „course paused today" abgelehnt, unabhängig vom bestehenden Anwesenheitsstatus
+- Rollenliste (`get_course_attendance_roster`) zeigt `self_checked_in: true` nach Self-Check-In; nach manueller Lehrer-Markierung („Abwesend") korrekt wieder `false`
+- Konfliktregel in beide Richtungen bestätigt: Lehrer-Markierung wird durch nachfolgenden Self-Check-In überschrieben (zurück auf „Anwesend", `self_checked_in: true`)
+- Vollständiger Browser-Durchlauf (Playwright, gegen `localhost:3000`): Kunde loggt sich ein, sieht „Ich bin da" auf `/stundenplan`, klickt, sieht „✓ Eingecheckt"; Admin sieht auf der Lehrer-Anwesenheitsseite denselben Kunden mit „Self-Check-In"-Badge
+- `npm run build`, `npm run lint`, `npm test` (162/162, davon 3 neue Tests für `selfCheckinWindow` inkl. Sommer-/Winterzeit-Regressionstest) alle sauber
 
 ## QA Test Results
 _To be added by /qa_

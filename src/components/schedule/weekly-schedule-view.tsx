@@ -6,6 +6,7 @@ import { levelLabel, levelColor, levelBadgeStyle } from "@/lib/constants/levels"
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { SelfCheckinButton } from "@/components/schedule/self-checkin-button";
 
 export type ScheduleEntry = {
   courseId: string;
@@ -18,6 +19,9 @@ export type ScheduleEntry = {
   teacherNames: string[];
   startTime: string;
   endTime: string;
+  // PROJ-25: only set for today's occurrence of a course the logged-in
+  // customer has an active subscription for.
+  selfCheckin?: { opensAtIso: string; endsAtIso: string; checkedIn: boolean };
 };
 
 // Vertical offset per minute of start-time difference between rooms —
@@ -71,6 +75,14 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
             ? entry.teacherNames.join(", ")
             : "Lehrer wird noch bekanntgegeben"}
         </p>
+        {entry.selfCheckin && (
+          <SelfCheckinButton
+            courseId={entry.courseId}
+            opensAtIso={entry.selfCheckin.opensAtIso}
+            endsAtIso={entry.selfCheckin.endsAtIso}
+            initialCheckedIn={entry.selfCheckin.checkedIn}
+          />
+        )}
       </CardContent>
     </Card>
   );

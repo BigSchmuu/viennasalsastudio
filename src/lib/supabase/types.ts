@@ -1365,6 +1365,7 @@ export type Database = {
         Returns: {
           customer_id: string
           full_name: string
+          self_checked_in: boolean
           source: string
           status: string
         }[]
@@ -1385,6 +1386,13 @@ export type Database = {
         Returns: {
           event_id: string
           ticket_count: number
+        }[]
+      }
+      get_my_todays_attendance: {
+        Args: never
+        Returns: {
+          course_id: string
+          status: string
         }[]
       }
       is_course_teacher: { Args: { p_course_id: string }; Returns: boolean }
@@ -1532,6 +1540,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      self_toggle_attendance: { Args: { p_course_id: string }; Returns: string }
       self_undo_pending_change: {
         Args: { p_subscription_id: string }
         Returns: {

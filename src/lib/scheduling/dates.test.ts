@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { jsDayToWeekday, formatDateLocal, upcomingOccurrences, pastOccurrences, daysUntil } from "./dates";
+import {
+  jsDayToWeekday,
+  formatDateLocal,
+  upcomingOccurrences,
+  pastOccurrences,
+  daysUntil,
+  selfCheckinWindow,
+} from "./dates";
 
 describe("jsDayToWeekday", () => {
   it("maps JS Sunday (0) to app Sonntag (6)", () => {
@@ -109,5 +116,28 @@ describe("daysUntil", () => {
 
   it("returns a negative number for a past date", () => {
     expect(daysUntil("2026-08-15")).toBe(-1);
+  });
+});
+
+describe("selfCheckinWindow", () => {
+  // PROJ-25: course start_time/end_time are entered and displayed as Vienna
+  // wall-clock time everywhere in the app, not UTC — the window must
+  // interpret them that way (regression guard for a Vienna/UTC offset bug).
+  it("interprets start/end as Vienna local time in summer (CEST, UTC+2)", () => {
+    const { opensAt, endsAt } = selfCheckinWindow("2026-08-18", "18:00:00", "19:00:00");
+    expect(opensAt.toISOString()).toBe("2026-08-18T15:30:00.000Z"); // 17:30 Vienna - 30min = 15:30 UTC
+    expect(endsAt.toISOString()).toBe("2026-08-18T17:00:00.000Z"); // 19:00 Vienna = 17:00 UTC
+  });
+
+  it("interprets start/end as Vienna local time in winter (CET, UTC+1)", () => {
+    const { opensAt, endsAt } = selfCheckinWindow("2026-01-18", "18:00:00", "19:00:00");
+    expect(opensAt.toISOString()).toBe("2026-01-18T16:30:00.000Z"); // 17:30 Vienna - 30min = 16:30 UTC
+    expect(endsAt.toISOString()).toBe("2026-01-18T18:00:00.000Z"); // 19:00 Vienna = 18:00 UTC
+  });
+
+  it("opens exactly 30 minutes before the Vienna-local start time", () => {
+    const { opensAt } = selfCheckinWindow("2026-08-18", "18:00:00", "19:00:00");
+    const start = selfCheckinWindow("2026-08-18", "18:00:00", "18:00:00").endsAt;
+    expect(start.getTime() - opensAt.getTime()).toBe(30 * 60 * 1000);
   });
 });

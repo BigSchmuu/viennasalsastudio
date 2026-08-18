@@ -79,3 +79,32 @@ export function daysUntil(dateString: string): number {
   const target = new Date(dateString + "T00:00:00");
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
+
+/** Minutes Europe/Vienna is ahead of UTC at the given instant (handles CET/CEST). */
+function viennaOffsetMinutes(instant: Date): number {
+  const utc = new Date(instant.toLocaleString("en-US", { timeZone: "UTC" }));
+  const vienna = new Date(instant.toLocaleString("en-US", { timeZone: "Europe/Vienna" }));
+  return (vienna.getTime() - utc.getTime()) / 60000;
+}
+
+/** Converts a course_schedule `start_time`/`end_time` (Vienna wall-clock, e.g. "18:00:00")
+ *  on a given date into the correct UTC instant — course times are entered and displayed
+ *  as Vienna local time everywhere in the app, not UTC. */
+function viennaWallClockToDate(dateString: string, timeString: string): Date {
+  const naiveUtc = new Date(`${dateString}T${timeString.slice(0, 5)}:00Z`);
+  const offsetMinutes = viennaOffsetMinutes(naiveUtc);
+  return new Date(naiveUtc.getTime() - offsetMinutes * 60000);
+}
+
+/** Self-check-in window for a course occurrence: opens 30 minutes before the
+ *  Vienna-local start time, closes (for undo purposes) at the Vienna-local end time. */
+export function selfCheckinWindow(
+  occurrenceDate: string,
+  startTime: string,
+  endTime: string
+): { opensAt: Date; endsAt: Date } {
+  const start = viennaWallClockToDate(occurrenceDate, startTime);
+  const endsAt = viennaWallClockToDate(occurrenceDate, endTime);
+  const opensAt = new Date(start.getTime() - 30 * 60000);
+  return { opensAt, endsAt };
+}
