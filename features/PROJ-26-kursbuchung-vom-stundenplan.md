@@ -1,6 +1,6 @@
 # PROJ-26: Kursbuchung direkt von /stundenplan aus
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-18
 **Last Updated:** 2026-08-18
 
@@ -187,4 +187,20 @@ Keine. (AC7 ist eine dokumentierte Spec/Datenmodell-Diskrepanz, kein Implementie
 - **Neue E2E-Fixtures** (Produktions-DB, Präfix `e2e26-`/`E2E26`): 2 Auth-Nutzer (`e2e26-customer-no-sub`, `e2e26-customer-with-sub`), 2 Kurse mit Terminen (einer mit Kapazität 1, um „Ausgebucht" deterministisch zu testen), 2 aktive Abos. Persistieren als Regressions-Fixtures für diese Spec.
 
 ## Deployment
-_To be added by /deploy_
+
+**Production URL:** https://viennasalsastudio.vercel.app
+**Deployed:** 2026-08-18
+**Git tag:** `v1.0.0-PROJ-26`
+
+**Pre-deployment checks:**
+- `npm run build`, `npm run lint` clean immediately before push; `npm test` (162/162) already confirmed clean during `/qa`
+- Keine neuen Umgebungsvariablen, keine neuen Migrationen (dieses Feature führt keine Datenbank-Änderungen ein)
+- Keine Secrets im Git
+- Arbeitsverzeichnis sauber, 4 Commits vor `origin/main` (Spec → Architektur → Frontend → QA), gepusht zum Auslösen des Vercel-Auto-Deploys
+
+**Post-deployment verification (live in Produktion):**
+- Authentifizierter Produktions-Smoketest (Playwright, gegen `viennasalsastudio.vercel.app`): Kunde loggt sich ein, `/stundenplan` zeigt „Buchen" für „E2E26 Buchbar Kurs", Klick öffnet den Dialog mit dem „Anmeldung"-Tab, keine Browser-Konsolenfehler
+- „Ausgebucht"-Hinweis auf „E2E26 Ausgebucht Kurs" live bestätigt
+- Da Frontend und Backend dieselbe produktive Supabase-Instanz nutzen wie bereits während `/qa` getestet, war die eigentliche Buchungs-Interaktion (Dialog, Absenden, „Meine Buchungen") bereits vollständig gegen dieselbe Datengrundlage verifiziert — der Produktions-Smoketest bestätigt zusätzlich, dass die neue Next.js-Build tatsächlich live ist
+
+Keine neuen Production-Ready-Essentials nötig (bereits aus früheren Deployments vorhanden, von diesem Feature unberührt).
