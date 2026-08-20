@@ -1,8 +1,8 @@
 # PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-08-17
-**Last Updated:** 2026-08-17
+**Last Updated:** 2026-08-20
 
 ## Dependencies
 - Requires: PROJ-2 (Auth & Kundenprofil) — Lehrer muss eingeloggt sein
@@ -15,6 +15,8 @@
 ## User Stories
 - Als Lehrer möchte ich meine zugewiesenen Kurse mit ihren Terminen sehen, damit ich weiß, wann ich unterrichte.
 - Als Lehrer möchte ich pro Kurstermin die erwarteten Teilnehmer sehen und deren Anwesenheit markieren, damit ich einen Überblick habe, wer da war.
+- Als Lehrer möchte ich die Anwesenheit aller Kursteilnehmer über mehrere Termine hinweg auf einen Blick sehen (statt mich durch jeden Termin einzeln klicken zu müssen), damit ich schnell erkenne, wer regelmäßig kommt und wo noch etwas fehlt.
+- Als Lehrer möchte ich am Tag eines stattfindenden Termins die erwarteten Kursteilnehmer direkt einchecken können, ohne vorher navigieren zu müssen, damit das Erfassen während oder kurz nach dem Unterricht schnell geht.
 - Als Lehrer möchte ich bei Bedarf manuell einen Kunden zur Anwesenheitsliste hinzufügen, damit auch Flatrate-Kunden oder spontane Teilnehmer erfasst werden, die nicht automatisch gelistet sind.
 - Als Lehrer möchte ich pro Kurstermin eine Notiz hinterlegen, damit ich (und ggf. Co-Lehrer desselben Kurses) den Unterrichtsverlauf nachvollziehen können.
 - Als Admin möchte ich Anwesenheit und Notizen aller Kurse einsehen und bei Bedarf korrigieren können, damit ich bei Rückfragen oder Lehrerausfall eingreifen kann.
@@ -22,6 +24,8 @@
 ## Out of Scope
 - **Vertretungsanfragen/-verwaltung** — eigenständiger Anfrage-/Zusage-Workflow mit Benachrichtigungen, sprengt den Rahmen von PROJ-13. Ein zukünftiges Feature könnte darauf aufbauen (z.B. „Vertretung anfragen"-Button in dieser Lehrer-Ansicht), wird hier aber nicht vorgezogen.
 - **Gesamtübersicht aller Kurse** (nicht nur eigene) — bereits durch den bestehenden öffentlichen Stundenplan (PROJ-6) abgedeckt, den auch Lehrer besuchen können; kein neuer Code nötig.
+- **Kursübergreifende Anwesenheits-Matrix** (alle eigenen Kurse gleichzeitig auf einer Seite) — bewusst pro Kurs belassen; der Kurs-Auswahlschritt bleibt bestehen, siehe Decision Log (2026-08-20).
+- **Zukünftige Termine als gesperrte Vorschau-Spalten in der Matrix** — kein Mehrwert, da für zukünftige Termine ohnehin nichts markierbar ist; die Matrix zeigt nur den heutigen (falls vorhanden) sowie die letzten 8 vergangenen Termine.
 - **Kunden-Sicht auf eigene Anwesenheit** — Kunden sehen ihre Anwesenheitshistorie in dieser Version nicht, nur Lehrer und Admin.
 - **Statistiken/Auswertungen über Anwesenheit** (z.B. Anwesenheitsquote pro Kunde/Kurs) — gehört perspektivisch zu PROJ-17 (Admin-Analytics-Dashboard).
 - **Dritter Anwesenheits-Status „Entschuldigt"** — für MVP nur Anwesend/Abwesend.
@@ -35,26 +39,29 @@
 
 - [ ] Angenommen ein Nutzer mit der Rolle Lehrer ist eingeloggt, wenn er eine beliebige Seite der App aufruft, dann sieht er in der globalen Navigation einen zusätzlichen Link „Meine Kurse"
 - [ ] Angenommen ein Lehrer ist aktuell keinem Kurs zugewiesen, wenn er „Meine Kurse" öffnet, dann sieht er einen Hinweistext statt einer leeren Liste
-- [ ] Angenommen ein Lehrer ist einem oder mehreren Kursen zugewiesen, wenn er „Meine Kurse" öffnet, dann sieht er seine Kurse mit den anstehenden sowie den letzten 8 vergangenen Terminen je Kurs
-- [ ] Angenommen ein Lehrer öffnet einen heutigen oder vergangenen Kurstermin, wenn die Anwesenheitsliste lädt, dann sind alle Kunden mit aktivem kursgebundenem Abo sowie alle für genau dieses Datum bestätigten Probestunden-/Drop-in-Buchungen automatisch vorbefüllt
-- [ ] Angenommen ein Lehrer markiert einen Kunden auf der Anwesenheitsliste als anwesend oder abwesend, wenn er speichert, dann wird der Status sofort übernommen und bleibt bei erneutem Aufruf der Seite sichtbar
-- [ ] Angenommen ein Lehrer öffnet einen zukünftigen Kurstermin, dann ist das Markieren von Anwesenheit gesperrt, da der Termin noch nicht stattgefunden hat
-- [ ] Angenommen ein Lehrer möchte einen Kunden erfassen, der nicht automatisch gelistet ist (z.B. Flatrate-Kunde), wenn er „Kunde hinzufügen" nutzt, dann kann er aus allen Kunden mit einem aktiven Abo oder einer aktiven Buchung auswählen
-- [ ] Angenommen ein Lehrer trägt eine Notiz zu einem Kurstermin ein, wenn er speichert, dann ist die Notiz für alle diesem Kurs zugewiesenen Lehrer sowie für den Admin sichtbar und bearbeitbar
+- [ ] Angenommen ein Lehrer ist einem oder mehreren Kursen zugewiesen, wenn er „Meine Kurse" öffnet, dann sieht er seine Kurse zur Auswahl
+- [ ] Angenommen ein Lehrer öffnet einen Kurs mit mindestens einem stattgefundenen Termin, wenn die Anwesenheitsmatrix lädt, dann zeigt sie je Zeile einen erwarteten oder manuell hinzugefügten Kursteilnehmer und je Spalte den heutigen Termin (falls einer stattfindet) sowie die letzten 8 vergangenen Termine dieses Kurses
+- [ ] Angenommen ein Kursteilnehmer hat ein aktives kursgebundenes Abo oder eine für ein bestimmtes Datum bestätigte Probestunden-/Drop-in-Buchung, wenn die Matrix lädt, dann ist die entsprechende Zelle in der jeweiligen Termin-Spalte automatisch als „erwartet" vorbefüllt
+- [ ] Angenommen ein Lehrer tippt in der Matrix die Zelle eines Kursteilnehmers für den heutigen oder einen vergangenen Termin an, wenn er anwesend oder abwesend markiert, dann wird der Status sofort übernommen und bleibt bei erneutem Aufruf der Seite sichtbar
+- [ ] Angenommen ein Kurstermin liegt in der Zukunft, dann erscheint für ihn keine Spalte in der Matrix, da Anwesenheit erst nach dem Termin erfasst werden darf
+- [ ] Angenommen ein Lehrer möchte einen Kunden erfassen, der nicht automatisch in der Matrix erscheint (z.B. Flatrate-Kunde), wenn er „Kunde hinzufügen" nutzt und aus allen Kunden mit aktivem Abo oder aktiver Buchung auswählt, dann erscheint eine neue Zeile für diesen Kunden, die der Lehrer in der passenden Termin-Spalte als anwesend markieren kann
+- [ ] Angenommen ein Lehrer öffnet über das Notiz-Icon im Spaltenkopf eines Termins den Notiz-Dialog, wenn er eine Notiz einträgt und speichert, dann ist die Notiz für alle diesem Kurs zugewiesenen Lehrer sowie für den Admin sichtbar und bearbeitbar
 - [ ] Angenommen ein Lehrer versucht, über eine direkte URL auf einen Kurs zuzugreifen, dem er nicht zugewiesen ist, dann wird der Zugriff verweigert
-- [ ] Angenommen ein Admin öffnet die Anwesenheits-/Notizansicht eines beliebigen Kurses, dann kann er dieselben Inhalte wie ein zugewiesener Lehrer einsehen und bearbeiten
+- [ ] Angenommen ein Admin öffnet die Anwesenheitsmatrix eines beliebigen Kurses, dann kann er dieselben Inhalte wie ein zugewiesener Lehrer einsehen und bearbeiten
 
 ## Edge Cases
-- Kurs hat noch keinen Wochentermin oder keine Einstiegstermine hinterlegt (wie bei PROJ-8 möglich) → keine Termine zum Markieren vorhanden, Hinweistext statt leerer Liste
-- Kunde storniert seine Probestunde/Drop-in-Buchung, nachdem für diesen Termin bereits Anwesenheit erfasst wurde → der erfasste Datensatz bleibt als historischer Eintrag bestehen
-- Kunde bucht seine Probestunde auf ein neues Datum um (Umbuchen, PROJ-8) → Anwesenheit bleibt am ursprünglichen Termin, am neuen Termin erscheint der Kunde erneut automatisch vorbefüllt
-- Lehrer wird nachträglich von einem Kurs abgezogen (Admin ändert Kurs-Zuweisung) → verliert sofort den Zugriff auf Anwesenheit/Notizen dieses Kurses; bereits erfasste Daten bleiben für Admin und verbleibende Lehrer erhalten
+- Kurs hat noch keinen Wochentermin oder keine Einstiegstermine hinterlegt (wie bei PROJ-8 möglich) → keine Termine zum Markieren vorhanden, Hinweistext statt leerer Matrix
+- Kunde storniert seine Probestunde/Drop-in-Buchung, nachdem für diesen Termin bereits Anwesenheit erfasst wurde → die erfasste Zelle bleibt als historischer Eintrag bestehen
+- Kunde bucht seine Probestunde auf ein neues Datum um (Umbuchen, PROJ-8) → Anwesenheit bleibt in der Spalte des ursprünglichen Termins bestehen; in der Spalte des neuen Termins erscheint der Kunde erneut automatisch als „erwartet" vorbefüllt — sofern das neue Datum innerhalb der sichtbaren 9 Spalten (heute + letzte 8) liegt; liegt es außerhalb, erscheint die Zelle erst, sobald der Termin in dieses Fenster rückt
+- Lehrer wird nachträglich von einem Kurs abgezogen (Admin ändert Kurs-Zuweisung) → verliert sofort den Zugriff auf die gesamte Matrix dieses Kurses; bereits erfasste Daten bleiben für Admin und verbleibende Lehrer erhalten
 - Zwei Lehrer bearbeiten gleichzeitig dieselbe Termin-Notiz → letzter Speicherstand gewinnt, kein Konflikt-Handling für MVP
-- Kunde hat sowohl ein kursgebundenes Abo als auch eine bestätigte Drop-in-Buchung für denselben Termin → erscheint nur einmal auf der Liste, nicht doppelt
+- Kunde hat sowohl ein kursgebundenes Abo als auch eine bestätigte Drop-in-Buchung für denselben Termin → erscheint als eine Zeile mit einer Zelle je Spalte, nicht doppelt
+- Kurs mit vielen Kursteilnehmern oder Terminen → Matrix scrollt horizontal bei Bedarf, die Kundennamen-Spalte bleibt beim Scrollen sichtbar (sticky)
 
 ## Technical Requirements (optional)
 - Security: Zugriff auf Anwesenheit/Notizen eines Kurses ausschließlich für die diesem Kurs zugewiesenen Lehrer (`course_teachers`) und für Admin; serverseitig durchgesetzt, nicht nur UI-seitig verborgen
 - Datenintegrität: Anwesenheitsstatus ist pro Kurs, Termin-Datum und Kunde eindeutig (kein Duplikat bei mehrfachem Speichern)
+- Mobile/Responsive: Matrix scrollt horizontal bei vielen Terminen; die Kundennamen-Spalte bleibt beim Scrollen sichtbar (sticky)
 
 ## Open Questions
 - [ ] Keine offenen Fragen
@@ -76,6 +83,12 @@
 | Admin darf Anwesenheit/Notizen auch bearbeiten, nicht nur einsehen | Konsistent mit dem bestehenden Vollzugriffs-Muster für Admin in der gesamten App (z.B. bei Abos, Buchungen) | 2026-08-17 |
 | Neuer Nav-Link „Meine Kurse" für die Lehrer-Rolle | Konsistent mit PROJ-24s bestehendem Muster für rollenspezifische Nav-Links (analog zum Admin-Link) | 2026-08-17 |
 | Manuelles Hinzufügen zur Anwesenheitsliste nur unter Kunden mit aktivem Abo oder aktiver Buchung | Verhindert versehentliches Hinzufügen falscher oder inaktiver Kunden | 2026-08-17 |
+| Anwesenheits-Matrix (Kunden als Zeilen, Termine als Spalten) ersetzt die bisherige Terminliste + separate Termin-Detailseite | Löst die im echten Betrieb aufgetretene Klicktiefe direkt: heutige Spalte dient als Check-in, letzte vergangene Spalte als „letzte Lektion"-Übersicht — beides ohne separaten, redundanten Bereich | 2026-08-20 |
+| Scope bleibt pro Kurs, keine kursübergreifende Gesamtmatrix aller eigenen Kurse | Nutzer bevorzugt den bestehenden Kurs-Auswahlschritt beizubehalten statt eine neue kursübergreifende Dashboard-Ebene einzuführen | 2026-08-20 |
+| Matrix zeigt nur den heutigen (falls vorhanden) sowie die letzten 8 vergangenen Termine als Spalten, keine zukünftigen Termine als gesperrte Vorschau | Zukünftige Termine bringen keinen Mehrwert, da ohnehin nichts markierbar ist; konsistent mit der bestehenden Regel „Anwesenheit nur für heutige und vergangene Termine" | 2026-08-20 |
+| Zellen sind direkt in der Matrix editierbar, kein separater Read-only-Übersichtsmodus | Vermeidet einen zweiten Weg für denselben Zweck; Korrekturen (z.B. Vertipper) sollen ohne Seitenwechsel möglich sein | 2026-08-20 |
+| „Kunde hinzufügen" fügt eine kursweite Zeile hinzu statt Kunde + Termin gemeinsam in einem Dialog auszuwählen | Ein Schritt weniger; der Kunde kann danach in jeder passenden Spalte markiert werden, auch bei mehrfacher Anwesenheit über mehrere sichtbare Termine hinweg | 2026-08-20 |
+| Termin-Notiz über ein Icon im Spaltenkopf statt einer eigenen Seite/eines eigenen Bereichs | Notizen bleiben termin-gebunden wie bisher, aber ohne Navigationsschritt weg von der Matrix | 2026-08-20 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -87,6 +100,8 @@
 | Serverseitige Zugriffsprüfung „zugewiesener Lehrer ODER Admin" pro Kurs, nicht nur UI-seitig verborgen | Erfüllt die explizite Sicherheitsanforderung aus dem Spec; verhindert Zugriff über direkt aufgerufene URLs (entspricht dem in dieser App durchgängig verwendeten RLS-Muster) | 2026-08-17 |
 | Admin nutzt dieselbe Lehrer-Ansicht statt einer separaten Admin-Oberfläche, erreichbar über einen neuen Einstiegspunkt in der bestehenden Kursverwaltung (`/admin/kurse`) | Vermeidet doppelt gebaute/gepflegte Oberflächen; stellt sicher, dass Admin exakt das sieht und bearbeitet, was der Lehrer sieht | 2026-08-17 |
 | „Kunde hinzufügen" nutzt eine Kundensuche nach demselben Muster wie die bestehende Kundensuche bei der Lehrer-Beförderung (PROJ-22) | Bewährtes, bereits vorhandenes UI-Muster für „aus einer eingeschränkten Kundenmenge auswählen" wiederverwenden statt neu zu erfinden | 2026-08-17 |
+| Dedizierte Route `/lehrer/[courseId]/[date]` entfällt zugunsten einer einzigen Matrix-Ansicht auf `/lehrer/[courseId]` | Bestehende Roster-/Notiz-Logik (RPCs) bleibt unverändert nutzbar, nur die UI-Struktur ändert sich von „eine Seite pro Termin" zu „eine Matrix über alle sichtbaren Termine" | 2026-08-20 |
+| Matrix ruft `get_course_attendance_roster` je sichtbarer Spalte (heute + letzte 8) auf und kombiniert die Ergebnisse clientseitig zu einer Kunden-Zeilen-Struktur | Bestehende RPC-Signatur (`p_course_id, p_occurrence_date`) bleibt unverändert; keine Backend-Änderung nötig, nur zusätzliche parallele Aufrufe statt eines einzelnen | 2026-08-20 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
