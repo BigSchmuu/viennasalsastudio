@@ -29,6 +29,12 @@ export default function RootLayout({
   return (
     <html lang="de">
       <body className={`${inter.variable} ${raleway.variable} font-sans antialiased`}>
+        {/* Written by the server, read by SentryInit — see its comment for why. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__SENTRY_DSN__=${JSON.stringify(process.env.NEXT_PUBLIC_SENTRY_DSN ?? "")};`,
+          }}
+        />
         <SentryInit />
         {children}
         <Toaster />
