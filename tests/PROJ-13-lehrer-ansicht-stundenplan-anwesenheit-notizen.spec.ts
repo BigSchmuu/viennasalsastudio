@@ -31,7 +31,7 @@ function rowFor(page: Page, name: string) {
 
 async function openCell(page: Page, row: ReturnType<typeof rowFor>, cellIndex: number) {
   const cells = row.locator("td");
-  await cells.nth(cellIndex).getByRole("button", { name: "Anwesenheit markieren" }).click();
+  await cells.nth(cellIndex).getByRole("button").click();
 }
 
 test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () => {
@@ -98,17 +98,17 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     const cells = row.locator("td");
     const cellCount = await cells.count();
     // Today's column is always last (columns render oldest -> newest).
-    await cells.nth(cellCount - 1).getByRole("button", { name: "Anwesenheit markieren" }).click();
+    await cells.nth(cellCount - 1).getByRole("button").click();
     await page.getByRole("button", { name: "Anwesend", exact: true }).click();
     await page.waitForTimeout(800);
 
-    await expect(cells.nth(cellCount - 1).getByRole("button", { name: "Anwesenheit markieren" })).toHaveClass(/border-emerald-600/);
+    await expect(cells.nth(cellCount - 1).getByRole("button")).toHaveClass(/border-emerald-600/);
 
     await page.reload();
     await page.waitForTimeout(1000);
     const rowAfterReload = rowFor(page, "E2E13 Dropin Kunde");
     const cellsAfterReload = rowAfterReload.locator("td");
-    await expect(cellsAfterReload.nth(cellCount - 1).getByRole("button", { name: "Anwesenheit markieren" })).toHaveClass(/border-emerald-600/);
+    await expect(cellsAfterReload.nth(cellCount - 1).getByRole("button")).toHaveClass(/border-emerald-600/);
   });
 
   test("AC5b: Vorab erfasste Anwesenheit (Abwesend) ist beim Laden sichtbar", async ({ page }) => {
@@ -145,10 +145,10 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     await expect(row).toBeVisible();
     const cells = row.locator("td");
     const cellCount = await cells.count();
-    await cells.nth(cellCount - 1).getByRole("button", { name: "Anwesenheit markieren" }).click();
+    await cells.nth(cellCount - 1).getByRole("button").click();
     await page.getByRole("button", { name: "Anwesend", exact: true }).click();
     await page.waitForTimeout(800);
-    await expect(cells.nth(cellCount - 1).getByRole("button", { name: "Anwesenheit markieren" })).toHaveClass(/border-emerald-600/);
+    await expect(cells.nth(cellCount - 1).getByRole("button")).toHaveClass(/border-emerald-600/);
   });
 
   test("AC8: Notiz ist für alle zugewiesenen Lehrer sichtbar und bearbeitbar", async ({ page }) => {

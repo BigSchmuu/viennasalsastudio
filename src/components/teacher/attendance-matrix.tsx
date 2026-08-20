@@ -64,6 +64,7 @@ export function AttendanceMatrix({
   const [noteFilled, setNoteFilled] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(columns.map((c) => [c.date, c.initialNote.trim().length > 0]))
   );
+  const [unsavedIds, setUnsavedIds] = useState<Set<string>>(new Set());
 
   async function handleMark(customerId: string, date: string, status: "present" | "absent") {
     const key = `${customerId}:${date}`;
@@ -87,6 +88,12 @@ export function AttendanceMatrix({
             : r
         )
       );
+      setUnsavedIds((prev) => {
+        if (!prev.has(customerId)) return prev;
+        const next = new Set(prev);
+        next.delete(customerId);
+        return next;
+      });
     } finally {
       setSavingKey(null);
     }
@@ -95,6 +102,7 @@ export function AttendanceMatrix({
   function handleAddCustomer(customer: EligibleCustomer) {
     setAddOpen(false);
     setRows((prev) => [...prev, { customerId: customer.id, fullName: customer.name, cells: {} }]);
+    setUnsavedIds((prev) => new Set(prev).add(customer.id));
   }
 
   const listedIds = new Set(rows.map((r) => r.customerId));
@@ -162,7 +170,14 @@ export function AttendanceMatrix({
               sortedRows.map((row) => (
                 <TableRow key={row.customerId}>
                   <TableCell className="sticky left-0 z-10 bg-background font-medium whitespace-nowrap">
-                    {row.fullName}
+                    <div className="flex items-center gap-2">
+                      {row.fullName}
+                      {unsavedIds.has(row.customerId) && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-700 border-amber-300">
+                          Nicht gespeichert
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   {columns.map((col) => {
                     const cell = row.cells[col.date] ?? null;
@@ -173,6 +188,8 @@ export function AttendanceMatrix({
                           cell={cell}
                           saving={savingKey === key}
                           onMark={(status) => handleMark(row.customerId, col.date, status)}
+                          customerName={row.fullName}
+                          dateLabel={formatColumnDate(col.date)}
                         />
                       </TableCell>
                     );
@@ -213,10 +230,14 @@ function AttendanceCell({
   cell,
   saving,
   onMark,
+  customerName,
+  dateLabel,
 }: {
   cell: MatrixCell;
   saving: boolean;
   onMark: (status: "present" | "absent") => void;
+  customerName: string;
+  dateLabel: string;
 }) {
   const [open, setOpen] = useState(false);
   const status = cell?.status ?? null;
@@ -227,7 +248,7 @@ function AttendanceCell({
         <button
           type="button"
           disabled={saving}
-          aria-label="Anwesenheit markieren"
+          aria-label={`Anwesenheit für ${customerName} am ${dateLabel} markieren`}
           className={cn(
             "relative mx-auto flex h-8 w-8 items-center justify-center rounded-md border transition-colors hover:bg-muted disabled:opacity-50",
             status === "present" && "border-emerald-600 bg-emerald-50 text-emerald-700",

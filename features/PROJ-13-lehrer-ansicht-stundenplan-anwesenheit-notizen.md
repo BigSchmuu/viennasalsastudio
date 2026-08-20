@@ -305,9 +305,9 @@ All verified via a real browser session (Playwright, new `e2e13-*` fixtures) and
 
 **Conclusion: no regressions caused by PROJ-13's own changes; the wider suite's failures are a pre-existing environmental issue outside this feature's scope.**
 
-### Bugs Found
+### Bugs Found — fixed (2026-08-20)
 
-#### BUG-2: "Kunde hinzufügen" without immediately marking a cell silently loses the addition
+#### BUG-2: "Kunde hinzufügen" without immediately marking a cell silently loses the addition — FIXED
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. As a teacher, open a course's attendance matrix.
@@ -315,26 +315,28 @@ All verified via a real browser session (Playwright, new `e2e13-*` fixtures) and
   3. Without clicking any cell in their new row, reload the page (or navigate away and back).
   4. Expected: some indication the addition is pending, or the row persists.
   5. Actual: the row is silently gone — confirmed empirically via Playwright (reload after add-without-mark → row count 0).
-- **Root cause:** `attendance-matrix.tsx`'s `handleAddCustomer` (`src/components/teacher/attendance-matrix.tsx:95-98`) only updates local React state — no server call happens until a cell is actually marked. This was a deliberate rework of the original single-page version, which combined add+mark into one atomic action (`handleAdd` auto-called `handleMark(customer.id, "present")`); the `/refine` interview explicitly decoupled these two steps ("Kunde hinzufügen fügt eine Zeile hinzu, dann Zelle antippen") without the consequence of losing an un-marked add being surfaced at the time.
-- **Impact:** no data corruption — nothing false is ever recorded — but a real UX trap: a teacher who gets interrupted between adding and marking loses the addition with no warning and has to redo it. Workaround: just re-add.
-- **Priority:** Not blocking (Medium, not High/Critical) — recommend fixing before this feels "production polished," but doesn't need to gate this deployment. Possible fixes for a future `/frontend` pass: mark the customer present immediately on add (closer to the original behavior), or show a persistent "not yet saved" indicator on newly-added, unmarked rows.
+- **Root cause:** `attendance-matrix.tsx`'s `handleAddCustomer` only updates local React state — no server call happens until a cell is actually marked. This was a deliberate rework of the original single-page version, which combined add+mark into one atomic action; the `/refine` interview explicitly decoupled these two steps without the consequence of losing an un-marked add being surfaced at the time.
+- **Impact:** no data corruption — nothing false is ever recorded — but a real UX trap: a teacher who gets interrupted between adding and marking loses the addition with no warning and has to redo it.
+- **Fix applied:** added an `unsavedIds` client-state set — a manually-added customer's row shows an amber „Nicht gespeichert" badge next to their name until any cell for them is actually marked (at which point real data exists and the badge disappears). Doesn't prevent the loss if the teacher still navigates away without marking, but makes the pending state visible instead of silent — keeps the `/refine` decision (add and mark as separate steps) intact while closing the "silent" part of the trap. Re-verified via Playwright: badge appears immediately on add, disappears immediately after marking; `npm run build`/`lint`/`test` (162/162) all green; full `tests/PROJ-13-...spec.ts` re-run: 13/13 pass.
+- **Priority:** Fixed before deployment (was non-blocking, but the user asked for both bugs to be addressed now).
 
-#### BUG-3: Attendance cells all share an identical, non-differentiating `aria-label`
+#### BUG-3: Attendance cells all share an identical, non-differentiating `aria-label` — FIXED
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Inspect any cell button in the matrix with a screen reader or accessibility tree.
   2. Expected: the label identifies which customer and which date the cell belongs to.
-  3. Actual: every cell button (`src/components/teacher/attendance-matrix.tsx:230`) has the exact same `aria-label="Anwesenheit markieren"`, regardless of row/column — a screen-reader user tabbing through the matrix hears the identical label dozens of times with no way to distinguish cells without also tracking table structure narration.
-- **Impact:** accessibility gap for the matrix's core interaction; doesn't block sighted mouse/touch use.
-- **Priority:** Nice to have — recommend `aria-label={`Anwesenheit für ${row.fullName} am ${date} markieren`}` in a future pass.
+  3. Actual: every cell button had the exact same `aria-label="Anwesenheit markieren"`, regardless of row/column — a screen-reader user tabbing through the matrix hears the identical label dozens of times with no way to distinguish cells.
+- **Impact:** accessibility gap for the matrix's core interaction; didn't block sighted mouse/touch use.
+- **Fix applied:** `AttendanceCell` now takes `customerName`/`dateLabel` props and sets `aria-label={`Anwesenheit für ${customerName} am ${dateLabel} markieren`}` — e.g. "Anwesenheit für E2E13 Flatrate Kunde am Do., 20.08. markieren". Re-verified via Playwright: `getAttribute("aria-label")` on a cell now contains the customer's name. The permanent E2E spec's cell locators were switched from name-matching to plain `getByRole("button")` (each cell has exactly one button, so this is unaffected by label content and won't need updating again if the label wording changes).
+- **Priority:** Fixed before deployment.
 
 ### Summary
 - **Acceptance Criteria:** 13/13 pass (10 original + AC2b/AC3b split out for clarity, all reflecting the matrix rework).
-- **Bugs Found:** 2 new (0 Critical/High, 1 Medium, 1 Low) — neither blocks deployment. 1 pre-existing Low-severity informational security note carried forward, unchanged.
+- **Bugs Found:** 2 new — **both fixed and re-verified** (0 Critical/High/Medium/Low remaining from this pass). 1 pre-existing Low-severity informational security note carried forward, unchanged (DB-level note length cap).
 - **Security:** authorization boundaries, future-date lock, and XSS-safety all re-confirmed unchanged and intact under the matrix rework.
 - **Regressions:** none caused by PROJ-13. The wider Playwright suite is broadly broken for an unrelated, pre-existing reason (missing test fixtures project-wide) — flagged for the user's awareness, not a blocker for this feature.
 - **Production Ready:** **YES.**
-- **Recommendation:** Ready for `/deploy`. Consider a follow-up `/frontend` pass for BUG-2 (Medium) at some point; not urgent enough to hold up this release.
+- **Recommendation:** Ready for `/deploy`.
 
 <details>
 <summary>Vorherige QA-Ergebnisse (2026-08-17, ursprüngliche Terminlisten-/Termin-Detailseiten-Struktur, durch das Obige ersetzt)</summary>
