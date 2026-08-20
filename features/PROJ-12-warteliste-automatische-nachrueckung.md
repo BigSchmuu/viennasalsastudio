@@ -289,3 +289,6 @@ Ran the full existing Playwright suite as a baseline before making any further c
 
 ### Production-Ready Essentials
 Already covered by earlier deployments in this project (error tracking, security headers, etc. — see PROJ-1's deployment notes); nothing new required for this feature.
+
+### Nachtrag (2026-08-20): `promote_waitlist_for_course` Admin-Check nachgerüstet
+Der seit der ursprünglichen QA als "informational only" akzeptierte Befund (Zeile 262 oben — die Funktion hatte keine eigene Rollenprüfung, war nur über die Next.js-Actions admin-gated) wurde während der PROJ-27-Sicherheitsrecherche erneut aufgegriffen und jetzt behoben: `promote_waitlist_for_course` prüft jetzt intern `current_role() = 'admin'` und lehnt mit `not authorized` ab, wenn nicht. Live verifiziert — direkter RPC-Aufruf als normaler Kunde wird abgelehnt, als Admin funktioniert es unverändert. Keine Code-Änderung nötig (reine DB-Migration, direkt auf Produktion angewendet), kein Deploy erforderlich.
