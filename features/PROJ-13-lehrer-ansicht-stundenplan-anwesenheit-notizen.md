@@ -1,6 +1,6 @@
 # PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-20
 
@@ -412,6 +412,34 @@ Ran the full existing Playwright suite as a baseline. **Zero `chromium` failures
 ## Deployment
 
 **Production URL:** https://viennasalsastudio.vercel.app
+**Deployed:** 2026-08-20
+**Tag:** `v1.0.1-PROJ-13`
+**Commits:** `d72bff3` (refine) → `fa36ab6` (architecture) → `6beb701` (frontend) → `9dc9f8a` (QA) → `ea06083` (BUG-2/BUG-3 fixes, this deploy)
+
+### Pre-Deployment Checks
+- `npm run build`, `npm run lint`, `npm test` (162/162): all clean.
+- QA: Approved, 0 Critical/High/Medium/Low bugs remaining (BUG-2 and BUG-3 fixed and re-verified — see QA Test Results above).
+- No new environment variables needed for this rework (pure frontend change).
+- No secrets committed.
+- DB migrations: none — this rework reuses the six existing `SECURITY DEFINER` functions unchanged, no new migration.
+- All code committed and pushed to `main`.
+
+### Deploy
+- Pushed to `main` → Vercel auto-deploy fired correctly and completed successfully (confirmed via the GitHub commit status API going `pending` → `success`).
+
+### Post-Deployment Verification
+- Production loads: `/`, `/kurse` return 200.
+- **Verified live in production, authenticated as a real teacher fixture:** logged in as `e2e13-lehrer-a`, opened the "E2E13 Kurs" attendance matrix — "Heute" column present, existing roster renders correctly. Re-verified both bug fixes directly against production: added "E2E13 Flatrate Kunde" via „Kunde hinzufügen" → „Nicht gespeichert" badge appears immediately (BUG-2 fix live); the cell's `aria-label` includes the customer's name and date (BUG-3 fix live); marked them present → badge disappears, and the mark persists after a full page reload.
+- No new environment variables, no auth/DB connection changes — no new failure surface introduced there.
+- Temporary attendance record created during production verification was cleaned up afterward (`DELETE FROM course_attendance WHERE course_id = '6032ce07-...' AND occurrence_date = today`), leaving the `e2e13-*` fixtures in their baseline seeded state for future QA/regression runs.
+
+### Production-Ready Essentials
+Already covered by earlier deployments in this project (error tracking, security headers, etc.); nothing new required for this rework.
+
+<details>
+<summary>Vorheriges Deployment (2026-08-17, ursprüngliche Terminlisten-/Termin-Detailseiten-Struktur)</summary>
+
+**Production URL:** https://viennasalsastudio.vercel.app
 **Deployed:** 2026-08-17
 **Commits:** `d32ee82` (frontend) → `73de756` (QA) → `98263ad` (BUG-1 fix, this deploy)
 
@@ -433,3 +461,5 @@ Ran the full existing Playwright suite as a baseline. **Zero `chromium` failures
 
 ### Production-Ready Essentials
 Already covered by earlier deployments in this project (error tracking, security headers, etc.); nothing new required for this feature.
+
+</details>
