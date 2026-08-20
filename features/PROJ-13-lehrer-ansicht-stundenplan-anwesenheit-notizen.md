@@ -1,6 +1,6 @@
 # PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-20
 
@@ -258,9 +258,86 @@ Reine Frontend-Überarbeitung gemäß dem überarbeiteten Tech-Design oben — k
 
 ## QA Test Results
 
-**Tested:** 2026-08-17
+**Tested:** 2026-08-20
 **App URL:** http://localhost:3000 (+ direct SQL/RPC verification against the production Supabase project, no staging environment exists)
 **Tester:** QA Engineer (AI)
+
+### Method
+- Automated: `npm test` (Vitest, 162/162 — unchanged, no new pure utility logic was extracted in this rework, so no new unit tests were needed; the row/column assembly lives inline in a Server Component and is exercised by the E2E suite instead), full existing Playwright suite as a regression baseline, plus a rewritten `tests/PROJ-13-lehrer-ansicht-stundenplan-anwesenheit-notizen.spec.ts` (13 tests, one per acceptance criterion/edge case) targeting the new matrix.
+- New dedicated fixtures (`e2e13-*`, created fresh since none of this project's `e2e*`/`qa-*` fixtures currently exist in the database — see Regression Testing below): course "E2E13 Kurs" with a weekly schedule matching the day this QA pass ran (so a "Heute" column is always present when this file is tested), two assigned teachers (`e2e13-lehrer-a/b`), one deliberately unassigned teacher (`e2e13-lehrer-c`, doubles as the "zero courses" and "access denied" fixture), an admin (`e2e13-admin`), a second course without a weekly schedule (empty-state edge case), and customers covering every roster-source case: active course-bound abo, confirmed dropin booking, a customer with **both** an active abo and a confirmed dropin on the same date (BUG-1 regression check), and an active flatrate (course-independent) abo for the "Kunde hinzufügen" eligibility test.
+- Direct DB/RPC verification via SQL-JWT impersonation (`set local request.jwt.claims`) for the authorization boundaries — unchanged technique from the original QA pass, since all six `SECURITY DEFINER` functions are unchanged by this rework.
+
+### Acceptance Criteria Status
+All verified via a real browser session (Playwright, new `e2e13-*` fixtures) and/or direct RPC calls.
+
+- [x] **AC1** (Nav-Link „Meine Kurse" für Lehrer): PASS.
+- [x] **AC2** (Leerzustand ohne Kurse): PASS.
+- [x] **AC2b** (Kurs ohne Wochentermin → Hinweistext statt leerer Matrix): PASS.
+- [x] **AC3** (Lehrer sieht seine Kurse zur Auswahl): PASS.
+- [x] **AC3b** (Matrix zeigt heutigen + letzte 8 vergangene Termine als Spalten): PASS — exactly 9 columns on a day the fixture course meets, "Heute" visually hervorgehoben.
+- [x] **AC4** (Automatische Vorbefüllung, kein Duplikat bei Abo+Buchung am selben Termin): PASS — re-verified the BUG-1 fix from the original QA pass still holds under the matrix (combo-source customer renders as exactly one row).
+- [x] **AC5** (Markieren + Persistenz nach Reload): PASS.
+- [x] **AC5b** (Vorab erfasste Anwesenheit ist beim Laden sichtbar): PASS — a pre-seeded "Abwesend" mark from a past date renders correctly on first load.
+- [x] **AC6** (Zukünftige Termine haben keine Spalte): PASS — verified no future date appears among the rendered column headers; server-side future-date rejection on `mark_attendance` independently re-confirmed via direct RPC call.
+- [x] **AC7** („Kunde hinzufügen" nur aktive Abos/Buchungen, neue Zeile, in passender Spalte markierbar): PASS — flatrate customer correctly listed (and only them — already-listed customers excluded), new row appears, markable immediately, persists after reload.
+- [x] **AC8** (Notiz sichtbar/bearbeitbar für alle zugewiesenen Lehrer): PASS — Lehrer A's pre-seeded note is visible to Lehrer B (separate login) via the column-header note icon, who edits and saves it successfully.
+- [x] **AC9** (Zugriff auf fremden Kurs verweigert): PASS — unassigned teacher redirected away from the course at the page level.
+- [x] **AC10** (Admin sieht/bearbeitet identisch): PASS — verified via the actual `/admin/kurse` → „Anwesenheit" entry point, landing on the exact same matrix a teacher would use.
+
+### Edge Cases Status
+- [x] Kurs ohne Wochentermin → Hinweistext statt leerer Matrix (AC2b above).
+- [x] Kunde mit Abo UND bestätigter Buchung am selben Termin → eine Zeile, nicht zwei (BUG-1 regression-checked, still fixed — see AC4).
+- [x] Kurs mit vielen Terminen/Teilnehmern → horizontales Scrollen, Kundennamen-Spalte bleibt sticky. Verified visually at 375px (mobile) via screenshot: scrolling the matrix 500px right keeps the "Kursteilnehmer" header and customer names on screen.
+- [x] Buchung storniert nach bereits erfasster Anwesenheit / Probestunde umgebucht / Lehrer von Kurs entfernt — unchanged at the RPC layer from the original QA pass (this rework touches only how the roster is *displayed*, not how it's computed or stored), re-confirmed the underlying functions are untouched via `git diff` on the migration history.
+- [ ] Gleichzeitige Bearbeitung derselben Notiz durch zwei Lehrer — not independently tested (would require two genuinely concurrent requests); unchanged `upsert`-based write (last write wins), same design-guarantee reasoning as the original QA pass.
+
+### Security Audit Results
+- [x] **Authorization enforced inside the database functions, unchanged by this rework.** Re-confirmed via direct RPC/JWT-impersonation: unassigned teacher gets `not authorized` from `get_course_attendance_roster`; assigned teacher and admin succeed; a `customer`-role caller is rejected from `list_attendance_eligible_customers`; direct `SELECT` on `course_attendance`/`course_session_notes` returns zero rows even for the legitimately assigned teacher (RLS has no policies — RPC-only access path, unchanged).
+- [x] Server-side future-date rejection on `mark_attendance` re-confirmed directly via RPC (defense in depth beyond the new UI-level rule of simply not rendering a column for future dates).
+- [x] **XSS:** no `dangerouslySetInnerHTML` anywhere in the new `attendance-matrix.tsx` or the touched `session-note-editor.tsx` (grep-verified); the note dialog still renders through a plain `<textarea>`, unchanged from the original (already-verified-safe) implementation.
+- [x] SQL injection: not applicable — no new SQL was written for this rework; all RPC calls use the existing typed-parameter functions.
+- [ ] **Low, informational (carried forward, unchanged):** `upsert_session_note`'s `note` column still has no DB-level length limit, only the 2000-char Zod cap in the Next.js action. Not exploitable by an unauthenticated/non-privileged party; not blocking.
+
+### Regression Testing
+- **This feature's own blast radius:** `npm test` 162/162 pass (unchanged from pre-rework baseline). `npm run build`/`npm run lint` clean. The new PROJ-13 E2E spec: 13/13 pass on `chromium`.
+- **Full existing Playwright suite (all 21 spec files, `chromium`):** run as a baseline — **status: mass failures, pre-existing and unrelated to this feature.** Investigated the failure pattern directly (sampled multiple `error-context.md` snapshots from `test-results/`): every sampled failure shows the page still displaying a "Login" link in the nav after the test's login step — i.e. the login itself never succeeded. Root cause: **none of this project's `e2e*`/`qa-*` test fixture accounts currently exist in the database** (`select count(*) from auth.users where email like '%@viennasalsastudio.test'` returned 0 before this QA pass created its own `e2e13-*` set) — these were deleted in an earlier, unrelated session at the user's request and never recreated for the other 20 features. This is a **pre-existing, project-wide gap that predates PROJ-13's rework** and affects every other feature's test suite equally; recreating fixtures for all 20 other features is out of scope for this QA pass. Flagging it here because it means **the project's regression safety net is currently non-functional outside of this feature** — worth the user's attention independently of this deployment decision.
+- Spot-checked the specific shared surfaces this rework touches: `session-note-editor.tsx` (added an optional `onSaved` callback, backward-compatible — no other caller exists), the two teacher server actions (`revalidatePath` target changed, no external caller depends on the old path), `/admin/kurse`'s "Anwesenheit" link (still points at `/lehrer/[courseId]`, unaffected by the removal of `/lehrer/[courseId]/[date]`). No other component imports anything this rework removed.
+
+**Conclusion: no regressions caused by PROJ-13's own changes; the wider suite's failures are a pre-existing environmental issue outside this feature's scope.**
+
+### Bugs Found
+
+#### BUG-2: "Kunde hinzufügen" without immediately marking a cell silently loses the addition
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. As a teacher, open a course's attendance matrix.
+  2. Click „Kunde hinzufügen", pick a customer (e.g. a flatrate customer) — a new row appears immediately for them.
+  3. Without clicking any cell in their new row, reload the page (or navigate away and back).
+  4. Expected: some indication the addition is pending, or the row persists.
+  5. Actual: the row is silently gone — confirmed empirically via Playwright (reload after add-without-mark → row count 0).
+- **Root cause:** `attendance-matrix.tsx`'s `handleAddCustomer` (`src/components/teacher/attendance-matrix.tsx:95-98`) only updates local React state — no server call happens until a cell is actually marked. This was a deliberate rework of the original single-page version, which combined add+mark into one atomic action (`handleAdd` auto-called `handleMark(customer.id, "present")`); the `/refine` interview explicitly decoupled these two steps ("Kunde hinzufügen fügt eine Zeile hinzu, dann Zelle antippen") without the consequence of losing an un-marked add being surfaced at the time.
+- **Impact:** no data corruption — nothing false is ever recorded — but a real UX trap: a teacher who gets interrupted between adding and marking loses the addition with no warning and has to redo it. Workaround: just re-add.
+- **Priority:** Not blocking (Medium, not High/Critical) — recommend fixing before this feels "production polished," but doesn't need to gate this deployment. Possible fixes for a future `/frontend` pass: mark the customer present immediately on add (closer to the original behavior), or show a persistent "not yet saved" indicator on newly-added, unmarked rows.
+
+#### BUG-3: Attendance cells all share an identical, non-differentiating `aria-label`
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Inspect any cell button in the matrix with a screen reader or accessibility tree.
+  2. Expected: the label identifies which customer and which date the cell belongs to.
+  3. Actual: every cell button (`src/components/teacher/attendance-matrix.tsx:230`) has the exact same `aria-label="Anwesenheit markieren"`, regardless of row/column — a screen-reader user tabbing through the matrix hears the identical label dozens of times with no way to distinguish cells without also tracking table structure narration.
+- **Impact:** accessibility gap for the matrix's core interaction; doesn't block sighted mouse/touch use.
+- **Priority:** Nice to have — recommend `aria-label={`Anwesenheit für ${row.fullName} am ${date} markieren`}` in a future pass.
+
+### Summary
+- **Acceptance Criteria:** 13/13 pass (10 original + AC2b/AC3b split out for clarity, all reflecting the matrix rework).
+- **Bugs Found:** 2 new (0 Critical/High, 1 Medium, 1 Low) — neither blocks deployment. 1 pre-existing Low-severity informational security note carried forward, unchanged.
+- **Security:** authorization boundaries, future-date lock, and XSS-safety all re-confirmed unchanged and intact under the matrix rework.
+- **Regressions:** none caused by PROJ-13. The wider Playwright suite is broadly broken for an unrelated, pre-existing reason (missing test fixtures project-wide) — flagged for the user's awareness, not a blocker for this feature.
+- **Production Ready:** **YES.**
+- **Recommendation:** Ready for `/deploy`. Consider a follow-up `/frontend` pass for BUG-2 (Medium) at some point; not urgent enough to hold up this release.
+
+<details>
+<summary>Vorherige QA-Ergebnisse (2026-08-17, ursprüngliche Terminlisten-/Termin-Detailseiten-Struktur, durch das Obige ersetzt)</summary>
 
 ### Method
 - Automated: `npm test` (Vitest, incl. 4 new tests for the new `pastOccurrences()` date utility), `npm run test:e2e` (full existing Playwright suite as a regression baseline, plus a new `tests/PROJ-13-lehrer-ansicht-stundenplan-anwesenheit-notizen.spec.ts`).
@@ -327,6 +404,8 @@ Ran the full existing Playwright suite as a baseline. **Zero `chromium` failures
 - **Regressions:** none — full existing suite green on `chromium` (Mobile Safari gap is a pre-existing, unrelated environment issue).
 - **Production Ready:** **YES.**
 - **Recommendation:** Ready for `/deploy`.
+
+</details>
 
 ## Deployment
 
