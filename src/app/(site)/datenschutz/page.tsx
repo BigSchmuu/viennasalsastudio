@@ -13,7 +13,7 @@ export default function DatenschutzPage() {
       <section className="space-y-2">
         <h2 className="font-heading text-xl font-semibold">1. Verantwortlicher</h2>
         <p>
-          Vienna Salsa Studio by Lisa &amp; Samuel OG, Josef-Gall-Gasse 5/18, 1020 Wien, Österreich.
+          Vienna Salsa Studio by Lisa &amp; Samuel OG, Große Schiffgasse 9/Top 6, 1020 Wien, Österreich.
           E-Mail:{" "}
           <a href="mailto:info@viennasalsastudio.at" className="underline">
             info@viennasalsastudio.at

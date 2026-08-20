@@ -9,7 +9,7 @@ export default function ImpressumPage() {
 
       <section className="space-y-1 text-sm">
         <p className="font-medium">Vienna Salsa Studio by Lisa &amp; Samuel OG</p>
-        <p>Josef-Gall-Gasse 5/18</p>
+        <p>Große Schiffgasse 9/Top 6</p>
         <p>1020 Wien, Österreich</p>
       </section>
 
