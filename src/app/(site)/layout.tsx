@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/nav/site-header";
+import { SiteFooter } from "@/components/nav/site-footer";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -16,9 +17,10 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       <SiteHeader isLoggedIn={!!user} isAdmin={isAdmin} isTeacher={isTeacher} />
-      {children}
-    </>
+      <div className="flex-1">{children}</div>
+      <SiteFooter />
+    </div>
   );
 }
