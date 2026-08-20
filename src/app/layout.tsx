@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Raleway } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { SentryInit } from "@/components/monitoring/sentry-init";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="de">
       <body className={`${inter.variable} ${raleway.variable} font-sans antialiased`}>
+        <SentryInit />
         {children}
         <Toaster />
       </body>
