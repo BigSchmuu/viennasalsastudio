@@ -1,6 +1,6 @@
 # PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-20
 
@@ -102,18 +102,86 @@
 | „Kunde hinzufügen" nutzt eine Kundensuche nach demselben Muster wie die bestehende Kundensuche bei der Lehrer-Beförderung (PROJ-22) | Bewährtes, bereits vorhandenes UI-Muster für „aus einer eingeschränkten Kundenmenge auswählen" wiederverwenden statt neu zu erfinden | 2026-08-17 |
 | Dedizierte Route `/lehrer/[courseId]/[date]` entfällt zugunsten einer einzigen Matrix-Ansicht auf `/lehrer/[courseId]` | Bestehende Roster-/Notiz-Logik (RPCs) bleibt unverändert nutzbar, nur die UI-Struktur ändert sich von „eine Seite pro Termin" zu „eine Matrix über alle sichtbaren Termine" | 2026-08-20 |
 | Matrix ruft `get_course_attendance_roster` je sichtbarer Spalte (heute + letzte 8) auf und kombiniert die Ergebnisse clientseitig zu einer Kunden-Zeilen-Struktur | Bestehende RPC-Signatur (`p_course_id, p_occurrence_date`) bleibt unverändert; keine Backend-Änderung nötig, nur zusätzliche parallele Aufrufe statt eines einzelnen | 2026-08-20 |
+| Erste Spalte (Kundenname) beim horizontalen Scrollen fixiert (sticky) | Kurse mit vielen Terminen oder Teilnehmern führen zu breiten/langen Tabellen; ohne fixierte Namensspalte verliert man beim Scrollen den Bezug, welche Zeile zu welchem Kunden gehört | 2026-08-20 |
+| Matrix mit bestehenden shadcn/ui-Komponenten (Table, Dialog, Badge) gebaut, kein neues Paket | Alle benötigten Bausteine sind bereits im Projekt installiert und werden an anderer Stelle (z.B. Rechnungsarchiv) bereits genutzt | 2026-08-20 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
 
+*Überarbeitet 2026-08-20 im Zuge von `/refine` — ersetzt die ursprüngliche Terminlisten-/Termin-Detailseiten-Struktur durch eine Anwesenheitsmatrix. Die ursprüngliche Fassung dieses Abschnitts ist unten im Abschnitt „Vorherige Fassung (bis 2026-08-17)" archiviert.*
+
 ### A) Komponentenstruktur
 
 ```
 Globale Navigation (bestehend, PROJ-24)
-└── Neuer Link „Meine Kurse" — nur sichtbar für eingeloggte Nutzer mit Rolle Lehrer
+└── Link „Meine Kurse" — nur sichtbar für eingeloggte Nutzer mit Rolle Lehrer
 
+/lehrer (unverändert)
+├── Kursliste „Meine Kurse"
+│   ├── Pro Kurs: Name, Level, Tanzstil, Standort/Raum
+│   └── Leerzustand „Dir sind noch keine Kurse zugewiesen", falls keine Zuweisung existiert
+│
+└── Kurs-Detailansicht (Klick auf einen Kurs in der Liste)
+    ├── Kurs-Info-Kopf: Name, Level, Tanzstil, Standort — unverändert
+    ├── Hinweistext, falls Kurs noch keinen Wochentermin hat — unverändert
+    └── Anwesenheitsmatrix (neu, ersetzt Terminliste + Termin-Detailseite)
+        ├── Spaltenköpfe — ein Kopf je sichtbarem Termin (heute, falls vorhanden, + letzte 8 vergangene)
+        │   ├── Datum, „Heute"-Kennzeichnung visuell hervorgehoben
+        │   └── Notiz-Icon (leer/gefüllt) → öffnet Notiz-Dialog für genau diesen Termin
+        ├── Zeilen — eine Zeile je Kursteilnehmer
+        │   ├── automatisch erwartet: aktive kursgebundene Abonnenten
+        │   │   + für das jeweilige Datum bestätigte Probestunden-/Drop-in-Buchungen
+        │   ├── oder manuell hinzugefügt über „Kunde hinzufügen"
+        │   ├── Name — bleibt beim horizontalen Scrollen sichtbar (fixierte erste Spalte)
+        │   └── je Termin-Spalte eine Zelle:
+        │       ├── Anwesend/Abwesend antippbar (nur heutiger + vergangene Termine)
+        │       ├── leer/inaktiv, falls Kunde an diesem Termin nicht erwartet war
+        │       └── keine Zelle für zukünftige Termine (keine Spalte vorhanden)
+        ├── „Kunde hinzufügen" — Suche unter Kunden mit aktivem Abo/Buchung
+        │   (wiederverwendet das PROJ-22-Kundensuche-Muster), fügt eine neue Zeile hinzu
+        └── Notiz-Dialog (pro Termin, über das Spaltenkopf-Icon geöffnet)
+            └── gemeinsamer Freitext, sichtbar & bearbeitbar für alle dem Kurs
+                zugewiesenen Lehrer + Admin
+
+/admin/kurse (bestehend, PROJ-3)
+└── Aktion „Anwesenheit" pro Kurszeile
+    └── Führt zur selben Kurs-Detailansicht (Matrix) wie oben,
+        nur ohne die Einschränkung „nur eigene Kurse" (Admin sieht jeden Kurs)
+```
+
+### B) Datenmodell (fachlich)
+
+Keine Änderung gegenüber der ursprünglichen Fassung — nur die Darstellung ändert sich, nicht die Daten:
+
+**Anwesenheit**: Für jede Kombination aus Kurs, Kalenderdatum und Kunde genau ein Eintrag mit dem Status „Anwesend" oder „Abwesend", inklusive Info, wer die letzte Änderung vorgenommen hat. Ein Kunde kann pro Kurs und Termin nur einen Anwesenheitsstatus haben.
+
+**Termin-Notiz**: Für jede Kombination aus Kurs und Kalenderdatum ein Freitext-Feld, gemeinsam gepflegt von allen diesem Kurs zugewiesenen Lehrern und vom Admin.
+
+Da Kurstermine in der App nicht als eigene Datensätze existieren — sie werden aus dem hinterlegten Wochentag, den Einstiegsterminen und eventuellen Pausen des Kurses berechnet —, werden Anwesenheit und Notiz weiterhin direkt über „Kurs + Datum" identifiziert.
+
+Die Anwesenheitsliste selbst (wer angezeigt wird) bleibt **kein gespeicherter Datensatz**, sondern wird pro sichtbarem Termin live aus den aktuellen aktiven Abos und bestätigten Buchungen zusammengestellt. Neu ist nur, dass beim Öffnen einer Kurs-Seite alle sichtbaren Termine (heute + letzte 8) auf einmal geladen und zu einer Kunden-Zeilen-Struktur zusammengeführt werden, statt nur eines einzelnen Termins.
+
+### C) Tech-Entscheidungen (Begründung)
+
+- **Reine Frontend-Überarbeitung, keine Datenbankänderung:** Alle sechs bestehenden Funktionen (Rollenprüfung, Anwesenheit lesen/schreiben, Notiz lesen/schreiben, Kundensuche) werden unverändert weiterverwendet — sie kennen bereits „ein Termin zur Zeit", die Matrix ruft sie einfach mehrfach parallel auf (einmal pro sichtbarer Spalte).
+- **Route `/lehrer/[courseId]/[date]` entfällt:** Ihre bisherige Funktionalität (Anwesenheitsliste + Notiz) wandert vollständig in die Matrix-Ansicht auf `/lehrer/[courseId]`.
+- **Erste Spalte (Kundenname) bleibt beim Scrollen fixiert:** Notwendig, sobald ein Kurs mehr Termine oder Teilnehmer hat, als auf den Bildschirm passen — verhindert, dass man beim seitlichen Scrollen den Überblick verliert, wer gerade markiert wird.
+- **Serverseitige Zugriffsprüfung „zugewiesener Lehrer oder Admin":** Unverändert, erfüllt weiterhin die explizite Sicherheitsanforderung aus dem Spec.
+- **Gemeinsame Oberfläche für Lehrer und Admin:** Unverändert — ein Einstiegspunkt weniger zu pflegen, Admin sieht garantiert dasselbe wie der Lehrer.
+- **Kein neues UI-Baukasten-Element nötig:** Tabelle, Dialog, Badge sind bereits als shadcn/ui-Komponenten im Projekt vorhanden.
+
+### D) Abhängigkeiten (Pakete)
+
+Keine neuen Fremdpakete nötig.
+
+### Vorherige Fassung (bis 2026-08-17)
+
+<details>
+<summary>Ursprüngliche Terminlisten-/Termin-Detailseiten-Struktur (archiviert, durch die Matrix oben ersetzt)</summary>
+
+```
 /lehrer (neu)
 ├── Kursliste „Meine Kurse"
 │   ├── Pro Kurs: Name, Level, Tanzstil, Standort/Raum
@@ -133,33 +201,9 @@ Globale Navigation (bestehend, PROJ-24)
         │       für Fälle, die nicht automatisch erscheinen (z.B. Flatrate-Kunden)
         └── Notizfeld — ein gemeinsamer Freitext für diesen Termin,
             sichtbar & bearbeitbar für alle dem Kurs zugewiesenen Lehrer + Admin
-
-/admin/kurse (bestehend, PROJ-3)
-└── Neue Aktion „Anwesenheit" pro Kurszeile
-    └── Führt zur selben Kurs-Detail-/Termin-Ansicht wie oben,
-        nur ohne die Einschränkung „nur eigene Kurse" (Admin sieht jeden Kurs)
 ```
 
-### B) Datenmodell (fachlich)
-
-**Anwesenheit** (neu): Für jede Kombination aus Kurs, Kalenderdatum und Kunde genau ein Eintrag mit dem Status „Anwesend" oder „Abwesend", inklusive Info, wer die letzte Änderung vorgenommen hat. Ein Kunde kann pro Kurs und Termin nur einen Anwesenheitsstatus haben.
-
-**Termin-Notiz** (neu): Für jede Kombination aus Kurs und Kalenderdatum ein Freitext-Feld, gemeinsam gepflegt von allen diesem Kurs zugewiesenen Lehrern und vom Admin.
-
-Da Kurstermine in der App bereits heute nicht als eigene Datensätze existieren — sie werden aus dem hinterlegten Wochentag, den Einstiegsterminen und eventuellen Pausen des Kurses berechnet (siehe Stundenplan/Buchung) — werden Anwesenheit und Notiz direkt über „Kurs + Datum" identifiziert, ohne einen zusätzlichen „Termin"-Datensatz einzuführen.
-
-Die Anwesenheitsliste selbst (wer angezeigt wird) ist **kein gespeicherter Datensatz**, sondern wird bei jedem Aufruf live aus den aktuellen aktiven Abos und bestätigten Buchungen zusammengestellt — nur die tatsächlich vom Lehrer gesetzten Anwesend/Abwesend-Markierungen werden dauerhaft gespeichert.
-
-### C) Tech-Entscheidungen (Begründung)
-
-- **Kurs+Datum statt eigenem Termin-Datensatz:** Vermeidet eine zweite, parallele Terminverwaltung, die mit dem bestehenden Wochentag/Einstiegstermin-Modell synchron gehalten werden müsste.
-- **Live berechnete Anwesenheitsliste:** Bleibt automatisch korrekt bei Änderungen an Buchungen, ohne dass der Lehrer die Liste manuell aktualisieren muss.
-- **Serverseitige Zugriffsprüfung „zugewiesener Lehrer oder Admin":** Erfüllt die explizite Sicherheitsanforderung aus dem Spec und folgt demselben Absicherungsmuster, das in der gesamten App bereits verwendet wird.
-- **Gemeinsame Oberfläche für Lehrer und Admin:** Ein Einstiegspunkt weniger zu pflegen, und Admin sieht garantiert dasselbe wie der Lehrer.
-
-### D) Abhängigkeiten (Pakete)
-
-Keine neuen Fremdpakete nötig.
+</details>
 
 ## Implementation Notes
 
