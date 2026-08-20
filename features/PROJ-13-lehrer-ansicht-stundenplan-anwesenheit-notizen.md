@@ -1,8 +1,8 @@
 # PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-08-17
-**Last Updated:** 2026-08-20
+**Last Updated:** 2026-08-21
 
 ## Dependencies
 - Requires: PROJ-2 (Auth & Kundenprofil) — Lehrer muss eingeloggt sein
@@ -18,6 +18,7 @@
 - Als Lehrer möchte ich die Anwesenheit aller Kursteilnehmer über mehrere Termine hinweg auf einen Blick sehen (statt mich durch jeden Termin einzeln klicken zu müssen), damit ich schnell erkenne, wer regelmäßig kommt und wo noch etwas fehlt.
 - Als Lehrer möchte ich am Tag eines stattfindenden Termins die erwarteten Kursteilnehmer direkt einchecken können, ohne vorher navigieren zu müssen, damit das Erfassen während oder kurz nach dem Unterricht schnell geht.
 - Als Lehrer möchte ich bei Bedarf manuell einen Kunden zur Anwesenheitsliste hinzufügen, damit auch Flatrate-Kunden oder spontane Teilnehmer erfasst werden, die nicht automatisch gelistet sind.
+- Als Lehrer möchte ich bei Bedarf weiter zurückliegende Termine nachladen können, damit ich auch bei langlaufenden Kursen auf ältere Anwesenheitsdaten zugreifen kann, ohne dass die Matrix beim ersten Laden unnötig groß wird.
 - Als Lehrer möchte ich pro Kurstermin eine Notiz hinterlegen, damit ich (und ggf. Co-Lehrer desselben Kurses) den Unterrichtsverlauf nachvollziehen können.
 - Als Admin möchte ich Anwesenheit und Notizen aller Kurse einsehen und bei Bedarf korrigieren können, damit ich bei Rückfragen oder Lehrerausfall eingreifen kann.
 
@@ -25,7 +26,8 @@
 - **Vertretungsanfragen/-verwaltung** — eigenständiger Anfrage-/Zusage-Workflow mit Benachrichtigungen, sprengt den Rahmen von PROJ-13. Ein zukünftiges Feature könnte darauf aufbauen (z.B. „Vertretung anfragen"-Button in dieser Lehrer-Ansicht), wird hier aber nicht vorgezogen.
 - **Gesamtübersicht aller Kurse** (nicht nur eigene) — bereits durch den bestehenden öffentlichen Stundenplan (PROJ-6) abgedeckt, den auch Lehrer besuchen können; kein neuer Code nötig.
 - **Kursübergreifende Anwesenheits-Matrix** (alle eigenen Kurse gleichzeitig auf einer Seite) — bewusst pro Kurs belassen; der Kurs-Auswahlschritt bleibt bestehen, siehe Decision Log (2026-08-20).
-- **Zukünftige Termine als gesperrte Vorschau-Spalten in der Matrix** — kein Mehrwert, da für zukünftige Termine ohnehin nichts markierbar ist; die Matrix zeigt nur den heutigen (falls vorhanden) sowie die letzten 8 vergangenen Termine.
+- **Zukünftige Termine als gesperrte Vorschau-Spalten in der Matrix** — kein Mehrwert, da für zukünftige Termine ohnehin nichts markierbar ist; die Matrix zeigt nur den heutigen (falls vorhanden) sowie vergangene Termine.
+- **Datum-Auswahl/Sprung zu einem bestimmten Zeitraum** — bewusst nicht gebaut; „Mehr laden" (schrittweises Nachladen) deckt den Bedarf einfacher ab, siehe Decision Log (2026-08-21).
 - **Kunden-Sicht auf eigene Anwesenheit** — Kunden sehen ihre Anwesenheitshistorie in dieser Version nicht, nur Lehrer und Admin.
 - **Statistiken/Auswertungen über Anwesenheit** (z.B. Anwesenheitsquote pro Kunde/Kurs) — gehört perspektivisch zu PROJ-17 (Admin-Analytics-Dashboard).
 - **Dritter Anwesenheits-Status „Entschuldigt"** — für MVP nur Anwesend/Abwesend.
@@ -40,7 +42,8 @@
 - [ ] Angenommen ein Nutzer mit der Rolle Lehrer ist eingeloggt, wenn er eine beliebige Seite der App aufruft, dann sieht er in der globalen Navigation einen zusätzlichen Link „Meine Kurse"
 - [ ] Angenommen ein Lehrer ist aktuell keinem Kurs zugewiesen, wenn er „Meine Kurse" öffnet, dann sieht er einen Hinweistext statt einer leeren Liste
 - [ ] Angenommen ein Lehrer ist einem oder mehreren Kursen zugewiesen, wenn er „Meine Kurse" öffnet, dann sieht er seine Kurse zur Auswahl
-- [ ] Angenommen ein Lehrer öffnet einen Kurs mit mindestens einem stattgefundenen Termin, wenn die Anwesenheitsmatrix lädt, dann zeigt sie je Zeile einen erwarteten oder manuell hinzugefügten Kursteilnehmer und je Spalte den heutigen Termin (falls einer stattfindet) sowie die letzten 8 vergangenen Termine dieses Kurses
+- [ ] Angenommen ein Lehrer öffnet einen Kurs mit mindestens einem stattgefundenen Termin, wenn die Anwesenheitsmatrix lädt, dann zeigt sie je Zeile einen erwarteten oder manuell hinzugefügten Kursteilnehmer und je Spalte den heutigen Termin (falls einer stattfindet) sowie initial die letzten 8 vergangenen Termine dieses Kurses
+- [ ] Angenommen ein Lehrer hat die Anwesenheitsmatrix eines Kurses geöffnet, wenn er auf „Mehr laden" klickt, dann werden 4 weitere, noch ältere Termine als zusätzliche Spalten geladen und angezeigt — beliebig oft wiederholbar
 - [ ] Angenommen ein Kursteilnehmer hat ein aktives kursgebundenes Abo oder eine für ein bestimmtes Datum bestätigte Probestunden-/Drop-in-Buchung, wenn die Matrix lädt, dann ist die entsprechende Zelle in der jeweiligen Termin-Spalte automatisch als „erwartet" vorbefüllt
 - [ ] Angenommen ein Lehrer tippt in der Matrix die Zelle eines Kursteilnehmers für den heutigen oder einen vergangenen Termin an, wenn er anwesend oder abwesend markiert, dann wird der Status sofort übernommen und bleibt bei erneutem Aufruf der Seite sichtbar
 - [ ] Angenommen ein Kurstermin liegt in der Zukunft, dann erscheint für ihn keine Spalte in der Matrix, da Anwesenheit erst nach dem Termin erfasst werden darf
@@ -89,6 +92,8 @@
 | Zellen sind direkt in der Matrix editierbar, kein separater Read-only-Übersichtsmodus | Vermeidet einen zweiten Weg für denselben Zweck; Korrekturen (z.B. Vertipper) sollen ohne Seitenwechsel möglich sein | 2026-08-20 |
 | „Kunde hinzufügen" fügt eine kursweite Zeile hinzu statt Kunde + Termin gemeinsam in einem Dialog auszuwählen | Ein Schritt weniger; der Kunde kann danach in jeder passenden Spalte markiert werden, auch bei mehrfacher Anwesenheit über mehrere sichtbare Termine hinweg | 2026-08-20 |
 | Termin-Notiz über ein Icon im Spaltenkopf statt einer eigenen Seite/eines eigenen Bereichs | Notizen bleiben termin-gebunden wie bisher, aber ohne Navigationsschritt weg von der Matrix | 2026-08-20 |
+| „Mehr laden"-Button lädt bei Klick 4 weitere, ältere Termine als zusätzliche Spalten nach (statt fixem Fenster oder Datum-Picker) | Löst den geäußerten Bedarf, bei langlaufenden Kursen auch weiter zurückliegende Anwesenheitsdaten einsehen zu können; folgt demselben „Mehr laden"-Muster wie der bestehende Kurskatalog (PROJ-5), kein neues Bedienkonzept nötig | 2026-08-21 |
+| Kein Limit für die Anzahl an „Mehr laden"-Klicks | Termine haben in der App keinen expliziten „Kursbeginn"-Datensatz, gegen den man eine Obergrenze bestimmen könnte (bereits bei den ursprünglichen 8 Termine der Fall); ein künstliches Limit hätte keinen fachlichen Anknüpfungspunkt | 2026-08-21 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
