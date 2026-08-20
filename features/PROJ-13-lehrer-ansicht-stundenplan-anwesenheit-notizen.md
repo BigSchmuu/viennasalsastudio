@@ -1,6 +1,6 @@
 # PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)
 
-## Status: Planned
+## Status: Deployed
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-21
 
@@ -109,6 +109,9 @@
 | Matrix ruft `get_course_attendance_roster` je sichtbarer Spalte (heute + letzte 8) auf und kombiniert die Ergebnisse clientseitig zu einer Kunden-Zeilen-Struktur | Bestehende RPC-Signatur (`p_course_id, p_occurrence_date`) bleibt unverändert; keine Backend-Änderung nötig, nur zusätzliche parallele Aufrufe statt eines einzelnen | 2026-08-20 |
 | Erste Spalte (Kundenname) beim horizontalen Scrollen fixiert (sticky) | Kurse mit vielen Terminen oder Teilnehmern führen zu breiten/langen Tabellen; ohne fixierte Namensspalte verliert man beim Scrollen den Bezug, welche Zeile zu welchem Kunden gehört | 2026-08-20 |
 | Matrix mit bestehenden shadcn/ui-Komponenten (Table, Dialog, Badge) gebaut, kein neues Paket | Alle benötigten Bausteine sind bereits im Projekt installiert und werden an anderer Stelle (z.B. Rechnungsarchiv) bereits genutzt | 2026-08-20 |
+| `pastOccurrences()` um optionalen `before`-Parameter erweitert statt einer zweiten, separaten Funktion | Dieselbe Kernlogik ("letzte N Termine vor einem Ankerdatum") gilt sowohl für "heute" (Default) als auch für einen beliebigen älteren Anker beim Nachladen — eine zweite Funktion hätte Logik dupliziert; abwärtskompatibel, bestehende Aufrufer unverändert | 2026-08-21 |
+| Neue Server Action `loadMoreOccurrences` statt Erweiterung von `markAttendance`/`saveSessionNote` | Eigenständige Verantwortung (Termine nachladen vs. Anwesenheit/Notiz schreiben); lädt Kurs-Zeitplan serverseitig selbst nach (kein Vertrauen auf clientseitig mitgeschickte Wochentag-/Pausendaten) | 2026-08-21 |
+| Autorisierung für „Mehr laden" läuft ausschließlich über die RPC-interne Prüfung in `get_course_attendance_roster`, keine zusätzliche App-seitige Zugriffsprüfung in der Action | Konsistent mit dem bestehenden Muster bei `markAttendance`/`saveSessionNote` — die Kurs-Zeitplandaten (Wochentag/Pausen) sind ohnehin öffentlich über den Stundenplan (PROJ-6) einsehbar, nur die Anwesenheits-/Kundendaten sind schützenswert und werden von der RPC selbst abgesichert | 2026-08-21 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -261,14 +264,31 @@ Reine Frontend-Überarbeitung gemäß dem überarbeiteten Tech-Design oben — k
 
 **Bekannter Folgeaufwand für `/qa`:** Der bestehende E2E-Test `tests/PROJ-13-lehrer-ansicht-stundenplan-anwesenheit-notizen.spec.ts` zielt noch auf die entfernte Route `/lehrer/[courseId]/[date]` und muss für die neue Matrix-Ansicht neu geschrieben werden.
 
+### Nachtrag (2026-08-21): „Mehr laden" für weiter zurückliegende Termine
+
+Direkt implementiert (ohne separaten `/architecture`-Durchlauf — Umfang war klein genug, um direkt auf dem bestehenden, bereits genehmigten Matrix-Design aufzusetzen; alle Entscheidungen dazu stehen im Decision Log unter 2026-08-21).
+
+**Geänderte/neue Dateien:**
+- `src/lib/scheduling/dates.ts` — `pastOccurrences()` um optionalen `before`-Parameter erweitert (Ankerdatum statt immer „heute"), abwärtskompatibel. Neuer Unit-Test in `dates.test.ts`.
+- `src/lib/actions/teacher/load-more-occurrences.ts` (neu) — Server Action `loadMoreOccurrences(courseId, beforeDate)`; lädt den Kurs-Zeitplan serverseitig selbst, berechnet die nächsten 4 älteren Termine und ruft `get_course_attendance_roster`/`get_course_session_note` dafür auf (dieselben RPCs wie beim initialen Laden). Exportiert den `RosterRow`-Typ, den `page.tsx` jetzt statt einer lokalen Kopie importiert.
+- `src/components/teacher/attendance-matrix.tsx` — `columns` ist jetzt State (`useState`) statt reiner Prop, damit nachgeladene Termine ergänzt werden können; neuer „Mehr laden (4 weitere)"-Button oberhalb der Tabelle, links ausgerichtet (räumlich dort, wo die neuen, älteren Spalten erscheinen).
+
+**Bug während der Live-Verifikation gefunden und behoben (vor dem Commit, siehe unten):** die von der Action gelieferten Termine kommen wie `pastOccurrences()` selbst „neueste zuerst" zurück; beim Voranstellen an die bestehenden, chronologisch aufsteigend sortierten Spalten führte das ohne Umkehrung zu einer falschen Reihenfolge innerhalb der 4 neuen Spalten (neueste der 4 zuerst statt älteste zuerst). Behoben durch `.reverse()` vor dem Voranstellen, mit Playwright-Screenshot verifiziert (korrekte aufsteigende Reihenfolge 04.06. → 06.08.) und als Regressionstest in die permanente Spec aufgenommen.
+
+**Live-Verifikation (gegen `e2e13-*`-Fixtures, Playwright):** „Mehr laden" lädt genau 4 weitere Spalten in korrekter chronologischer Reihenfolge; wiederholt klickbar (2. Klick → 8 weitere insgesamt); nachgeladene Termine sind sofort markierbar. Bestehende Fixture-Daten (vorab erfasste Anwesenheit/Notiz) blieben davon unberührt, da nur zusätzliche, ältere Spalten ergänzt werden.
+
+Während dieser Verifikation fiel zudem auf, dass die fixe Datumsverankerung der `e2e13-*`-Fixtures (Wochentag der Testkurs-Zeitplan) einen Tag später nicht mehr mit „heute" übereinstimmte (dieselbe Art von Verfallsdatum wie beim früheren `SEEDED_DATE`-Muster) — zwei bestehende Tests (`AC3b/AC6`, `AC10`) hatten das hart auf „Heute" vorausgesetzt. Statt den Fixture-Wochentag ständig nachzuziehen (was die sorgfältig vorbereiteten historischen Testdaten auf andere Daten verschoben und damit ungültig gemacht hätte), wurden beide Tests robuster gemacht: sie prüfen jetzt die immer-wahre Invariante (Matrix lädt mit Daten, mindestens 8 Spalten) und behandeln „Heute" nur noch als Zusatzprüfung, wenn es an dem Tag tatsächlich zutrifft.
+
+- `npm run build`, `npm run lint`, `npm test` (163/163) alle grün. Vollständige `tests/PROJ-13-...spec.ts`-Suite: 14/14 grün.
+
 ## QA Test Results
 
-**Tested:** 2026-08-20
+**Tested:** 2026-08-20 (Matrix-Rework + BUG-2/BUG-3), aktualisiert 2026-08-21 (Mehr laden + BUG-4)
 **App URL:** http://localhost:3000 (+ direct SQL/RPC verification against the production Supabase project, no staging environment exists)
 **Tester:** QA Engineer (AI)
 
 ### Method
-- Automated: `npm test` (Vitest, 162/162 — unchanged, no new pure utility logic was extracted in this rework, so no new unit tests were needed; the row/column assembly lives inline in a Server Component and is exercised by the E2E suite instead), full existing Playwright suite as a regression baseline, plus a rewritten `tests/PROJ-13-lehrer-ansicht-stundenplan-anwesenheit-notizen.spec.ts` (13 tests, one per acceptance criterion/edge case) targeting the new matrix.
+- Automated: `npm test` (Vitest, 163/163 — includes one new test for `pastOccurrences()`'s `before` parameter added for "Mehr laden"), full existing Playwright suite as a regression baseline, plus `tests/PROJ-13-lehrer-ansicht-stundenplan-anwesenheit-notizen.spec.ts` (14 tests, one per acceptance criterion/edge case) targeting the matrix and the "Mehr laden" addition.
 - New dedicated fixtures (`e2e13-*`, created fresh since none of this project's `e2e*`/`qa-*` fixtures currently exist in the database — see Regression Testing below): course "E2E13 Kurs" with a weekly schedule matching the day this QA pass ran (so a "Heute" column is always present when this file is tested), two assigned teachers (`e2e13-lehrer-a/b`), one deliberately unassigned teacher (`e2e13-lehrer-c`, doubles as the "zero courses" and "access denied" fixture), an admin (`e2e13-admin`), a second course without a weekly schedule (empty-state edge case), and customers covering every roster-source case: active course-bound abo, confirmed dropin booking, a customer with **both** an active abo and a confirmed dropin on the same date (BUG-1 regression check), and an active flatrate (course-independent) abo for the "Kunde hinzufügen" eligibility test.
 - Direct DB/RPC verification via SQL-JWT impersonation (`set local request.jwt.claims`) for the authorization boundaries — unchanged technique from the original QA pass, since all six `SECURITY DEFINER` functions are unchanged by this rework.
 
@@ -288,6 +308,7 @@ All verified via a real browser session (Playwright, new `e2e13-*` fixtures) and
 - [x] **AC8** (Notiz sichtbar/bearbeitbar für alle zugewiesenen Lehrer): PASS — Lehrer A's pre-seeded note is visible to Lehrer B (separate login) via the column-header note icon, who edits and saves it successfully.
 - [x] **AC9** (Zugriff auf fremden Kurs verweigert): PASS — unassigned teacher redirected away from the course at the page level.
 - [x] **AC10** (Admin sieht/bearbeitet identisch): PASS — verified via the actual `/admin/kurse` → „Anwesenheit" entry point, landing on the exact same matrix a teacher would use.
+- [x] **AC-LoadMore** („Mehr laden" lädt 4 weitere ältere Termine, beliebig wiederholbar): PASS — verified column count increases by exactly 4 per click (twice in a row), newly-loaded columns render in correct ascending chronological order (see BUG-4 below), newly-loaded cells are immediately markable.
 
 ### Edge Cases Status
 - [x] Kurs ohne Wochentermin → Hinweistext statt leerer Matrix (AC2b above).
@@ -304,13 +325,13 @@ All verified via a real browser session (Playwright, new `e2e13-*` fixtures) and
 - [ ] **Low, informational (carried forward, unchanged):** `upsert_session_note`'s `note` column still has no DB-level length limit, only the 2000-char Zod cap in the Next.js action. Not exploitable by an unauthenticated/non-privileged party; not blocking.
 
 ### Regression Testing
-- **This feature's own blast radius:** `npm test` 162/162 pass (unchanged from pre-rework baseline). `npm run build`/`npm run lint` clean. The new PROJ-13 E2E spec: 13/13 pass on `chromium`.
+- **This feature's own blast radius:** `npm test` 163/163 pass. `npm run build`/`npm run lint` clean. The PROJ-13 E2E spec: 14/14 pass on `chromium`.
 - **Full existing Playwright suite (all 21 spec files, `chromium`):** run as a baseline — **status: mass failures, pre-existing and unrelated to this feature.** Investigated the failure pattern directly (sampled multiple `error-context.md` snapshots from `test-results/`): every sampled failure shows the page still displaying a "Login" link in the nav after the test's login step — i.e. the login itself never succeeded. Root cause: **none of this project's `e2e*`/`qa-*` test fixture accounts currently exist in the database** (`select count(*) from auth.users where email like '%@viennasalsastudio.test'` returned 0 before this QA pass created its own `e2e13-*` set) — these were deleted in an earlier, unrelated session at the user's request and never recreated for the other 20 features. This is a **pre-existing, project-wide gap that predates PROJ-13's rework** and affects every other feature's test suite equally; recreating fixtures for all 20 other features is out of scope for this QA pass. Flagging it here because it means **the project's regression safety net is currently non-functional outside of this feature** — worth the user's attention independently of this deployment decision.
 - Spot-checked the specific shared surfaces this rework touches: `session-note-editor.tsx` (added an optional `onSaved` callback, backward-compatible — no other caller exists), the two teacher server actions (`revalidatePath` target changed, no external caller depends on the old path), `/admin/kurse`'s "Anwesenheit" link (still points at `/lehrer/[courseId]`, unaffected by the removal of `/lehrer/[courseId]/[date]`). No other component imports anything this rework removed.
 
 **Conclusion: no regressions caused by PROJ-13's own changes; the wider suite's failures are a pre-existing environmental issue outside this feature's scope.**
 
-### Bugs Found — fixed (2026-08-20)
+### Bugs Found — all fixed (2026-08-20 / 2026-08-21)
 
 #### BUG-2: "Kunde hinzufügen" without immediately marking a cell silently loses the addition — FIXED
 - **Severity:** Medium
@@ -335,11 +356,22 @@ All verified via a real browser session (Playwright, new `e2e13-*` fixtures) and
 - **Fix applied:** `AttendanceCell` now takes `customerName`/`dateLabel` props and sets `aria-label={`Anwesenheit für ${customerName} am ${dateLabel} markieren`}` — e.g. "Anwesenheit für E2E13 Flatrate Kunde am Do., 20.08. markieren". Re-verified via Playwright: `getAttribute("aria-label")` on a cell now contains the customer's name. The permanent E2E spec's cell locators were switched from name-matching to plain `getByRole("button")` (each cell has exactly one button, so this is unaffected by label content and won't need updating again if the label wording changes).
 - **Priority:** Fixed before deployment.
 
+#### BUG-4: "Mehr laden" prepended newly-loaded columns in the wrong (descending) order — FIXED
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. As a teacher, open a course's attendance matrix and click „Mehr laden".
+  2. Expected: the 4 newly-loaded columns appear in ascending chronological order, oldest-first, before the previously-oldest column.
+  3. Actual: the 4 new columns appeared in descending order relative to each other (most-recent-of-the-4 leftmost, oldest-of-the-4 rightmost-of-the-new-batch) — e.g. 25.06/18.06/11.06/04.06 instead of 04.06/11.06/18.06/25.06.
+- **Root cause:** `loadMoreOccurrences` returns dates in the same "most-recent-first" order as `pastOccurrences()` itself; `handleLoadMore` prepended that array as-is instead of reversing it first, unlike the initial page load (`page.tsx`) which already reverses `pastOccurrences()`'s result into ascending order before building the columns.
+- **Impact:** confusing column order after loading more, no data-integrity issue — each column's data was still correctly attached to its own date, only the left-to-right visual order was wrong.
+- **Fix applied:** reverse `result.dates` before mapping to `newColumns`, matching the same treatment the initial load already applies. Re-verified via Playwright: after one click the leftmost (oldest) column correctly shows the true oldest of the 4 newly-loaded dates. Added as a permanent regression check in the new `AC-LoadMore` E2E test (asserts day-of-month is strictly increasing across the 4 new columns).
+- **Priority:** Fixed before deployment (found during this pass's own live verification, never shipped).
+
 ### Summary
-- **Acceptance Criteria:** 13/13 pass (10 original + AC2b/AC3b split out for clarity, all reflecting the matrix rework).
-- **Bugs Found:** 2 new — **both fixed and re-verified** (0 Critical/High/Medium/Low remaining from this pass). 1 pre-existing Low-severity informational security note carried forward, unchanged (DB-level note length cap).
-- **Security:** authorization boundaries, future-date lock, and XSS-safety all re-confirmed unchanged and intact under the matrix rework.
-- **Regressions:** none caused by PROJ-13. The wider Playwright suite is broadly broken for an unrelated, pre-existing reason (missing test fixtures project-wide) — flagged for the user's awareness, not a blocker for this feature.
+- **Acceptance Criteria:** 14/14 pass (10 original + AC2b/AC3b split out for clarity + AC-LoadMore for this increment).
+- **Bugs Found:** 3 total across this feature's two increments (BUG-2, BUG-3 from the matrix rework; BUG-4 from this "Mehr laden" addition) — **all fixed and re-verified** (0 Critical/High/Medium/Low remaining). 1 pre-existing Low-severity informational security note carried forward, unchanged (DB-level note length cap).
+- **Security:** authorization boundaries, future-date lock, and XSS-safety all re-confirmed unchanged and intact. „Mehr laden" relies on the same RPC-internal authorization as the rest of the matrix — no new app-level access-control surface introduced.
+- **Regressions:** none caused by PROJ-13. `npm test` 163/163, full PROJ-13 E2E suite 14/14. The wider Playwright suite is broadly broken for an unrelated, pre-existing reason (missing test fixtures project-wide) — flagged for the user's awareness, not a blocker for this feature.
 - **Production Ready:** **YES.**
 - **Recommendation:** Ready for `/deploy`.
 

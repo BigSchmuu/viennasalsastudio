@@ -43,20 +43,21 @@ export function upcomingOccurrences(
   return dates;
 }
 
-/** Last `count` past dates (strictly before today) matching `weekday`, skipping any date in `pauseDates`. Most recent first. */
+/** Last `count` past dates (strictly before `before`, defaulting to today) matching `weekday`, skipping any date in `pauseDates`. Most recent first.
+ *  Pass `before` (e.g. the oldest currently-loaded occurrence) to continue further into the past — used for "Mehr laden". */
 export function pastOccurrences(
   weekday: number,
-  { count, pauseDates = [] }: { count: number; pauseDates?: string[] }
+  { count, pauseDates = [], before }: { count: number; pauseDates?: string[]; before?: Date }
 ): string[] {
   const pauseSet = new Set(pauseDates);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const anchor = before ? new Date(before) : new Date();
+  anchor.setHours(0, 0, 0, 0);
 
-  const todayWeekday = jsDayToWeekday(today.getDay());
-  const daysSinceLast = (todayWeekday - weekday + 7) % 7 || 7;
+  const anchorWeekday = jsDayToWeekday(anchor.getDay());
+  const daysSinceLast = (anchorWeekday - weekday + 7) % 7 || 7;
 
-  const first = new Date(today);
-  first.setDate(today.getDate() - daysSinceLast);
+  const first = new Date(anchor);
+  first.setDate(anchor.getDate() - daysSinceLast);
 
   const dates: string[] = [];
   let cursor = first;

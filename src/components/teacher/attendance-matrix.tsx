@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, X, FileText } from "lucide-react";
 import { markAttendance } from "@/lib/actions/teacher/attendance";
+import { loadMoreOccurrences } from "@/lib/actions/teacher/load-more-occurrences";
 import { attendanceSourceLabel } from "@/lib/constants/attendance";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ function formatDialogDate(date: string): string {
 
 export function AttendanceMatrix({
   courseId,
-  columns,
+  columns: initialColumns,
   rows: initialRows,
   eligibleCustomers,
 }: {
@@ -56,15 +57,17 @@ export function AttendanceMatrix({
   rows: MatrixRow[];
   eligibleCustomers: EligibleCustomer[];
 }) {
+  const [columns, setColumns] = useState(initialColumns);
   const [rows, setRows] = useState(initialRows);
   const [error, setError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [noteDate, setNoteDate] = useState<string | null>(null);
   const [noteFilled, setNoteFilled] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(columns.map((c) => [c.date, c.initialNote.trim().length > 0]))
+    Object.fromEntries(initialColumns.map((c) => [c.date, c.initialNote.trim().length > 0]))
   );
   const [unsavedIds, setUnsavedIds] = useState<Set<string>>(new Set());
+  const [loadingMore, setLoadingMore] = useState(false);
 
   async function handleMark(customerId: string, date: string, status: "present" | "absent") {
     const key = `${customerId}:${date}`;
@@ -105,6 +108,52 @@ export function AttendanceMatrix({
     setUnsavedIds((prev) => new Set(prev).add(customer.id));
   }
 
+  async function handleLoadMore() {
+    if (columns.length === 0) return;
+    const oldestDate = columns[0].date;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const result = await loadMoreOccurrences(courseId, oldestDate);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      // result.dates comes back most-recent-first (like pastOccurrences());
+      // reverse to chronological order before prepending, matching the
+      // ascending oldest-first layout the rest of the matrix already uses.
+      const newColumns: MatrixColumn[] = [...result.dates].reverse().map((d) => ({
+        date: d.date,
+        isToday: false,
+        initialNote: d.note,
+      }));
+      setColumns((prev) => [...newColumns, ...prev]);
+      setNoteFilled((prev) => ({
+        ...Object.fromEntries(newColumns.map((c) => [c.date, c.initialNote.trim().length > 0])),
+        ...prev,
+      }));
+      setRows((prev) => {
+        const byId = new Map(prev.map((r) => [r.customerId, r]));
+        for (const { date, roster } of result.dates) {
+          for (const r of roster) {
+            const existing = byId.get(r.customer_id) ?? {
+              customerId: r.customer_id,
+              fullName: r.full_name || "Unbenannter Kunde",
+              cells: {},
+            };
+            byId.set(r.customer_id, {
+              ...existing,
+              cells: { ...existing.cells, [date]: { status: r.status, source: r.source, selfCheckedIn: r.self_checked_in } },
+            });
+          }
+        }
+        return Array.from(byId.values());
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   const listedIds = new Set(rows.map((r) => r.customerId));
   const addableCustomers = eligibleCustomers.filter((c) => !listedIds.has(c.id));
   const sortedRows = [...rows].sort((a, b) => a.fullName.localeCompare(b.fullName, "de"));
@@ -125,6 +174,10 @@ export function AttendanceMatrix({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
+        {loadingMore ? "Lädt…" : "Mehr laden (4 weitere)"}
+      </Button>
 
       <div className="rounded-md border">
         <Table>

@@ -4,16 +4,9 @@ import { Button } from "@/components/ui/button";
 import { requireCourseAccess } from "@/lib/auth/require-teacher";
 import { formatDateLocal, jsDayToWeekday, pastOccurrences } from "@/lib/scheduling/dates";
 import { AttendanceMatrix, type MatrixColumn, type MatrixRow, type MatrixCell } from "@/components/teacher/attendance-matrix";
+import type { RosterRow } from "@/lib/actions/teacher/load-more-occurrences";
 
 const PAST_WINDOW = 8;
-
-type RosterRow = {
-  customer_id: string;
-  full_name: string | null;
-  source: string;
-  status: "present" | "absent" | null;
-  self_checked_in: boolean;
-};
 
 export default async function TeacherCoursePage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;

@@ -94,6 +94,13 @@ describe("pastOccurrences", () => {
     const dates = pastOccurrences(0, { count: 2 });
     expect(new Date(dates[0]).getTime()).toBeGreaterThan(new Date(dates[1]).getTime());
   });
+
+  it("continues further into the past from an explicit `before` anchor (PROJ-13 'Mehr laden')", () => {
+    const initial = pastOccurrences(0, { count: 3 }); // 2026-08-10, 08-03, 07-27
+    const oldest = new Date(initial[initial.length - 1] + "T00:00:00");
+    const more = pastOccurrences(0, { count: 2, before: oldest });
+    expect(more).toEqual(["2026-07-20", "2026-07-13"]);
+  });
 });
 
 describe("daysUntil", () => {
