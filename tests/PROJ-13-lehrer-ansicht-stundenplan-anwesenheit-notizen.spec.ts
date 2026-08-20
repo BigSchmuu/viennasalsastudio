@@ -101,9 +101,16 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     // day-of-month against the next one, which is monotonically increasing
     // within this short window (no month/year wraparound in this fixture).
     const allDateTexts = await dateHeadersAfter.locator("span").allInnerTexts();
-    const daysOfMonth = allDateTexts.map((t) => parseInt(t.match(/(\d{2})\.\d{2}\.$/)?.[1] ?? "0", 10));
+    // "DD.MM." labels have no year — combine month+day into one comparable
+    // number (correctly handles a month boundary within the loaded window,
+    // e.g. 28.05. -> 04.06.; would only break across a year boundary, which
+    // this 4-at-a-time window can't reach).
+    const monthDay = allDateTexts.map((t) => {
+      const m = t.match(/(\d{2})\.(\d{2})\.$/);
+      return m ? parseInt(m[2], 10) * 100 + parseInt(m[1], 10) : 0;
+    });
     for (let i = 1; i < 4; i++) {
-      expect(daysOfMonth[i]).toBeGreaterThan(daysOfMonth[i - 1]);
+      expect(monthDay[i]).toBeGreaterThan(monthDay[i - 1]);
     }
 
     // Repeatable: a second click loads 4 more again.

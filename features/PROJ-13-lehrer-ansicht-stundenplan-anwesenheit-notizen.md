@@ -449,16 +449,16 @@ Ran the full existing Playwright suite as a baseline. **Zero `chromium` failures
 ## Deployment
 
 **Production URL:** https://viennasalsastudio.vercel.app
-**Deployed:** 2026-08-20
-**Tag:** `v1.0.1-PROJ-13`
-**Commits:** `d72bff3` (refine) → `fa36ab6` (architecture) → `6beb701` (frontend) → `9dc9f8a` (QA) → `ea06083` (BUG-2/BUG-3 fixes, this deploy)
+**Deployed:** 2026-08-21 (originally 2026-08-20 for the matrix rework)
+**Tag:** `v1.0.2-PROJ-13`
+**Commits:** `d72bff3` (refine, matrix) → `fa36ab6` (architecture) → `6beb701` (frontend) → `9dc9f8a` (QA) → `ea06083` (BUG-2/BUG-3 fixes) → `3856591` (deploy) → `53c6ac5` (refine, Mehr laden) → `396ac05` (frontend + BUG-4 fix, this deploy)
 
 ### Pre-Deployment Checks
-- `npm run build`, `npm run lint`, `npm test` (162/162): all clean.
-- QA: Approved, 0 Critical/High/Medium/Low bugs remaining (BUG-2 and BUG-3 fixed and re-verified — see QA Test Results above).
-- No new environment variables needed for this rework (pure frontend change).
+- `npm run build`, `npm run lint`, `npm test` (163/163): all clean.
+- QA: Approved, 0 Critical/High/Medium/Low bugs remaining (BUG-2/BUG-3/BUG-4 all fixed and re-verified — see QA Test Results above).
+- No new environment variables needed (pure frontend + one new server action reusing existing RPCs).
 - No secrets committed.
-- DB migrations: none — this rework reuses the six existing `SECURITY DEFINER` functions unchanged, no new migration.
+- DB migrations: none — reuses the six existing `SECURITY DEFINER` functions unchanged, no new migration.
 - All code committed and pushed to `main`.
 
 ### Deploy
@@ -466,12 +466,12 @@ Ran the full existing Playwright suite as a baseline. **Zero `chromium` failures
 
 ### Post-Deployment Verification
 - Production loads: `/`, `/kurse` return 200.
-- **Verified live in production, authenticated as a real teacher fixture:** logged in as `e2e13-lehrer-a`, opened the "E2E13 Kurs" attendance matrix — "Heute" column present, existing roster renders correctly. Re-verified both bug fixes directly against production: added "E2E13 Flatrate Kunde" via „Kunde hinzufügen" → „Nicht gespeichert" badge appears immediately (BUG-2 fix live); the cell's `aria-label` includes the customer's name and date (BUG-3 fix live); marked them present → badge disappears, and the mark persists after a full page reload.
+- **Verified live in production, authenticated as a real teacher fixture:** logged in as `e2e13-lehrer-a`, opened the "E2E13 Kurs" attendance matrix (9 columns, "Heute" present on production's server clock), clicked „Mehr laden" — exactly 4 new columns appeared, in correct ascending chronological order across a month boundary (28.05. → 04.06. → 11.06. → 18.06.), matching the BUG-4 fix.
 - No new environment variables, no auth/DB connection changes — no new failure surface introduced there.
-- Temporary attendance record created during production verification was cleaned up afterward (`DELETE FROM course_attendance WHERE course_id = '6032ce07-...' AND occurrence_date = today`), leaving the `e2e13-*` fixtures in their baseline seeded state for future QA/regression runs.
+- The production verification for this increment was read-only (no attendance marked), so no fixture cleanup was needed afterward.
 
 ### Production-Ready Essentials
-Already covered by earlier deployments in this project (error tracking, security headers, etc.); nothing new required for this rework.
+Already covered by earlier deployments in this project (error tracking, security headers, etc.); nothing new required for this increment.
 
 <details>
 <summary>Vorheriges Deployment (2026-08-17, ursprüngliche Terminlisten-/Termin-Detailseiten-Struktur)</summary>
