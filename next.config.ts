@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // Explicit fallback for NEXT_PUBLIC_SENTRY_DSN: Sentry's own Turbopack env
+  // injection into instrumentation-client.ts doesn't reliably resolve the
+  // value (verified live — DSN stayed unset in the browser bundle even with
+  // the Vercel env var correctly configured). Next's own `env` inlining does
+  // work reliably here, so force it explicitly rather than relying on
+  // Sentry's build plugin to pick it up.
+  env: {
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  },
   async headers() {
     return [
       {
