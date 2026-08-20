@@ -26,6 +26,6 @@ export async function saveSessionNote(formData: FormData): Promise<ActionResult>
     return { error: "Notiz konnte nicht gespeichert werden." };
   }
 
-  revalidatePath(`/lehrer/${parsed.data.course_id}/${parsed.data.occurrence_date}`);
+  revalidatePath(`/lehrer/${parsed.data.course_id}`);
   return { success: true };
 }

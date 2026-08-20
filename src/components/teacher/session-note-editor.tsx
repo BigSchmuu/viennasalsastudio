@@ -11,10 +11,12 @@ export function SessionNoteEditor({
   courseId,
   occurrenceDate,
   initialNote,
+  onSaved,
 }: {
   courseId: string;
   occurrenceDate: string;
   initialNote: string;
+  onSaved?: (note: string) => void;
 }) {
   const [note, setNote] = useState(initialNote);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +36,7 @@ export function SessionNoteEditor({
         return;
       }
       toast.success("Notiz gespeichert.");
+      onSaved?.(note);
     } finally {
       setLoading(false);
     }

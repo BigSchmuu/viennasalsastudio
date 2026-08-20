@@ -1,6 +1,6 @@
 # PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-17
 **Last Updated:** 2026-08-20
 
@@ -233,6 +233,28 @@ Keine neuen Fremdpakete nötig.
 - Direkt per SQL/JWT-Impersonation: Rollenprüfung aller sechs Funktionen (nicht-zugewiesener Lehrer/Kunde abgelehnt, zugewiesener Lehrer und Admin durchgelassen), Zukunfts-Datum-Sperre serverseitig bestätigt.
 - Per Browser (temporäre, danach wieder entfernte Testzuweisung auf einen bestehenden Kurs mit Termin+Abo): kompletter Fluss Login → „Meine Kurse" → Kurs → Termin → Anwesenheit markieren → Reload (Persistenz bestätigt) → Notiz speichern (per direkter DB-Abfrage bestätigt) → „Kunde hinzufügen" (Liste korrekt ohne bereits gelistete Kunden). Sicherheitsgrenze doppelt bestätigt: nicht-zugewiesener Kunde per Direkt-URL abgewiesen (Redirect zu `/`), Admin per derselben URL durchgelassen mit identischer Ansicht. Admin-Einstiegspunkt in `/admin/kurse` bestätigt (Anwesenheit-Link pro Zeile vorhanden). Zukunfts-Termin zeigt Sperrhinweis und deaktivierte Buttons.
 - `npm run build`, `npm run lint`, `npm test` (116/116) alle grün.
+
+### Nachtrag (2026-08-20): Anwesenheitsmatrix ersetzt Terminliste + Termin-Detailseite
+
+Reine Frontend-Überarbeitung gemäß dem überarbeiteten Tech-Design oben — keine Datenbankänderung, alle sechs bestehenden `SECURITY DEFINER`-Funktionen unverändert weiterverwendet.
+
+**Geänderte/neue Dateien:**
+- `src/components/teacher/attendance-matrix.tsx` (neu) — die Matrix selbst (`AttendanceMatrix`, `AttendanceCell`, `AddCustomerDialog`); nutzt shadcn `Table`, `Popover`, `Dialog`, `Badge`.
+- `src/app/(site)/lehrer/[courseId]/page.tsx` (überarbeitet) — lädt jetzt für alle sichtbaren Termine (heute + letzte 8 vergangene) Anwesenheitsliste + Notiz parallel und baut daraus die Zeilen-/Spaltenstruktur der Matrix.
+- `src/components/teacher/session-note-editor.tsx` — um optionalen `onSaved`-Callback ergänzt, damit der Notiz-Icon-Zustand im Spaltenkopf ohne Seiten-Reload aktualisiert werden kann.
+- `src/lib/actions/teacher/attendance.ts`, `src/lib/actions/teacher/notes.ts` — `revalidatePath`-Ziel von `/lehrer/[courseId]/[date]` auf `/lehrer/[courseId]` angepasst.
+- **Entfernt:** `src/app/(site)/lehrer/[courseId]/[date]/page.tsx` (Route entfällt), `src/components/teacher/attendance-roster.tsx`, `src/components/teacher/course-occurrence-list.tsx` (durch die Matrix ersetzt, keine anderen Verweise mehr vorhanden).
+
+**Implementierungsentscheidung, die im Architektur-Entwurf noch offen war:** Innerhalb einer Zeile sind **alle** sichtbaren Zellen klickbar, nicht nur die, für die der Kunde an diesem Termin „erwartet" war — sowohl für automatisch gelistete (Abo/Buchung) als auch für manuell hinzugefügte Kursteilnehmer. Begründung: Für manuell hinzugefügte Kunden gibt es keinen „erwartet"-Status, den man abfragen könnte (genau deshalb wurden sie ja hinzugefügt) — ein Teil-gesperrtes Raster hätte hier keine sinnvolle Regel ergeben. Um die Matrix nicht inkonsistent zu machen (manche Zeilen frei, andere teil-gesperrt), gilt dieselbe „alles klickbar"-Regel einheitlich für alle Zeilen. Das Selbst-Check-In-Badge (aus PROJ-25) sowie die Quelle (Abo/Buchung/Manuell) werden weiterhin pro Zelle angezeigt.
+
+**Live-Verifikation (Playwright, gegen die Produktions-Datenbank, danach vollständig entfernt):**
+- Temporäre Fixtures: `e2etemp-teacher-matrix@…` (Lehrer, zugewiesen zu „Salsa Beginner 2", einem Kurs mit Termin exakt am Testtag), `e2etemp-abo-matrix@…` (aktives kursgebundenes Abo, plus vorab gesetzte „Abwesend"-Markierung an einem älteren Termin), `e2etemp-dropin-matrix@…` (bestätigte Drop-in-Buchung), `e2etemp-manual-matrix@…` (aktives Flatrate-Abo, absichtlich nicht kursgebunden — für den „Kunde hinzufügen"-Test), plus eine vorab gespeicherte Termin-Notiz.
+- Bestätigt: Matrix lädt mit „Heute"-Spalte hervorgehoben, die vorab gesetzte „Abwesend"-Markierung und die Notiz (Icon gefüllt, Inhalt korrekt) sind sichtbar; Anwesend-Markierung über die Popover-Zelle funktioniert und bleibt nach Reload bestehen; „Kunde hinzufügen" listet nur den Flatrate-Kunden (kein bereits gelisteter Kunde), fügt eine neue Zeile hinzu, die sofort in der heutigen Spalte markierbar ist und nach Reload weiterhin sichtbar bleibt.
+- Mobile-Viewport (375px): Tabelle scrollt horizontal, die Kundennamen-Spalte bleibt beim Scrollen sichtbar (sticky) — visuell per Screenshot bestätigt.
+- Alle temporären Fixtures (Auth-User, Profile, Abo, Buchung, Anwesenheit, Notiz, Kurs-Zuweisung) wieder vollständig entfernt.
+- `npm run build`, `npm run lint`, `npm test` (162/162) alle grün.
+
+**Bekannter Folgeaufwand für `/qa`:** Der bestehende E2E-Test `tests/PROJ-13-lehrer-ansicht-stundenplan-anwesenheit-notizen.spec.ts` zielt noch auf die entfernte Route `/lehrer/[courseId]/[date]` und muss für die neue Matrix-Ansicht neu geschrieben werden.
 
 ## QA Test Results
 

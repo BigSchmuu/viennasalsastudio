@@ -31,6 +31,6 @@ export async function markAttendance(formData: FormData): Promise<ActionResult> 
     return { error: "Anwesenheit konnte nicht gespeichert werden." };
   }
 
-  revalidatePath(`/lehrer/${parsed.data.course_id}/${parsed.data.occurrence_date}`);
+  revalidatePath(`/lehrer/${parsed.data.course_id}`);
   return { success: true };
 }
