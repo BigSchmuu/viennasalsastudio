@@ -167,6 +167,20 @@ läuft vollständig über die bereits bestehende PROJ-16-Infrastruktur.
 
 **Offener Punkt für `/deploy`:** ob der tatsächliche Vercel-Plan einen zweiten täglichen Cron-Lauf erlaubt, ist noch nicht verifiziert (siehe Open Questions) — muss beim Deployment geprüft werden.
 
+## Implementation Notes (Frontend)
+
+Neue Admin-Seite `/admin/probestunden` (Nav-Eintrag „Probestunden" zwischen „Buchungen" und „Lastschriften" in `admin-nav.tsx`), Page-Loader `src/app/admin/probestunden/page.tsx` und Komponente `src/components/admin/trials/trial-followup-list.tsx`.
+
+- **Zeitraum-Filter + Conversion-Rate-Kachel** wiederverwenden 1:1 die bestehenden Bausteine `PeriodFilter`/`MetricTile`/`resolvePeriod` aus PROJ-17, keine neuen Komponenten nötig.
+- **Konvertierungs-Status** wird im Page-Loader berechnet (nicht in einer separaten Query pro Zeile): pro Kunde werden alle regulären Buchungen und Abo-Erstellungsdaten einmalig geladen und gegen jede Probestunde geprüft, ob eines davon auf/nach deren Datum liegt — identische Logik zu `hasConvertedSince` aus dem Backend, hier aber bulk im Loader statt per-Zeilen-Query (weniger Roundtrips für eine Seite mit potenziell vielen Probestunden).
+- **Tabelle bewusst nicht durch den Zeitraum-Filter eingeschränkt** — nur die Conversion-Rate-Kachel ist zeitraum-scoped. Die Tabelle zeigt immer alle offenen/kontaktierten/konvertierten Probestunden, damit ältere, weiterhin nachverfolgungsbedürftige Fälle nicht aus dem Blick geraten, wenn ein enger Zeitraum gewählt ist. Direkt analog zur bereits getroffenen PROJ-17-Entscheidung, die Auslastungs-Liste ebenfalls vom Zeitraum-Filter zu entkoppeln.
+- **Status-Filter** (Offen/Kontaktiert/Konvertiert) folgt dem etablierten URL-Parameter-Muster aus PROJ-33 (`applyStatusFilter` → `router.push`, serverseitige Filterung im Loader).
+- **Kontaktiert-Haken + Notiz** pro Zeile: eigene Client-Komponente `FollowupRowActions` mit lokalem State nur für das jeweilige Eingabefeld (kein `useState` über die gesamte Zeilen-Liste) — die aus PROJ-33 bekannte Prop-Sync-Falle greift hier strukturell nicht, da `rows` direkt als Prop verwendet wird. Checkbox speichert sofort bei Klick, Notiz speichert bei Blur — beides ruft `setTrialContacted` auf und zeigt Toast-Feedback.
+- **„Follow-up überfällig"**-Badge nur für Zeilen mit Status „Offen" UND mehr als 14 Tagen seit dem Probestunden-Termin, per `daysUntil` aus `scheduling/dates.ts`.
+- Konvertierte Zeilen zeigen keine Kontaktiert-Aktion mehr (nicht mehr relevant).
+
+**Verifikation:** `npm run build`/`npm run lint` sauber. Live gegen die echte Produktionsdatenbank geprüft (ein vollständig eigenständiger Testkurs plus vier frische Test-Kunden für je einen Status — Offen, Kontaktiert, Konvertiert, Überfällig —, nach dem Test restlos entfernt): alle vier Status werden korrekt berechnet und angezeigt, Konvertiert-Zeile hat keine Kontaktiert-Checkbox mehr, Überfällig-Badge erscheint korrekt nur bei der >14-Tage-Offen-Zeile; Kontaktiert-Haken speichert sofort und die Notiz bleibt nach Reload erhalten; Status-Filter filtert korrekt und übersteht einen Reload; Zeitraum-Filter beeinflusst nachweislich nur die Conversion-Rate-Kachel (100% bei einem eng auf die konvertierte Probestunde eingegrenzten Zeitraum); 375px-Ansicht ohne horizontales Scrollen.
+
 ## QA Test Results
 _To be added by /qa_
 

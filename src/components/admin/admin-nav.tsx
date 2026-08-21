@@ -14,6 +14,7 @@ const links = [
   { href: "/admin/kunden", label: "Kunden" },
   { href: "/admin/lehrer", label: "Lehrer" },
   { href: "/admin/buchungen", label: "Buchungen" },
+  { href: "/admin/probestunden", label: "Probestunden" },
   { href: "/admin/lastschriften", label: "Lastschriften" },
   { href: "/admin/rechnungen", label: "Rechnungen" },
 ];
