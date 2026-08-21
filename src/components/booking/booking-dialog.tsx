@@ -6,7 +6,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createBooking } from "@/lib/actions/booking";
 import { joinWaitlist } from "@/lib/actions/waitlist";
-import { desiredPlanOptions, referralSourceOptions, type DesiredPlan } from "@/lib/constants/booking";
+import {
+  desiredPlanOptions,
+  referralSourceOptions,
+  danceRoleOptions,
+  type DesiredPlan,
+  type DanceRole,
+} from "@/lib/constants/booking";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +52,7 @@ export type BookingDialogCourse = {
   isFull: boolean;
   isOnWaitlist: boolean;
   prerequisiteNote: string | null;
+  roleQueryEnabled: boolean;
 };
 
 export function BookingDialog({
@@ -75,13 +82,19 @@ export function BookingDialog({
   const [wantsStudentPrice, setWantsStudentPrice] = useState(false);
   const [referralSource, setReferralSource] = useState("");
   const [prerequisiteConfirmed, setPrerequisiteConfirmed] = useState(false);
+  const [danceRole, setDanceRole] = useState<DanceRole | "">("");
+  const [roleImbalance, setRoleImbalance] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const dropinPrice = wantsStudentPrice ? dropinPricing.student : dropinPricing.normal;
 
   const showWaitlistForm =
-    tab === "regular" && course.isFull && !course.isOnWaitlist && !course.hasOpenRegularBooking && hasMandate;
+    tab === "regular" &&
+    (course.isFull || roleImbalance) &&
+    !course.isOnWaitlist &&
+    !course.hasOpenRegularBooking &&
+    hasMandate;
 
   const canSubmit =
     (!!course.prerequisiteNote && !prerequisiteConfirmed) || (!hasReferralSource && !referralSource)
@@ -105,6 +118,7 @@ export function BookingDialog({
         formData.set("course_id", course.id);
         formData.set("chosen_date", regularDate);
         formData.set("desired_plan", desiredPlan);
+        formData.set("dance_role", danceRole);
 
         const result = await joinWaitlist(formData);
         if ("error" in result) {
@@ -132,6 +146,7 @@ export function BookingDialog({
         formData.set("chosen_date", regularDate);
         formData.set("desired_plan", desiredPlan);
         formData.set("note", note);
+        formData.set("dance_role", danceRole);
       } else if (tab === "trial") {
         formData.set("chosen_date", trialDate);
       } else {
@@ -152,6 +167,13 @@ export function BookingDialog({
       if ("full" in result) {
         setError("Dieser Kurs ist mittlerweile voll. Bitte trage dich auf die Warteliste ein.");
         router.refresh();
+        return;
+      }
+      if ("roleImbalance" in result) {
+        setRoleImbalance(true);
+        setError(
+          "Diese Rolle ist für diesen Kurs aktuell nicht verfügbar. Bitte trage dich auf die Warteliste ein."
+        );
         return;
       }
 
@@ -254,7 +276,28 @@ export function BookingDialog({
                     ))}
                   </RadioGroup>
                 </div>
-                {!course.isFull && (
+                {course.roleQueryEnabled && (
+                  <div className="space-y-2">
+                    <Label>Ich tanze als (optional)</Label>
+                    <RadioGroup
+                      value={danceRole}
+                      onValueChange={(v) => {
+                        setDanceRole(v as DanceRole);
+                        setRoleImbalance(false);
+                      }}
+                    >
+                      {danceRoleOptions.map((option) => (
+                        <div key={option.value} className="flex items-center gap-2">
+                          <RadioGroupItem value={option.value} id={`role-${option.value}`} />
+                          <Label htmlFor={`role-${option.value}`} className="font-normal">
+                            {option.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  </div>
+                )}
+                {!course.isFull && !roleImbalance && (
                   <div className="space-y-1">
                     <Label htmlFor="booking-note">Notiz (optional)</Label>
                     <Textarea id="booking-note" value={note} onChange={(e) => setNote(e.target.value)} />

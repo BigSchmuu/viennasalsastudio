@@ -1,6 +1,6 @@
 # PROJ-30: Leader/Follower-Auswahl bei Kursbuchung
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -145,6 +145,20 @@ Die Warteliste selbst nutzt weiterhin die bestehende Wartelisten-Tabelle aus PRO
 ### D) Dependencies (packages to install)
 
 - Keine neuen Pakete nötig — RadioGroup, Select und die Formular-Validierung (Zod/react-hook-form) sind bereits im Projekt vorhanden und werden im selben Buchungsdialog schon für vergleichbare Felder genutzt. Die Wartelisten-UI und -Logik aus PROJ-12 wird erweitert, nicht neu gebaut.
+
+## Implementation Notes (Frontend + Backend)
+
+Implemented as one vertical slice (DB + Server Actions + UI), following the project's established pattern for Supabase-backed features (no separate `/backend` pass).
+
+**Database:** `courses.role_query_enabled` (bool, default false) + `courses.max_role_difference` (int, nullable); `course_bookings.dance_role` + `waitlist_entries.dance_role` (text, check constraint `leader`/`follower`/`both`). `create_regular_course_booking` and `join_waitlist` extended with an optional `p_dance_role` param and now perform the balance check inside the same row-locked transaction as the existing capacity check (raises `role imbalance`, mapped client-side to a `roleImbalance` result). `promote_waitlist_for_course` now searches the waitlist for the oldest entry whose role wouldn't re-violate the balance, instead of always taking the single oldest entry.
+
+**Frontend:** Course-manager edit form gained the "Leader/Follower-Abfrage aktivieren" switch + "Max. Rollen-Differenz" field, plus a "Rollen" column in the course list. Booking dialog gained a conditional "Ich tanze als" RadioGroup and reuses the existing full-course waitlist hint/button pattern when the role choice would violate the balance. Attendance matrix gained a role summary line + per-row badge (role lookup passed down as a separate map, not baked into `MatrixRow`, so it doesn't need to be threaded through the "Mehr laden"/"Kunde hinzufügen" state updates).
+
+**Bug found and fixed during live verification:** `promote_waitlist_for_course` originally returned early (`return 0`) whenever a course had no `max_participants` set, which is correct when nothing gates the waitlist — but for a course using role-balance *without* a participant cap, this meant no one could ever be promoted once blocked by role imbalance alone, even after the balance later resolved. Fixed by only short-circuiting when neither capacity nor role-balance is configured for the course.
+
+**Live verification (Playwright + direct Supabase fixtures, since discarded):** booked a Leader (ok, 1L/0F), a second Leader (correctly blocked with the balance hint and routed to the waitlist), a Follower (ok, 1L/1F), confirmed the admin course list showed "1 L / 1 F / 0 B" and "1 wartend"; then booked a second Follower (1L/2F, ok) and triggered promotion via an admin course save — the waitlisted Leader was correctly promoted once the balance allowed it (course list went from "1 L / 2 F / 0 B, 1 wartend" to "2 L / 2 F / 0 B, —"). Also caught and fixed a pre-existing-pattern issue with directly-inserted `auth.users` test fixtures: `created_at`/`updated_at` must be set explicitly (no default), or GoTrue's password grant fails with a 500 "Database error querying schema" that the login form masks as "E-Mail oder Passwort falsch".
+
+**Verification commands:** `npm run build`, `npm run lint`, `npm test` (163/163 passing) — all clean.
 
 ## QA Test Results
 _To be added by /qa_

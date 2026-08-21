@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { bookingTypeValues, desiredPlanValues, referralSourceValues } from "@/lib/constants/booking";
+import { bookingTypeValues, desiredPlanValues, referralSourceValues, danceRoleValues } from "@/lib/constants/booking";
 
 export const bookingSchema = z
   .object({
@@ -11,6 +11,7 @@ export const bookingSchema = z
     wants_student_price: z.boolean().optional(),
     referral_source: z.enum(referralSourceValues).optional().or(z.literal("")),
     prerequisite_confirmed: z.boolean().optional(),
+    dance_role: z.enum(danceRoleValues).optional().or(z.literal("")),
   })
   .superRefine((data, ctx) => {
     if (data.type === "regular" && !data.desired_plan) {

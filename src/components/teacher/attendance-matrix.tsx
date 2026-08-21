@@ -6,6 +6,7 @@ import { Check, X, FileText } from "lucide-react";
 import { markAttendance } from "@/lib/actions/teacher/attendance";
 import { loadMoreOccurrences } from "@/lib/actions/teacher/load-more-occurrences";
 import { attendanceSourceLabel } from "@/lib/constants/attendance";
+import { danceRoleLabel } from "@/lib/constants/booking";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,8 @@ export type MatrixRow = {
   cells: Record<string, MatrixCell>;
 };
 
+export type DanceRole = "leader" | "follower" | "both";
+
 export type EligibleCustomer = {
   id: string;
   name: string;
@@ -53,12 +56,16 @@ export function AttendanceMatrix({
   rows: initialRows,
   eligibleCustomers,
   isAdmin,
+  roleQueryEnabled,
+  roleByCustomer,
 }: {
   courseId: string;
   columns: MatrixColumn[];
   rows: MatrixRow[];
   eligibleCustomers: EligibleCustomer[];
   isAdmin: boolean;
+  roleQueryEnabled: boolean;
+  roleByCustomer: Record<string, DanceRole>;
 }) {
   const [columns, setColumns] = useState(initialColumns);
   const [rows, setRows] = useState(initialRows);
@@ -162,6 +169,15 @@ export function AttendanceMatrix({
   const sortedRows = [...rows].sort((a, b) => a.fullName.localeCompare(b.fullName, "de"));
   const activeColumn = columns.find((c) => c.date === noteDate) ?? null;
 
+  const roleSummary = { leader: 0, follower: 0, both: 0, none: 0 };
+  for (const row of rows) {
+    const role = roleByCustomer[row.customerId];
+    if (role === "leader") roleSummary.leader += 1;
+    else if (role === "follower") roleSummary.follower += 1;
+    else if (role === "both") roleSummary.both += 1;
+    else roleSummary.none += 1;
+  }
+
   if (columns.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-8 text-center">
@@ -181,6 +197,13 @@ export function AttendanceMatrix({
       <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
         {loadingMore ? "Lädt…" : "Mehr laden (4 weitere)"}
       </Button>
+
+      {roleQueryEnabled && (
+        <p className="text-sm text-muted-foreground">
+          {roleSummary.leader} Leader / {roleSummary.follower} Follower / {roleSummary.both} Beide
+          {roleSummary.none > 0 && ` / ${roleSummary.none} keine Angabe`}
+        </p>
+      )}
 
       <div className="rounded-md border">
         <Table>
@@ -233,6 +256,19 @@ export function AttendanceMatrix({
                         </Link>
                       ) : (
                         row.fullName
+                      )}
+                      {roleQueryEnabled && roleByCustomer[row.customerId] && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0"
+                          title={danceRoleLabel(roleByCustomer[row.customerId])}
+                        >
+                          {roleByCustomer[row.customerId] === "leader"
+                            ? "L"
+                            : roleByCustomer[row.customerId] === "follower"
+                              ? "F"
+                              : "B"}
+                        </Badge>
                       )}
                       {unsavedIds.has(row.customerId) && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-700 border-amber-300">

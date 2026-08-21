@@ -37,6 +37,7 @@ export type ScheduleEntry = {
     hasMandate: boolean;
     hasReferralSource: boolean;
     dropinPricing: { normal: number; student: number };
+    roleQueryEnabled: boolean;
   };
 };
 
@@ -114,6 +115,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
               isFull: entry.booking.isFull,
               isOnWaitlist: entry.booking.isOnWaitlist,
               prerequisiteNote: entry.prerequisiteNote,
+              roleQueryEnabled: entry.booking.roleQueryEnabled,
             }}
             isLoggedIn={entry.booking.isLoggedIn}
             hasMandate={entry.booking.hasMandate}

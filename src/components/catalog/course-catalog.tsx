@@ -42,6 +42,7 @@ export type CatalogCourseRow = {
   isFull: boolean;
   isOnWaitlist: boolean;
   prerequisiteNote: string | null;
+  roleQueryEnabled: boolean;
 };
 
 export type SimpleOption = { id: string; name: string };

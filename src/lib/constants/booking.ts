@@ -58,3 +58,16 @@ export const referralSourceOptions: { value: ReferralSource; label: string }[] =
 
 /** Days of lead time required to cancel/rebook a trial, drop-in, or open regular request. */
 export const BOOKING_CANCELLATION_LEAD_DAYS = 1;
+
+export const danceRoleValues = ["leader", "follower", "both"] as const;
+export type DanceRole = (typeof danceRoleValues)[number];
+
+export const danceRoleOptions: { value: DanceRole; label: string }[] = [
+  { value: "leader", label: "Leader" },
+  { value: "follower", label: "Follower" },
+  { value: "both", label: "Beide" },
+];
+
+export function danceRoleLabel(value: string | null): string {
+  return danceRoleOptions.find((o) => o.value === value)?.label ?? "keine Angabe";
+}

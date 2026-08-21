@@ -14,12 +14,28 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
 
   const { data: course } = await supabase
     .from("courses")
-    .select("id, name, course_schedule(weekday, course_schedule_pauses(pause_date))")
+    .select("id, name, role_query_enabled, course_schedule(weekday, course_schedule_pauses(pause_date))")
     .eq("id", courseId)
     .single();
 
   if (!course) {
     notFound();
+  }
+
+  const roleByCustomer: Record<string, "leader" | "follower" | "both"> = {};
+  if (course.role_query_enabled) {
+    const { data: roleBookings } = await supabase
+      .from("course_bookings")
+      .select("customer_id, dance_role, created_at")
+      .eq("course_id", courseId)
+      .eq("type", "regular")
+      .not("dance_role", "is", null)
+      .order("created_at", { ascending: true });
+    for (const b of roleBookings ?? []) {
+      // Later rows overwrite earlier ones, so the most recent booking's
+      // role choice wins if a customer applied to this course more than once.
+      roleByCustomer[b.customer_id] = b.dance_role as "leader" | "follower" | "both";
+    }
   }
 
   const schedule = course.course_schedule;
@@ -100,6 +116,8 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
           rows={rows}
           eligibleCustomers={eligibleCustomers}
           isAdmin={isAdmin}
+          roleQueryEnabled={course.role_query_enabled}
+          roleByCustomer={roleByCustomer}
         />
       )}
     </div>

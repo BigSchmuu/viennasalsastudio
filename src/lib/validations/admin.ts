@@ -54,6 +54,15 @@ export const courseSchema = z.object({
     .optional()
     .or(z.literal("")),
   prerequisite_note: z.string().trim().max(500, "Hinweis ist zu lang").optional().or(z.literal("")),
+  role_query_enabled: z.boolean().optional(),
+  max_role_difference: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || (Number.isInteger(Number(value)) && Number(value) >= 0), {
+      message: "Bitte eine gültige maximale Differenz eingeben",
+    })
+    .optional()
+    .or(z.literal("")),
 });
 export type CourseInput = z.infer<typeof courseSchema>;
 

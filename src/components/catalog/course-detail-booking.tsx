@@ -14,6 +14,7 @@ export type CourseDetailData = {
   isFull: boolean;
   isOnWaitlist: boolean;
   prerequisiteNote: string | null;
+  roleQueryEnabled: boolean;
 };
 
 export function CourseDetailBooking({

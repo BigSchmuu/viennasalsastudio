@@ -22,6 +22,7 @@ type CreateBookingResult =
   | { error: string }
   | { needsMandate: true }
   | { full: true }
+  | { roleImbalance: true }
   | { success: true; booking: BookingRow };
 
 const UPCOMING_OCCURRENCES_WINDOW = 8;
@@ -52,6 +53,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     wants_student_price: formData.get("wants_student_price") === "true",
     referral_source: formData.get("referral_source") ?? "",
     prerequisite_confirmed: formData.get("prerequisite_confirmed") === "true",
+    dance_role: formData.get("dance_role") ?? "",
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
@@ -114,6 +116,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       p_chosen_date: parsed.data.chosen_date,
       p_note: parsed.data.note ?? "",
       p_prerequisite_confirmed: parsed.data.prerequisite_confirmed ?? false,
+      p_dance_role: parsed.data.dance_role ?? "",
     });
 
     if (error) {
@@ -122,6 +125,9 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       }
       if (error.message.includes("course is full")) {
         return { full: true };
+      }
+      if (error.message.includes("role imbalance")) {
+        return { roleImbalance: true };
       }
       return { error: "Buchung konnte nicht gespeichert werden." };
     }

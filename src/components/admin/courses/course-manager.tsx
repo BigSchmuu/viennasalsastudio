@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import {
@@ -80,6 +81,9 @@ export type CourseRow = {
   prerequisiteNote: string | null;
   occupiedCount: number;
   waitlistEntries: WaitlistEntryRow[];
+  roleQueryEnabled: boolean;
+  maxRoleDifference: number | null;
+  roleCounts: { leader: number; follower: number; both: number };
 };
 
 export type SimpleOption = { id: string; name: string };
@@ -151,6 +155,7 @@ export function CourseManager({
               <TableHead>Lehrer</TableHead>
               <TableHead>Videosatz</TableHead>
               <TableHead>Kapazität</TableHead>
+              <TableHead>Rollen</TableHead>
               <TableHead>Warteliste</TableHead>
               <TableHead className="text-right">Aktionen</TableHead>
             </TableRow>
@@ -180,6 +185,11 @@ export function CourseManager({
                   ) : (
                     `${course.occupiedCount} / ${course.maxParticipants}`
                   )}
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-sm">
+                  {course.roleQueryEnabled
+                    ? `${course.roleCounts.leader} L / ${course.roleCounts.follower} F / ${course.roleCounts.both} B`
+                    : "—"}
                 </TableCell>
                 <TableCell>
                   {course.waitlistEntries.length === 0 ? (
@@ -301,6 +311,8 @@ function CourseFormDialog({
       max_participants: course?.maxParticipants != null ? String(course.maxParticipants) : "",
       price: course?.price != null ? String(course.price) : "",
       prerequisite_note: course?.prerequisiteNote ?? "",
+      role_query_enabled: course?.roleQueryEnabled ?? false,
+      max_role_difference: course?.maxRoleDifference != null ? String(course.maxRoleDifference) : "",
     },
   });
 
@@ -319,6 +331,8 @@ function CourseFormDialog({
       formData.set("max_participants", values.max_participants ?? "");
       formData.set("price", values.price ?? "");
       formData.set("prerequisite_note", values.prerequisite_note ?? "");
+      formData.set("role_query_enabled", String(values.role_query_enabled ?? false));
+      formData.set("max_role_difference", values.max_role_difference ?? "");
       (values.teacher_ids ?? []).forEach((id) => formData.append("teacher_ids", id));
 
       const result = course
@@ -560,6 +574,35 @@ function CourseFormDialog({
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="role_query_enabled"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-md border p-3">
+                  <FormLabel className="font-normal">Leader/Follower-Abfrage aktivieren</FormLabel>
+                  <FormControl>
+                    <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {form.watch("role_query_enabled") && (
+              <FormField
+                control={form.control}
+                name="max_role_difference"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Max. Rollen-Differenz (optional, leer = keine Beschränkung)</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="0" step="1" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <DialogFooter>
               <Button type="submit" disabled={loading}>

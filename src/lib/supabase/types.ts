@@ -158,6 +158,7 @@ export type Database = {
           course_id: string
           created_at: string
           customer_id: string
+          dance_role: string | null
           desired_plan: string | null
           id: string
           note: string | null
@@ -172,6 +173,7 @@ export type Database = {
           course_id: string
           created_at?: string
           customer_id: string
+          dance_role?: string | null
           desired_plan?: string | null
           id?: string
           note?: string | null
@@ -186,6 +188,7 @@ export type Database = {
           course_id?: string
           created_at?: string
           customer_id?: string
+          dance_role?: string | null
           desired_plan?: string | null
           id?: string
           note?: string | null
@@ -412,9 +415,11 @@ export type Database = {
           id: string
           level: string | null
           max_participants: number | null
+          max_role_difference: number | null
           name: string
           prerequisite_note: string | null
           price: number | null
+          role_query_enabled: boolean
           room_id: string
           video_set_id: string | null
         }
@@ -424,9 +429,11 @@ export type Database = {
           id?: string
           level?: string | null
           max_participants?: number | null
+          max_role_difference?: number | null
           name: string
           prerequisite_note?: string | null
           price?: number | null
+          role_query_enabled?: boolean
           room_id: string
           video_set_id?: string | null
         }
@@ -436,9 +443,11 @@ export type Database = {
           id?: string
           level?: string | null
           max_participants?: number | null
+          max_role_difference?: number | null
           name?: string
           prerequisite_note?: string | null
           price?: number | null
+          role_query_enabled?: boolean
           room_id?: string
           video_set_id?: string | null
         }
@@ -1210,6 +1219,7 @@ export type Database = {
           course_id: string
           created_at: string
           customer_id: string
+          dance_role: string | null
           desired_plan: string
           id: string
         }
@@ -1218,6 +1228,7 @@ export type Database = {
           course_id: string
           created_at?: string
           customer_id: string
+          dance_role?: string | null
           desired_plan: string
           id?: string
         }
@@ -1226,6 +1237,7 @@ export type Database = {
           course_id?: string
           created_at?: string
           customer_id?: string
+          dance_role?: string | null
           desired_plan?: string
           id?: string
         }
@@ -1329,6 +1341,7 @@ export type Database = {
         Args: {
           p_chosen_date: string
           p_course_id: string
+          p_dance_role?: string
           p_desired_plan: string
           p_note: string
           p_prerequisite_confirmed?: boolean
@@ -1338,6 +1351,7 @@ export type Database = {
           course_id: string
           created_at: string
           customer_id: string
+          dance_role: string | null
           desired_plan: string | null
           id: string
           note: string | null
@@ -1367,6 +1381,7 @@ export type Database = {
           course_id: string
           created_at: string
           customer_id: string
+          dance_role: string | null
           desired_plan: string | null
           id: string
           note: string | null
@@ -1433,6 +1448,7 @@ export type Database = {
         Args: {
           p_chosen_date: string
           p_course_id: string
+          p_dance_role?: string
           p_desired_plan: string
         }
         Returns: {
@@ -1440,6 +1456,7 @@ export type Database = {
           course_id: string
           created_at: string
           customer_id: string
+          dance_role: string | null
           desired_plan: string
           id: string
         }

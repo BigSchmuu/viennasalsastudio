@@ -29,7 +29,7 @@ export default async function StundenplanPage() {
       supabase
         .from("courses")
         .select(
-          "id, name, level, dance_styles(name), rooms(id, name, locations(name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, prerequisite_note"
+          "id, name, level, dance_styles(name), rooms(id, name, locations(name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, prerequisite_note, role_query_enabled"
         ),
       supabase.from("teacher_directory").select("id, full_name"),
       // PROJ-25: own active course-bound subscriptions determine self-check-in eligibility.
@@ -128,6 +128,7 @@ export default async function StundenplanPage() {
         hasMandate,
         hasReferralSource,
         dropinPricing,
+        roleQueryEnabled: course.role_query_enabled,
       };
     }
 

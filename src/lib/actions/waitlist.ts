@@ -12,6 +12,7 @@ export async function joinWaitlist(formData: FormData): Promise<JoinWaitlistResu
     course_id: formData.get("course_id"),
     desired_plan: formData.get("desired_plan"),
     chosen_date: formData.get("chosen_date"),
+    dance_role: formData.get("dance_role") ?? "",
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
@@ -48,6 +49,7 @@ export async function joinWaitlist(formData: FormData): Promise<JoinWaitlistResu
     p_course_id: parsed.data.course_id,
     p_desired_plan: parsed.data.desired_plan,
     p_chosen_date: parsed.data.chosen_date,
+    p_dance_role: parsed.data.dance_role ?? "",
   });
 
   if (error) {
