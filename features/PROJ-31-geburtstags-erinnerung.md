@@ -1,6 +1,6 @@
 # PROJ-31: Geburtstags-Erinnerung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -193,4 +193,10 @@ Keine Bugs gefunden. (Ein Detail-Problem — Feb-29-Anzeige zeigte das unnormali
 - **Recommendation:** Deploy. Die 5 in der Regressionsprüfung gefundenen Fehlschläge sind bestätigt vorbestehend und unabhängig von PROJ-31 (Zeitfenster-Fixture-Drift bei PROJ-25, Datenakkumulation bei PROJ-17/PROJ-13) — sie blockieren dieses Feature nicht, sollten aber als eigener Housekeeping-Task (Test-Selbstbereinigung) auf dem Radar bleiben.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Deployed:** 2026-08-21
+- **Production URL:** https://viennasalsastudio.vercel.app
+- **Git tag:** `v1.0.0-PROJ-31`
+- **Commit:** `fd864a7`
+- **Deployment method:** Push to `main` → Vercel auto-deploy (already deployed automatically as each PROJ-31 commit was pushed during `/frontend`/`/qa`; this step confirmed the final build is live)
+- **Post-deployment verification:** Confirmed live in production via Playwright against the shared production database — set an `e2e30` fixture customer's birthdate to today through the existing admin edit form, confirmed the Dashboard „Geburtstage"-Widget shows them with „Heute", no browser console errors on `/admin`, then reset the fixture's birthdate. No new environment variables or database migrations required for this feature.
