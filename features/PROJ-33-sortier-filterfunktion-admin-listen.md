@@ -1,6 +1,6 @@
 # PROJ-33: Sortier- und Filterfunktion für Admin-Listen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -57,12 +57,95 @@
 ### Technical Decisions
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
+|----------|-----------|------|
+| Neuer gemeinsamer Baustein für sortierbare Spaltenüberschriften und ein generalisiertes URL-Parameter-Filtermuster, statt 5 separater Insellösungen | Repo-weite Suche bestätigt: aktuell existiert nirgends eine sortierbare Spalte, nicht mal in der Rechnungsliste; die Rechnungsliste hat zwar schon ein URL-Parameter-Filtermuster, aber keine Sortierung — beides wird als gemeinsamer, wiederverwendbarer Baustein neu gebaut, um Konsistenz über alle 5 Listen zu sichern (User-Entscheidung aus der Spec) | 2026-08-21 |
+| Dropdown-Filter wenden sich sofort an (bei Auswahl → URL-Navigation), Freitextsuche behält das bestehende „erst bei Klick auf Filtern"-Verhalten der Rechnungsliste | Bei einer diskreten Auswahl (Dropdown) gibt es keinen Tastendruck-pro-Zeichen-Effekt, der eine Navigation bei jeder Eingabe rechtfertigen würde nachzudenken; bei Freitext würde sofortiges Navigieren bei jedem Buchstaben stören — das bestehende Verhalten der Rechnungsliste bleibt für Text bewusst erhalten | 2026-08-21 |
+| Kundenliste: Status-Priorität bei mehreren Abos ist Aktiv > Pausiert > Gekündigt > Kein Abo | User-bestätigt, konsistent mit der bereits etablierten PROJ-32-Definition von „aktiver Kunde" | 2026-08-21 |
+| Kundenliste: bestehende clientseitige Sofortsuche wird auf das URL-Parameter-Muster umgestellt | User-Entscheidung: Konsistenz mit dem neuen Status-Filter (beide bleiben bei Reload erhalten) und mit dem Performance-Grundsatz der Spec (serverseitig bei langen Listen) | 2026-08-21 |
+| Lastschriftlauf-Status wird neu abgeleitet („Vollständig eingezogen" / „Mit Rückbuchungen"), nicht gespeichert | Es existiert heute kein Status-Feld auf einem Lastschriftlauf; der Status wird aus den zugehörigen Positionen berechnet (mindestens eine Position mit gesetztem `bounced_at` → „Mit Rückbuchungen") — kein neues Datenbankfeld nötig | 2026-08-21 |
+| Kursliste: Level-Filter nutzt die bereits bestehende `levelOptions`-Liste, Tanzstil-Filter liest die vorhandenen `dance_styles`-Einträge | Beide Wertelisten existieren bereits im Projekt (Level als festes Enum, Tanzstil als eigene Tabelle) — keine neue Datenquelle nötig | 2026-08-21 |
+| Vorgeschlagene Umsetzungsreihenfolge fürs `/frontend`: Kundenliste zuerst, danach Rechnungsliste (nur Sortierung ergänzen), dann Buchungsliste, Kursliste, Lastschriftlauf-Liste | Kundenliste enthält die im Spec-Interview explizit geforderte „Nur aktive Kunden"-Filterung (höchster Business-Wert); Rechnungsliste hat bereits die meiste Filter-Infrastruktur und braucht nur Sortierung; die Spec erlaubt ausdrücklich inkrementelle Umsetzung | 2026-08-21 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Neue gemeinsame Bausteine (werden in allen 5 Listen verwendet)
+├── Sortierbare Spaltenüberschrift
+│   — klickbarer Spaltentitel mit Pfeil-Icon für die aktuelle Richtung
+│   — ein erneuter Klick auf dieselbe Spalte kehrt die Richtung um
+└── Filter-Leiste
+    — Dropdown-Filter wenden sich sofort an (bei Auswahl)
+    — Freitextsuche behält das „erst bei Klick auf Filtern"-Verhalten der Rechnungsliste
+    — „Filter zurücksetzen" räumt alle aktiven Filter auf einen Blick weg
+
+Kundenliste (/admin/kunden)
+├── Neuer Status-Filter: Alle / Aktiv / Pausiert / Gekündigt / Kein Abo
+├── Bestehende Namenssuche, jetzt über die Filter-Leiste (URL-basiert statt clientseitig)
+└── Sortierbare Spalten: Name, Erstellt am
+
+Rechnungsliste (/admin/rechnungen)
+├── Bestehende Datum-/Namenssuche bleibt unverändert
+└── NEU: sortierbare Spalten Datum, Betrag, Kunde
+
+Buchungsliste (/admin/buchungen)
+├── Neuer Filter: Buchungstyp (Regulär / Probestunde / Drop-in)
+└── Sortierbare Spalten: Kunde, Kurs, Termin
+
+Kursliste (/admin/kurse)
+├── Neue Filter: Level, Tanzstil
+└── Sortierbare Spalten: Name, Level
+
+Lastschriftlauf-Liste (/admin/lastschriften)
+├── Neuer Status-Filter: Alle / Vollständig eingezogen / Mit Rückbuchungen
+└── Sortierbare Spalten: Fälligkeitsdatum, Gesamtbetrag, Erstellt am
+
+Jede Liste zeigt bei 0 Treffern einen Leerzustand-Hinweis statt einer leeren Tabelle.
+```
+
+### B) Data Model (plain language)
+
+```
+Keine neuen Tabellen. Zwei bestehende Abfragen müssen erweitert werden,
+alle anderen Listen brauchen nur eine andere Sortierung/Filterung der
+bereits geladenen Felder:
+
+Kundenliste:
+- Die Abo-Abfrage lädt zusätzlich den Status jedes Abos (nicht nur die Anzahl)
+- Daraus wird pro Kunde ein einziger „Status" abgeleitet:
+  Aktiv (mind. ein aktives Abo) > Pausiert > Gekündigt > Kein Abo
+
+Lastschriftlauf-Liste:
+- Für jeden Lauf wird zusätzlich geprüft, ob mindestens eine seiner
+  Positionen zurückgebucht wurde (bestehendes Feld, bisher nur auf
+  Positionsebene sichtbar)
+- Daraus wird ein Lauf-Status abgeleitet: „Vollständig eingezogen"
+  oder „Mit Rückbuchungen" — kein neues Datenbankfeld, reine Berechnung
+
+Sortierung und Filterung laufen bei allen 5 Listen serverseitig (nicht
+im Browser auf bereits geladenen Daten), damit auch sehr lange Listen
+performant bleiben.
+
+Gespeichert in: bestehende Tabellen unverändert. Der aktuelle Filter-/
+Sortier-Zustand jeder Liste steht in der URL (z.B. ?status=aktiv&sort=name&dir=asc),
+nicht in einer neuen Datenbank-Tabelle.
+```
+
+### C) Tech Decisions (justified for PM)
+
+- **Ein gemeinsamer Baustein statt fünf Einzellösungen:** Die Rechnungsliste hat bereits ein URL-Parameter-Filtermuster, aber keine der 5 Listen hat eine sortierbare Spalte. Ein einziger, wiederverwendbarer „Sortierbare Spalte"-Baustein plus ein generalisiertes Filter-URL-Muster stellt sicher, dass sich alle 5 Listen gleich anfühlen und künftige Listen dasselbe Muster einfach übernehmen können.
+- **URL-Parameter statt reinem Bildschirm-Zustand:** Ein Filter bleibt beim Neuladen der Seite erhalten und ist per Link teilbar (z.B. „schau dir mal alle pausierten Kunden an" als Link verschickbar) — das war bereits in der ursprünglichen Spec so festgelegt und wird jetzt auf Sortierung erweitert.
+- **Dropdowns navigieren sofort, Freitext erst auf Klick:** Vermeidet, dass bei jedem eingegebenen Buchstaben eine neue Serveranfrage losgeht, behält aber die sofortige Rückmeldung bei einer einfachen Auswahl.
+- **Zwei abgeleitete Status-Werte statt neuer Datenbankfelder:** Sowohl der Kunden-Status als auch der Lastschriftlauf-Status lassen sich vollständig aus bereits vorhandenen Daten berechnen (Abo-Status je Kunde, Rückbuchungs-Flag je Position) — das vermeidet Datenbank-Änderungen und stellt sicher, dass der Status nie „veraltet", weil er nie gespeichert, sondern immer live berechnet wird.
+- **Inkrementelle Umsetzung, Kundenliste zuerst:** Die Spec erlaubt ausdrücklich, die 5 Listen nacheinander umzusetzen. Die Kundenliste deckt den im Interview am stärksten gewünschten Anwendungsfall ab („Nur aktive Kunden") und wird deshalb zuerst gebaut.
+
+### D) Dependencies (packages to install)
+
+- Keine neuen Pakete nötig — nutzt ausschließlich bereits vorhandene shadcn/ui-Komponenten (Select, Input, Button, Table) und die in Next.js eingebaute `searchParams`-Mechanik, die die Rechnungsliste bereits verwendet.
 
 ## QA Test Results
 _To be added by /qa_
