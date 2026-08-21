@@ -1,6 +1,6 @@
 # PROJ-29: Probestunden-Follow-up & Conversion-Tracking
 
-## Status: Planned
+## Status: In Review
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -182,7 +182,91 @@ Neue Admin-Seite `/admin/probestunden` (Nav-Eintrag „Probestunden" zwischen �
 **Verifikation:** `npm run build`/`npm run lint` sauber. Live gegen die echte Produktionsdatenbank geprüft (ein vollständig eigenständiger Testkurs plus vier frische Test-Kunden für je einen Status — Offen, Kontaktiert, Konvertiert, Überfällig —, nach dem Test restlos entfernt): alle vier Status werden korrekt berechnet und angezeigt, Konvertiert-Zeile hat keine Kontaktiert-Checkbox mehr, Überfällig-Badge erscheint korrekt nur bei der >14-Tage-Offen-Zeile; Kontaktiert-Haken speichert sofort und die Notiz bleibt nach Reload erhalten; Status-Filter filtert korrekt und übersteht einen Reload; Zeitraum-Filter beeinflusst nachweislich nur die Conversion-Rate-Kachel (100% bei einem eng auf die konvertierte Probestunde eingegrenzten Zeitraum); 375px-Ansicht ohne horizontales Scrollen.
 
 ## QA Test Results
-_To be added by /qa_
+**Tested:** 2026-08-21
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Übersicht zeigt Kunde mit Kursname, Datum, Status
+- [x] Korrekt — Name, Kursname, Datum, Status alle sichtbar (E2E-geprüft)
+
+#### AC-2: Kunde mit regulärer Buchung/Abo nach der Probestunde ist automatisch „konvertiert"
+- [x] Für den geprüften Positivfall (bestätigte reguläre Buchung) korrekt (E2E-geprüft)
+- [ ] BUG-1: Ein **abgelehnter** regulärer Buchungsantrag zählt ebenfalls fälschlich als „konvertiert" — sowohl in der Admin-Übersicht als auch in der Skip-Logik der automatisierten Erinnerung (siehe Bugs Found)
+
+#### AC-3: Kontaktiert-Haken + Notiz speichern und bleiben sichtbar
+- [x] Korrekt, inkl. Persistenz nach Reload (E2E-geprüft)
+
+#### AC-4: Conversion-Rate für wählbaren Zeitraum
+- [x] Korrekt berechnet und auf den Zeitraum beschränkt, Tabelle bleibt bewusst zeitraum-unabhängig (E2E-geprüft)
+
+#### AC-5: „Follow-up überfällig" nach >14 Tagen ohne Kontakt/Konvertierung
+- [x] Korrekt hervorgehoben, nicht-überfällige Einträge bleiben unmarkiert (E2E-geprüft)
+
+#### AC-6: Status-Filter „Offen"
+- [x] Korrekt (E2E-geprüft)
+
+#### AC-7: Abend-Erinnerung mit Buchungslink
+- [x] Korrekt — bereits während `/backend` live gegen die echte Datenbank verifiziert (enqueued, Inhalt korrekt, Dedupe bestätigt)
+
+#### AC-8: Zweite Erinnerung kurz vor dem nächsten Termin
+- [x] Korrekt — bereits während `/backend` live verifiziert (nächster Termin = morgen ausgelöst, weiter entfernte Termine korrekt nicht ausgelöst)
+
+#### AC-9: Erinnerung entfällt bei zwischenzeitlicher Konvertierung
+- [ ] BUG-1 wirkt sich hier ebenfalls aus: eine abgelehnte (statt bestätigte) reguläre Buchung lässt die Erinnerung fälschlich ausfallen, obwohl der Kunde tatsächlich noch nicht konvertiert ist
+
+#### AC-10: Erinnerung entfällt bei deaktivierter Benachrichtigungsgruppe, Eintrag bleibt in der Übersicht sichtbar
+- [x] Korrekt — live verifiziert: `email_status`/`push_status` beide „skipped", kein Fehler; Admin-Übersicht ist ohnehin komplett unabhängig von Benachrichtigungs-Einstellungen (eigene, unabhängige Abfrage)
+
+### Edge Cases Status
+
+#### EC-1: Mehrere Probestunden desselben Kunden in verschiedenen Kursen
+- [x] Jede Probestunde wird als eigener Eintrag geführt, Konvertierungsprüfung ist pro Probestunde unabhängig (per Code-Review bestätigt: `isConverted`/`hasConvertedSince` beziehen sich immer auf `chosen_date` der jeweiligen Probestunde, nicht global pro Kunde)
+
+#### EC-2: Rückwirkend erfasste, bereits vergangene Probestunden lösen keine nachträglichen Erinnerungen aus
+- [x] Korrekt — `runEveningChecks` filtert exakt auf `chosen_date = heute`, `runFollowupChecks` nur auf ein 30-Tage-Fenster mit „nächster Termin = morgen"; beides schließt lange zurückliegende Altbuchungen sauber aus (Code-Review + Backend-Live-Verifikation)
+
+#### EC-3: Kunde konvertiert, storniert Abo später wieder — bleibt „konvertiert"
+- [x] Korrekt per Design — Abo-Status wird nie geprüft, nur ob überhaupt ein Abo-Datensatz existiert (Code-Review)
+
+#### EC-4: Kein weiterer Kurstermin in absehbarer Zeit — zweite Erinnerung entfällt, erste bleibt unberührt
+- [x] Korrekt — `upcomingOccurrences` liefert dann kein `tomorrow`-Match, `runFollowupChecks` überspringt die Zeile; unabhängig von `runEveningChecks` (Code-Review)
+
+### Security Audit Results
+- [x] Authentication: `/admin/probestunden` ohne Login → Redirect zu `/login` (E2E-geprüft)
+- [x] Authorization: Kunde (nicht Admin) wird von `/admin/probestunden` weggeleitet (E2E-geprüft)
+- [x] **RLS-Bypass-Versuch (Red Team):** Direkter Zugriff auf `trial_followups` über die Supabase-API mit einem echten Kunden-Login (unter Umgehung der Next.js-App komplett) — SELECT liefert leeres Ergebnis, INSERT wird mit `42501 row-level security policy`-Fehler abgelehnt. RLS ist eine echte, wirksame zweite Verteidigungslinie, nicht nur durch `requireAdmin()` in der Server Action abgesichert.
+- [x] Input validation / Injection: Keine neue nutzerkontrollierte Roheingabe in SQL — `setTrialContacted` läuft über den Supabase-Query-Builder (parametrisiert); Notiz-Feld hat keine Format-Einschränkung, ist aber nirgends in E-Mail/Push-Inhalte eingebettet (nur admin-intern angezeigt, via React-JSX automatisch escaped)
+- [x] XSS: Kursname wird in den neuen Benachrichtigungs-E-Mails über `escapeHtml()` eingebettet (unit-getestet in `templates.test.ts`); alle Namen/Notizen in der Admin-UI laufen über JSX-Interpolation, keine `dangerouslySetInnerHTML`-Verwendung in den neuen Dateien
+- [x] Datenschutz: Keine sensiblen Zusatzdaten in der neuen Tabelle oder den Benachrichtigungsinhalten über das ohnehin bereits admin-sichtbare Maß hinaus
+
+### Regression Testing
+- `npm test` (Vitest): 194/194 bestanden
+- Neue permanente E2E-Suite `tests/PROJ-29-probestunden-follow-up-conversion-tracking.spec.ts` (6 Tests, zeitunabhängige Fixtures über einen Service-Client mit `beforeAll`/`afterAll` selbst gesät und bereinigt, damit die Überfällig-/Zeitraum-Szenarien auch bei künftigen Wiederholungsläufen an einem anderen Kalendertag korrekt bleiben): 6/6 bestanden, zweimal hintereinander ausgeführt zur Bestätigung der Wiederholbarkeit/Idempotenz
+- Regressionssuiten für die von PROJ-29 mitbenutzte Infrastruktur erneut ausgeführt: PROJ-16 (Benachrichtigungen) vollständig grün — bestätigt, dass die neuen `dispatch.ts`/`templates.ts`-Ergänzungen die fünf bestehenden Benachrichtigungstypen nicht beeinträchtigt haben. PROJ-8 (8 Fehlschläge) und PROJ-17 (1 Fehlschlag) zeigen exakt dasselbe, bereits mehrfach in dieser Session dokumentierte Muster vorbestehender Fixture-Datenakkumulation aus wiederholten Testläufen (u.a. nicht zurückgesetzter `referral_source`, akkumulierte Kündigungszahl) — PROJ-29 berührt keine der betroffenen Code-Pfade (Buchungsdialog, Akquisitionskanal-Logik, Abo-Kündigung); nicht PROJ-29-bedingt
+
+### Bugs Found
+
+#### BUG-1: Abgelehnte reguläre Buchungen zählen fälschlich als „konvertiert"
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Kunde bucht eine Probestunde, Admin bestätigt sie
+  2. Derselbe Kunde stellt später eine reguläre Buchungsanfrage, der Admin **lehnt** diese ab (Status „rejected")
+  3. Admin öffnet `/admin/probestunden`
+  4. Erwartet: Kunde erscheint weiterhin als „Offen" (oder „Kontaktiert", falls markiert) — die Buchungsanfrage wurde ja nicht angenommen
+  5. Tatsächlich: Kunde erscheint als „Konvertiert" — live reproduziert mit einem eigens angelegten Testkunden und einer abgelehnten Buchung
+- **Root Cause:** Sowohl `hasConvertedSince()` in `src/lib/notifications/dispatch.ts` als auch die Conversion-Berechnung in `src/app/admin/probestunden/page.tsx` fragen reguläre Buchungen ausschließlich per `chosen_date >= Probestunden-Datum` ab, **ohne nach `status` zu filtern**. Das widerspricht der eigenen Architektur-Entscheidung im Decision Log dieser Spec: „Konvertierung = irgendeine **bestätigte** reguläre Buchungsanfrage..." — die Implementierung hat diesen Status-Filter schlicht vergessen.
+- **Auswirkung:** Betrifft zwei Stellen gleichzeitig — (1) die Admin-Übersicht zeigt einen tatsächlich noch nicht konvertierten Kunden fälschlich als erledigt, wodurch er aus dem Follow-up-Blick verschwindet, und (2) die automatisierte „kurz vor dem nächsten Termin"-Erinnerung wird für genau diesen Kunden fälschlich übersprungen — er bekommt keine zweite Chance zur Reaktivierung, obwohl er sie laut Spec bekommen sollte.
+- **Fix-Empfehlung:** In beiden Stellen `.eq("status", "confirmed")` auf die reguläre-Buchungs-Abfrage ergänzen, analog zum bereits bestehenden Muster in `runDailyChecks`/`kursstart_erinnerung`, das ebenfalls nur bestätigte Buchungen berücksichtigt.
+- **Priority:** Fix before deployment
+
+### Summary
+- **Acceptance Criteria:** 8/10 vollständig fehlerfrei, 2 durch BUG-1 beeinträchtigt (AC-2 Negativfall, AC-9)
+- **Bugs Found:** 1 total (0 critical, 1 high, 0 medium, 0 low)
+- **Security:** Pass — inkl. erfolgreichem RLS-Bypass-Red-Team-Test (RLS hat korrekt blockiert)
+- **Production Ready:** NO
+- **Recommendation:** BUG-1 vor dem Deployment beheben — kleiner, chirurgischer Fix (ein `.eq("status", "confirmed")` an zwei Stellen), betrifft aber die Kernlogik des Features. Die vorbestehenden PROJ-8/PROJ-17-Fixture-Drift-Fehlschläge blockieren dieses Feature nicht, sollten aber weiterhin auf dem Radar für einen separaten Housekeeping-Task bleiben.
 
 ## Deployment
 _To be added by /deploy_
