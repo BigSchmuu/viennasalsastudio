@@ -51,12 +51,66 @@
 ### Technical Decisions
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
+|----------|-----------|------|
+| Neue, kleine Tabelle nur für „kontaktiert"-Status und Notiz statt Erweiterung der bestehenden Buchungstabelle | Diese beiden Felder sind ausschließlich für Probestunden relevant — eine Erweiterung der allgemeinen Buchungstabelle würde für alle anderen Buchungstypen (regulär, Drop-in) dauerhaft leere Spalten anlegen | 2026-08-21 |
+| Konvertierungs- und „Follow-up überfällig"-Status sind reine Berechnungen, kein gespeicherter Status | Konsistent mit dem bereits etablierten Muster abgeleiteter Status-Werte aus PROJ-31/PROJ-33 — verhindert, dass ein Status „veraltet", weil er nie gespeichert, sondern bei jedem Seitenaufruf live berechnet wird | 2026-08-21 |
+| `/backend` nötig (neue Tabelle + Berechtigungen + Speicherfunktion für „kontaktiert"/Notiz) | Im Unterschied zu PROJ-31/PROJ-33 wird hier erstmals ein neuer, admin-schreibbarer Zustand dauerhaft gespeichert (nicht nur gelesen/abgeleitet) — das erfordert eine neue Datenbanktabelle mit Zugriffsregeln und eine Speicherfunktion, kein reines Frontend-Feature | 2026-08-21 |
+| Konvertierung = irgendeine reguläre Buchung ODER ein Abo für denselben Kunden nach dem Probestunden-Termin | Bestätigt durch Code-Review des bestehenden Bestätigungs-Ablaufs: Eine bestätigte reguläre Buchungsanfrage legt automatisch ein Abo an — beide Signale zusammen decken „hat regulär gebucht" vollständig ab | 2026-08-21 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Neue Admin-Seite: /admin/probestunden ("Probestunden" in der Admin-Navigation)
+├── Zeitraum-Filter (wiederverwendet den bestehenden Zeitraum-Baustein aus PROJ-17)
+├── Conversion-Rate-Kachel — Anteil konvertierter Probestunden im gewählten Zeitraum
+├── Status-Filter: Alle / Offen / Kontaktiert / Konvertiert
+└── Probestunden-Tabelle
+    ├── Spalten: Kunde, Kurs, Datum der Probestunde, Status-Badge
+    │   (Offen / Kontaktiert / Konvertiert)
+    ├── „Follow-up überfällig"-Hervorhebung für offene Einträge, deren
+    │   Probestunden-Termin mehr als 14 Tage zurückliegt
+    └── Zeilen-Aktion (nur bei nicht-konvertierten Einträgen):
+        „Kontaktiert"-Haken + optionales Notizfeld, sofort speicherbar
+```
+
+### B) Data Model (plain language)
+
+```
+Neue Tabelle „Probestunden-Nachverfolgung" — genau ein Eintrag pro
+Probestunden-Buchung:
+- Verweis auf die zugehörige Probestunden-Buchung
+- Kontaktiert: Ja/Nein
+- Notiz: Freitext, optional
+- Zeitpunkt der Kontaktierung
+
+Alles andere wird bei jedem Seitenaufruf direkt aus den bereits
+bestehenden Buchungsdaten berechnet, analog zum etablierten Muster
+abgeleiteter Status-Werte (PROJ-31, PROJ-33):
+- Konvertiert = für diesen Kunden existiert nach dem Probestunden-Termin
+  mindestens eine reguläre Buchung oder ein Abo
+- Follow-up überfällig = Probestunden-Termin liegt mehr als 14 Tage
+  zurück UND weder kontaktiert noch konvertiert
+- Conversion-Rate im Zeitraum = konvertierte Probestunden im Zeitraum
+  geteilt durch alle Probestunden im Zeitraum
+
+Gespeichert in: bestehende Buchungsdaten unverändert; nur der
+Kontaktiert-Status/Notiz landet in der neuen, kleinen Tabelle.
+```
+
+### C) Tech Decisions (justified for PM)
+
+- **Nur eine neue, kleine Tabelle statt einer großen Umstrukturierung:** Kunde, Kurs, Datum und der Konvertierungs-Status kommen bereits vollständig aus den vorhandenen Buchungsdaten. Es muss wirklich nur der manuelle „kontaktiert"-Haken samt Notiz irgendwo gespeichert werden — dafür reicht eine schlanke, zusätzliche Tabelle.
+- **Konvertierung und „überfällig" werden nie gespeichert, sondern immer live berechnet:** Damit kann der Status nie im Hintergrund veralten (z.B. wenn ein Kunde erst Tage nach der Probestunde konvertiert) — jede Anzeige ist automatisch aktuell.
+- **Diesmal mit `/backend`-Schritt:** Anders als bei den letzten beiden Features (PROJ-31, PROJ-33) wird hier zum ersten Mal ein neuer, admin-editierbarer Zustand dauerhaft gespeichert (der „kontaktiert"-Haken und die Notiz), nicht nur aus bestehenden Daten abgeleitet — dafür braucht es eine neue Datenbanktabelle mit passenden Zugriffsregeln.
+
+### D) Dependencies (packages to install)
+
+- Keine neuen Pakete nötig — nutzt bereits vorhandene shadcn/ui-Bausteine (Table, Badge, Checkbox, Textarea) und den bestehenden Zeitraum-Filter-Baustein aus dem Admin-Dashboard (PROJ-17).
 
 ## QA Test Results
 _To be added by /qa_
