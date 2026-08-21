@@ -149,7 +149,7 @@ nicht in einer neuen Datenbank-Tabelle.
 
 ## Implementation Notes (Frontend)
 
-**Fortschritt: 2/5 Listen umgesetzt (Kundenliste, Rechnungsliste-Sortierung). Buchungsliste, Kursliste und Lastschriftlauf-Liste stehen noch aus.**
+**Fortschritt: 3/5 Listen umgesetzt (Kundenliste, Rechnungsliste-Sortierung, Buchungsliste). Kursliste und Lastschriftlauf-Liste stehen noch aus.**
 
 Neuer gemeinsamer Baustein `src/components/admin/sortable-header.tsx` (`SortableHeader`): liest den aktuellen Sortier-Zustand selbst aus der URL (`useSearchParams`), kein Props-Threading durch die Seiten nötig. Wird als Ersatz für einzelne `<TableHead>`-Zellen sortierbarer Spalten eingesetzt.
 
@@ -160,6 +160,12 @@ Neuer gemeinsamer Baustein `src/components/admin/sortable-header.tsx` (`Sortable
 **Rechnungsliste** (`src/components/admin/invoices/invoice-list.tsx`, `src/app/admin/rechnungen/page.tsx`): Bestehende Datum-/Namenssuche-Filter unverändert. Neu sortierbare Spalten Datum, Kunde, Betrag — Sortierung läuft serverseitig via Supabase `.order()` (Kunde sortiert über die verknüpfte `profiles`-Tabelle mittels `foreignTable`-Option). Filtern-Button und Sortier-Klick bewahren jeweils den Zustand des anderen (Sortierung übersteht einen Filter-Submit und umgekehrt), „Filter zurücksetzen" erscheint jetzt auch, wenn nur eine Sortierung (aber kein Text-/Datumsfilter) aktiv ist, und setzt auch diese zurück.
 
 **Verifikation Rechnungsliste:** `npm run build`/`npm run lint` sauber. Live geprüft: Betrag-Sortierung liefert aufsteigende Beträge; Kunde-Sortierung funktioniert (Standard-DB-Zeichenkettensortierung, keine „natürliche" Zahlensortierung — für die Spec ausreichend); ein bereits gesetzter Datumsfilter bleibt nach einem Sortier-Klick in der URL erhalten und umgekehrt.
+
+**Buchungsliste** (`src/components/admin/bookings/booking-manager.tsx`, `src/app/admin/buchungen/page.tsx`): Neuer Buchungstyp-Filter (Regulär/Probestunde/Drop-in, sofort navigierend), neue sortierbare Spalten Kunde, Kurs, Termin (Kunde/Kurs sortiert über die jeweils verknüpfte Tabelle via `foreignTable`). Unterschiedliche Leerzustands-Texte für „noch keine Buchungen überhaupt" vs. „nichts zu diesem Filter gefunden".
+
+**Bug gefunden und behoben:** Der Typ-Filter änderte zwar korrekt die URL und der Server lieferte auch korrekt gefilterte Daten (bestätigt per direkter Seitennavigation), aber die sichtbare Tabelle blieb nach einem Klick im Dropdown unverändert. Ursache: `BookingManager` hält seine Zeilen in `useState(initialBookings)` für die optimistischen Updates nach Bestätigen/Ablehnen — `useState`-Startwerte werden bei neuen Props aber nicht automatisch aktualisiert, da die Komponente bei einer reinen URL-Änderung eingehängt bleibt (dasselbe Muster wie die bereits dokumentierte „Client state / prop sync"-Falle). Behoben mit einem `useEffect`, der den lokalen Zustand bei jeder Änderung von `initialBookings` neu synchronisiert — die optimistischen Updates bleiben dabei unangetastet funktionsfähig.
+
+**Verifikation Buchungsliste:** `npm run build`/`npm run lint` sauber. Live geprüft (inkl. Bug-Reproduktion und Nachweis der Korrektur): Filter „Probestunde" zeigt ausschließlich Probestunden-Zeilen, bleibt nach Reload erhalten; Sortierung nach Termin bewahrt einen aktiven Typ-Filter in der URL.
 
 ## QA Test Results
 _To be added by /qa_

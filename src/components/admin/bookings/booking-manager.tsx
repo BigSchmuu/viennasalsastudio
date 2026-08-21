@@ -1,15 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { confirmRegularBooking, confirmDropinBooking, rejectBooking } from "@/lib/actions/admin/bookings";
-import { bookingTypeLabel, bookingStatusLabel, bookingStatusColor, desiredPlanLabel } from "@/lib/constants/booking";
+import {
+  bookingTypeValues,
+  bookingTypeLabel,
+  bookingStatusLabel,
+  bookingStatusColor,
+  desiredPlanLabel,
+} from "@/lib/constants/booking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { SortableHeader } from "@/components/admin/sortable-header";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +26,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+
+const ALL_TYPES = "__all__";
 
 function formatDate(date: string): string {
   return new Date(date).toLocaleDateString("de-AT");
@@ -40,13 +51,35 @@ export type AdminBookingRow = {
   coursePrice: number | null;
 };
 
-export function BookingManager({ bookings: initialBookings }: { bookings: AdminBookingRow[] }) {
+export function BookingManager({
+  bookings: initialBookings,
+  initialType,
+}: {
+  bookings: AdminBookingRow[];
+  initialType: string;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [bookings, setBookings] = useState(initialBookings);
+
+  // initialBookings only seeds state on first mount — without this, a
+  // server-driven change (filter/sort navigation) would be silently
+  // ignored because the component stays mounted across the URL change.
+  useEffect(() => {
+    setBookings(initialBookings);
+  }, [initialBookings]);
   const [error, setError] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<AdminBookingRow | null>(null);
   const [subName, setSubName] = useState("");
   const [subPrice, setSubPrice] = useState("");
+
+  function applyTypeFilter(type: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (type) params.set("type", type);
+    else params.delete("type");
+    router.push(`/admin/buchungen${params.toString() ? `?${params.toString()}` : ""}`);
+  }
 
   function updateStatus(id: string, status: string) {
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
@@ -102,10 +135,6 @@ export function BookingManager({ bookings: initialBookings }: { bookings: AdminB
     }
   }
 
-  if (bookings.length === 0) {
-    return <p className="text-sm text-muted-foreground py-8 text-center">Noch keine Buchungen vorhanden.</p>;
-  }
-
   return (
     <div className="space-y-4">
       {error && (
@@ -113,13 +142,46 @@ export function BookingManager({ bookings: initialBookings }: { bookings: AdminB
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <Label htmlFor="booking-type-filter">Art</Label>
+          <Select
+            value={initialType || ALL_TYPES}
+            onValueChange={(value) => applyTypeFilter(value === ALL_TYPES ? "" : value)}
+          >
+            <SelectTrigger id="booking-type-filter" className="w-48">
+              <SelectValue placeholder="Alle" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_TYPES}>Alle</SelectItem>
+              {bookingTypeValues.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {bookingTypeLabel[type]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {initialType && (
+          <Button type="button" variant="outline" size="sm" onClick={() => applyTypeFilter("")}>
+            Filter zurücksetzen
+          </Button>
+        )}
+      </div>
+
+      {bookings.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          {initialType ? "Keine Buchungen gefunden." : "Noch keine Buchungen vorhanden."}
+        </p>
+      ) : (
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Kunde</TableHead>
-            <TableHead>Kurs</TableHead>
+            <SortableHeader label="Kunde" sortKey="customer_name" />
+            <SortableHeader label="Kurs" sortKey="course_name" />
             <TableHead>Art</TableHead>
-            <TableHead>Termin</TableHead>
+            <SortableHeader label="Termin" sortKey="chosen_date" />
             <TableHead>Details</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Aktionen</TableHead>
@@ -181,6 +243,7 @@ export function BookingManager({ bookings: initialBookings }: { bookings: AdminB
           ))}
         </TableBody>
       </Table>
+      )}
 
       <Dialog open={confirmTarget !== null} onOpenChange={(open) => !open && setConfirmTarget(null)}>
         <DialogContent>

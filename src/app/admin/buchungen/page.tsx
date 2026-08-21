@@ -1,17 +1,42 @@
 import { createClient } from "@/lib/supabase/server";
 import { BookingManager, type AdminBookingRow } from "@/components/admin/bookings/booking-manager";
 import { DropinPricingForm } from "@/components/admin/bookings/dropin-pricing-form";
+import { bookingTypeValues } from "@/lib/constants/booking";
 
-export default async function BuchungenPage() {
+const SORTABLE_COLUMNS = ["customer_name", "course_name", "chosen_date"] as const;
+
+export default async function BuchungenPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string; sort?: string; dir?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
 
+  const sortKey = SORTABLE_COLUMNS.includes(params.sort as (typeof SORTABLE_COLUMNS)[number])
+    ? (params.sort as (typeof SORTABLE_COLUMNS)[number])
+    : "chosen_date";
+  const ascending = params.sort ? params.dir !== "desc" : false; // default: newest request first
+
+  let query = supabase
+    .from("course_bookings")
+    .select(
+      "id, customer_id, type, status, chosen_date, desired_plan, note, price, courses(name, price), profiles(full_name)"
+    );
+
+  if (sortKey === "customer_name") {
+    query = query.order("full_name", { foreignTable: "profiles", ascending });
+  } else if (sortKey === "course_name") {
+    query = query.order("name", { foreignTable: "courses", ascending });
+  } else {
+    query = query.order("chosen_date", { ascending });
+  }
+
+  const isValidType = (bookingTypeValues as readonly string[]).includes(params.type ?? "");
+  if (isValidType) query = query.eq("type", params.type!);
+
   const [bookingsRes, pricingRes] = await Promise.all([
-    supabase
-      .from("course_bookings")
-      .select(
-        "id, customer_id, type, status, chosen_date, desired_plan, note, price, courses(name, price), profiles(full_name)"
-      )
-      .order("created_at", { ascending: false }),
+    query,
     supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
   ]);
 
@@ -39,7 +64,7 @@ export default async function BuchungenPage() {
         normalPrice={pricingRes.data?.normal_price ?? 20}
         studentPrice={pricingRes.data?.student_price ?? 15}
       />
-      <BookingManager bookings={bookings} />
+      <BookingManager bookings={bookings} initialType={isValidType ? params.type! : ""} />
     </div>
   );
 }
