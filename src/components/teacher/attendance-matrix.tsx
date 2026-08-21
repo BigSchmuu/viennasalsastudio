@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, X, FileText } from "lucide-react";
+import { Check, X, FileText, Cake } from "lucide-react";
 import { markAttendance } from "@/lib/actions/teacher/attendance";
 import { loadMoreOccurrences } from "@/lib/actions/teacher/load-more-occurrences";
 import { attendanceSourceLabel } from "@/lib/constants/attendance";
@@ -33,6 +33,7 @@ export type MatrixRow = {
   customerId: string;
   fullName: string;
   cells: Record<string, MatrixCell>;
+  hasBirthdayToday: boolean;
 };
 
 export type DanceRole = "leader" | "follower" | "both";
@@ -40,6 +41,7 @@ export type DanceRole = "leader" | "follower" | "both";
 export type EligibleCustomer = {
   id: string;
   name: string;
+  hasBirthdayToday: boolean;
 };
 
 function formatColumnDate(date: string): string {
@@ -114,7 +116,10 @@ export function AttendanceMatrix({
 
   function handleAddCustomer(customer: EligibleCustomer) {
     setAddOpen(false);
-    setRows((prev) => [...prev, { customerId: customer.id, fullName: customer.name, cells: {} }]);
+    setRows((prev) => [
+      ...prev,
+      { customerId: customer.id, fullName: customer.name, cells: {}, hasBirthdayToday: customer.hasBirthdayToday },
+    ]);
     setUnsavedIds((prev) => new Set(prev).add(customer.id));
   }
 
@@ -150,6 +155,10 @@ export function AttendanceMatrix({
               customerId: r.customer_id,
               fullName: r.full_name || "Unbenannter Kunde",
               cells: {},
+              // Older occurrences don't carry birthdate data; only affects a
+              // customer who attended a past session but none of the recent
+              // ones — a Cake icon would only be missing on their row.
+              hasBirthdayToday: false,
             };
             byId.set(r.customer_id, {
               ...existing,
@@ -256,6 +265,13 @@ export function AttendanceMatrix({
                         </Link>
                       ) : (
                         row.fullName
+                      )}
+                      {row.hasBirthdayToday && (
+                        <Cake
+                          className="h-4 w-4 shrink-0 text-primary"
+                          role="img"
+                          aria-label="Hat heute Geburtstag"
+                        />
                       )}
                       {roleQueryEnabled && roleByCustomer[row.customerId] && (
                         <Badge

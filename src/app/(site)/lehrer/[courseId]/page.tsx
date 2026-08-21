@@ -3,7 +3,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { requireCourseAccess } from "@/lib/auth/require-teacher";
 import { formatDateLocal, jsDayToWeekday, pastOccurrences } from "@/lib/scheduling/dates";
-import { AttendanceMatrix, type MatrixColumn, type MatrixRow, type MatrixCell } from "@/components/teacher/attendance-matrix";
+import { isBirthdayToday } from "@/lib/birthdays";
+import {
+  AttendanceMatrix,
+  type MatrixColumn,
+  type MatrixRow,
+  type MatrixCell,
+  type EligibleCustomer,
+} from "@/components/teacher/attendance-matrix";
 import type { RosterRow } from "@/lib/actions/teacher/load-more-occurrences";
 
 const PAST_WINDOW = 8;
@@ -42,7 +49,7 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
 
   let columns: MatrixColumn[] = [];
   let rows: MatrixRow[] = [];
-  let eligibleCustomers: { id: string; name: string }[] = [];
+  let eligibleCustomers: EligibleCustomer[] = [];
 
   if (schedule) {
     const pauseDates = schedule.course_schedule_pauses.map((p) => p.pause_date);
@@ -79,10 +86,21 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
       }
     }
 
+    const eligibleIds = (eligibleRes.data ?? []).map((c) => c.customer_id);
+    const allIds = Array.from(new Set([...customersById.keys(), ...eligibleIds]));
+    const { data: birthdateRows } = allIds.length
+      ? await supabase.from("profiles").select("id, birthdate").in("id", allIds)
+      : { data: [] };
+    const today = new Date();
+    const birthdayTodayById = new Set(
+      (birthdateRows ?? []).filter((p) => p.birthdate && isBirthdayToday(p.birthdate, today)).map((p) => p.id)
+    );
+
     rows = Array.from(customersById.entries()).map(([customerId, fullName]) => ({
       customerId,
       fullName,
       cells: cellsByCustomer.get(customerId) ?? {},
+      hasBirthdayToday: birthdayTodayById.has(customerId),
     }));
 
     columns = perDate.map(({ date, note }) => ({
@@ -94,6 +112,7 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
     eligibleCustomers = (eligibleRes.data ?? []).map((c) => ({
       id: c.customer_id,
       name: c.full_name || "Unbenannter Kunde",
+      hasBirthdayToday: birthdayTodayById.has(c.customer_id),
     }));
   }
 

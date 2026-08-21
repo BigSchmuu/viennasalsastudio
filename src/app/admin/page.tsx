@@ -1,9 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolvePeriod, trailing12MonthsPeriod, trendGranularity, buildBuckets } from "@/lib/analytics/period";
+import { daysUntilNextBirthday, formatNextBirthdayMonthDay } from "@/lib/birthdays";
 import { PeriodFilter } from "@/components/admin/analytics/period-filter";
 import { MetricTile } from "@/components/admin/analytics/metric-tile";
 import { TrendChart, type TrendPoint } from "@/components/admin/analytics/trend-chart";
 import { OccupancyList, type OccupancyRow } from "@/components/admin/analytics/occupancy-list";
+import { BirthdayList, type BirthdayRow } from "@/components/admin/analytics/birthday-list";
+
+const BIRTHDAY_WINDOW_DAYS = 7;
 
 const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
 
@@ -20,7 +24,7 @@ export default async function AdminDashboardPage({
 
   const supabase = await createClient();
 
-  const [invoicesRes, subscriptionsRes, occupancyRes, coursesRes, activeSubsRes] = await Promise.all([
+  const [invoicesRes, subscriptionsRes, occupancyRes, coursesRes, activeSubsRes, birthdatesRes] = await Promise.all([
     supabase
       .from("invoices")
       .select("gross_amount, invoice_date")
@@ -38,6 +42,7 @@ export default async function AdminDashboardPage({
     // PROJ-32: fetched live (no cache) so a subscription that just turned
     // active/paused today via the cron job is always reflected immediately.
     supabase.from("subscriptions").select("customer_id").eq("status", "active"),
+    supabase.from("profiles").select("id, full_name, birthdate").eq("role", "customer").not("birthdate", "is", null),
   ]);
 
   const { count: pausedCount } = await supabase
@@ -87,6 +92,17 @@ export default async function AdminDashboardPage({
   // A customer with multiple active subscriptions still counts once.
   const activeCustomerCount = new Set((activeSubsRes.data ?? []).map((s) => s.customer_id)).size;
 
+  const today = new Date();
+  const birthdayRows: BirthdayRow[] = (birthdatesRes.data ?? [])
+    .map((p) => ({
+      customerId: p.id,
+      name: p.full_name || "Unbenannter Kunde",
+      daysUntil: daysUntilNextBirthday(p.birthdate!, today),
+      monthDay: formatNextBirthdayMonthDay(p.birthdate!, today),
+    }))
+    .filter((r) => r.daysUntil <= BIRTHDAY_WINDOW_DAYS)
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+
   return (
     <div className="space-y-6">
       <div>
@@ -128,6 +144,8 @@ export default async function AdminDashboardPage({
       </div>
 
       <OccupancyList rows={occupancyRows} />
+
+      <BirthdayList rows={birthdayRows} />
     </div>
   );
 }

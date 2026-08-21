@@ -1,6 +1,6 @@
 # PROJ-31: Geburtstags-Erinnerung
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -114,6 +114,16 @@ analog zu den bereits umgesetzten abgeleiteten Status-Werten aus PROJ-33
 ### D) Dependencies (packages to install)
 
 - Keine neuen Pakete nötig — `lucide-react` ist bereits im Projekt vorhanden und liefert ein passendes Kuchen-/Geburtstags-Icon für die Anwesenheitsliste; alle UI-Bausteine (Card, Table) sind bereits im Projekt etabliert.
+
+## Implementation Notes (Frontend)
+
+Neuer gemeinsamer Baustein `src/lib/birthdays.ts` (reine Datumslogik, keine UI): `nextBirthdayDate()` berechnet das nächste Vorkommen von Monat+Tag eines Geburtsdatums (inkl. Jahreswechsel-Behandlung und Feb-29→Feb-28-Fallback in Nicht-Schaltjahren), darauf aufbauend `daysUntilNextBirthday()`, `isBirthdayToday()`, `isBirthdayWithinDays()` und `formatNextBirthdayMonthDay()`. Wichtig: `formatNextBirthdayMonthDay()` formatiert bewusst das *berechnete* nächste Vorkommen und nicht das rohe gespeicherte Datum — sonst hätte ein Feb-29-Geburtstag in einem Nicht-Schaltjahr als „29.02." angezeigt werden können, obwohl der tatsächlich beobachtete Tag der 28.02. ist (während der Verzögerungswert `daysUntil` bereits korrekt auf den 28.02. referenziert) — dieser Widerspruch wurde bei der Verifikation entdeckt und vor dem Verifizieren behoben.
+
+**Dashboard-Widget** (`src/components/admin/analytics/birthday-list.tsx`, integriert in `src/app/admin/page.tsx`): Neue Karte „Geburtstage" unterhalb der bestehenden Auslastungs-Liste. Lädt alle Kundenprofile mit gesetztem `birthdate` in einer zusätzlichen Abfrage neben den bereits bestehenden Dashboard-Queries, filtert auf `daysUntil <= 7` und sortiert aufsteigend nach `daysUntil`. Zeigt „Heute" statt eines Datums für den Tag selbst. Leerzustand: „Keine Geburtstage in den nächsten 7 Tagen".
+
+**Anwesenheitsliste** (`src/components/teacher/attendance-matrix.tsx`, `src/app/(site)/lehrer/[courseId]/page.tsx`): `MatrixRow` und `EligibleCustomer` um `hasBirthdayToday: boolean` erweitert. Die Kursseite lädt zusätzlich `profiles.birthdate` für alle im Roster und in der Eligible-Liste vorkommenden Kunden-IDs (eine zusätzliche, einfache Abfrage, keine Änderung an der bestehenden `get_course_attendance_roster`-Datenbankfunktion) und berechnet daraus pro Kunde, ob heute Geburtstag ist. Ein Kuchen-Icon (`Cake` aus lucide-react, mit `aria-label="Hat heute Geburtstag"`) erscheint direkt neben dem Namen. Sowohl der initiale Seitenaufruf als auch der „Kursteilnehmer hinzufügen"-Dialog (der neue Zeilen aus `eligibleCustomers` erzeugt) geben den Flag korrekt weiter. Bekannte, bewusst in Kauf genommene Einschränkung: beim „Mehr laden"-Button (ältere Termine nachladen) fehlt für einen Kunden, der ausschließlich in einem älteren, noch nicht geladenen Termin auftaucht, der Geburtstags-Flag (Fallback `false`), da die zugrundeliegende Datenbankfunktion dafür keine Geburtsdaten liefert — eine Erweiterung dieser Funktion wurde bewusst vermieden (siehe Tech Design).
+
+**Verifikation:** `npm run build`/`npm run lint` sauber. Datumslogik isoliert verifiziert (heute, +4 Tage, +8 Tage außerhalb des 7-Tage-Fensters, Jahreswechsel Dez→Jan, Feb-29-Normalisierung). Live gegen die Produktionsdatenbank geprüft (temporäre Geburtsdaten auf zwei `e2e30`-Fixture-Kunden gesetzt, nach Verifikation vollständig zurückgesetzt): Dashboard-Widget zeigt „Heute" korrekt für den Tag selbst und das Datum für +4 Tage, in der richtigen Reihenfolge sortiert; Leerzustand „Keine Geburtstage in den nächsten 7 Tagen" erscheint korrekt ohne Testdaten; Anwesenheitsliste zeigt das Kuchen-Icon korrekt für den Geburtstagskind-Kunden, sowohl beim initialen Laden als auch (Typ-Ebene) über den „Kursteilnehmer hinzufügen"-Pfad; 375px-Ansicht ohne horizontales Scrollen.
 
 ## QA Test Results
 _To be added by /qa_
