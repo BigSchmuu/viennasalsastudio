@@ -42,7 +42,7 @@
 | PROJ-25 | Self-Check-In für Kursanwesenheit (Abo-Kunden) | Deployed | [PROJ-25](../features/PROJ-25-self-checkin-kursanwesenheit.md) | 2026-08-18 |
 | PROJ-26 | Kursbuchung direkt von /stundenplan aus | Deployed | [PROJ-26](../features/PROJ-26-kursbuchung-vom-stundenplan.md) | 2026-08-18 |
 | PROJ-27 | Vorkenntnisse-Hinweis bei Kursbuchung | Deployed | [PROJ-27](../features/PROJ-27-vorkenntnisse-hinweis-kursbuchung.md) | 2026-08-18 |
-| PROJ-28 | Newsletter-Versand mit Empfängergruppen | Approved | [PROJ-28](../features/PROJ-28-newsletter-versand.md) | 2026-08-21 |
+| PROJ-28 | Newsletter-Versand mit Empfängergruppen | Deployed | [PROJ-28](../features/PROJ-28-newsletter-versand.md) | 2026-08-21 |
 | PROJ-29 | Probestunden-Follow-up & Conversion-Tracking | Deployed | [PROJ-29](../features/PROJ-29-probestunden-follow-up-conversion-tracking.md) | 2026-08-21 |
 | PROJ-30 | Leader/Follower-Auswahl bei Kursbuchung | Deployed | [PROJ-30](../features/PROJ-30-leader-follower-auswahl-kursbuchung.md) | 2026-08-21 |
 | PROJ-31 | Geburtstags-Erinnerung | Deployed | [PROJ-31](../features/PROJ-31-geburtstags-erinnerung.md) | 2026-08-21 |

@@ -1,6 +1,6 @@
 # PROJ-28: Newsletter-Versand mit Empfängergruppen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -255,4 +255,11 @@ Keine neuen Bugs während der eigentlichen QA-Phase gefunden. Ein Bug (fälschli
 - **Recommendation:** Deploy. AC-8 wird über einen abweichenden, aber funktional strengeren Mechanismus erfüllt (proaktive Deaktivierung statt nachträglicher Fehlermeldung) — kein Handlungsbedarf, nur zur Transparenz dokumentiert.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Deployed:** 2026-08-22
+- **Production URL:** https://viennasalsastudio.vercel.app
+- **Git tag:** `v1.0.0-PROJ-28`
+- **Commit:** `54846d0`
+- **Deployment method:** Push to `main` → Vercel auto-deploy (bereits automatisch deployed, als die Commits während `/backend`/`/frontend`/`/qa` gepusht wurden; dieser Schritt bestätigt den finalen Build als live)
+- **Post-deployment verification:** `/admin/newsletter` live gegen die Produktions-DB geprüft — Seite lädt, Empfängerzahl-Vorschau für „Aktive Kunden" funktioniert, Versandhistorie sichtbar, keine Browser-Konsolenfehler. Es wurde **bewusst kein echter Versand ausgelöst** (Senden-Button blieb ungeklickt), um keine realen Kunden per E-Mail zu erreichen — nur die reine Vorschau-Funktion (ohne Nebenwirkung) wurde geprüft.
+- **Migration:** `proj28_newsletter_sends` bereits während `/backend` live auf die Produktionsdatenbank angewendet.
