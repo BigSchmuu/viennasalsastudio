@@ -1,6 +1,6 @@
 # PROJ-32: Aktive-Kunden-Anzahl im Dashboard
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -144,4 +144,10 @@ Keine Bugs in PROJ-32 selbst gefunden.
 - **Recommendation:** Deploy. Ein vorbestehender, unabhängiger Regressionsfund in PROJ-17s eigener Testsuite (Datumskollision mit einem PROJ-8-Fixture) sollte separat vom Nutzer priorisiert werden, blockiert aber nicht den Rollout von PROJ-32.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Deployed:** 2026-08-21
+- **Production URL:** https://viennasalsastudio.vercel.app
+- **Git tag:** `v1.0.0-PROJ-32`
+- **Commit:** `02c6fcf`
+- **Deployment method:** Push to `main` → Vercel auto-deploy (already deployed automatically when the QA commit was pushed; this step confirmed the build succeeded and verified the feature live)
+- **Post-deployment verification:** Confirmed live in production via Playwright — "Aktive Kunden" tile shows "17", matching the value seen locally against the same shared production database. All three existing PROJ-17 tiles (Umsatz, Auslastung, Kündigungen) remain visible alongside it. No new environment variables required for this feature.
