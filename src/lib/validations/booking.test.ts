@@ -79,6 +79,39 @@ describe("bookingSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts a regular booking with a valid dance role", () => {
+    const result = bookingSchema.safeParse({
+      course_id: validCourseId,
+      type: "regular",
+      chosen_date: "2026-09-01",
+      desired_plan: "single_course",
+      dance_role: "leader",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a regular booking with no dance role (optional field)", () => {
+    const result = bookingSchema.safeParse({
+      course_id: validCourseId,
+      type: "regular",
+      chosen_date: "2026-09-01",
+      desired_plan: "single_course",
+      dance_role: "",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an invalid dance role", () => {
+    const result = bookingSchema.safeParse({
+      course_id: validCourseId,
+      type: "regular",
+      chosen_date: "2026-09-01",
+      desired_plan: "single_course",
+      dance_role: "admin",
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("courseEntryDateSchema", () => {

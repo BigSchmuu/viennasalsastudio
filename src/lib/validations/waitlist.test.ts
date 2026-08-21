@@ -29,4 +29,16 @@ describe("joinWaitlistSchema", () => {
   it("rejects an empty chosen_date", () => {
     expect(joinWaitlistSchema.safeParse({ ...base, chosen_date: "" }).success).toBe(false);
   });
+
+  it("accepts a valid dance_role (PROJ-30)", () => {
+    expect(joinWaitlistSchema.safeParse({ ...base, dance_role: "follower" }).success).toBe(true);
+  });
+
+  it("accepts no dance_role (optional field, PROJ-30)", () => {
+    expect(joinWaitlistSchema.safeParse({ ...base, dance_role: "" }).success).toBe(true);
+  });
+
+  it("rejects an invalid dance_role (PROJ-30)", () => {
+    expect(joinWaitlistSchema.safeParse({ ...base, dance_role: "coach" }).success).toBe(false);
+  });
 });

@@ -102,6 +102,49 @@ describe("courseSchema (max_participants / price, PROJ-12)", () => {
   });
 });
 
+describe("courseSchema (role_query_enabled / max_role_difference, PROJ-30)", () => {
+  const base = {
+    name: "E2E30 Kurs",
+    dance_style_id: validDanceStyleId,
+    level: "beginner" as const,
+    room_id: validRoomId,
+    video_set_id: "",
+    teacher_ids: [],
+    max_participants: "",
+    price: "",
+  };
+
+  it("accepts an empty max_role_difference (no balance restriction)", () => {
+    const result = courseSchema.safeParse({ ...base, role_query_enabled: true, max_role_difference: "" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a max_role_difference of exactly 0 (strict balance)", () => {
+    const result = courseSchema.safeParse({ ...base, role_query_enabled: true, max_role_difference: "0" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a positive integer max_role_difference", () => {
+    const result = courseSchema.safeParse({ ...base, role_query_enabled: true, max_role_difference: "2" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a negative max_role_difference", () => {
+    const result = courseSchema.safeParse({ ...base, role_query_enabled: true, max_role_difference: "-1" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a non-integer max_role_difference", () => {
+    const result = courseSchema.safeParse({ ...base, role_query_enabled: true, max_role_difference: "1.5" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a non-numeric max_role_difference", () => {
+    const result = courseSchema.safeParse({ ...base, role_query_enabled: true, max_role_difference: "abc" });
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("teacherInviteSchema", () => {
   it("accepts a valid name and email", () => {
     const result = teacherInviteSchema.safeParse({

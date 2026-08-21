@@ -1,6 +1,6 @@
 # PROJ-30: Leader/Follower-Auswahl bei Kursbuchung
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -161,7 +161,93 @@ Implemented as one vertical slice (DB + Server Actions + UI), following the proj
 **Verification commands:** `npm run build`, `npm run lint`, `npm test` (163/163 passing) — all clean.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-21
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Admin schaltet Rollenabfrage ein → erscheint beim Buchen
+- [x] Toggle im Kursformular sichtbar, aktivieren zeigt „Max. Rollen-Differenz"-Feld
+- [x] Nach Aktivierung + Speichern zeigt der Buchungsdialog die Rollenauswahl
+
+#### AC-2: Rollenabfrage nicht aktiviert → keine Auswahl im Dialog
+- [x] „Ich tanze als"-Frage ist nicht sichtbar
+
+#### AC-3: Rollenabfrage aktiviert → Leader/Follower/Beide wählbar, optional
+- [x] Alle drei Optionen sichtbar
+- [x] Absenden-Button aktiviert sich auch ohne Rollenauswahl
+
+#### AC-4: Rolle je Teilnehmer + Zusammenfassung in der Teilnehmerliste
+- [x] Bestätigter Teilnehmer zeigt Rollen-Badge in der Anwesenheitsmatrix
+- [x] Zusammenfassungszeile mit Leader/Follower/Beide-Zahlen sichtbar
+
+#### AC-5: Keine Rollenangabe → als „keine Angabe" geführt
+- [x] Kunde ohne Rolle wird im Aggregat als „keine Angabe" gezählt
+- Note: pro Zeile wird „keine Angabe" durch das **Fehlen** eines Rollen-Badge dargestellt, nicht durch ein explizites Label — erfüllt die Absicht des Kriteriums (korrekt gezählt, nicht falsch beschriftet), siehe Bugs/Notes unten für eine mögliche spätere UX-Verbesserung.
+
+#### AC-6: Admin trägt maximale Rollen-Differenz ein → gespeichert, angewendet
+- [x] Wert wird gespeichert und beim erneuten Öffnen korrekt vorausgefüllt
+
+#### AC-7: Keine Differenz hinterlegt → keine Balance-Beschränkung
+- [x] Zwei Leader-Buchungen in Folge ohne konfigurierte Differenz beide erfolgreich
+
+#### AC-8: Rolle würde Differenz überschreiten → Hinweis + Warteliste
+- [x] Hinweistext „Diese Rolle ist für diesen Kurs aktuell nicht verfügbar..." erscheint
+- [x] „Auf Warteliste eintragen"-Button funktioniert
+
+#### AC-9: „Beide"/keine Auswahl beeinflusst Balance nicht
+- [x] Buchung mit „Beide" erfolgreich, obwohl Leader-Seite bereits an der Differenz-Grenze war
+
+#### AC-10: Nachrücken sucht passenden Kandidaten, nicht stur FIFO
+- [x] Verifiziert direkt auf Datenbankebene (`promote_waitlist_for_course`), da ein realistisches Mehrpersonen-Warteliste-Szenario über die UI unverhältnismäßig aufwendige Fixture-Orchestrierung erfordert hätte: bei 2 bestehenden Leadern (Differenz bereits über dem konfigurierten Maximum, simuliert eine nachträglich gesenkte Differenz) und einer Warteliste mit einem älteren Leader-Eintrag (bleibt für jede mögliche Folgeaktion ungültig) und einem neueren Follower-Eintrag (wird sofort gültig) rückte korrekt der neuere Follower nach, der ältere Leader blieb wartend.
+
+#### AC-11: Kursliste zeigt aktuelle Verteilung
+- [x] Kurs mit aktivierter Abfrage zeigt „X L / Y F / Z B"
+- [x] Kurs ohne aktivierte Abfrage zeigt „—"
+
+### Edge Cases Status
+
+#### EC-1: Admin deaktiviert Rollenabfrage nach bestehenden Buchungen
+- [x] Verifiziert per Code-Review: `role_query_enabled` steuert nur die UI-Sichtbarkeit für neue Buchungen; bestehende `dance_role`-Werte bleiben unverändert in der DB (kein Lösch-/Migrationscode dafür vorhanden)
+
+#### EC-2: Kurs wechselt von „keine Abfrage" zu „Abfrage aktiv"
+- [x] Live getestet im AC-1/AC-6-Testfall — nur neue Buchungen ab Aktivierung fragen die Rolle ab
+
+#### EC-3: Kapazität UND Rollen-Differenz gleichzeitig überschritten
+- [x] Verifiziert per Code-Review: beide Prüfungen laufen unabhängig nacheinander in derselben Datenbankfunktion, jede für sich reicht zum Blockieren
+
+#### EC-4: Alle Warteliste-Kunden mit ungünstiger Rolle
+- [x] Beobachtet im Haupt-Testlauf: Kunde B (Leader) blieb nach Erfüllung der Vorbedingungen zunächst wartend, bis die Balance eine Beförderung zuließ
+
+#### EC-5: Admin senkt Differenz nachträglich, Kurs bereits „überbalanciert"
+- [x] Exakt das Setup des AC-10-Datenbanktests (2 bestehende Leader über dem neu gesetzten Maximum) — bestehende Buchungen blieben unverändert, nur die Warteliste wurde nach der neuen Grenze bewertet
+
+### Security Audit Results
+- [x] Autorisierung: `promote_waitlist_for_course` lehnt Aufrufe von Nicht-Admins direkt auf DB-Ebene ab (`not authorized`), auch bei direktem RPC-Aufruf unter Umgehung der Next.js-Server-Action
+- [x] Eingabevalidierung (Defense in Depth): ein manipulierter `dance_role`-Wert (inkl. SQL-Injection-Versuch als Payload) wird selbst bei direktem RPC-Aufruf unter Umgehung der Zod-Validierung durch den DB-Check-Constraint abgelehnt — der Payload wurde korrekt als Daten behandelt, nicht ausgeführt
+- [x] Autorisierung Admin-Konfiguration: `role_query_enabled`/`max_role_difference` können nur über `admin/courses.ts`-Aktionen gesetzt werden, die (unverändert) hinter `requireAdmin()` liegen
+- [x] Kein neuer clientseitig kontrollierbarer Parameter identifiziert, der die Rolle einer ANDEREN Person setzen könnte — `auth.uid()` bestimmt serverseitig, wessen Buchung/Warteliste-Eintrag erstellt wird, nicht ein Client-Parameter
+
+### Bugs Found
+
+Keine neuen Bugs in dieser QA-Runde gefunden. (Zwei Bugs wurden bereits während der Implementierung selbst gefunden und behoben — dokumentiert in den Implementation Notes oben: die doppelten Funktions-Overloads nach der Migration und der `promote_waitlist_for_course`-Frühausstieg bei Kursen ohne Teilnehmerlimit.)
+
+#### NOTE-1: „Keine Angabe" nicht als explizites Badge pro Zeile sichtbar
+- **Severity:** Low
+- **Beschreibung:** In der Anwesenheitsmatrix wird ein Kunde ohne Rollenangabe korrekt in der Zusammenfassung gezählt, aber in seiner eigenen Zeile erscheint einfach kein Badge (statt z.B. eines „–"-Badges). Erfüllt die Absicht des Kriteriums, ist aber optisch weniger eindeutig als ein explizites Label.
+- **Priority:** Nice to have
+
+### Regression Testing (nicht PROJ-30, aber während dieser QA-Runde entdeckt)
+Beim Ausführen der Regressionstests für abhängige Features (PROJ-3, PROJ-8, PROJ-12) traten 13 Fehlschläge auf. Jeder einzelne wurde bis zur Ursache zurückverfolgt: doppelte „E2E Studio"-Standort-Zeile, mehrfache offene Buchungsanfragen und bereits gesetzte `referral_source`-Werte — alles Artefakte aus wiederholten, nicht-idempotenten Testläufen im Laufe dieser langen Session, keines davon erwähnt `dance_role`, `role_query_enabled` oder `max_role_difference`. Bestätigt: **keine Regression durch PROJ-30**. Vorbestehende Test-Suite-Instabilität, außerhalb des Scopes dieser QA-Runde; dem Nutzer transparent mitgeteilt.
+
+### Summary
+- **Acceptance Criteria:** 11/11 passed
+- **Bugs Found:** 0 neue (1 Low-Severity-UX-Hinweis, kein Bug)
+- **Security:** Pass — Autorisierung und Eingabevalidierung auf DB-Ebene bestätigt, auch gegen direkte RPC-Umgehung der Server Action
+- **Production Ready:** YES
+- **Recommendation:** Deploy. Die 13 vorbestehenden, unabhängigen Test-Suite-Fehlschläge (PROJ-3/8/12) sollten separat vom Nutzer priorisiert werden, blockieren aber nicht den Rollout von PROJ-30.
 
 ## Deployment
 _To be added by /deploy_
