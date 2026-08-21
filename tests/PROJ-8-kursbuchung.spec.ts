@@ -156,15 +156,15 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await login(page, ADMIN);
     await page.goto("/admin/buchungen");
     await page.waitForTimeout(600);
-    await page
-      .locator("tr", { hasText: "Buchungsanfrage" })
-      .getByRole("button", { name: "Bestätigen" })
-      .click();
+    // Scoped to this fixture customer: "Buchungsanfrage" alone can match
+    // other courses' open regular requests too, in a shared, growing DB.
+    const row = page.locator("tr", { hasText: "E2E8 Kunde" }).filter({ hasText: "Buchungsanfrage" });
+    await row.getByRole("button", { name: "Bestätigen" }).click();
     await page.waitForTimeout(400);
     await page.locator("#sub-price").fill("40");
     await page.getByRole("dialog").getByRole("button", { name: "Bestätigen" }).click();
     await page.waitForTimeout(800);
-    await expect(page.locator("tr", { hasText: "Buchungsanfrage" }).getByText("Bestätigt")).toBeVisible();
+    await expect(row.getByText("Bestätigt")).toBeVisible();
 
     await login(page, CUSTOMER);
     await page.goto("/profil");
@@ -255,5 +255,17 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.getByRole("tab", { name: "Drop-in" }).click();
     await page.waitForTimeout(300);
     await expect(page.getByText("25,00")).toBeVisible();
+
+    // Restore the baseline pricing this file's earlier "Studierendenpreis"
+    // test depends on (15,00) — global pricing is shared state with no
+    // per-test reset, so leaving it changed breaks that test on a re-run.
+    await login(page, ADMIN);
+    await page.goto("/admin/buchungen");
+    await page.waitForTimeout(600);
+    await page.locator("#normal-price").fill("20");
+    await page.locator("#student-price").fill("15");
+    await page.getByRole("button", { name: "Speichern" }).click();
+    await page.waitForTimeout(600);
+    await expect(page.getByText("Preise gespeichert.")).toBeVisible();
   });
 });

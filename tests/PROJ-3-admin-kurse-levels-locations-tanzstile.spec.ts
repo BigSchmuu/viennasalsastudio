@@ -79,30 +79,37 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
   test("Standort anlegen, Löschschutz mit Raum, Raum anlegen und Löschschutz mit Kurs", async ({ page }) => {
     await loginAsAdmin(page);
 
+    // Named distinctly from the stable "E2E Studio"/"E2E Saal" fixture that
+    // later tests in this file (and PROJ-23) depend on, so this test's own
+    // create-flow never collides with it on a re-run against the same
+    // persistent DB (no staging/reset exists in this project).
+    const STANDORT_NAME = "E2E Studio Neu";
+    const RAUM_NAME = "E2E Saal Neu";
+
     // Standort anlegen
     await page.goto("/admin/standorte");
     await page.getByRole("button", { name: "Neuer Standort" }).click();
     await page.waitForTimeout(500);
-    await page.getByLabel("Name").fill("E2E Studio");
+    await page.getByLabel("Name").fill(STANDORT_NAME);
     await page.getByLabel("Adresse").fill("Teststraße 1, Wien");
     await page.getByRole("button", { name: "Speichern" }).click();
-    await expect(page.getByText("E2E Studio")).toBeVisible();
+    await expect(page.getByText(STANDORT_NAME)).toBeVisible();
 
     // Standort ohne Raum darf gelöscht werden können (Vorbedingung nicht verletzt) —
     // wir löschen NICHT, sondern navigieren stattdessen zur Raumverwaltung.
-    await page.getByRole("link", { name: "E2E Studio" }).click();
+    await page.getByRole("link", { name: STANDORT_NAME }).click();
     await expect(page).toHaveURL(/\/admin\/standorte\/.+/);
 
     // Raum anlegen
     await page.getByRole("button", { name: "Neuer Raum" }).click();
     await page.waitForTimeout(500);
-    await page.getByLabel("Name").fill("E2E Saal");
+    await page.getByLabel("Name").fill(RAUM_NAME);
     await page.getByRole("button", { name: "Speichern" }).click();
-    await expect(page.getByText("E2E Saal")).toBeVisible();
+    await expect(page.getByText(RAUM_NAME)).toBeVisible();
 
     // Standort mit Raum kann nicht gelöscht werden
     await page.goto("/admin/standorte");
-    await page.getByRole("row", { name: /E2E Studio/ }).getByRole("button", { name: "Löschen" }).click();
+    await page.getByRole("row", { name: STANDORT_NAME }).getByRole("button", { name: "Löschen" }).click();
     await page.waitForTimeout(300);
     await page
       .getByRole("alertdialog")
@@ -110,7 +117,23 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
       .click();
     await expect(page.getByText("kann nicht gelöscht werden, da ihm noch Räume")).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByText("E2E Studio")).toBeVisible();
+    await expect(page.getByText(STANDORT_NAME)).toBeVisible();
+
+    // Clean up after ourselves so a re-run against the same persistent DB
+    // (no staging/reset exists in this project) doesn't accumulate another
+    // "E2E Studio Neu" duplicate — delete the room, then the now-empty location.
+    await page.getByRole("link", { name: STANDORT_NAME }).click();
+    await expect(page).toHaveURL(/\/admin\/standorte\/.+/);
+    await page.getByRole("row", { name: RAUM_NAME }).getByRole("button", { name: "Löschen" }).click();
+    await page.waitForTimeout(300);
+    await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
+    await page.waitForTimeout(300);
+    await page.goto("/admin/standorte");
+    await page.getByRole("row", { name: STANDORT_NAME }).getByRole("button", { name: "Löschen" }).click();
+    await page.waitForTimeout(300);
+    await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
+    await page.waitForTimeout(300);
+    await expect(page.getByText(STANDORT_NAME)).not.toBeVisible();
   });
 
   test("Tanzstil anlegen und sofort im Kurs-Formular verfügbar", async ({ page }) => {
@@ -158,23 +181,33 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
 
     await page.getByText("Lehrer auswählen").click();
     await page.waitForTimeout(300);
-    await page.getByText("QA Lehrer Eins").click();
+    // Scoped to the option role: a plain text match can also hit this
+    // teacher's name in an existing course row rendered behind the dialog.
+    await page.getByRole("option", { name: "QA Lehrer Eins" }).click();
     await page.keyboard.press("Escape");
 
     // Videosatz bewusst nicht zuweisen (optional, siehe PROJ-23)
     await page.getByRole("button", { name: "Speichern" }).click();
     await page.waitForTimeout(1000);
 
-    await expect(page.getByText("E2E Salsa Kurs")).toBeVisible();
-    await expect(page.getByText("QA Lehrer Eins")).toBeVisible();
+    // "E2E Salsa Kurs" alone is also a substring of the pre-existing
+    // "E2E Salsa Kurs (bearbeitet)" fixture from an earlier run — exclude it.
+    const newCourseRow = page
+      .getByRole("row", { name: /E2E Salsa Kurs/ })
+      .filter({ hasNotText: "bearbeitet" });
+    await expect(newCourseRow).toBeVisible();
+    await expect(newCourseRow.getByText("QA Lehrer Eins")).toBeVisible();
 
-    // Bestehenden Kurs ohne Videosatz weiterhin bearbeiten können
-    await page.getByRole("row", { name: /E2E Salsa Kurs/ }).getByRole("button", { name: "Bearbeiten" }).click();
+    // Bestehenden Kurs ohne Videosatz weiterhin bearbeiten können.
+    // Renamed to a name distinct from the "E2E Salsa Kurs (bearbeitet)"
+    // fixture an earlier run already left behind, so this row stays
+    // unambiguous afterwards too.
+    await newCourseRow.getByRole("button", { name: "Bearbeiten" }).click();
     await page.waitForTimeout(500);
-    await page.getByLabel("Name").fill("E2E Salsa Kurs (bearbeitet)");
+    await page.getByLabel("Name").fill("E2E Salsa Kurs (erneut bearbeitet)");
     await page.getByRole("button", { name: "Speichern" }).click();
     await page.waitForTimeout(1000);
-    await expect(page.getByText("E2E Salsa Kurs (bearbeitet)")).toBeVisible();
+    await expect(page.getByText("E2E Salsa Kurs (erneut bearbeitet)")).toBeVisible();
   });
 
   test("Tanzstil und Raum, die noch von einem Kurs verwendet werden, können nicht gelöscht werden", async ({
