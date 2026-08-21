@@ -17,12 +17,33 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL("**/profil", { timeout: 10000 });
+  // Admin lands on /admin after login, every other role on /profil.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+}
+
+// /profil's sections live behind a collapsed Accordion (Radix unmounts closed
+// content entirely) — must expand "Meine Buchungen" before any booking <li>
+// is in the DOM.
+async function openBookingsSection(page: Page) {
+  await page.getByRole("button", { name: "Meine Buchungen" }).click();
+  await page.waitForTimeout(400);
+}
+
+// The course catalog is paginated (PAGE_SIZE=12, "Mehr laden") — fixture
+// courses created late sort past page 1 by created_at ascending.
+async function loadAllCourses(page: Page) {
+  await page.waitForTimeout(1000);
+  const moreButton = page.getByRole("button", { name: /Mehr laden/ });
+  for (let i = 0; i < 10 && (await moreButton.count()) > 0; i++) {
+    await moreButton.click();
+    await page.waitForTimeout(500);
+  }
 }
 
 async function openBookingDialog(page: Page, courseName: string) {
   await page.goto("/kurse");
   await page.waitForTimeout(600);
+  await loadAllCourses(page);
   // Scope to the Card root and require an EXACT text match — "E2E8 Kurs" is
   // a substring of "E2E8 Kurs Ohne Einstieg", so a loose hasText match
   // resolves to both cards (strict-mode violation).
@@ -75,6 +96,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
 
     await page.goto("/profil");
     await page.waitForTimeout(600);
+    await openBookingsSection(page);
     await expect(page.getByText("Offen")).toBeVisible();
     await expect(page.getByText("Nur diesen Kurs")).toBeVisible();
   });
@@ -106,6 +128,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
 
     await page.goto("/profil");
     await page.waitForTimeout(600);
+    await openBookingsSection(page);
     await expect(page.locator("li", { hasText: "Probestunde" }).getByText("Bestätigt")).toBeVisible();
   });
 
@@ -125,6 +148,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
 
     await page.goto("/profil");
     await page.waitForTimeout(600);
+    await openBookingsSection(page);
     await expect(page.locator("li", { hasText: "Drop-in" }).getByText(/15,00/)).toBeVisible();
   });
 
@@ -145,6 +169,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await login(page, CUSTOMER);
     await page.goto("/profil");
     await page.waitForTimeout(600);
+    await openBookingsSection(page);
     await expect(page.locator("li", { hasText: "Buchungsanfrage" }).getByText("Bestätigt")).toBeVisible();
   });
 
@@ -159,6 +184,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await login(page, CUSTOMER);
     await page.goto("/profil");
     await page.waitForTimeout(600);
+    await openBookingsSection(page);
     await expect(page.locator("li", { hasText: "Drop-in" }).getByText("Abgelehnt")).toBeVisible();
   });
 
@@ -166,6 +192,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await login(page, CUSTOMER);
     await page.goto("/profil");
     await page.waitForTimeout(600);
+    await openBookingsSection(page);
     await page.locator("li", { hasText: "Probestunde" }).getByRole("button", { name: "Umbuchen" }).click();
     await page.waitForTimeout(400);
     await page.getByRole("dialog").getByRole("combobox").click();
@@ -184,6 +211,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await login(page, CUSTOMER);
     await page.goto("/profil");
     await page.waitForTimeout(600);
+    await openBookingsSection(page);
     await page
       .locator("li", { hasText: "Probestunde" })
       .filter({ hasText: "Bestätigt" })
@@ -206,6 +234,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await login(page, CUSTOMER_TODAY);
     await page.goto("/profil");
     await page.waitForTimeout(600);
+    await openBookingsSection(page);
     const todayBookingItem = page.locator("li", { hasText: "Probestunde" }).filter({ hasText: "Bestätigt" });
     await expect(todayBookingItem).toHaveCount(1);
     await expect(todayBookingItem.getByRole("button", { name: "Stornieren" })).toHaveCount(0);

@@ -128,6 +128,16 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     await trialSelect.click();
     await page.locator('[role="option"]').first().click();
 
+    // e2e8-customer's very first booking (PROJ-27 sorts before PROJ-8
+    // alphabetically, so this can run first depending on suite order) also
+    // requires picking an Akquisitionskanal once — handle it if present.
+    const acquisitionPrompt = page.getByText("Wie haben Sie von uns erfahren?");
+    if (await acquisitionPrompt.isVisible().catch(() => false)) {
+      await dialog.getByRole("combobox").last().click();
+      await page.waitForTimeout(300);
+      await page.getByRole("option", { name: "Google / Suchmaschine" }).click();
+    }
+
     await dialog.getByLabel(CONFIRM_LABEL).click();
     const submitButton = dialog.getByRole("button", { name: "Absenden" });
     await expect(submitButton).toBeEnabled();

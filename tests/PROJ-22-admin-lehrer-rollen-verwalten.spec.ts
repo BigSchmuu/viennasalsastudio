@@ -14,7 +14,8 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL("**/profil", { timeout: 10000 });
+  // Admin lands on /admin after login, every other role on /profil.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
 }
 
 async function loginAsAdmin(page: Page) {

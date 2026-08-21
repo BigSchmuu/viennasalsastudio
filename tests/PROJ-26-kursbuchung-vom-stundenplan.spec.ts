@@ -84,7 +84,11 @@ test.describe("PROJ-26: Kursbuchung direkt von /stundenplan aus", () => {
     await page.waitForTimeout(1000);
 
     await page.goto("/profil");
-    await page.getByText("Meine Buchungen", { exact: true }).scrollIntoViewIfNeeded();
+    // /profil's sections live behind a collapsed Accordion (Radix unmounts
+    // closed content entirely) — must click the trigger, not just scroll to
+    // it, before any booking is in the DOM.
+    await page.getByRole("button", { name: "Meine Buchungen" }).click();
+    await page.waitForTimeout(400);
     await expect(page.getByText("E2E26 Buchbar Kurs")).toBeVisible();
   });
 });

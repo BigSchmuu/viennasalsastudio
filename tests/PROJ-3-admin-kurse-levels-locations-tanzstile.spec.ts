@@ -11,7 +11,8 @@ async function loginAsAdmin(page: Page) {
   await page.getByLabel("Passwort").fill(PASSWORD);
   await page.waitForTimeout(1500); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL("**/profil", { timeout: 10000 });
+  // Admin lands on /admin after login, every other role on /profil.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
 }
 
 test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
@@ -27,7 +28,8 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
     await page.getByLabel("Passwort").fill(PASSWORD);
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: "Einloggen" }).click();
-    await page.waitForURL("**/profil", { timeout: 10000 });
+    // Admin lands on /admin after login, every other role on /profil.
+    await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
     await page.goto("/admin");
     await expect(page).toHaveURL("/");
 
@@ -37,14 +39,19 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
     await page.getByLabel("Passwort").fill(PASSWORD);
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: "Einloggen" }).click();
-    await page.waitForURL("**/profil", { timeout: 10000 });
+    // Admin lands on /admin after login, every other role on /profil.
+    await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
     await page.goto("/admin");
     await expect(page).toHaveURL("/");
 
     // Admin — erneutes Einloggen überschreibt die Lehrer-Session direkt
+    // Since PROJ-17, /admin serves the Analytics Dashboard directly (no
+    // longer redirects to /admin/standorte) — assert admin can actually
+    // reach and stay on /admin instead.
     await loginAsAdmin(page);
     await page.goto("/admin");
-    await expect(page).toHaveURL(/\/admin\/standorte/);
+    await expect(page).toHaveURL("/admin");
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   });
 
   // Originally asserted the true empty-state ("Noch keine Standorte/Tanzstile

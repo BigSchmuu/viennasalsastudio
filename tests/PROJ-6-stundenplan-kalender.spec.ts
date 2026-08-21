@@ -9,7 +9,19 @@ async function loginAsAdmin(page: Page) {
   await page.getByLabel("Passwort").fill(PASSWORD);
   await page.waitForTimeout(1500); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL("**/profil", { timeout: 10000 });
+  // Admin lands on /admin after login, every other role on /profil.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+}
+
+// The course catalog is paginated (PAGE_SIZE=12, "Mehr laden") — fixture
+// courses created late sort past page 1 by created_at ascending.
+async function loadAllCourses(page: Page) {
+  await page.waitForTimeout(1000);
+  const moreButton = page.getByRole("button", { name: /Mehr laden/ });
+  for (let i = 0; i < 10 && (await moreButton.count()) > 0; i++) {
+    await moreButton.click();
+    await page.waitForTimeout(500);
+  }
 }
 
 async function openCourseEdit(page: Page, courseName: string) {
@@ -62,12 +74,17 @@ test.describe("PROJ-6: Stundenplan & Kalender", () => {
     await page.goto("/stundenplan");
     await page.getByRole("tab", { name: "Freitag" }).click();
     await page.waitForTimeout(400);
-    await expect(page.getByText("E2E6 Kurs Heute")).toBeVisible();
-    await expect(page.getByText("19:00–20:00")).toBeVisible();
-    await expect(page.getByText("E2E6 Forro", { exact: true })).toBeVisible();
-    await expect(page.getByText("Improver", { exact: true })).toBeVisible();
-    await expect(page.getByText("E2E6 Location")).toBeVisible();
-    await expect(page.getByText("Lehrer wird noch bekanntgegeben")).toBeVisible();
+    // Scoped to this course's own card — other teacher-less fixture courses
+    // (from other feature test suites) also render "Lehrer wird noch
+    // bekanntgegeben" elsewhere on the page, causing a strict-mode violation
+    // on an unscoped page-wide text match.
+    const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E6 Kurs Heute" });
+    await expect(card).toBeVisible();
+    await expect(card.getByText("19:00–20:00")).toBeVisible();
+    await expect(card.getByText("E2E6 Forro", { exact: true })).toBeVisible();
+    await expect(card.getByText("Improver", { exact: true })).toBeVisible();
+    await expect(card.getByText("E2E6 Location")).toBeVisible();
+    await expect(card.getByText("Lehrer wird noch bekanntgegeben")).toBeVisible();
   });
 
   test("Admin markiert eine Woche als Pause; Kurs verschwindet nur für diese Woche", async ({ page }) => {
@@ -134,6 +151,7 @@ test.describe("PROJ-6: Stundenplan & Kalender", () => {
 
     await page.goto("/kurse");
     await page.waitForTimeout(600);
+    await loadAllCourses(page);
     await expect(page.getByText("E2E6 Kurs Montag")).toBeVisible();
   });
 });

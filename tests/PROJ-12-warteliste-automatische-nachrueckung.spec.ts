@@ -14,12 +14,25 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL("**/profil", { timeout: 10000 });
+  // Admin lands on /admin after login, every other role on /profil.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+}
+
+// The course catalog is paginated (PAGE_SIZE=12, "Mehr laden") — fixture
+// courses created late sort past page 1 by created_at ascending.
+async function loadAllCourses(page: Page) {
+  await page.waitForTimeout(1000);
+  const moreButton = page.getByRole("button", { name: /Mehr laden/ });
+  for (let i = 0; i < 10 && (await moreButton.count()) > 0; i++) {
+    await moreButton.click();
+    await page.waitForTimeout(500);
+  }
 }
 
 async function openBookingDialog(page: Page, courseName: string) {
   await page.goto("/kurse");
   await page.waitForTimeout(600);
+  await loadAllCourses(page);
   await page
     .locator(".rounded-lg.border.bg-card")
     .filter({ has: page.getByText(courseName, { exact: true }) })
@@ -40,6 +53,7 @@ test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
   }) => {
     await page.goto("/kurse");
     await page.waitForTimeout(600);
+    await loadAllCourses(page);
     const card = page
       .locator(".rounded-lg.border.bg-card")
       .filter({ has: page.getByText("E2E12 Kurs", { exact: true }) });
@@ -84,6 +98,10 @@ test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
 
     await page.goto("/profil");
     await page.waitForTimeout(600);
+    // /profil's sections live behind a collapsed Accordion (Radix unmounts
+    // closed content entirely) — must expand "Meine Warteliste" first.
+    await page.getByRole("button", { name: "Meine Warteliste" }).click();
+    await page.waitForTimeout(400);
     const entry = page.locator("li", { hasText: "E2E12 Kurs" });
     await expect(entry.getByText(/Position 1/)).toBeVisible();
 

@@ -14,13 +14,23 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL("**/profil", { timeout: 10000 });
+  // Admin lands on /admin after login, every other role on /profil.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+}
+
+// /profil's sections live behind a collapsed Accordion (Radix unmounts closed
+// content entirely) — must expand "Mein Abo" before any subscription <li> is
+// in the DOM.
+async function openAboSection(page: Page) {
+  await page.getByRole("button", { name: "Mein Abo" }).click();
+  await page.waitForTimeout(400);
 }
 
 test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
   test("Kunde ohne Abo sieht Leerzustand statt leerer Liste", async ({ page }) => {
     await login(page, CUSTOMER_EMPTY);
     await page.waitForTimeout(600);
+    await openAboSection(page);
     await expect(page.getByText("Kein aktives Abo vorhanden.")).toBeVisible();
   });
 
@@ -29,6 +39,7 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
   }) => {
     await login(page, CUSTOMER);
     await page.waitForTimeout(600);
+    await openAboSection(page);
     const card = page.locator("li", { hasText: "E2E9 Testabo" });
     await card.getByRole("button", { name: "Pausieren" }).click();
     await page.waitForTimeout(800);
@@ -39,6 +50,7 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
   test("AC3: Rückgängig machen entfernt die geplante Änderung vor dem Wirksamkeitsdatum", async ({ page }) => {
     await login(page, CUSTOMER);
     await page.waitForTimeout(600);
+    await openAboSection(page);
     const card = page.locator("li", { hasText: "E2E9 Testabo" });
     await card.getByRole("button", { name: "Rückgängig machen" }).click();
     await page.waitForTimeout(800);
@@ -52,6 +64,7 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
   }) => {
     await login(page, CUSTOMER);
     await page.waitForTimeout(600);
+    await openAboSection(page);
     const card = page.locator("li", { hasText: "E2E9 Testabo" });
     await card.getByRole("button", { name: "Kündigen" }).click();
     await page.waitForTimeout(800);
@@ -64,6 +77,7 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
   }) => {
     await login(page, CUSTOMER);
     await page.waitForTimeout(600);
+    await openAboSection(page);
     const card = page.locator("li", { hasText: "E2E9 Testabo" });
     await expect(card.getByText("Bodymovement")).toBeVisible();
     await expect(card.getByText("45,00")).toBeVisible();
@@ -97,6 +111,7 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
   test("AC7: Flatrate-Abo (kein Kurs-Bezug) zeigt keine Umbuchen-Option", async ({ page }) => {
     await login(page, CUSTOMER_FLATRATE);
     await page.waitForTimeout(600);
+    await openAboSection(page);
     const card = page.locator("li", { hasText: "E2E7 Solo Abo" });
     await expect(card).toBeVisible();
     await expect(card.getByRole("button", { name: "Umbuchen" })).toHaveCount(0);
@@ -105,6 +120,7 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
   test("Edge Case: Kunde mit mehreren aktiven Abos sieht jedes einzeln mit eigenen Aktionen", async ({ page }) => {
     await login(page, CUSTOMER_MULTI);
     await page.waitForTimeout(600);
+    await openAboSection(page);
     const cardA = page.locator("li", { hasText: "E2E9 Multi Abo A" });
     const cardB = page.locator("li", { hasText: "E2E9 Multi Abo B" });
     await expect(cardA.getByRole("button", { name: "Pausieren" })).toBeVisible();
@@ -116,6 +132,7 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
   test("AC4: Reaktivieren setzt ein pausiertes Abo sofort auf Aktiv, ohne Wartezeit", async ({ page }) => {
     await login(page, CUSTOMER_MULTI);
     await page.waitForTimeout(600);
+    await openAboSection(page);
     const card = page.locator("li", { hasText: "E2E9 Paused Abo" });
     await expect(card.getByText("Pausiert")).toBeVisible();
     await card.getByRole("button", { name: "Reaktivieren" }).click();
@@ -139,6 +156,7 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
 
     await login(page, CUSTOMER_DUE);
     await page.waitForTimeout(600);
+    await openAboSection(page);
     const card = page.locator("li", { hasText: "E2E9 Due Abo" });
     await expect(card.getByText("Gekündigt")).toBeVisible();
     await expect(card.getByRole("button", { name: "Reaktivieren" })).toHaveCount(0);

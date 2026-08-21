@@ -11,7 +11,8 @@ async function loginAsAdmin(page: Page) {
   await page.getByLabel("Passwort").fill(PASSWORD);
   await page.waitForTimeout(1500); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL("**/profil", { timeout: 10000 });
+  // Admin lands on /admin after login, every other role on /profil.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
 }
 
 test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
@@ -26,7 +27,8 @@ test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
     await page.getByLabel("Passwort").fill(PASSWORD);
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: "Einloggen" }).click();
-    await page.waitForURL("**/profil", { timeout: 10000 });
+    // Admin lands on /admin after login, every other role on /profil.
+    await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
     await page.goto("/admin/videosaetze");
     await expect(page).toHaveURL("/");
 

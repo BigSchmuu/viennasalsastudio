@@ -8,7 +8,8 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL("**/profil", { timeout: 10000 });
+  // Admin lands on /admin after login, every other role on /profil.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
 }
 
 test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
@@ -16,8 +17,11 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
     page,
   }) => {
     await login(page, CUSTOMER);
-    const section = page.getByText("Benachrichtigungen", { exact: true }).first();
-    await section.scrollIntoViewIfNeeded();
+    // /profil's sections live behind a collapsed Accordion (Radix unmounts
+    // closed content entirely) — must click the trigger, not just scroll to
+    // it, before any switch/columnheader inside is in the DOM.
+    await page.getByRole("button", { name: "Benachrichtigungen" }).click();
+    await page.waitForTimeout(400);
 
     await expect(page.getByRole("columnheader", { name: "E-Mail" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Push" })).toBeVisible();
@@ -30,7 +34,11 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
     page,
   }) => {
     await login(page, CUSTOMER);
-    await page.getByText("Benachrichtigungen", { exact: true }).first().scrollIntoViewIfNeeded();
+    // /profil's sections live behind a collapsed Accordion (Radix unmounts
+    // closed content entirely) — must click the trigger, not just scroll to
+    // it, before any switch/columnheader inside is in the DOM.
+    await page.getByRole("button", { name: "Benachrichtigungen" }).click();
+    await page.waitForTimeout(400);
 
     await expect(page.getByRole("button", { name: "Push-Benachrichtigungen aktivieren" })).toBeVisible();
 
@@ -42,7 +50,11 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
 
   test("Einstellungs-Umschalten persistiert nach Neuladen", async ({ page }) => {
     await login(page, CUSTOMER);
-    await page.getByText("Benachrichtigungen", { exact: true }).first().scrollIntoViewIfNeeded();
+    // /profil's sections live behind a collapsed Accordion (Radix unmounts
+    // closed content entirely) — must click the trigger, not just scroll to
+    // it, before any switch/columnheader inside is in the DOM.
+    await page.getByRole("button", { name: "Benachrichtigungen" }).click();
+    await page.waitForTimeout(400);
 
     const emailSwitch = page.getByRole("switch", { name: "Warteliste rückt nach per E-Mail" });
     await expect(emailSwitch).toHaveAttribute("data-state", "checked");
@@ -50,7 +62,11 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
     await expect(emailSwitch).toHaveAttribute("data-state", "unchecked");
 
     await page.reload();
-    await page.getByText("Benachrichtigungen", { exact: true }).first().scrollIntoViewIfNeeded();
+    // /profil's sections live behind a collapsed Accordion (Radix unmounts
+    // closed content entirely) — must click the trigger, not just scroll to
+    // it, before any switch/columnheader inside is in the DOM.
+    await page.getByRole("button", { name: "Benachrichtigungen" }).click();
+    await page.waitForTimeout(400);
     await expect(page.getByRole("switch", { name: "Warteliste rückt nach per E-Mail" })).toHaveAttribute(
       "data-state",
       "unchecked"

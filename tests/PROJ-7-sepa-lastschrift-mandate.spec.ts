@@ -12,7 +12,8 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL("**/profil", { timeout: 10000 });
+  // Admin lands on /admin after login, every other role on /profil.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
 }
 
 async function openCustomerDetail(page: Page, fullName: string) {
@@ -20,6 +21,16 @@ async function openCustomerDetail(page: Page, fullName: string) {
   await page.waitForTimeout(400);
   await page.getByRole("link", { name: fullName, exact: true }).click();
   await page.waitForTimeout(500);
+}
+
+// /profil's sections live behind a collapsed Accordion (Radix unmounts closed
+// content entirely) — must expand "Zahlungsmethode" before any IBAN/mandate
+// field is in the DOM.
+async function openPaymentSection(page: Page) {
+  await page.goto("/profil");
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "Zahlungsmethode" }).click();
+  await page.waitForTimeout(400);
 }
 
 test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
@@ -48,6 +59,7 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
 
   test("Ungültige IBAN wird beim Anlegen eines Mandats abgelehnt", async ({ page }) => {
     await login(page, CUSTOMER_SOLO);
+    await openPaymentSection(page);
     await page.getByLabel("IBAN").fill("AT00 0000 0000 0000 0000");
     await page.getByLabel("Kontoinhaber").fill("E2E7 Solo Kunde");
     await page.getByLabel(/stimme dem SEPA-Lastschriftmandat/).check();
@@ -58,6 +70,7 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
 
   test("Kunde legt gültiges SEPA-Mandat an; wird gespeichert und angezeigt", async ({ page }) => {
     await login(page, CUSTOMER_SOLO);
+    await openPaymentSection(page);
     await page.getByLabel("IBAN").fill(VALID_IBAN);
     await page.getByLabel("Kontoinhaber").fill("E2E7 Solo Kunde");
     await page.getByLabel(/stimme dem SEPA-Lastschriftmandat/).check();
@@ -75,6 +88,7 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
 
   test("Kunde ersetzt bestehendes Mandat; neue IBAN erscheint, alte verschwindet", async ({ page }) => {
     await login(page, CUSTOMER_SOLO);
+    await openPaymentSection(page);
     await page.getByRole("button", { name: "Mandat ersetzen" }).click();
     await page.waitForTimeout(300);
     await page.getByLabel("IBAN").fill(VALID_IBAN_2);
@@ -88,6 +102,7 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
 
   test("Kunde entfernt Mandat; Admin sieht Warnhinweis bei aktivem Abo", async ({ page }) => {
     await login(page, CUSTOMER_SOLO);
+    await openPaymentSection(page);
     await page.getByRole("button", { name: "Mandat entfernen" }).click();
     await page.waitForTimeout(300);
     await page.getByRole("button", { name: "Entfernen" }).click();
@@ -101,6 +116,7 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
 
   test("Kunde mit mehreren aktiven Abos erzeugt mehrere Positionen im selben Lauf", async ({ page }) => {
     await login(page, { email: "e2e7-customer-multi@viennasalsastudio.test", password: "CorrectPassword123!" });
+    await openPaymentSection(page);
     await page.getByLabel("IBAN").fill(VALID_IBAN);
     await page.getByLabel("Kontoinhaber").fill("E2E7 Multi Kunde");
     await page.getByLabel(/stimme dem SEPA-Lastschriftmandat/).check();

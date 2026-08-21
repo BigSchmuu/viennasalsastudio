@@ -60,7 +60,8 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await expect(page.getByText("Ticket bestätigt! Du findest es mit QR-Code in deinem Profil.")).toBeVisible();
 
     await page.goto("/profil");
-    await page.getByText("Meine Tickets", { exact: true }).scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: "Meine Tickets" }).click();
+    await page.waitForTimeout(400);
     const row = ticketRow(page, "E2E14 Kaufen Event");
     await expect(row.getByText("Bestätigt")).toBeVisible();
     await expect(row.locator("canvas, img")).toBeVisible();
@@ -94,7 +95,8 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     expect(Number(afterPurchase.match(/\d+/)![0])).toBe(beforeCount - 1);
 
     await page.goto("/profil");
-    await page.getByText("Meine Tickets", { exact: true }).scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: "Meine Tickets" }).click();
+    await page.waitForTimeout(400);
     const row = ticketRow(page, "E2E14 Kaufen Event");
     await expect(row.getByText("Reserviert")).toBeVisible();
     await row.getByRole("button", { name: "Ticket stornieren" }).click();
@@ -118,7 +120,8 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
   test("AC11: Stornieren ist nach Ablauf der Frist nicht mehr möglich (Button ausgeblendet)", async ({ page }) => {
     await login(page, CUSTOMER_NOMANDATE);
     await page.goto("/profil");
-    await page.getByText("Meine Tickets", { exact: true }).scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: "Meine Tickets" }).click();
+    await page.waitForTimeout(400);
 
     const row = ticketRow(page, "E2E14 Stornofrist Event");
     await expect(row).toBeVisible();
@@ -181,7 +184,8 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
 
   test("AC13: Deaktivierte Event-Tickets-Benachrichtigung lässt Ticket im Profil sichtbar", async ({ page }) => {
     await login(page, CUSTOMER_MANDATE);
-    await page.getByText("Benachrichtigungen", { exact: true }).first().scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: "Benachrichtigungen" }).click();
+    await page.waitForTimeout(400);
     await expect(page.getByText("Event-Tickets", { exact: true })).toBeVisible();
 
     const emailSwitch = page.getByRole("switch", { name: "Event-Tickets per E-Mail" });
@@ -191,11 +195,13 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await page.waitForTimeout(500);
 
     await page.reload();
-    await page.getByText("Benachrichtigungen", { exact: true }).first().scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: "Benachrichtigungen" }).click();
+    await page.waitForTimeout(400);
     await expect(page.getByRole("switch", { name: "Event-Tickets per E-Mail" })).toHaveAttribute("data-state", "unchecked");
 
     // Ticket must still be visible in profile regardless of notification preference.
-    await page.getByText("Meine Tickets", { exact: true }).scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: "Meine Tickets" }).click();
+    await page.waitForTimeout(400);
     await expect(page.getByText("E2E14 Kaufen Event")).toBeVisible();
 
     // Reset to default for repeatable runs.

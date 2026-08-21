@@ -20,7 +20,16 @@ async function login(page: Page, user: { email: string; password: string }) {
   await page.getByLabel("Passwort").fill(user.password);
   await page.waitForTimeout(1000);
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL("**/profil", { timeout: 10000 });
+  // Admin lands on /admin after login, every other role on /profil.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+}
+
+// /profil's sections live behind a collapsed Accordion (Radix unmounts closed
+// content entirely) — must expand "Meine Rechnungen" before any invoice
+// link/empty-state text is in the DOM.
+async function openInvoicesSection(page: Page) {
+  await page.getByRole("button", { name: "Meine Rechnungen" }).click();
+  await page.waitForTimeout(400);
 }
 
 test.describe("PROJ-10: Rechnungsarchiv", () => {
@@ -96,6 +105,7 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
 
   test("AC2 + AC3: Kunde sieht im Profil ausschließlich eigene Rechnungen", async ({ page }) => {
     await login(page, CUSTOMER_MULTI);
+    await openInvoicesSection(page);
     await expect(page.getByText("Meine Rechnungen")).toBeVisible();
     await expect(page.getByRole("link", { name: /E2E7 Multi Abo A/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /E2E7 Multi Abo B/ })).toBeVisible();
@@ -104,6 +114,7 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
 
   test("AC3: Kunde ohne Rechnungen sieht Leerzustand-Hinweis statt leerer Liste", async ({ page }) => {
     await login(page, CUSTOMER_NO_INVOICES);
+    await openInvoicesSection(page);
     await expect(page.getByText("Noch keine Rechnungen vorhanden.")).toBeVisible();
   });
 
@@ -169,6 +180,7 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
     await expect(page.getByRole("row", { name: /E2E8 Kunde/ })).toContainText("Rücklastschrift");
 
     await login(page, CUSTOMER_SINGLE);
+    await openInvoicesSection(page);
     const row = page.locator("a", { hasText: "E2E8 Kurs" });
     await expect(row).toContainText("Rücklastschrift");
   });

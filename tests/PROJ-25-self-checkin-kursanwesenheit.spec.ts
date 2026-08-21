@@ -105,16 +105,25 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
   test("AC6, AC7: Self-Check-In überschreibt Lehrer-Markierung; Lehrer/Admin sieht Self-Check-In-Kennzeichnung", async ({
     page,
   }) => {
-    const today = new Date().toISOString().slice(0, 10);
+    // NOTE: as of PROJ-13's attendance-matrix rework, there is no longer a
+    // /lehrer/[courseId]/[date] page or <li>-based roster — attendance for
+    // all visible termine (incl. today) lives in a table on
+    // /lehrer/[courseId], with per-cell Popover-based marking. Updated below
+    // to match (was still targeting the removed route/DOM before this fix).
 
     // Admin marks the customer "absent" first.
     await login(page, ADMIN);
-    await page.goto(`/lehrer/${COURSE_IM_FENSTER_ID}/${today}`);
-    const row = page.locator("li").filter({ hasText: "E2E25 Kunde Mit Abo" });
+    await page.goto(`/lehrer/${COURSE_IM_FENSTER_ID}`);
+    await page.waitForTimeout(1000);
+    const row = page.locator("tr", { hasText: "E2E25 Kunde Mit Abo" });
     await expect(row).toBeVisible();
-    await row.getByRole("button", { name: "Abwesend" }).click();
+    const cells = row.locator("td");
+    const cellCount = await cells.count();
+    const todayCell = cells.nth(cellCount - 1); // today's column is always last
+    await todayCell.getByRole("button").click();
+    await page.getByRole("button", { name: "Abwesend", exact: true }).click();
     await page.waitForTimeout(500);
-    await expect(row.getByText("Self-Check-In")).toHaveCount(0);
+    await expect(todayCell.locator("span.bg-blue-500")).toHaveCount(0);
 
     // Customer self-checks-in, which must override the teacher's mark.
     await login(page, CUSTOMER_WITH_ABO);
@@ -130,11 +139,17 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
     await card.getByRole("button", { name: "Ich bin da" }).click();
     await expect(card.getByRole("button", { name: "✓ Eingecheckt" })).toBeVisible();
 
-    // Admin's roster now shows "Anwesend" with the Self-Check-In badge.
+    // Admin's roster now shows "Anwesend" with the Self-Check-In indicator.
     await login(page, ADMIN);
-    await page.goto(`/lehrer/${COURSE_IM_FENSTER_ID}/${today}`);
-    const rowAfter = page.locator("li").filter({ hasText: "E2E25 Kunde Mit Abo" });
-    await expect(rowAfter.locator("span.text-muted-foreground", { hasText: "Anwesend" })).toBeVisible();
-    await expect(rowAfter.getByText("Self-Check-In")).toBeVisible();
+    await page.goto(`/lehrer/${COURSE_IM_FENSTER_ID}`);
+    await page.waitForTimeout(1000);
+    const rowAfter = page.locator("tr", { hasText: "E2E25 Kunde Mit Abo" });
+    const cellsAfter = rowAfter.locator("td");
+    const countAfter = await cellsAfter.count();
+    const todayCellAfter = cellsAfter.nth(countAfter - 1);
+    await expect(todayCellAfter.getByRole("button")).toHaveClass(/border-emerald-600/);
+    await expect(todayCellAfter.locator("span.bg-blue-500")).toBeVisible();
+    await todayCellAfter.getByRole("button").click();
+    await expect(page.getByText(/Self-Check-In/)).toBeVisible();
   });
 });

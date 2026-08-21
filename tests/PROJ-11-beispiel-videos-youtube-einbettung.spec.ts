@@ -19,9 +19,21 @@ async function login(page: Page, email: string) {
   await page.waitForURL(/\/(profil)?$/, { timeout: 10000 }).catch(() => {});
 }
 
+// The course catalog is paginated (PAGE_SIZE=12, "Mehr laden") — fixture
+// courses created late sort past page 1 by created_at ascending.
+async function loadAllCourses(page: Page) {
+  await page.waitForTimeout(1000);
+  const moreButton = page.getByRole("button", { name: /Mehr laden/ });
+  for (let i = 0; i < 10 && (await moreButton.count()) > 0; i++) {
+    await moreButton.click();
+    await page.waitForTimeout(500);
+  }
+}
+
 test.describe("PROJ-11: Beispiel-Videos (YouTube-Einbettung)", () => {
   test("AC1: Klick auf Kurskarte im Katalog führt zur Kursdetailseite, auch anonym", async ({ page }) => {
     await page.goto("/kurse");
+    await loadAllCourses(page);
     await page.getByText("E2E11 Kurs mit Video").click();
     await expect(page).toHaveURL(new RegExp(`/kurse/${COURSE_ID}`));
     await expect(page.getByRole("heading", { name: "E2E11 Kurs mit Video" })).toBeVisible();
@@ -80,6 +92,7 @@ test.describe("PROJ-11: Beispiel-Videos (YouTube-Einbettung)", () => {
     await login(page, FLATRATE_EMAIL);
     // "E2E5 Kizomba Beginner" ist ein bestehender Kurs ohne Videosatz-Zuordnung.
     await page.goto("/kurse");
+    await loadAllCourses(page);
     await page.getByText("E2E5 Kizomba Beginner").first().click();
     await expect(page.getByText("Videolektionen")).toHaveCount(0);
   });
@@ -98,6 +111,7 @@ test.describe("PROJ-11: Beispiel-Videos (YouTube-Einbettung)", () => {
   }) => {
     await login(page, ENROLLED_EMAIL);
     await page.goto("/kurse");
+    await loadAllCourses(page);
     const card = page.locator(".rounded-lg.border.bg-card").filter({ hasText: "E2E11 Kurs mit Video" });
     await card.getByRole("button", { name: "Jetzt buchen" }).click();
     await page.waitForTimeout(300);
