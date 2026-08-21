@@ -1,6 +1,6 @@
 # PROJ-33: Sortier- und Filterfunktion für Admin-Listen
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -276,12 +276,30 @@ Neuer gemeinsamer Baustein `src/components/admin/sortable-header.tsx` (`Sortable
 - **Root Cause:** `src/components/admin/customers/customer-list.tsx` — Such-Input-Placeholder wurde bei der URL-Parameter-Umstellung umformuliert, ohne den bestehenden PROJ-4-Test entsprechend anzupassen
 - **Priority:** Fix in next sprint (kein Nutzer-Impact, nur Testschulden — entweder Placeholder zurückändern oder den PROJ-4-Test auf `getByLabel("Suche")` umstellen)
 
-### Summary
+### Summary (erste Runde)
 - **Acceptance Criteria:** 9/9 funktional erfüllt (AC-6 mit 2 begleitenden Bugs, siehe oben)
 - **Bugs Found:** 3 total (0 critical, 1 high, 1 medium, 1 low)
 - **Security:** Pass — keine Injection-/Auth-Bypass-Risiken; BUG-2 ist ein Robustheits-, kein Sicherheitsproblem
 - **Production Ready:** NO
 - **Recommendation:** BUG-1 (High) und BUG-2 (Medium) vor dem Deployment beheben — beide sind lokal auf die Kursliste begrenzt und sollten mit `/frontend` schnell behebbar sein (BUG-1: Filter-Labels umbenennen, z.B. „Level filtern"/„Tanzstil filtern", oder `sr-only`-Label + sichtbarer Text-Unterschied; BUG-2: `dance_style` analog zu `level` gegen die geladene `danceStyles`-Liste validieren). BUG-3 kann parallel oder danach erledigt werden. Die 13 vorbestehenden, unabhängigen Fixture-Drift-Fehlschläge blockieren dieses Feature nicht, sollten aber separat vom Projektinhaber zur Kenntnis genommen werden (wiederkehrendes Muster, siehe Projekt-Memory zu fehlender Staging-Umgebung).
+
+### Re-Verification nach Bugfixes (2026-08-21)
+
+Alle drei Bugs wurden per `/frontend` behoben (siehe Implementation Notes oben) und erneut geprüft:
+
+- **BUG-1 (High) → behoben & verifiziert:** Filter-Labels umbenannt auf „Level filtern"/„Tanzstil filtern". Live geprüft, dass sowohl der Filter (`getByLabel("Level filtern")`) als auch das Dialog-Feld (`getByLabel("Level", { exact: true })`) jetzt eindeutig auffindbar sind, auch bei geöffnetem „Neuer Kurs"-Dialog. Die zwei betroffenen PROJ-3-Regressionstests liefen zusätzlich vollständig grün nach Anpassung auf `{ exact: true }`.
+- **BUG-2 (Medium) → behoben & verifiziert:** `dance_style` wird jetzt gegen die geladene Tanzstil-Liste validiert. Live geprüft: ein ungültiger Wert (`?dance_style=not-a-valid-uuid`) wird jetzt ignoriert (volle Liste bleibt sichtbar, kein „Keine Kurse gefunden."-Fehlzustand mehr, Select zeigt korrekt „Alle"); ein weiterhin gültiger Tanzstil-Wert filtert nach wie vor korrekt (Regressionscheck).
+- **BUG-3 (Low) → behoben & verifiziert:** Placeholder enthält wieder „Suche". Zusätzlich den PROJ-4-Test um den nötigen „Filtern"-Klick ergänzt, da die zugrundeliegende Suche durch PROJ-33 bewusst von live/tastendruckbasiert auf submit-basiert umgestellt wurde (Architektur-Entscheidung, unabhängig vom Placeholder).
+- `npm test` (Vitest): weiterhin 175/175 bestanden
+- Neue permanente PROJ-33-Suite: weiterhin 10/10 bestanden
+- PROJ-3- und PROJ-4-Suiten: alle Tests grün mit Ausnahme der bereits vor den Bugfixes dokumentierten 2 vorbestehenden, PROJ-33-unabhängigen Fixture-Pollution-Fälle (siehe Implementation Notes: „Kurs anlegen mit Lehrer"-Test ohne Selbstbereinigung, „Kein Abo vorhanden"-Test mit nicht-idempotenter Abo-Anlage) — beide sind durch wiederholte Testläufe in dieser QA-Session weiter akkumuliert, nicht neu entstanden, und bleiben außerhalb des PROJ-33-Scopes
+
+### Summary (final)
+- **Acceptance Criteria:** 9/9 erfüllt, keine offenen Bugs mehr
+- **Bugs Found:** 3 total, alle 3 behoben und verifiziert (0 offen)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy. Die 2 weiterhin bestehenden, vorbestehenden Fixture-Pollution-Fälle in den PROJ-3-/PROJ-4-Suiten sind unabhängig von PROJ-33 und sollten separat (z.B. als kleiner Housekeeping-Task für Testdaten-Bereinigung) adressiert werden.
 
 ## Deployment
 _To be added by /deploy_
