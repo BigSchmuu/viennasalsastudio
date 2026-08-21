@@ -1,6 +1,6 @@
 # PROJ-29: Probestunden-Follow-up & Conversion-Tracking
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -276,4 +276,12 @@ Neue Admin-Seite `/admin/probestunden` (Nav-Eintrag „Probestunden" zwischen �
 - **Recommendation:** Deploy. Die vorbestehenden PROJ-8/PROJ-17-Fixture-Drift-Fehlschläge blockieren dieses Feature nicht, sollten aber weiterhin auf dem Radar für einen separaten Housekeeping-Task bleiben. Der offene Punkt zum zweiten Cron-Lauf (Vercel-Plan-Limit) muss bei `/deploy` geprüft werden.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Deployed:** 2026-08-22
+- **Production URL:** https://viennasalsastudio.vercel.app
+- **Git tag:** `v1.0.0-PROJ-29`
+- **Commit:** `65c3cea`
+- **Deployment method:** Push to `main` → Vercel auto-deploy (bereits automatisch deployed, als die Commits während `/backend`/`/frontend`/`/qa` gepusht wurden; dieser Schritt bestätigt den finalen Build inkl. Bugfix als live)
+- **Post-deployment verification:** `/admin/probestunden` live gegen die Produktions-DB geprüft — Seite lädt, Conversion-Rate-Kachel, Status-Filter und Nav-Eintrag sichtbar, keine Browser-Konsolenfehler. Der Live-Cron selbst wurde bewusst **nicht** manuell ausgelöst, um keine echten Benachrichtigungen an echte Kunden zu verschicken — er läuft eigenständig nach dem bereits konfigurierten Zeitplan (06:00 und 18:00 UTC).
+- **Migration:** `proj29_trial_followups` bereits während `/backend` live auf die Produktionsdatenbank angewendet (kein separater Deploy-Schritt nötig, Supabase ist eine gemeinsame Umgebung für Dev und Prod in diesem Projekt).
+- **Offener Verifikationspunkt (nicht automatisiert prüfbar):** ob der tatsächliche Vercel-Plan zwei tägliche Cron-Läufe unterstützt — die lokale Vercel-CLI ist nicht eingeloggt, daher konnte dies nicht programmatisch bestätigt werden. Bitte im Vercel-Dashboard unter „Cron Jobs" (Projekteinstellungen) verifizieren, dass beide Einträge (`06:00`- und `18:00`-Lauf) aktiv sind und nicht durch ein Plan-Limit stillschweigend auf einen reduziert wurden. Falls nur ein Lauf unterstützt wird: Rückfall auf den Morgen-Lauf (Abend-Erinnerung käme dann erst am nächsten Morgen statt am selben Abend) — bereits als Fallback im Decision Log dokumentiert.
