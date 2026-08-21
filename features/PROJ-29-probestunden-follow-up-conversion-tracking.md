@@ -1,6 +1,6 @@
 # PROJ-29: Probestunden-Follow-up & Conversion-Tracking
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -167,6 +167,8 @@ läuft vollständig über die bereits bestehende PROJ-16-Infrastruktur.
 
 **Offener Punkt für `/deploy`:** ob der tatsächliche Vercel-Plan einen zweiten täglichen Cron-Lauf erlaubt, ist noch nicht verifiziert (siehe Open Questions) — muss beim Deployment geprüft werden.
 
+**Bugfix nach QA (2026-08-21):** BUG-1 behoben — sowohl `hasConvertedSince()` in `dispatch.ts` als auch die Conversion-Abfrage in `src/app/admin/probestunden/page.tsx` filterten reguläre Buchungen bisher nicht nach `status`, wodurch eine **abgelehnte** Buchungsanfrage fälschlich als Konvertierung zählte. Beide Stellen um `.eq("status", "confirmed")` ergänzt, konsistent mit dem bereits bestehenden Muster in `runDailyChecks`/`kursstart_erinnerung`. Live mit demselben Reproduktionsszenario (Probestunde + abgelehnte reguläre Buchung) verifiziert: Kunde erscheint jetzt korrekt als „Offen" statt „Konvertiert", Kontaktiert-Aktion ist wieder verfügbar. `npm run build`/`npm run lint` sauber, `npm test` weiterhin 194/194, permanente PROJ-29-E2E-Suite weiterhin 6/6 (ein einmaliger Fehlschlag beim ersten Rerun stellte sich als Kollision mit eigenen, noch nicht bereinigten manuellen Bugfix-Testdaten heraus, kein echter Regressionsfehler — nach Bereinigung wieder 6/6 bestätigt).
+
 ## Implementation Notes (Frontend)
 
 Neue Admin-Seite `/admin/probestunden` (Nav-Eintrag „Probestunden" zwischen „Buchungen" und „Lastschriften" in `admin-nav.tsx`), Page-Loader `src/app/admin/probestunden/page.tsx` und Komponente `src/components/admin/trials/trial-followup-list.tsx`.
@@ -260,13 +262,18 @@ Neue Admin-Seite `/admin/probestunden` (Nav-Eintrag „Probestunden" zwischen �
 - **Auswirkung:** Betrifft zwei Stellen gleichzeitig — (1) die Admin-Übersicht zeigt einen tatsächlich noch nicht konvertierten Kunden fälschlich als erledigt, wodurch er aus dem Follow-up-Blick verschwindet, und (2) die automatisierte „kurz vor dem nächsten Termin"-Erinnerung wird für genau diesen Kunden fälschlich übersprungen — er bekommt keine zweite Chance zur Reaktivierung, obwohl er sie laut Spec bekommen sollte.
 - **Fix-Empfehlung:** In beiden Stellen `.eq("status", "confirmed")` auf die reguläre-Buchungs-Abfrage ergänzen, analog zum bereits bestehenden Muster in `runDailyChecks`/`kursstart_erinnerung`, das ebenfalls nur bestätigte Buchungen berücksichtigt.
 - **Priority:** Fix before deployment
+- **Status:** ✅ Behoben und re-verifiziert (2026-08-21) — siehe „Bugfix nach QA" in den Implementation Notes (Backend)
 
-### Summary
-- **Acceptance Criteria:** 8/10 vollständig fehlerfrei, 2 durch BUG-1 beeinträchtigt (AC-2 Negativfall, AC-9)
-- **Bugs Found:** 1 total (0 critical, 1 high, 0 medium, 0 low)
+### Re-Verification nach Bugfix (2026-08-21)
+
+`.eq("status", "confirmed")` an beiden betroffenen Stellen ergänzt. Live mit demselben Reproduktionsszenario erneut geprüft: ein Kunde mit Probestunde + anschließend **abgelehnter** regulärer Buchung erscheint jetzt korrekt als „Offen" statt „Konvertiert", die Kontaktiert-Aktion ist wieder verfügbar. AC-2 (Positivfall weiterhin korrekt) und AC-9 damit vollständig erfüllt. `npm run build`/`npm run lint` sauber, `npm test` weiterhin 194/194, permanente E2E-Suite weiterhin 6/6.
+
+### Summary (final)
+- **Acceptance Criteria:** 10/10 erfüllt, keine offenen Bugs mehr
+- **Bugs Found:** 1 total, behoben und verifiziert (0 offen)
 - **Security:** Pass — inkl. erfolgreichem RLS-Bypass-Red-Team-Test (RLS hat korrekt blockiert)
-- **Production Ready:** NO
-- **Recommendation:** BUG-1 vor dem Deployment beheben — kleiner, chirurgischer Fix (ein `.eq("status", "confirmed")` an zwei Stellen), betrifft aber die Kernlogik des Features. Die vorbestehenden PROJ-8/PROJ-17-Fixture-Drift-Fehlschläge blockieren dieses Feature nicht, sollten aber weiterhin auf dem Radar für einen separaten Housekeeping-Task bleiben.
+- **Production Ready:** YES
+- **Recommendation:** Deploy. Die vorbestehenden PROJ-8/PROJ-17-Fixture-Drift-Fehlschläge blockieren dieses Feature nicht, sollten aber weiterhin auf dem Radar für einen separaten Housekeeping-Task bleiben. Der offene Punkt zum zweiten Cron-Lauf (Vercel-Plan-Limit) muss bei `/deploy` geprüft werden.
 
 ## Deployment
 _To be added by /deploy_

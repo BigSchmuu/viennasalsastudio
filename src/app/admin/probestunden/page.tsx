@@ -37,7 +37,12 @@ export default async function ProbestundenPage({
 
   const [regularBookingsRes, subscriptionsRes] = customerIds.length
     ? await Promise.all([
-        supabase.from("course_bookings").select("customer_id, chosen_date").eq("type", "regular").in("customer_id", customerIds),
+        supabase
+          .from("course_bookings")
+          .select("customer_id, chosen_date")
+          .eq("type", "regular")
+          .eq("status", "confirmed")
+          .in("customer_id", customerIds),
         supabase.from("subscriptions").select("customer_id, created_at").in("customer_id", customerIds),
       ])
     : [{ data: [] }, { data: [] }];

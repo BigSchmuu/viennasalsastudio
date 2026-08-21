@@ -344,6 +344,7 @@ async function hasConvertedSince(service: ServiceClient, customerId: string, sin
     .select("id")
     .eq("customer_id", customerId)
     .eq("type", "regular")
+    .eq("status", "confirmed")
     .gte("chosen_date", sinceDate)
     .limit(1)
     .maybeSingle();
