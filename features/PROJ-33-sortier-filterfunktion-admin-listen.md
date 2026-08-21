@@ -1,6 +1,6 @@
 # PROJ-33: Sortier- und Filterfunktion für Admin-Listen
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -178,7 +178,103 @@ Neuer gemeinsamer Baustein `src/components/admin/sortable-header.tsx` (`Sortable
 **Damit ist die Frontend-Implementierung für alle 5 Listen abgeschlossen.**
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-21
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Kundenliste — Sortierung (Name, Erstellt am) mit Richtungsumkehr
+- [x] Klick auf Name/Erstellt-am-Spaltenüberschrift sortiert die Liste; erneuter Klick kehrt die Richtung um (verifiziert per URL `dir=asc`→`dir=desc` und tatsächlicher Zeilenreihenfolge)
+
+#### AC-2: Kundenliste — Filter "Nur aktive Kunden"
+- [x] Status-Filter „Aktiv" zeigt ausschließlich Kunden mit mindestens einem aktiven Abo
+
+#### AC-3: Kundenliste — Status-Filter (Aktiv/Pausiert/Gekündigt/Kein Abo)
+- [x] Alle vier Status-Werte filtern korrekt (Aktiv und „Kein Abo" stichprobenartig per E2E geprüft, Pausiert/Gekündigt per Code-Review der `deriveStatus`-Priorität Aktiv > Pausiert > Gekündigt > Kein Abo bestätigt)
+
+#### AC-4: Rechnungsliste — Sortierung (Datum, Betrag, Kunde)
+- [x] Betrag-Sortierung liefert nachweislich aufsteigende Werte; Datum/Kunde-Sortierung nutzt validiertes `SORTABLE_COLUMNS`-Allowlist-Pattern
+
+#### AC-5: Buchungsliste — Buchungstyp-Filter und Sortierung
+- [x] Typ-Filter „Probestunde" zeigt ausschließlich passende Zeilen; Sortier-Klick bewahrt einen aktiven Typ-Filter in der URL
+
+#### AC-6: Kursliste — Level-/Tanzstil-Filter und Sortierung
+- [x] Level-Filter „Beginner" filtert korrekt; Sortier-Klick bewahrt den aktiven Filter in der URL
+- [ ] BUG-1: Level- und Tanzstil-Filter-Labels kollidieren mit gleichnamigen Feldern im „Neuer Kurs"/„Kurs bearbeiten"-Dialog (siehe Bugs Found)
+- [ ] BUG-2: Ungültiger `dance_style`-Parameter erzeugt einen stillen Datenbankfehler statt ignoriert zu werden (siehe Bugs Found)
+
+#### AC-7: Lastschriftlauf-Liste — Status-Filter und Sortierung
+- [x] Status-Filter „Vollständig eingezogen" filtert korrekt; Gesamtbetrag-Sortierung togglet Richtung; End-to-End-Nachweis der Status-Ableitung (Rückbuchung markieren → Status wechselt live auf „Mit Rückbuchungen")
+
+#### AC-8: Leerzustand bei 0 Treffern
+- [x] Alle 5 Listen zeigen einen Text-Hinweis statt einer leeren Tabelle bei 0 Treffern (explizit per E2E für Kundenliste geprüft, für die übrigen 4 Listen per Code-Review der identischen `length === 0`-Ternary-Struktur bestätigt)
+
+#### AC-9: Filter bleibt nach Reload erhalten (URL-Parameter)
+- [x] Status- und Sortier-Parameter bleiben nach `page.reload()` erhalten (Kundenliste E2E-geprüft; Muster ist identisch über alle 5 Listen, da derselbe `SortableHeader`-Baustein und dieselbe `useSearchParams`-basierte Filter-Logik verwendet wird)
+
+### Edge Cases Status
+
+#### EC-1: Sehr lange Listen — serverseitige Sortierung/Filterung
+- [x] Alle 5 Listen filtern/sortieren im Page-Loader (Server Component), nicht im bereits geladenen Client-State — per Code-Review aller 5 `page.tsx`-Dateien bestätigt
+
+#### EC-2: Mehrere Filter gleichzeitig (UND-Verknüpfung)
+- [x] Status-Filter + Suche auf der Kundenliste wirken kombiniert, nicht gegenseitig überschreibend (E2E geprüft)
+
+### Security Audit Results
+- [x] Authentication: `/admin/*` ohne Login → Redirect zu `/login` (durch `requireAdmin()` im Layout, unverändert durch PROJ-33)
+- [x] Authorization: Keine rollenspezifische Umgehung über URL-Parameter gefunden — Filter-/Sortier-Params beeinflussen nur WHERE/ORDER-Klauseln auf bereits rollengeprüften Abfragen
+- [x] Input validation (Injection): Alle Such-/Filter-Params werden entweder gegen eine feste Allowlist geprüft (`SORTABLE_COLUMNS`, `isValidType`, `isValidLevel`, `isValidStatus`) oder laufen als reine In-Memory-JS-Vergleiche (kein Roh-SQL-String-Aufbau irgendwo) — kein SQL-Injection-Vektor gefunden
+- [x] XSS: Alle Filter-/Suchwerte werden ausschließlich über kontrollierte React-Inputs und `.toLocaleString()`/Text-Interpolation gerendert, keine `dangerouslySetInnerHTML`-Verwendung in den geänderten Dateien
+- [ ] BUG-2 (Robustheit, kein Injection-Risiko): `dance_style`-Parameter wird vor der Verwendung in `.eq()` nicht validiert (im Unterschied zu `level`, `type`, `sort`, `status`) — siehe Bugs Found
+
+### Regression Testing
+- `npm test` (Vitest): 175/175 bestanden
+- Volle E2E-Regressionssuite für alle 5 betroffenen Feature-Bereiche (PROJ-3, PROJ-4, PROJ-7, PROJ-8, PROJ-10) erneut ausgeführt. 16 Fehlschläge traten auf; nach Einzelanalyse jedes Fehlschlags:
+  - **2 echte, durch PROJ-33 verursachte Regressionen** (BUG-1, unten) — beide auf der Kursliste, beide durch die neuen Filter-Labels „Level"/„Tanzstil"
+  - **1 durch PROJ-33 verursachte Test-Breakage ohne Nutzer-Auswirkung** (BUG-3, unten) — geänderter Placeholder-Text auf der Kundenliste
+  - **13 vorbestehende, nicht mit PROJ-33 zusammenhängende Fehlschläge** — durchgehend zurückgeführt auf Fixture-Datenakkumulation aus wiederholten Testläufen gegen die Live-Datenbank ohne Staging-Umgebung (z.B. doppelte Rechnungen/Kunden-Links aus einer bereits vor PROJ-33 gemergten Funktion „Kundennamen verlinken", eine „Kein Abo"-Fixture, die zwischenzeitlich ein Abo erhalten hat, ein Lastschriftlauf-Testszenario, dessen „keine passenden Kunden"-Vorbedingung durch akkumulierte Fixture-Kunden nicht mehr zutrifft) — dies ist ein bereits bekanntes, dokumentiertes Projektmuster (kein Staging, siehe Projekt-Memory) und liegt außerhalb des Scopes dieser Feature-QA
+- Neue permanente E2E-Suite `tests/PROJ-33-sortier-filterfunktion-admin-listen.spec.ts` (10 Tests, alle 9 ACs + 1 Edge Case): 10/10 bestanden
+- Responsive-Check bei 375px auf allen 5 Listen: kein horizontales Scrollen (`scrollWidth === clientWidth` auf jeder Seite)
+
+### Bugs Found
+
+#### BUG-1: Level- und Tanzstil-Filter kollidieren im Accessible-Name mit dem Kurs-Formular
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Als Admin zu `/admin/kurse` navigieren
+  2. Per Screenreader/Tastatur oder einem auf Accessible-Name basierenden Tool (z.B. `getByLabel("Level")`) das Feld „Level" ansteuern → zwei Treffer (Level-Filter der Filter-Leiste UND das Level-Feld im „Neuer Kurs"-Formular, sobald geöffnet)
+  3. Gleiches gilt für „Tanzstil"
+  4. Erwartet: Jedes Formularfeld auf der Seite hat einen eindeutigen Accessible Name
+  5. Tatsächlich: Zwei unabhängige Formularelemente („Level"-Filter-Select und „Level"-Feld im Kurs-Dialog; „Tanzstil"-Filter-Select und „Tanzstil"-Feld im Kurs-Dialog) tragen exakt denselben Namen — bricht `getByLabel()`-basierte Interaktion zuverlässig (reproduzierbar in den bestehenden PROJ-3-Regressionstests „Tanzstil anlegen und sofort im Kurs-Formular verfügbar" und „Kurs anlegen mit Lehrer") und verletzt das Eindeutigkeits-Prinzip für Accessible Names (WCAG 4.1.2 / Screenreader-Nutzbarkeit)
+- **Root Cause:** `src/components/admin/courses/course-manager.tsx` — neue Filter-Leiste nutzt `<Label>Level</Label>` (Zeile ~170) und `<Label>Tanzstil</Label>` (Zeile ~189), identisch zu den bereits bestehenden `<FormLabel>Level</FormLabel>` (Zeile ~482) und `<FormLabel>Tanzstil</FormLabel>` (Zeile ~457) im Kurs-Anlegen/Bearbeiten-Dialog auf derselben Seite
+- **Priority:** Fix before deployment
+
+#### BUG-2: Ungültiger `dance_style`-URL-Parameter erzeugt stillen Datenbankfehler statt ignoriert zu werden
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Als Admin zu `/admin/kurse?dance_style=not-a-valid-uuid` navigieren (z.B. über einen manuell bearbeiteten/kaputten Link)
+  2. Erwartet: Ungültiger Filterwert wird ignoriert (analog zum bereits validierten `level`-Parameter, der über `isValidLevel` geprüft wird) und die volle Kursliste erscheint
+  3. Tatsächlich: Die Liste zeigt 0 Kurse mit dem Hinweis „Keine Kurse gefunden." — der zugrundeliegende Supabase/PostgREST-Query-Fehler (ungültiges UUID-Format) wird verschluckt (`coursesRes.data ?? []`), sodass ein Datenbankfehler fälschlich wie ein legitimes leeres Filterergebnis aussieht
+- **Root Cause:** `src/app/admin/kurse/page.tsx` Zeile 29: `if (params.dance_style) coursesQuery = coursesQuery.eq("dance_style_id", params.dance_style);` — im Unterschied zu `level` (validiert gegen `levelValues`) wird `dance_style` ungeprüft übernommen. Kein Sicherheitsrisiko (Supabase parametrisiert den Wert, keine SQL-Injection möglich), aber irreführendes UX-Verhalten bei einem kaputten/manipulierten Link
+- **Priority:** Fix before deployment
+
+#### BUG-3: Placeholder-Text der Kundenliste-Suche geändert, bricht bestehenden PROJ-4-Regressionstest
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. PROJ-4-Regressionstest „Kundenliste zeigt Name und E-Mail; Suche filtert korrekt" ausführen
+  2. Erwartet: Test findet das Suchfeld über `getByPlaceholder(/Suche/)`
+  3. Tatsächlich: Timeout — der Placeholder wurde im Rahmen von PROJ-33 von einem „Suche"-haltigen Text auf „Name oder E-Mail…" geändert; das zugehörige `<Label>Suche</Label>` existiert weiterhin und die Funktion selbst ist für echte Nutzer unverändert nutzbar
+- **Root Cause:** `src/components/admin/customers/customer-list.tsx` — Such-Input-Placeholder wurde bei der URL-Parameter-Umstellung umformuliert, ohne den bestehenden PROJ-4-Test entsprechend anzupassen
+- **Priority:** Fix in next sprint (kein Nutzer-Impact, nur Testschulden — entweder Placeholder zurückändern oder den PROJ-4-Test auf `getByLabel("Suche")` umstellen)
+
+### Summary
+- **Acceptance Criteria:** 9/9 funktional erfüllt (AC-6 mit 2 begleitenden Bugs, siehe oben)
+- **Bugs Found:** 3 total (0 critical, 1 high, 1 medium, 1 low)
+- **Security:** Pass — keine Injection-/Auth-Bypass-Risiken; BUG-2 ist ein Robustheits-, kein Sicherheitsproblem
+- **Production Ready:** NO
+- **Recommendation:** BUG-1 (High) und BUG-2 (Medium) vor dem Deployment beheben — beide sind lokal auf die Kursliste begrenzt und sollten mit `/frontend` schnell behebbar sein (BUG-1: Filter-Labels umbenennen, z.B. „Level filtern"/„Tanzstil filtern", oder `sr-only`-Label + sichtbarer Text-Unterschied; BUG-2: `dance_style` analog zu `level` gegen die geladene `danceStyles`-Liste validieren). BUG-3 kann parallel oder danach erledigt werden. Die 13 vorbestehenden, unabhängigen Fixture-Drift-Fehlschläge blockieren dieses Feature nicht, sollten aber separat vom Projektinhaber zur Kenntnis genommen werden (wiederkehrendes Muster, siehe Projekt-Memory zu fehlender Staging-Umgebung).
 
 ## Deployment
 _To be added by /deploy_
