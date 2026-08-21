@@ -1,6 +1,6 @@
 # PROJ-28: Newsletter-Versand mit Empfängergruppen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -179,7 +179,80 @@ Neue Admin-Seite `/admin/newsletter` (Nav-Eintrag zwischen „Probestunden" und 
 **Verifikation:** `npm run build`/`npm run lint` sauber. Live gegen die echte Produktionsdatenbank geprüft: Empfängerzahl-Vorschau für „Alle Kunden"/„Aktive Kunden" funktioniert (nur Vorschau, **kein** tatsächlicher Versand an diese Gruppen während der Verifikation, um keine echten Kunden per E-Mail zu erreichen); Senden-Button-Deaktivierung bei leerem Formular und bei „Kurs-Teilnehmer" ohne Kurs bestätigt; vollständiger Versand-Durchlauf mit einem eigens angelegten, isolierten Testkurs mit genau einem Testkunden als einzigem Teilnehmer (kein Risiko für echte Kunden) — Bestätigungsdialog, tatsächlicher Versand, Toast, Formular-Reset und Historie-Aktualisierung alle korrekt; Newsletter-Zeile in den Kunden-Einstellungen zeigt genau einen Schalter (E-Mail) statt zwei; 375px ohne horizontales Scrollen. Alle Testdaten (Kurs, Kunde, Buchung, Newsletter-Versand-Eintrag, Queue-Zeilen) nach der Verifikation vollständig entfernt.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-22
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Empfängerzahl wird bei Gruppenwahl angezeigt, bevor gesendet wird
+- [x] Korrekt (permanente E2E-Suite)
+
+#### AC-2: Bestätigungsabfrage mit Empfängeranzahl vor dem tatsächlichen Versand
+- [x] Korrekt (permanente E2E-Suite)
+
+#### AC-3: Nur Kunden, die Newsletter nicht deaktiviert haben, erhalten die E-Mail
+- [x] Korrekt — live verifiziert (Standard-Präferenz „an", E-Mail-Versand wird korrekt versucht)
+
+#### AC-4: Kunde mit deaktivierter Newsletter-Benachrichtigung erhält keine E-Mail
+- [x] Korrekt — live verifiziert (`email_status: "skipped"`, kein Fehler)
+
+#### AC-5: Gruppe „Aktive Kunden" — nur Kunden mit aktivem Abo
+- [x] Korrekt — bereits während `/backend` live gegen echte Produktionsdaten verifiziert (alle 4 bekannten aktiven Test-Kunden korrekt enthalten, unter den insgesamt 21 real-aktiven Kunden im System)
+
+#### AC-6: Gruppe „Probestunde ohne Folgebuchung" — nur letzte Probestunde zählt
+- [x] Korrekt — gezielt mit zwei Szenarien verifiziert: ein Kunde mit alter konvertierter + neuer unkonvertierter Probestunde wird korrekt eingeschlossen; ein Kunde mit alter unkonvertierter + neuer konvertierter Probestunde wird korrekt ausgeschlossen
+
+#### AC-7: Gruppe „Kurs-Teilnehmer" + Kursauswahl — nur aktuell gebuchte Kunden
+- [x] Korrekt — **nach Bugfix** (siehe Implementation Notes: bestätigte, aber durch eine spätere Abo-Kündigung „verwaiste" Buchungen zählten ursprünglich fälschlich mit; bereits vor QA behoben und verifiziert). Dedupe bei Kunden mit sowohl aktivem Abo als auch offener Buchung für denselben Kurs bestätigt (erscheinen nur einmal)
+
+#### AC-8: Leerer Betreff/Text → Validierungsfehler, kein Versand
+- [x] Ziel erreicht, aber mit abweichendem Mechanismus zur Spec-Formulierung: statt einer Fehlermeldung *nach* einem Klick auf „Senden" ist der Button bei leerem Betreff/Text von vornherein deaktiviert — ein Versand mit leeren Feldern ist über die UI gar nicht erst auslösbar. Serverseitig existiert zusätzlich dieselbe Validierung als Absicherung (`sendNewsletter` gibt einen Fehler zurück). Funktional strenger als die Spec verlangt, kein Bug — als Implementierungs-Hinweis dokumentiert, nicht als Abweichung mit Handlungsbedarf
+
+#### AC-9: 0 Empfänger → Hinweis, Senden-Button deaktiviert
+- [x] Korrekt — gezielt mit einem echten, tatsächlich leeren Kurs verifiziert (nicht nur „kein Kurs ausgewählt", sondern ein Kurs mit 0 Teilnehmern)
+
+#### AC-10: Versandhistorie zeigt Betreff, Datum, Gruppe, Empfängeranzahl
+- [x] Korrekt (permanente E2E-Suite)
+
+### Edge Cases Status
+
+#### EC-1: Versand an hunderte Empfänger blockiert die Admin-UI nicht
+- [x] Bulk-`enqueueNotification` (kein `enqueueAndDispatch` pro Kunde) — Versand-Klick kehrt sofort zurück, tatsächlicher E-Mail-Versand läuft asynchron über den bestehenden Cron-Drain (Code-Review + live bestätigt: 4 Zeilen sofort enqueued)
+
+#### EC-2: Deduplizierung bei überschneidenden Gruppen
+- [x] Jede Gruppen-Auflösung liefert bereits eine deduplizierte Kunden-ID-Liste (`Set`); da pro Versand genau eine Gruppe gewählt wird, ist Dedupe innerhalb dieser Liste ausreichend — live am „Kurs-Teilnehmer mit sowohl Abo als auch Buchung"-Fall bestätigt
+
+#### EC-3: Kurs mit 0 Teilnehmern bleibt auswählbar, Empfängerzahl zeigt 0
+- [x] Korrekt (siehe AC-9)
+
+#### EC-4: Kunde ohne gültige E-Mail wird übersprungen, Versand läuft weiter
+- [x] Geerbtes, unverändertes Verhalten aus der bestehenden `trySendEmail`-Funktion (PROJ-16) — jede Warteschlangen-Zeile wird unabhängig verarbeitet, ein Fehler bei einer Zeile beeinflusst die anderen nicht (Code-Review, keine neue Logik für PROJ-28 nötig)
+
+### Security Audit Results
+- [x] Authentication: `/admin/newsletter` ohne Login → Redirect zu `/login` (geerbt vom bestehenden `requireAdmin()`-Layout-Gate)
+- [x] Authorization: Server Actions (`previewRecipientCount`, `sendNewsletter`) rufen `requireAdmin()` auf, bevor irgendetwas gelesen/geschrieben wird
+- [x] **RLS-Bypass-Versuch (Red Team), `newsletter_sends`:** direkter API-Zugriff mit echtem Kunden-Login unter Umgehung der App — SELECT liefert leeres Ergebnis, INSERT wird mit `42501`-Fehler abgelehnt
+- [x] **RLS-Bypass-Versuch (Red Team), `notification_queue`:** Versuch, als Kunde direkt eine `newsletter`-Zeile einzuschleusen (Spoofing-Versuch, um sich selbst oder andere ohne Admin-Auslösung anzuschreiben) — ebenfalls mit `42501`-Fehler abgelehnt
+- [x] XSS: Betreff und Text sind admin-frei-editierbarer Text, der in E-Mails landet — beide werden über `escapeHtml()` in die E-Mail-HTML eingebettet (unit-getestet, inkl. `<script>`-Payload); in der Admin-UI selbst (Formular, Historie) läuft alles über React-JSX, keine `dangerouslySetInnerHTML`-Verwendung
+- [x] Injection: keine rohen SQL-Strings, alle Abfragen über den Supabase-Query-Builder
+
+### Regression Testing
+- `npm test` (Vitest): 197/197 bestanden
+- Neue permanente E2E-Suite `tests/PROJ-28-newsletter-versand.spec.ts` (3 Tests, zeitunabhängige Fixtures über einen Service-Client mit `beforeAll`/`afterAll`, verwendet ausschließlich einen isolierten Ein-Kunden-Testkurs für den tatsächlichen Versand-Test — **niemals** „Alle Kunden"/„Aktive Kunden" tatsächlich angeschrieben): 3/3 bestanden, zweimal hintereinander ausgeführt zur Bestätigung der Wiederholbarkeit
+- PROJ-29-Regressionssuite (betroffen durch den `hasConvertedSince`-Refactor nach `src/lib/trials/conversion.ts`): 9/9 weiterhin grün — Refactor hat keine Verhaltensänderung verursacht
+- PROJ-16-Regressionssuite (betroffen durch Änderungen an der gemeinsamen `dispatch.ts`/dem Einstellungen-UI): 3/3 weiterhin grün
+
+### Bugs Found
+Keine neuen Bugs während der eigentlichen QA-Phase gefunden. Ein Bug (fälschliche Zählung „verwaister" bestätigter Buchungen als aktuelle Kurs-Teilnehmer) wurde bereits während der eigenen Live-Verifikation in `/backend` gefunden und behoben, bevor QA begann — siehe Implementation Notes (Backend).
+
+### Summary
+- **Acceptance Criteria:** 10/10 erfüllt
+- **Bugs Found:** 0 (in dieser QA-Phase; 1 bereits vor QA in `/backend` gefunden und behoben)
+- **Security:** Pass — inkl. zwei erfolgreicher RLS-Bypass-Red-Team-Tests (beide korrekt blockiert)
+- **Production Ready:** YES
+- **Recommendation:** Deploy. AC-8 wird über einen abweichenden, aber funktional strengeren Mechanismus erfüllt (proaktive Deaktivierung statt nachträglicher Fehlermeldung) — kein Handlungsbedarf, nur zur Transparenz dokumentiert.
 
 ## Deployment
 _To be added by /deploy_
