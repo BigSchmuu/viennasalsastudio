@@ -6,14 +6,18 @@
 
 ## Dependencies
 - PROJ-8 (Kursbuchung) — Datenmodell für Probestunden (`course_bookings.type = 'trial'`)
+- PROJ-16 (Automatische E-Mail-/Push-Benachrichtigungen) — bestehende Notification-Queue und Kunden-Einstellungen-Infrastruktur für die beiden automatisierten Erinnerungen
 
 ## User Stories
 - Als Admin möchte ich eine Übersicht aller Probestunden-Buchungen sehen, damit ich nachverfolgen kann, wer noch nicht regulär gebucht hat.
 - Als Admin möchte ich einen Kunden als „kontaktiert" markieren und eine Notiz hinterlegen können, damit ich meine Follow-up-Bemühungen dokumentiere.
 - Als Admin möchte ich eine Gesamt-Conversion-Rate (Probestunde → reguläre Buchung) sehen, damit ich beurteilen kann, wie gut der Probestunden-Trichter funktioniert.
+- Als Kunde möchte ich noch am Abend meiner Probestunde eine Erinnerung mit direktem Buchungslink erhalten, damit ich buchen kann, solange der Eindruck noch frisch ist.
+- Als Kunde, der noch nicht gebucht hat, möchte ich kurz vor dem nächsten Kurstermin nochmal erinnert werden, damit ich die Gelegenheit nicht verpasse.
 
 ## Out of Scope
-- Automatisierte Erinnerungs-Mails an Admin oder Kunden — rein manuelle Nachverfolgung fürs MVP
+- Automatisierte Erinnerungen AN DEN ADMIN (z.B. „Kunde X ist überfällig") — der Admin verlässt sich weiterhin auf die manuelle Übersicht; nur die beiden kundengerichteten Erinnerungen sind automatisiert
+- Weitere automatisierte Kunden-Erinnerungen über die zwei definierten Zeitpunkte hinaus (z.B. eine dritte/vierte Nachfass-Mail) — fürs MVP bewusst auf zwei Touchpoints begrenzt
 - Conversion-Rate-Trend über Zeit/Diagramme — nur eine aktuelle Gesamtzahl für einen wählbaren Zeitraum
 - Zuordnung von Follow-ups an einzelne Mitarbeiter — Solo-Administration, kein Team-Feature nötig
 
@@ -27,17 +31,28 @@
 - [ ] Angenommen die Probestunden-Übersicht ist offen, wenn der Admin sie betrachtet, dann sieht er eine Gesamt-Conversion-Rate (Anteil konvertierter Probestunden an allen Probestunden) für einen wählbaren Zeitraum
 - [ ] Angenommen eine Probestunde liegt mehr als 14 Tage zurück ohne dass „kontaktiert" gesetzt wurde und ohne Konvertierung, wenn der Admin die Übersicht öffnet, dann wird dieser Eintrag als „Follow-up überfällig" hervorgehoben
 - [ ] Angenommen der Admin filtert nach Status „Offen", wenn er den Filter anwendet, dann werden nur weder kontaktierte noch konvertierte Probestunden angezeigt
+- [ ] Angenommen ein Kunde hat eine Probestunde absolviert und die Benachrichtigungsgruppe „Probestunden-Nachfassung" ist nicht deaktiviert, wenn der Abend des Probestunden-Tages erreicht ist, dann erhält der Kunde eine Benachrichtigung mit einem direkten Link zur Buchung dieses Kurses
+- [ ] Angenommen ein Kunde ist noch nicht konvertiert und hat die Benachrichtigungsgruppe nicht deaktiviert, wenn der nächste stattfindende Termin desselben Kurses kurz bevorsteht, dann erhält der Kunde eine zweite Erinnerung mit demselben Buchungslink
+- [ ] Angenommen ein Kunde konvertiert zwischen der Probestunde und dem Zeitpunkt der zweiten Erinnerung, wenn diese fällig würde, dann entfällt die zweite Erinnerung ersatzlos
+- [ ] Angenommen ein Kunde hat die Benachrichtigungsgruppe „Probestunden-Nachfassung" deaktiviert, wenn eine der beiden Erinnerungen fällig würde, dann wird keine Benachrichtigung verschickt, der Eintrag bleibt aber in der Admin-Übersicht normal sichtbar
 
 ## Edge Cases
-- Ein Kunde bucht mehrere Probestunden in verschiedenen Kursen — jede wird als eigener Eintrag geführt; Konvertierung prüft, ob nach der jeweiligen Probestunde irgendeine reguläre Buchung erfolgte.
-- Probestunden vor Einführung dieses Features werden rückwirkend erfasst, da sie auf den bestehenden `course_bookings`-Daten basieren — keine neue Datenerfassung nötig.
+- Ein Kunde bucht mehrere Probestunden in verschiedenen Kursen — jede wird als eigener Eintrag geführt; Konvertierung prüft, ob nach der jeweiligen Probestunde irgendeine reguläre Buchung erfolgte. Jede Probestunde löst ihre eigenen zwei Erinnerungen aus.
+- Probestunden vor Einführung dieses Features werden rückwirkend erfasst, da sie auf den bestehenden `course_bookings`-Daten basieren — keine neue Datenerfassung nötig. Für diese rückwirkend erfassten, bereits vergangenen Probestunden werden keine Erinnerungen nachträglich verschickt (beide Zeitpunkte liegen bereits in der Vergangenheit).
 - Ein Kunde konvertiert, storniert später aber sein Abo wieder — bleibt trotzdem als „konvertiert" markiert, da die Konvertierung ein historisches Ereignis ist, kein aktueller Status.
+- Für den Kurs der Probestunde findet in absehbarer Zeit kein weiterer Termin mehr statt (Kurs pausiert/beendet) — die zweite Erinnerung entfällt ersatzlos, die erste (Abend-)Erinnerung bleibt davon unberührt.
+- Ein Kunde hat mehrere Probestunden in verschiedenen Kursen mit überschneidenden Erinnerungszeitpunkten — jede Probestunde wird unabhängig behandelt, es gibt keine Deduplizierung zwischen ihnen (im Unterschied zum Newsletter-Versand aus PROJ-28, der Kunden gruppenübergreifend dedupliziert).
 
 ## Technical Requirements (optional)
 - Conversion-Berechnung basiert auf bestehenden `course_bookings`-Daten, keine neue Tabelle für die Buchungen selbst — nur für den Kontaktiert-Status/Notiz nötig.
+- Die beiden automatisierten Erinnerungen laufen über die bestehende Notification-Queue aus PROJ-16 (asynchron, respektiert Kunden-Einstellungen), nicht über einen neuen eigenen Versandmechanismus.
 
 ## Open Questions
-- Keine offenen Fragen zum Zeitpunkt der Spec-Erstellung.
+- Keine offenen Fragen zum Zeitpunkt der Spec-Erstellung. Folgende Fragen kamen während der Architektur-/Refine-Runde am 21.08. hinzu und wurden direkt geklärt:
+- [x] Ergänzen oder ersetzen die automatisierten Erinnerungen die manuelle Admin-Nachverfolgung? → Ergänzen; manuelle Übersicht (Kontaktiert-Haken, Notiz, 14-Tage-Überfällig) bleibt unverändert als Backstop bestehen (2026-08-21)
+- [x] Wie wird „kurz vor dem nächsten Termin" für die zweite Erinnerung bestimmt? → Relativ zum tatsächlich nächsten stattfindenden Termin desselben Kurses (Pausen werden übersprungen), nicht als feste Tagesanzahl (2026-08-21)
+- [x] Teilen sich beide Erinnerungen eine Ein-/Ausschalt-Einstellung? → Ja, eine gemeinsame neue Benachrichtigungsgruppe „Probestunden-Nachfassung" (2026-08-21)
+- [ ] Erlaubt der aktuelle Vercel-Plan einen zweiten täglichen Cron-Lauf? → Bei `/backend` zu prüfen; falls nicht möglich, Rückfall auf den bestehenden Morgen-Lauf (Erinnerung käme dann erst am nächsten Morgen statt am selben Abend)
 
 ## Decision Log
 
@@ -45,8 +60,12 @@
 | Decision | Rationale | Date |
 |----------|-----------|------|
 | Conversion = irgendeine reguläre Buchung/Abo nach der Probestunde, kein festes Zeitfenster | Einfacher als ein Zeitfenster zu pflegen; Admin sieht das Datum und kann selbst beurteilen | 2026-08-21 |
-| Manuelle Nachverfolgung (Haken + Notiz) statt automatischer Erinnerungs-Mails | User-Entscheidung: reduziert Scope, keine Überschneidung mit dem Newsletter-Feature (PROJ-28) | 2026-08-21 |
-| „Follow-up überfällig" ab 14 Tagen ohne Kontakt/Konvertierung | Sinnvoller Standardwert als fixe Konstante fürs MVP | 2026-08-21 |
+| ~~Manuelle Nachverfolgung (Haken + Notiz) statt automatischer Erinnerungs-Mails~~ → Ersetzt durch: manuelle Nachverfolgung bleibt, ergänzt um zwei automatisierte kundengerichtete Erinnerungen | User-Feedback nach erster Architektur-Runde: die Chance zu buchen ist am Abend der Probestunde am größten, solange der Eindruck frisch ist; eine zweite Erinnerung kurz vor dem nächsten Termin holt Unentschlossene ab. Admin-Nachverfolgung bleibt zusätzlich als Backstop für Fälle, die auf beide Erinnerungen nicht reagieren | 2026-08-21 |
+| „Follow-up überfällig" ab 14 Tagen ohne Kontakt/Konvertierung | Sinnvoller Standardwert als fixe Konstante fürs MVP; bleibt unverändert, ist unabhängig von den neuen automatisierten Erinnerungen (die deutlich früher greifen) | 2026-08-21 |
+| Zwei automatisierte Erinnerungen: (1) am Abend des Probestunden-Tages, (2) kurz vor dem nächsten stattfindenden Termin desselben Kurses | Deckt sowohl den „Eisen schmieden solange es heiß ist"-Moment als auch eine zweite Gelegenheit kurz vor der nächsten Chance ab, ohne mit weiteren Touchpoints zu überladen | 2026-08-21 |
+| Zeitpunkt der zweiten Erinnerung orientiert sich am tatsächlich nächsten Kurstermin, nicht an einer festen Tagesanzahl | Bei pausierten oder unregelmäßigen Kursterminen bleibt die Erinnerung so immer sinnvoll getimt, statt z.B. mitten in eine Kurspause zu fallen | 2026-08-21 |
+| Beide Erinnerungen teilen sich eine gemeinsame Benachrichtigungsgruppe „Probestunden-Nachfassung" statt zwei getrennter Schalter | Konsistent mit der bestehenden granularen, aber nicht übermäßig kleinteiligen Gruppen-Struktur aus PROJ-16; beide Erinnerungen verfolgen dasselbe Ziel (Buchung nach Probestunde) | 2026-08-21 |
+| Erinnerungen laufen über die bestehende PROJ-16-Notification-Queue als neue Ereignisgruppe, nicht über den Newsletter-Mechanismus aus PROJ-28 | Es handelt sich um ereignisgetriggerte, personalisierte Erinnerungen (wie eine Buchungsbestätigung), nicht um einen manuell ausgelösten Gruppenversand — technisch und konzeptionell näher an PROJ-16 als an PROJ-28; die ursprüngliche Abgrenzung „keine Überschneidung mit PROJ-28" bleibt damit gültig, nur die Begründung verschiebt sich von „keine Automatisierung" zu „richtige Automatisierung, falscher Mechanismus wäre PROJ-28" | 2026-08-21 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -56,6 +75,9 @@
 | Konvertierungs- und „Follow-up überfällig"-Status sind reine Berechnungen, kein gespeicherter Status | Konsistent mit dem bereits etablierten Muster abgeleiteter Status-Werte aus PROJ-31/PROJ-33 — verhindert, dass ein Status „veraltet", weil er nie gespeichert, sondern bei jedem Seitenaufruf live berechnet wird | 2026-08-21 |
 | `/backend` nötig (neue Tabelle + Berechtigungen + Speicherfunktion für „kontaktiert"/Notiz) | Im Unterschied zu PROJ-31/PROJ-33 wird hier erstmals ein neuer, admin-schreibbarer Zustand dauerhaft gespeichert (nicht nur gelesen/abgeleitet) — das erfordert eine neue Datenbanktabelle mit Zugriffsregeln und eine Speicherfunktion, kein reines Frontend-Feature | 2026-08-21 |
 | Konvertierung = irgendeine reguläre Buchung ODER ein Abo für denselben Kunden nach dem Probestunden-Termin | Bestätigt durch Code-Review des bestehenden Bestätigungs-Ablaufs: Eine bestätigte reguläre Buchungsanfrage legt automatisch ein Abo an — beide Signale zusammen decken „hat regulär gebucht" vollständig ab | 2026-08-21 |
+| Neuer, zweiter täglicher Cron-Lauf am Abend (zusätzlich zum bestehenden Morgen-Lauf) für die Abend-Erinnerung | Der bestehende Cron läuft nur einmal täglich um 06:00 UTC — zu früh für eine „noch am selben Abend"-Zustellung. Ein zweiter Lauf am frühen Abend ist nötig, damit dieses Versprechen technisch eingehalten wird; muss bei `/backend` gegen den tatsächlichen Vercel-Plan-Limit geprüft werden | 2026-08-21 |
+| Neue Benachrichtigungs-Ereignisgruppe `probestunde_nachfassung` im bestehenden PROJ-16-System (analog zu den 5 bestehenden Gruppen wie `kursstart_erinnerung`) | Wiederverwendung der bereits bestehenden Queue-, Versand- und Opt-out-Infrastruktur statt eines neuen Mechanismus; volle Konsistenz mit dem etablierten Muster | 2026-08-21 |
+| „Nächster Termin" für die zweite Erinnerung wird über dieselbe Terminberechnung ermittelt, die bereits für den Stundenplan/die Anwesenheitsmatrix existiert (`upcomingOccurrences`) | Keine neue Terminlogik nötig — Pausen werden dadurch automatisch korrekt übersprungen, konsistent mit jeder anderen Stelle im Projekt, die „nächster Kurstermin" berechnet | 2026-08-21 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -76,6 +98,13 @@ Neue Admin-Seite: /admin/probestunden ("Probestunden" in der Admin-Navigation)
     │   Probestunden-Termin mehr als 14 Tage zurückliegt
     └── Zeilen-Aktion (nur bei nicht-konvertierten Einträgen):
         „Kontaktiert"-Haken + optionales Notizfeld, sofort speicherbar
+
+Kein neuer sichtbarer UI-Bestandteil für die automatisierten Erinnerungen
+selbst — sie laufen im Hintergrund über die bestehende Notification-Queue
+(PROJ-16) und erscheinen für den Kunden als E-Mail/Push, nicht als
+neue Admin-Oberfläche. Im Kundenprofil erscheint lediglich ein neuer
+Eintrag „Probestunden-Nachfassung" in der bereits bestehenden Liste der
+Benachrichtigungsgruppen (Profil → Benachrichtigungen).
 ```
 
 ### B) Data Model (plain language)
@@ -100,6 +129,14 @@ abgeleiteter Status-Werte (PROJ-31, PROJ-33):
 
 Gespeichert in: bestehende Buchungsdaten unverändert; nur der
 Kontaktiert-Status/Notiz landet in der neuen, kleinen Tabelle.
+
+Für die zwei automatisierten Erinnerungen wird zusätzlich pro
+Probestunden-Buchung festgehalten, ob die Abend-Erinnerung bzw. die
+zweite Erinnerung bereits verschickt wurde (in derselben neuen Tabelle
+wie der Kontaktiert-Status) — verhindert doppelten Versand, falls der
+Cron-Lauf an einem Tag mehrfach läuft oder nachträglich erneut prüft.
+Der eigentliche Versand (Warteschlange, Kunden-Einstellung, E-Mail/Push)
+läuft vollständig über die bereits bestehende PROJ-16-Infrastruktur.
 ```
 
 ### C) Tech Decisions (justified for PM)
@@ -107,10 +144,12 @@ Kontaktiert-Status/Notiz landet in der neuen, kleinen Tabelle.
 - **Nur eine neue, kleine Tabelle statt einer großen Umstrukturierung:** Kunde, Kurs, Datum und der Konvertierungs-Status kommen bereits vollständig aus den vorhandenen Buchungsdaten. Es muss wirklich nur der manuelle „kontaktiert"-Haken samt Notiz irgendwo gespeichert werden — dafür reicht eine schlanke, zusätzliche Tabelle.
 - **Konvertierung und „überfällig" werden nie gespeichert, sondern immer live berechnet:** Damit kann der Status nie im Hintergrund veralten (z.B. wenn ein Kunde erst Tage nach der Probestunde konvertiert) — jede Anzeige ist automatisch aktuell.
 - **Diesmal mit `/backend`-Schritt:** Anders als bei den letzten beiden Features (PROJ-31, PROJ-33) wird hier zum ersten Mal ein neuer, admin-editierbarer Zustand dauerhaft gespeichert (der „kontaktiert"-Haken und die Notiz), nicht nur aus bestehenden Daten abgeleitet — dafür braucht es eine neue Datenbanktabelle mit passenden Zugriffsregeln.
+- **Automatisierte Erinnerungen nutzen ausschließlich bestehende Infrastruktur:** Die Warteschlange, der Versand über E-Mail/Push und die Kunden-Einstellungen kommen vollständig aus dem bereits gebauten PROJ-16-System — PROJ-29 fügt nur eine neue Ereignisgruppe und zwei neue Auslöse-Zeitpunkte hinzu, baut aber keinen eigenen Versandweg.
+- **Zweiter Cron-Lauf für echte Abend-Zustellung:** Damit die erste Erinnerung wirklich noch am selben Abend ankommt (nicht erst am nächsten Morgen), ergänzt ein zweiter täglicher automatischer Lauf am frühen Abend den bereits bestehenden Morgen-Lauf.
 
 ### D) Dependencies (packages to install)
 
-- Keine neuen Pakete nötig — nutzt bereits vorhandene shadcn/ui-Bausteine (Table, Badge, Checkbox, Textarea) und den bestehenden Zeitraum-Filter-Baustein aus dem Admin-Dashboard (PROJ-17).
+- Keine neuen Pakete nötig — nutzt bereits vorhandene shadcn/ui-Bausteine (Table, Badge, Checkbox, Textarea), den bestehenden Zeitraum-Filter-Baustein aus dem Admin-Dashboard (PROJ-17) sowie die bestehende Notification-Queue, Versand- und Einstellungs-Infrastruktur aus PROJ-16.
 
 ## QA Test Results
 _To be added by /qa_
