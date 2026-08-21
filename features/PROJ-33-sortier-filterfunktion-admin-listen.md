@@ -149,7 +149,7 @@ nicht in einer neuen Datenbank-Tabelle.
 
 ## Implementation Notes (Frontend)
 
-**Fortschritt: 4/5 Listen umgesetzt (Kundenliste, Rechnungsliste-Sortierung, Buchungsliste, Kursliste). Lastschriftlauf-Liste steht noch aus.**
+**Fortschritt: 5/5 Listen umgesetzt (Kundenliste, Rechnungsliste-Sortierung, Buchungsliste, Kursliste, Lastschriftlauf-Liste). Frontend-Implementierung vollständig.**
 
 Neuer gemeinsamer Baustein `src/components/admin/sortable-header.tsx` (`SortableHeader`): liest den aktuellen Sortier-Zustand selbst aus der URL (`useSearchParams`), kein Props-Threading durch die Seiten nötig. Wird als Ersatz für einzelne `<TableHead>`-Zellen sortierbarer Spalten eingesetzt.
 
@@ -170,6 +170,12 @@ Neuer gemeinsamer Baustein `src/components/admin/sortable-header.tsx` (`Sortable
 **Kursliste** (`src/components/admin/courses/course-manager.tsx`, `src/app/admin/kurse/page.tsx`): Neuer Level-Filter (`level`-Param, wiederverwendet die bestehenden `levelOptions`) und Tanzstil-Filter (`dance_style`-Param), beide sofort navigierend bei Auswahl, plus „Filter zurücksetzen"-Button. Neue sortierbare Spalten Name und Level. Level-Sortierung nutzt bewusst nicht die alphabetische Reihenfolge, sondern `levelValues.indexOf()` für die pädagogische Progression (Beginner → Improver → Intermediate → Advanced → Open Level), da eine alphabetische Sortierung der rohen Enum-Strings eine sinnlose Reihenfolge ergäbe. Unterschiedliche Leerzustands-Texte für „noch keine Kurse überhaupt" vs. „nichts zu diesem Filter gefunden". `CourseManager` hält keinen `useState(initialCourses)` für die Kursliste selbst (nur für andere, unabhängige UI-Zustände wie offene Dialoge) — daher war die aus der Buchungsliste bekannte Prop-Sync-Falle hier proaktiv geprüft und ausgeschlossen, kein erneuter Fix nötig.
 
 **Verifikation Kursliste:** `npm run build`/`npm run lint` sauber. Live geprüft: Level-Filter „Beginner" filtert die Tabelle korrekt und bleibt nach Reload über die URL erhalten; Tanzstil-Filter setzt `dance_style`-Param korrekt; „Filter zurücksetzen" entfernt beide Params; Name-Sortierung togglet `dir=asc`/`dir=desc` per Klick; Level-Sortierung liefert nachweislich die pädagogische Reihenfolge und keine alphabetische; gefilterte Leerliste zeigt „Keine Kurse gefunden." (getestet auf Chromium — Mobile-Safari-Browser-Binary lokal nicht installiert, daher nur auf Chromium verifiziert, konsistent mit Umgebungslimitierung).
+
+**Lastschriftlauf-Liste** (`src/components/admin/sepa/collection-run-list.tsx`, `src/app/admin/lastschriften/page.tsx`): Neuer Status-Filter (`status`-Param: Alle/Vollständig eingezogen/Mit Rückbuchungen), sofort navigierend. Der Lauf-Status wird rein aus den geladenen `sepa_collection_items.bounced_at`-Werten abgeleitet (mindestens eine Position mit gesetztem `bounced_at` → „Mit Rückbuchungen"), kein neues Datenbankfeld. Neue sortierbare Spalten Fälligkeitsdatum, Gesamtbetrag, Erstellt am — da Status und Gesamtbetrag abgeleitete/aggregierte Werte sind (nicht direkt per Supabase `.order()` sortierbar), laufen Filterung und Sortierung serverseitig in JS im Page-Loader, analog zur Kundenliste. `CollectionRunList` hielt bereits keinen `useState(initialRuns)` für die Laufliste selbst (nur lokalen Formular-Zustand für „neuer Lauf"), daher keine Prop-Sync-Falle zu beheben. Differenzierter Leerzustand „Keine Lastschriftläufe gefunden." bei aktivem Filter.
+
+**Verifikation Lastschriftlauf-Liste:** `npm run build`/`npm run lint` sauber. Live geprüft: Status-Filter „Vollständig eingezogen" setzt und persistiert den URL-Param nach Reload; „Filter zurücksetzen" entfernt ihn wieder; Gesamtbetrag-Sortierung togglet `dir=asc`/`dir=desc` per Klick; Fälligkeitsdatum-Sortierung liefert eine nachweislich chronologisch korrekte Reihenfolge; gezielter End-to-End-Nachweis der Status-Ableitung — eine Position wurde live über „Als rückgebucht markieren" markiert, der Lauf wechselte daraufhin in der Liste sichtbar auf „Mit Rückbuchungen", danach zurückgesetzt, um die Fixture-Daten unverändert zu lassen (getestet auf Chromium, gleiche Umgebungslimitierung wie Kursliste).
+
+**Damit ist die Frontend-Implementierung für alle 5 Listen abgeschlossen.**
 
 ## QA Test Results
 _To be added by /qa_

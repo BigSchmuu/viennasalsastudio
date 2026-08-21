@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createCollectionRun } from "@/lib/actions/admin/sepa-collections";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { SortableHeader } from "@/components/admin/sortable-header";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -20,24 +23,52 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 
+export type CollectionRunStatus = "complete" | "bounced";
+
+export const collectionRunStatusOptions: { value: CollectionRunStatus; label: string; color: string }[] = [
+  { value: "complete", label: "Vollständig eingezogen", color: "#2a9d8f" },
+  { value: "bounced", label: "Mit Rückbuchungen", color: "#e63946" },
+];
+
+function collectionRunStatusLabel(status: CollectionRunStatus): string {
+  return collectionRunStatusOptions.find((o) => o.value === status)?.label ?? "—";
+}
+
+function collectionRunStatusColor(status: CollectionRunStatus): string {
+  return collectionRunStatusOptions.find((o) => o.value === status)?.color ?? "#94a3b8";
+}
+
 export type CollectionRunRow = {
   id: string;
   dueDate: string;
   createdAt: string;
   itemCount: number;
   total: number;
+  status: CollectionRunStatus;
 };
+
+const ALL_STATUS = "__all__";
 
 function formatPrice(price: number): string {
   return price.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
 }
 
-export function CollectionRunList({ runs }: { runs: CollectionRunRow[] }) {
+export function CollectionRunList({ runs, initialStatus }: { runs: CollectionRunRow[]; initialStatus: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<number | null>(null);
+
+  function applyStatusFilter(status: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (status) params.set("status", status);
+    else params.delete("status");
+    router.push(`/admin/lastschriften${params.toString() ? `?${params.toString()}` : ""}`);
+  }
+
+  const filtersActive = initialStatus !== "";
 
   async function submit(confirmDuplicate: boolean) {
     setLoading(true);
@@ -84,16 +115,46 @@ export function CollectionRunList({ runs }: { runs: CollectionRunRow[] }) {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <Label htmlFor="run-status-filter">Status</Label>
+          <Select
+            value={initialStatus || ALL_STATUS}
+            onValueChange={(value) => applyStatusFilter(value === ALL_STATUS ? "" : value)}
+          >
+            <SelectTrigger id="run-status-filter" className="w-56">
+              <SelectValue placeholder="Alle" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_STATUS}>Alle</SelectItem>
+              {collectionRunStatusOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {filtersActive && (
+          <Button type="button" variant="outline" size="sm" onClick={() => applyStatusFilter("")}>
+            Filter zurücksetzen
+          </Button>
+        )}
+      </div>
+
       {runs.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">Noch keine Lastschriftläufe vorhanden.</p>
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          {filtersActive ? "Keine Lastschriftläufe gefunden." : "Noch keine Lastschriftläufe vorhanden."}
+        </p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Fälligkeitsdatum</TableHead>
+              <SortableHeader label="Fälligkeitsdatum" sortKey="due_date" />
               <TableHead>Kunden</TableHead>
-              <TableHead>Gesamtbetrag</TableHead>
-              <TableHead>Erstellt am</TableHead>
+              <SortableHeader label="Gesamtbetrag" sortKey="total" />
+              <TableHead>Status</TableHead>
+              <SortableHeader label="Erstellt am" sortKey="created_at" />
               <TableHead className="text-right">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
@@ -105,6 +166,14 @@ export function CollectionRunList({ runs }: { runs: CollectionRunRow[] }) {
                 </TableCell>
                 <TableCell>{run.itemCount}</TableCell>
                 <TableCell>{formatPrice(run.total)}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    style={{ borderColor: collectionRunStatusColor(run.status), color: collectionRunStatusColor(run.status) }}
+                  >
+                    {collectionRunStatusLabel(run.status)}
+                  </Badge>
+                </TableCell>
                 <TableCell>{new Date(run.createdAt).toLocaleDateString("de-AT")}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="outline" size="sm" asChild>
