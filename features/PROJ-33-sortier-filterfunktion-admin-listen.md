@@ -1,6 +1,6 @@
 # PROJ-33: Sortier- und Filterfunktion für Admin-Listen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -146,6 +146,16 @@ nicht in einer neuen Datenbank-Tabelle.
 ### D) Dependencies (packages to install)
 
 - Keine neuen Pakete nötig — nutzt ausschließlich bereits vorhandene shadcn/ui-Komponenten (Select, Input, Button, Table) und die in Next.js eingebaute `searchParams`-Mechanik, die die Rechnungsliste bereits verwendet.
+
+## Implementation Notes (Frontend)
+
+**Fortschritt: 1/5 Listen umgesetzt (Kundenliste). Buchungsliste, Kursliste, Rechnungsliste-Sortierung und Lastschriftlauf-Liste stehen noch aus.**
+
+Neuer gemeinsamer Baustein `src/components/admin/sortable-header.tsx` (`SortableHeader`): liest den aktuellen Sortier-Zustand selbst aus der URL (`useSearchParams`), kein Props-Threading durch die Seiten nötig. Wird als Ersatz für einzelne `<TableHead>`-Zellen sortierbarer Spalten eingesetzt.
+
+**Kundenliste** (`src/components/admin/customers/customer-list.tsx`, `src/app/admin/kunden/page.tsx`): Suche von rein clientseitig auf das URL-Parameter-Muster der Rechnungsliste umgestellt (`q`, Button-Submit). Neuer Status-Filter (`status`-Param, sofort navigierend bei Auswahl) mit den Werten Aktiv/Pausiert/Gekündigt/Kein Abo. Neue Spalten „Status" (Badge, wiederverwendet `subscriptionStatusColor`) und „Erstellt am" (sortierbar, `profiles.created_at`). Name-Spalte jetzt ebenfalls sortierbar. Status-Ableitung bei mehreren Abos folgt der beschlossenen Priorität Aktiv > Pausiert > Gekündigt > Kein Abo. Filterung/Sortierung läuft serverseitig im Page-Loader (kein Client-seitiges Nachfiltern von bereits geladenen Daten mehr).
+
+**Verifikation:** `npm run build`/`npm run lint` sauber. Live geprüft: Sortierung per Klick ändert URL (`sort=name&dir=asc` → `dir=desc` bei erneutem Klick) und tatsächliche Zeilenreihenfolge; Status-Filter „Aktiv" zeigt ausschließlich „Aktiv"-Badges und bleibt nach Reload über die URL erhalten; „Kein Abo"-Filter zeigt ausschließlich Kunden mit 0 Abos; leere Trefferliste zeigt „Keine Kunden gefunden." statt leerer Tabelle; 375px-Ansicht ohne horizontales Scrollen.
 
 ## QA Test Results
 _To be added by /qa_
