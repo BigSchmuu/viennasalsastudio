@@ -69,6 +69,11 @@ export type SepaAnkuendigungDetails = { amount: number; dueDate: string };
 export type EventTicketDetails =
   | { subType: "purchased"; eventName: string; startsAt: string; ticketStatus: "confirmed" | "reserved" }
   | { subType: "event_cancelled"; eventName: string; startsAt: string };
+export type ProbestundeNachfassungDetails = {
+  subType: "abend" | "naechster_termin";
+  courseName: string;
+  courseId: string;
+};
 
 export function buildNotificationContent(
   eventType: NotificationEventGroup | "sepa_ankuendigung",
@@ -79,6 +84,7 @@ export function buildNotificationContent(
     | KursstartErinnerungDetails
     | SepaAnkuendigungDetails
     | EventTicketDetails
+    | ProbestundeNachfassungDetails
 ): NotificationContent {
   switch (eventType) {
     case "buchungsstatus": {
@@ -193,6 +199,38 @@ export function buildNotificationContent(
         pushTitle: subject,
         pushBody: confirmed ? `${d.eventName} ist bestätigt.` : `${d.eventName} ist reserviert — vor Ort zahlen.`,
         url: "/profil",
+      };
+    }
+    case "probestunde_nachfassung": {
+      const d = details as ProbestundeNachfassungDetails;
+      const courseNameHtml = escapeHtml(d.courseName);
+      const url = `/kurse/${d.courseId}`;
+      const linkHtml = `<p><a href="${SITE_URL}${url}" style="color: #ff3b30; text-decoration: none; font-weight: 600;">${escapeHtml(d.courseName)} jetzt buchen →</a></p>`;
+
+      if (d.subType === "abend") {
+        const subject = `Wie war deine Probestunde in ${d.courseName}?`;
+        return {
+          subject,
+          emailHtml: emailShell(
+            subject,
+            `<p>Wir hoffen, dir hat die Probestunde in <strong>${courseNameHtml}</strong> gefallen! Wenn du dabei bleiben möchtest, kannst du direkt buchen.</p>${linkHtml}`
+          ),
+          pushTitle: subject,
+          pushBody: `Jetzt ${d.courseName} buchen?`,
+          url,
+        };
+      }
+
+      const subject = `Der nächste Termin von ${d.courseName} steht bevor`;
+      return {
+        subject,
+        emailHtml: emailShell(
+          subject,
+          `<p>Der nächste Termin von <strong>${courseNameHtml}</strong> steht bald an — noch nicht zu spät, um dabei zu sein!</p>${linkHtml}`
+        ),
+        pushTitle: subject,
+        pushBody: `Nächster Termin von ${d.courseName} steht bevor.`,
+        url,
       };
     }
   }

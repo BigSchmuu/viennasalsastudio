@@ -1125,6 +1125,44 @@ export type Database = {
           },
         ]
       }
+      trial_followups: {
+        Row: {
+          booking_id: string
+          contacted: boolean
+          contacted_at: string | null
+          created_at: string
+          id: string
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          booking_id: string
+          contacted?: boolean
+          contacted_at?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          booking_id?: string
+          contacted?: boolean
+          contacted_at?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trial_followups_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "course_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_set_lesson_videos: {
         Row: {
           created_at: string

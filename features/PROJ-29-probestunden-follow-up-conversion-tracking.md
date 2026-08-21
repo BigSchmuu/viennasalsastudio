@@ -151,6 +151,22 @@ läuft vollständig über die bereits bestehende PROJ-16-Infrastruktur.
 
 - Keine neuen Pakete nötig — nutzt bereits vorhandene shadcn/ui-Bausteine (Table, Badge, Checkbox, Textarea), den bestehenden Zeitraum-Filter-Baustein aus dem Admin-Dashboard (PROJ-17) sowie die bestehende Notification-Queue, Versand- und Einstellungs-Infrastruktur aus PROJ-16.
 
+## Implementation Notes (Backend)
+
+**Datenbank** (Migration `proj29_trial_followups`): neue Tabelle `trial_followups` (`booking_id` UNIQUE FK auf `course_bookings`, `contacted`, `note`, `contacted_at`) mit admin-only RLS (SELECT/INSERT/UPDATE), identisches Muster zu `sepa_collection_runs`. Kein separates „bereits verschickt"-Feld nötig für die beiden automatisierten Erinnerungen — die bestehende `UNIQUE (dedupe_key)`-Constraint auf `notification_queue` verhindert Doppel-Versand pro Buchung ganz von selbst (Erkenntnis aus dem Code-Review von `dispatch.ts`, spart die ursprünglich im Tech Design vorgesehene zusätzliche Tracking-Spalte). `notification_queue`/`notification_preferences` CHECK-Constraints um den neuen Wert `probestunde_nachfassung` erweitert.
+
+**Notifications** (`src/lib/constants/notifications.ts`, `src/lib/notifications/templates.ts`, `src/lib/notifications/dispatch.ts`): neue Ereignisgruppe `probestunde_nachfassung` (ein gemeinsamer Schalter für beide Erinnerungen, erscheint automatisch in der bestehenden Kunden-Einstellungen-Tabelle ohne Component-Änderung). Zwei neue Funktionen in `dispatch.ts`:
+- `runEveningChecks` — enqueued die Abend-Erinnerung für alle heute stattgefundenen, bestätigten Probestunden
+- `runFollowupChecks` — enqueued die zweite Erinnerung: prüft alle bestätigten Probestunden der letzten 30 Tage, überspringt bereits konvertierte Kunden (neue Hilfsfunktion `hasConvertedSince`, prüft reguläre Buchung oder Abo ab dem Probestunden-Datum) und verschickt nur, wenn der nächste tatsächliche Kurstermin (über die bestehende `upcomingOccurrences`-Funktion, Pausen werden automatisch übersprungen) genau morgen ist
+
+**Cron** (`src/app/api/cron/notifications/route.ts`, `vercel.json`): bestehender Morgen-Lauf (06:00 UTC) ruft jetzt zusätzlich `runFollowupChecks` auf; neuer zweiter Cron-Eintrag `?run=evening` um 18:00 UTC ruft stattdessen nur `runEveningChecks` auf, gleiche Route, gleiche `CRON_SECRET`-Prüfung.
+
+**Admin-Aktion** (`src/lib/actions/admin/trial-followups.ts`): `setTrialContacted(bookingId, contacted, note)` — Upsert auf `trial_followups` mit `onConflict: "booking_id"`, `revalidatePath("/admin/probestunden")`. Wird von der Admin-Übersichtsseite in `/frontend` verwendet.
+
+**Verifikation:** `npm run build`/`npm run lint` sauber, `npm test` 194/194 (neue Tests: `templates.test.ts` für die zwei Nachrichtentexte inkl. HTML-Escaping-Check, `route.test.ts` für Morgen-/Abend-Unterscheidung und weiterhin erforderliche Auth). Live gegen die echte Produktionsdatenbank geprüft (temporärer, vollständig eigenständiger Testkurs mit Samstags-Termin plus ein frisch angelegter Test-Kunde ohne Buchungshistorie, um die „nicht konvertiert"-Prüfung sauber zu testen — beides nach dem Test vollständig wieder entfernt): Morgen-Lauf hat korrekt genau 1 Follow-up-Erinnerung erzeugt (unkonvertierter Testkunde, nächster Termin = morgen), Abend-Lauf hat korrekt alle heute stattgefundenen Probestunden erfasst (inkl. einer bereits existierenden, unabhängigen echten Probestunde — bestätigt, dass die Abfrage korrekt systemweit arbeitet und nicht nur meine Testdaten trifft); ein erneuter Aufruf beider Läufe direkt danach hat korrekt 0 neue Einträge erzeugt (Dedupe-Schutz bestätigt); E-Mail-Versand schlug erwartungsgemäß an der Fake-Testdomain fehl (`viennasalsastudio.test`), Inhalts- und Trigger-Logik selbst liefen fehlerfrei. Upsert-Semantik der neuen Tabelle direkt per SQL nachgestellt und bestätigt (Insert + Update über denselben `booking_id`-Konflikt).
+
+**Offener Punkt für `/deploy`:** ob der tatsächliche Vercel-Plan einen zweiten täglichen Cron-Lauf erlaubt, ist noch nicht verifiziert (siehe Open Questions) — muss beim Deployment geprüft werden.
+
 ## QA Test Results
 _To be added by /qa_
 

@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { sendNotificationEmail } from "@/lib/notifications/mailer";
 import { sendPushToCustomer } from "@/lib/notifications/push";
 import { buildNotificationContent, type NotificationContent } from "@/lib/notifications/templates";
+import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import type { Json } from "@/lib/supabase/types";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
@@ -111,6 +112,19 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         eventName: data.events.name,
         startsAt: data.events.starts_at,
         ticketStatus: data.status as "confirmed" | "reserved",
+      });
+    }
+    case "probestunde_nachfassung": {
+      const { data } = await service
+        .from("course_bookings")
+        .select("course_id, courses(name)")
+        .eq("id", payload.booking_id as string)
+        .maybeSingle();
+      if (!data) return null;
+      return buildNotificationContent("probestunde_nachfassung", {
+        subType: payload.sub_type as "abend" | "naechster_termin",
+        courseName: data.courses?.name ?? "Kurs",
+        courseId: data.course_id,
       });
     }
     default:
@@ -321,6 +335,99 @@ export async function runDailyChecks(service: ServiceClient): Promise<{ reminder
   }
 
   return { reminders, effective };
+}
+
+/** True if `customerId` has any regular booking or subscription dated on/after `sinceDate` (PROJ-29 conversion check). */
+async function hasConvertedSince(service: ServiceClient, customerId: string, sinceDate: string): Promise<boolean> {
+  const { data: regularBooking } = await service
+    .from("course_bookings")
+    .select("id")
+    .eq("customer_id", customerId)
+    .eq("type", "regular")
+    .gte("chosen_date", sinceDate)
+    .limit(1)
+    .maybeSingle();
+  if (regularBooking) return true;
+
+  const { data: subscription } = await service
+    .from("subscriptions")
+    .select("id")
+    .eq("customer_id", customerId)
+    .gte("created_at", `${sinceDate}T00:00:00Z`)
+    .limit(1)
+    .maybeSingle();
+  return !!subscription;
+}
+
+/** Enqueues the same-evening trial reminder (chosen_date = today, Vienna). Meant for a
+ *  separate evening cron run — the existing morning run is too early for "same evening". */
+export async function runEveningChecks(service: ServiceClient): Promise<{ evening: number }> {
+  const today = todayInVienna();
+  let evening = 0;
+
+  const { data: bookings } = await service
+    .from("course_bookings")
+    .select("id, customer_id")
+    .eq("type", "trial")
+    .eq("status", "confirmed")
+    .eq("chosen_date", today);
+
+  for (const booking of bookings ?? []) {
+    const { error } = await service.from("notification_queue").insert({
+      customer_id: booking.customer_id,
+      event_type: "probestunde_nachfassung",
+      payload: { booking_id: booking.id, sub_type: "abend" },
+      dedupe_key: `probestunde_nachfassung:abend:${booking.id}`,
+      status: "pending",
+    });
+    if (!error) evening += 1;
+  }
+
+  return { evening };
+}
+
+/** Enqueues the second trial reminder, timed to land the day before the course's next
+ *  actual occurrence (pauses are skipped automatically) rather than a fixed day count —
+ *  fires at most once per booking (guarded by `notification_queue`'s unique dedupe_key). */
+export async function runFollowupChecks(service: ServiceClient): Promise<{ followup: number }> {
+  const today = todayInVienna();
+  const tomorrow = tomorrowInVienna();
+  const windowStart = addDaysToDateString(today, -30);
+
+  let followup = 0;
+
+  const { data: bookings } = await service
+    .from("course_bookings")
+    .select(
+      "id, customer_id, chosen_date, courses(course_schedule(weekday, course_schedule_pauses(pause_date)))"
+    )
+    .eq("type", "trial")
+    .eq("status", "confirmed")
+    .lt("chosen_date", today)
+    .gte("chosen_date", windowStart);
+
+  for (const booking of bookings ?? []) {
+    const schedule = booking.courses?.course_schedule;
+    if (!schedule) continue;
+
+    const converted = await hasConvertedSince(service, booking.customer_id, booking.chosen_date);
+    if (converted) continue;
+
+    const pauseDates = schedule.course_schedule_pauses.map((p) => p.pause_date);
+    const [nextOccurrence] = upcomingOccurrences(schedule.weekday, { count: 1, pauseDates });
+    if (nextOccurrence !== tomorrow) continue;
+
+    const { error } = await service.from("notification_queue").insert({
+      customer_id: booking.customer_id,
+      event_type: "probestunde_nachfassung",
+      payload: { booking_id: booking.id, sub_type: "naechster_termin" },
+      dedupe_key: `probestunde_nachfassung:naechster_termin:${booking.id}`,
+      status: "pending",
+    });
+    if (!error) followup += 1;
+  }
+
+  return { followup };
 }
 
 /** Drains pending queue rows (safety net for rows enqueued from SQL, e.g. waitlist promotion). */

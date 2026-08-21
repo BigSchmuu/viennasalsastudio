@@ -130,4 +130,42 @@ describe("buildNotificationContent", () => {
     expect(content.emailHtml).not.toContain("<img");
     expect(content.emailHtml).toContain("&lt;img");
   });
+
+  it("builds the same-evening trial follow-up with a direct booking link", () => {
+    const content = buildNotificationContent("probestunde_nachfassung", {
+      subType: "abend",
+      courseName: "Salsa Cubana",
+      courseId: "course-123",
+    });
+    expect(content.subject).toContain("Probestunde");
+    expect(content.subject).toContain("Salsa Cubana");
+    expect(content.emailHtml).toContain("/kurse/course-123");
+    expect(content.url).toBe("/kurse/course-123");
+  });
+
+  it("builds a distinct message for the next-occurrence trial follow-up", () => {
+    const evening = buildNotificationContent("probestunde_nachfassung", {
+      subType: "abend",
+      courseName: "Salsa Cubana",
+      courseId: "course-123",
+    });
+    const nextOccurrence = buildNotificationContent("probestunde_nachfassung", {
+      subType: "naechster_termin",
+      courseName: "Salsa Cubana",
+      courseId: "course-123",
+    });
+    expect(nextOccurrence.subject).not.toBe(evening.subject);
+    expect(nextOccurrence.subject).toContain("nächste");
+    expect(nextOccurrence.emailHtml).toContain("/kurse/course-123");
+  });
+
+  it("escapes HTML in the course name for the trial follow-up", () => {
+    const content = buildNotificationContent("probestunde_nachfassung", {
+      subType: "abend",
+      courseName: '<img src=x onerror=alert(1)>"Cubana"',
+      courseId: "course-123",
+    });
+    expect(content.emailHtml).not.toContain("<img");
+    expect(content.emailHtml).toContain("&lt;img");
+  });
 });
