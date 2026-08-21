@@ -1,6 +1,6 @@
 # PROJ-31: Geburtstags-Erinnerung
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -126,7 +126,71 @@ Neuer gemeinsamer Baustein `src/lib/birthdays.ts` (reine Datumslogik, keine UI):
 **Verifikation:** `npm run build`/`npm run lint` sauber. Datumslogik isoliert verifiziert (heute, +4 Tage, +8 Tage außerhalb des 7-Tage-Fensters, Jahreswechsel Dez→Jan, Feb-29-Normalisierung). Live gegen die Produktionsdatenbank geprüft (temporäre Geburtsdaten auf zwei `e2e30`-Fixture-Kunden gesetzt, nach Verifikation vollständig zurückgesetzt): Dashboard-Widget zeigt „Heute" korrekt für den Tag selbst und das Datum für +4 Tage, in der richtigen Reihenfolge sortiert; Leerzustand „Keine Geburtstage in den nächsten 7 Tagen" erscheint korrekt ohne Testdaten; Anwesenheitsliste zeigt das Kuchen-Icon korrekt für den Geburtstagskind-Kunden, sowohl beim initialen Laden als auch (Typ-Ebene) über den „Kursteilnehmer hinzufügen"-Pfad; 375px-Ansicht ohne horizontales Scrollen.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-21
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Kunde mit Geburtstag in den nächsten 7 Tagen erscheint im Dashboard-Widget mit Name und Datum
+- [x] Kunde mit Geburtstag heute erscheint mit „Heute"
+- [x] Kunde mit Geburtstag in 4 Tagen erscheint mit korrektem Datum (DD.MM.)
+- [x] Mehrere Kunden im Fenster erscheinen alle, sortiert nach nächstem Geburtstag zuerst
+
+#### AC-2: Kein Kunde hat in den nächsten 7 Tagen Geburtstag → Leerzustand
+- [x] „Keine Geburtstage in den nächsten 7 Tagen" erscheint korrekt, wenn kein Fixture-Kunde einen Geburtstag im Fenster hat (manuell verifiziert während `/frontend`; siehe Hinweis unten zu warum dies nicht als permanenter E2E-Test geschrieben wurde)
+
+#### AC-3: Kunde hat heute Geburtstag und ist Kursteilnehmer → Geburtstags-Icon in der Anwesenheitsliste
+- [x] Icon (mit `aria-label="Hat heute Geburtstag"`) erscheint korrekt neben dem Namen des Geburtstagskind-Kunden beim initialen Laden der Kursseite
+
+#### AC-4: Kunde ohne hinterlegtes Geburtsdatum → kein Hinweis
+- [x] Kunde ohne Geburtsdatum erscheint weder im Dashboard-Widget noch mit einem Icon in der Anwesenheitsliste
+
+#### AC-5: Mehrere Kunden am selben Tag → alle korrekt angezeigt
+- [x] Zwei Kunden mit unterschiedlichen Terminen im 7-Tage-Fenster erscheinen beide korrekt (siehe AC-1); die zugrundeliegende Sortier-/Filterlogik behandelt gleiche Tage identisch (durch Unit-Tests der Datumslogik abgedeckt)
+
+### Edge Cases Status
+
+#### EC-1: Geburtstag am 29. Februar in einem Nicht-Schaltjahr
+- [x] Wird korrekt als 28. Februar behandelt — sowohl für die Tage-Berechnung als auch für die Anzeige (`daysUntilNextBirthday`/`formatNextBirthdayMonthDay`, unit-getestet: `src/lib/birthdays.test.ts`). In einem Schaltjahr wird korrekt der echte 29. Februar verwendet (ebenfalls unit-getestet)
+
+#### EC-2: 7-Tage-Zeitraum reicht über den Jahreswechsel
+- [x] Abfrage am 28.12. für einen Geburtstag am 03.01. liefert korrekt 6 Tage (unit-getestet)
+
+#### EC-3: Kunde mit pausiertem/gekündigtem Abo hat Geburtstag im Fenster
+- [x] Erscheint trotzdem im Widget — die Dashboard-Abfrage filtert nicht nach Abo-Status, sondern nach `role = customer` und gesetztem `birthdate` (per Code-Review bestätigt: keine Status-Filterung in `src/app/admin/page.tsx` vorhanden)
+
+#### EC-4 (zusätzlich identifiziert): Geburtstag genau 7 Tage bzw. 8 Tage entfernt (Grenzfall)
+- [x] Tag 7 wird eingeschlossen, Tag 8 korrekt ausgeschlossen (unit-getestet und per E2E verifiziert)
+
+### Security Audit Results
+- [x] Authentication: `/admin` und `/lehrer/[courseId]` ohne Login → Redirect zu `/login` (bestehende, durch PROJ-31 unveränderte `requireAdmin()`/`requireCourseAccess()`-Gates)
+- [x] Authorization: Ein Lehrer ohne Kurs-Zuweisung kann die Anwesenheitsliste (und damit die Geburtstags-Icons) eines fremden Kurses nicht aufrufen (bestehendes, unverändertes Verhalten — bestätigt durch den weiterhin grünen PROJ-13-Regressionstest „AC9: Zugriff auf fremden Kurs wird verweigert")
+- [x] Datenschutz: Das Geburtsjahr wird an keiner Stelle der neuen Logik gelesen, berechnet oder an eine Client-Komponente übergeben — weder `BirthdayList` noch `AttendanceMatrix` erhalten mehr als Tag+Monat (Widget) bzw. ein reines Boolean-Flag (Anwesenheitsliste); Alter wird nirgends berechnet
+- [x] Input validation: Keine neuen nutzerkontrollierten Eingaben (Geburtsdatum wird ausschließlich über das bereits bestehende, validierte Profil-Formular gesetzt); keine SQL-Injection-Fläche, da alle neuen Abfragen über den Supabase-Query-Builder mit festen Spalten-/Tabellennamen laufen
+- [x] XSS: Kundennamen werden ausschließlich über JSX-Interpolation gerendert (React-Escaping), keine `dangerouslySetInnerHTML`-Verwendung in den neuen Dateien
+
+### Regression Testing
+- `npm test` (Vitest, inkl. 14 neuer Tests für `src/lib/birthdays.ts`): 189/189 bestanden
+- Neue permanente E2E-Suite `tests/PROJ-31-geburtstags-erinnerung.spec.ts` (5 Tests, deckt AC1, AC3, AC4, AC5 sowie den 7/8-Tage-Grenzfall ab, jeweils inkl. Selbstbereinigung der Fixture-Geburtsdaten via `afterEach`): 5/5 bestanden
+- Volle Regressionssuiten für alle von PROJ-31 berührten Bereiche erneut ausgeführt (PROJ-13 Lehrer-Ansicht, PROJ-17 Admin-Dashboard, PROJ-25 Self-Check-In, PROJ-32 Aktive-Kunden-Dashboard): 27/32 bestanden. Alle 5 Fehlschläge einzeln root-caused und als **vorbestehend, unabhängig von PROJ-31** bestätigt:
+  - PROJ-25 (3 Fehlschläge): Testdatei dokumentiert selbst explizit, dass die Fixture-Kurszeiten relativ zum 18.08. geprimt wurden und bei einem Lauf an einem späteren Tag (heute: 21.08.) aus dem erwarteten Zeitfenster gelaufen sind — PROJ-31 berührt Self-Check-In/Stundenplan nicht
+  - PROJ-17 „AC9: Kündigung" (1 Fehlschlag): erwartet genau 1 Kündigung im Zeitraum, tatsächlich 2 — Datenakkumulation aus wiederholten Testläufen; PROJ-31 berührt keine Kündigungs-/Abo-Logik
+  - PROJ-13 „AC7: Kunde hinzufügen" (1 Fehlschlag): per direkter Datenbankprüfung bestätigt, dass „E2E13 Flatrate Kunde" bereits einen Anwesenheitseintrag vom 20.08. hat (aus einem früheren Testlauf, der sich nicht selbst bereinigt) und deshalb nicht mehr in der „Kunde hinzufügen"-Liste erscheint — der Test selbst hat kein Cleanup; die `hasBirthdayToday`-Erweiterung von `EligibleCustomer` ändert nichts an der Filterlogik dieser Liste (per Code-Review bestätigt)
+- Live gegen die Produktionsdatenbank verifiziert (temporäre Geburtsdaten auf `e2e30`-Fixture-Kunden über die bestehende Admin-Profilbearbeitung gesetzt, nach jedem Test vollständig zurückgesetzt): Dashboard-Widget, Leerzustand, Sortierung, 7/8-Tage-Grenze, fehlendes Geburtsdatum, Anwesenheitsliste-Icon; 375px ohne horizontales Scrollen
+
+**Hinweis zu AC-2 (Leerzustand) und fehlendem permanentem E2E-Test dafür:** Ein permanenter E2E-Test, der einen systemweit leeren Geburtstags-Zustand behauptet, wäre nicht zuverlässig wiederholbar — es gibt keine Staging-Datenbank, und echte (Nicht-Fixture-)Kundendatensätze mit hinterlegtem Geburtsdatum existieren bereits in der Produktionsdatenbank; an einem anderen Kalendertag könnte einer davon zufällig ins 7-Tage-Fenster fallen und den Test flakey machen. Der Leerzustand wurde stattdessen manuell verifiziert und ist zusätzlich durch die Grenzfall-Tests (Tag 8 wird korrekt ausgeschlossen) sowie den Component-Code selbst (einfache `rows.length === 0`-Bedingung, identisch zum bereits etablierten Muster in `OccupancyList`) ausreichend abgesichert.
+
+### Bugs Found
+Keine Bugs gefunden. (Ein Detail-Problem — Feb-29-Anzeige zeigte das unnormalisierte Rohdatum statt des tatsächlich beobachteten 28.02. — wurde während der eigenen Verifikation in `/frontend` entdeckt und dort bereits behoben, bevor QA begann; siehe Implementation Notes.)
+
+### Summary
+- **Acceptance Criteria:** 5/5 erfüllt
+- **Bugs Found:** 0
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy. Die 5 in der Regressionsprüfung gefundenen Fehlschläge sind bestätigt vorbestehend und unabhängig von PROJ-31 (Zeitfenster-Fixture-Drift bei PROJ-25, Datenakkumulation bei PROJ-17/PROJ-13) — sie blockieren dieses Feature nicht, sollten aber als eigener Housekeeping-Task (Test-Selbstbereinigung) auf dem Radar bleiben.
 
 ## Deployment
 _To be added by /deploy_
