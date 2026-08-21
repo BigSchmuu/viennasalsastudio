@@ -1,6 +1,6 @@
 # PROJ-33: Sortier- und Filterfunktion für Admin-Listen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -302,4 +302,10 @@ Alle drei Bugs wurden per `/frontend` behoben (siehe Implementation Notes oben) 
 - **Recommendation:** Deploy. Die 2 weiterhin bestehenden, vorbestehenden Fixture-Pollution-Fälle in den PROJ-3-/PROJ-4-Suiten sind unabhängig von PROJ-33 und sollten separat (z.B. als kleiner Housekeeping-Task für Testdaten-Bereinigung) adressiert werden.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Deployed:** 2026-08-21
+- **Production URL:** https://viennasalsastudio.vercel.app
+- **Git tag:** `v1.0.0-PROJ-33`
+- **Commit:** `198e78a`
+- **Deployment method:** Push to `main` → Vercel auto-deploy (already deployed automatically as each PROJ-33 commit was pushed during `/frontend`/`/qa`; this step confirmed the final build with all 3 bugfixes is live)
+- **Post-deployment verification:** Confirmed live in production via Playwright against the shared production database — Kundenliste (Suche-Placeholder + Status-Filter), Kursliste (eindeutige „Level filtern"/„Tanzstil filtern"-Labels + sortierbare Name-Spalte), Buchungsliste (Art-Filter) and Lastschriftlauf-Liste (Status-Filter) all render correctly; no browser console errors on `/admin/buchungen`. No new environment variables or database migrations required for this feature.
