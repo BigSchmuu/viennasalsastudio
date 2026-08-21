@@ -166,6 +166,18 @@ Empfängerdaten bleiben abgeleitet, nicht dupliziert.
 - Alle 4 verschickten Test-Zeilen zeigen `push_status: "skipped"` trotz Standard-Präferenz „an" — bestätigt die Push-Sperre
 - Inhaltsauflösung funktioniert (Betreff/Text korrekt aus `newsletter_sends` geladen), E-Mail-Versand schlug erwartungsgemäß nur an der Fake-Testdomain fehl
 
+## Implementation Notes (Frontend)
+
+Neue Admin-Seite `/admin/newsletter` (Nav-Eintrag zwischen „Probestunden" und „Lastschriften"): `src/app/admin/newsletter/page.tsx` (Loader), `newsletter-composer.tsx` (Versand-Formular) und `newsletter-history-list.tsx` (Historie-Tabelle).
+
+- **Live-Empfängerzahl:** `useEffect` ruft `previewRecipientCount` bei jeder Änderung von Gruppe/Kurs auf (debounced durch die `cancelled`-Flag-Absicherung gegen veraltete Antworten bei schnellem Wechsel). Zeigt „Bitte einen Kurs auswählen." wenn „Kurs-Teilnehmer" ohne Kurs gewählt ist, „0 Empfänger" bzw. die tatsächliche Zahl sonst.
+- **„Senden"-Button** ist deaktiviert bei leerem Betreff/Text, bei „Kurs-Teilnehmer" ohne Kurs, während die Zahl noch lädt, und bei 0 Empfängern — deckt AC7/AC8 direkt in der UI ab, nicht erst serverseitig.
+- **Bestätigungsdialog** (AlertDialog) zeigt Betreff, Empfängerzahl und Gruppenname vor dem tatsächlichen Versand.
+- Nach erfolgreichem Versand: Formular wird zurückgesetzt, Toast-Bestätigung, `router.refresh()` lädt die Historie-Tabelle neu (die serverseitige `revalidatePath` aus der Server Action reicht allein nicht, da wir bereits auf der Zielseite sind, nicht neu dorthin navigieren).
+- **Einstellungen-Seite** (`notification-settings-section.tsx`): die Newsletter-Zeile zeigt dank `notificationEmailOnlyGroups` (aus dem Backend-Schritt) einen Strich statt eines Push-Schalters — keine Komponenten-Logik-Änderung nötig über die bereits im Backend vorbereitete Konstante hinaus.
+
+**Verifikation:** `npm run build`/`npm run lint` sauber. Live gegen die echte Produktionsdatenbank geprüft: Empfängerzahl-Vorschau für „Alle Kunden"/„Aktive Kunden" funktioniert (nur Vorschau, **kein** tatsächlicher Versand an diese Gruppen während der Verifikation, um keine echten Kunden per E-Mail zu erreichen); Senden-Button-Deaktivierung bei leerem Formular und bei „Kurs-Teilnehmer" ohne Kurs bestätigt; vollständiger Versand-Durchlauf mit einem eigens angelegten, isolierten Testkurs mit genau einem Testkunden als einzigem Teilnehmer (kein Risiko für echte Kunden) — Bestätigungsdialog, tatsächlicher Versand, Toast, Formular-Reset und Historie-Aktualisierung alle korrekt; Newsletter-Zeile in den Kunden-Einstellungen zeigt genau einen Schalter (E-Mail) statt zwei; 375px ohne horizontales Scrollen. Alle Testdaten (Kurs, Kunde, Buchung, Newsletter-Versand-Eintrag, Queue-Zeilen) nach der Verifikation vollständig entfernt.
+
 ## QA Test Results
 _To be added by /qa_
 
