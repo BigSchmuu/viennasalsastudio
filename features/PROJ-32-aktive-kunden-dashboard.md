@@ -1,6 +1,6 @@
 # PROJ-32: Aktive-Kunden-Anzahl im Dashboard
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -99,7 +99,49 @@ Added directly to `src/app/admin/page.tsx`: a fourth query (`subscriptions` wher
 **Verification:** `npm run build` / `npm run lint` clean. Live-checked in the browser: dashboard shows "Aktive Kunden: 17", matching a direct `select count(distinct customer_id) from subscriptions where status = 'active'` reference query against the same production data.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-21
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Kachel zeigt Anzahl aktiver Kunden
+- [x] Kachel „Aktive Kunden" ist sichtbar und zeigt eine Zahl (live gegen Produktionsdaten: 17)
+
+#### AC-2: Kunde mit mehreren aktiven Abos zählt nur einmal
+- [x] Verifiziert direkt gegen echte Produktionsdaten: 24 rohe „aktiv"-Abo-Zeilen (4 Kunden mit 2–3 aktiven Abos gleichzeitig), aber nur 17 distincte Kunden — die Kachel zeigt korrekt 17, nicht 24
+
+#### AC-3: Kunde mit nur pausierten/gekündigten Abos wird nicht mitgezählt
+- [x] Verifiziert per Datenabgleich: mehrere Kunden mit ausschließlich „paused"/„cancelled"-Status existieren in den Produktionsdaten und sind in den 17 nicht enthalten (durch den serverseitigen `status = 'active'`-Filter bereits by construction ausgeschlossen)
+
+#### AC-4: Keine aktiven Kunden → Kachel zeigt „0"
+- [x] Verifiziert per Code-Review statt Live-Test: `new Set([]).size` ergibt garantiert `0`, `MetricTile` rendert `value` immer unbedingt (keine Sonderbehandlung für leere/0-Werte, kein Error-Boundary-Risiko). Ein Live-Test hätte bedeutet, alle 24 aktiven Abos in der gemeinsamen Produktions-DB temporär zu pausieren — als unverhältnismäßig destruktiv verworfen (siehe Projekt-Grundsatz: keine systemweiten Leerzustands-Annahmen/-Manipulationen ohne Staging-Umgebung).
+
+### Edge Cases Status
+
+#### EC-1: Abo wechselt genau zum Anzeigezeitpunkt von aktiv zu pausiert
+- [x] Verifiziert per Code-Review: die Zahl wird bei jedem Seitenaufruf frisch aus der Datenbank geladen (kein Cache, kein `unstable_cache`), reflektiert also automatisch den Stand nach der täglichen Cron-Verarbeitung
+
+### Security Audit Results
+- [x] Autorisierung: Kachel liegt auf `/admin`, geschützt durch dieselbe bestehende Admin-Prüfung wie die restlichen PROJ-17-Kacheln (durch PROJ-17s eigenen AC12-Test „Nicht-Admin wird vom Dashboard weggeleitet" mitabgedeckt, unverändert von dieser Änderung)
+- [x] Keine neue Angriffsfläche: rein lesende Aggregatzahl, kein neuer Nutzereingabe-Pfad, kein neuer Server Action, keine neuen client-seitig kontrollierbaren Parameter
+
+### Regression Testing
+- [x] `npm test`: 175/175 Unit-Tests grün
+- [x] PROJ-17-Regressionssuite (`tests/PROJ-17-admin-analytics-dashboard.spec.ts`): 7/8 grün — 1 Fehlschlag gefunden, aber **nicht durch diese Änderung verursacht**: „AC9: Eigener Zeitraum zeigt hinterlegte Kündigung" erwartet genau 1 Kündigung im August, findet aber 2, da ein PROJ-8-Fixture-Kunde („E2E8 Kunde Heute") eine Kündigung mit dem heutigen Datum trägt, das zufällig in PROJ-17s Testzeitraum (1.–31. August) fällt. Diese Änderung liest ausschließlich `subscriptions.status`, nie `cancelled_at` — bestätigt unabhängig. Vorbestehendes, funktionsübergreifendes Test-Datum-Kollisionsproblem, dem Nutzer transparent mitgeteilt, nicht behoben (außerhalb des Scopes dieser QA-Runde).
+- [x] Responsive (375px/768px/1440px): keine horizontale Überlappung, alle vier Kacheln sichtbar auf allen drei Breakpoints
+
+### Bugs Found
+
+Keine Bugs in PROJ-32 selbst gefunden.
+
+### Summary
+- **Acceptance Criteria:** 4/4 passed
+- **Bugs Found:** 0
+- **Security:** Pass — keine neue Angriffsfläche
+- **Production Ready:** YES
+- **Recommendation:** Deploy. Ein vorbestehender, unabhängiger Regressionsfund in PROJ-17s eigener Testsuite (Datumskollision mit einem PROJ-8-Fixture) sollte separat vom Nutzer priorisiert werden, blockiert aber nicht den Rollout von PROJ-32.
 
 ## Deployment
 _To be added by /deploy_
