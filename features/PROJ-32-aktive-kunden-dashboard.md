@@ -1,6 +1,6 @@
 # PROJ-32: Aktive-Kunden-Anzahl im Dashboard
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -91,6 +91,12 @@ heute wirksam wird).
 ### D) Dependencies (packages to install)
 
 - Keine neuen Pakete nötig — nutzt ausschließlich bereits vorhandene Komponenten (`MetricTile`) und die bestehende Supabase-Anbindung.
+
+## Implementation Notes (Frontend)
+
+Added directly to `src/app/admin/page.tsx`: a fourth query (`subscriptions` where `status = 'active'`, selecting `customer_id` only) fetched alongside the existing dashboard queries, deduplicated via `new Set(...).size`. Dashboard grid changed from `sm:grid-cols-3` to `sm:grid-cols-2 lg:grid-cols-4` to fit the new "Aktive Kunden" `MetricTile` without an awkward wrap. No backend work needed — matches the architecture design exactly.
+
+**Verification:** `npm run build` / `npm run lint` clean. Live-checked in the browser: dashboard shows "Aktive Kunden: 17", matching a direct `select count(distinct customer_id) from subscriptions where status = 'active'` reference query against the same production data.
 
 ## QA Test Results
 _To be added by /qa_

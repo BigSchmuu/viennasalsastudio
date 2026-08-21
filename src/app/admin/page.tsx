@@ -20,7 +20,7 @@ export default async function AdminDashboardPage({
 
   const supabase = await createClient();
 
-  const [invoicesRes, subscriptionsRes, occupancyRes, coursesRes] = await Promise.all([
+  const [invoicesRes, subscriptionsRes, occupancyRes, coursesRes, activeSubsRes] = await Promise.all([
     supabase
       .from("invoices")
       .select("gross_amount, invoice_date")
@@ -35,6 +35,9 @@ export default async function AdminDashboardPage({
       .lte("cancelled_at", trendWindow.to),
     supabase.rpc("get_course_occupancy"),
     supabase.from("courses").select("id, name, max_participants").not("max_participants", "is", null),
+    // PROJ-32: fetched live (no cache) so a subscription that just turned
+    // active/paused today via the cron job is always reflected immediately.
+    supabase.from("subscriptions").select("customer_id").eq("status", "active"),
   ]);
 
   const { count: pausedCount } = await supabase
@@ -81,6 +84,9 @@ export default async function AdminDashboardPage({
   const totalCapacity = occupancyRows.reduce((sum, r) => sum + r.capacity, 0);
   const totalOccupancyPercent = totalCapacity > 0 ? Math.round((totalOccupied / totalCapacity) * 100) : 0;
 
+  // A customer with multiple active subscriptions still counts once.
+  const activeCustomerCount = new Set((activeSubsRes.data ?? []).map((s) => s.customer_id)).size;
+
   return (
     <div className="space-y-6">
       <div>
@@ -90,7 +96,7 @@ export default async function AdminDashboardPage({
 
       <PeriodFilter from={period.from} to={period.to} isCustom={isCustom} />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricTile label="Umsatz im Zeitraum" value={EUR.format(revenueTotal)} />
         <MetricTile
           label="Auslastung (aktuell)"
@@ -102,6 +108,7 @@ export default async function AdminDashboardPage({
           value={String(cancelledCount)}
           secondaryLabel={`${pausedCount ?? 0} aktuell pausiert`}
         />
+        <MetricTile label="Aktive Kunden" value={String(activeCustomerCount)} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
