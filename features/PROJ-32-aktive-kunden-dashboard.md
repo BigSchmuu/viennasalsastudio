@@ -1,6 +1,6 @@
 # PROJ-32: Aktive-Kunden-Anzahl im Dashboard
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -43,12 +43,54 @@
 ### Technical Decisions
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
+|----------|-----------|------|
+| Zählung per direkter Abfrage + Deduplizierung im Server Component, keine neue Datenbankfunktion | Admins haben bereits vollen Lesezugriff auf `subscriptions` (RLS erlaubt es); dieselbe „abfragen + im JS deduplizieren"-Technik wird im Projekt schon an anderer Stelle für ähnliche Zählungen verwendet — kein neues Backend-Objekt nötig | 2026-08-21 |
+| Kachel wird als viertes Element in das bestehende Dashboard-Grid eingefügt, Grid wechselt von 3 auf 4 Spalten | Konsistent mit den bestehenden drei Kacheln (Umsatz, Auslastung, Kündigungen); vermeidet ein unschön umbrechendes Layout bei nur 3 Spalten | 2026-08-21 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Admin-Dashboard (/admin)
+└── Kachel-Reihe (bisher 3, neu 4 Kacheln)
+    ├── Umsatz im Zeitraum (bestehend)
+    ├── Auslastung (bestehend)
+    ├── Kündigungen im Zeitraum (bestehend)
+    └── Aktive Kunden (NEU)
+        — zeigt eine einzelne Zahl, keine Zeitraum-Abhängigkeit
+        — keine Sekundärzeile (kein Vergleichswert nötig laut Spec)
+```
+
+### B) Data Model (plain language)
+
+```
+Keine neuen Felder oder Tabellen nötig.
+
+„Aktive Kunden"-Zahl wird live berechnet aus der bestehenden
+Abo-Tabelle:
+- Alle Abos mit Status „aktiv" werden geladen
+- Die dazugehörigen Kunden werden dedupliziert gezählt
+  (ein Kunde mit mehreren aktiven Abos zählt nur einmal)
+
+Diese Zahl ist eine Momentaufnahme zum Zeitpunkt des Seitenaufrufs,
+nicht zwischengespeichert — reflektiert also automatisch den Stand
+nach der täglichen Cron-Verarbeitung (z.B. wenn eine geplante Pause
+heute wirksam wird).
+```
+
+### C) Tech Decisions (justified for PM)
+
+- **Keine neue Datenbankfunktion:** Die App liest Abo-Daten für Admins bereits heute direkt und vollständig (kein eingeschränkter Zugriff). Eine einfache Abfrage plus Deduplizierung im Server-Code reicht aus — dasselbe Muster wird im Projekt schon für ähnliche Auszählungen verwendet.
+- **Immer eine Live-Zahl, kein Cache:** Da die Seite bei jedem Aufruf neu geladen wird, zeigt die Kachel automatisch den aktuellen Stand — genau das im Edge Case geforderte Verhalten (kein veralteter Wert nach einer heute wirksam gewordenen Pause).
+- **Vierte Kachel im bestehenden Raster statt neuer Sektion:** Passt zum etablierten Dashboard-Layout aus PROJ-17 und erfordert keine neue UI-Struktur.
+
+### D) Dependencies (packages to install)
+
+- Keine neuen Pakete nötig — nutzt ausschließlich bereits vorhandene Komponenten (`MetricTile`) und die bestehende Supabase-Anbindung.
 
 ## QA Test Results
 _To be added by /qa_
