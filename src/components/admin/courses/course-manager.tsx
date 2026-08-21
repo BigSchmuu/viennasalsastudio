@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { SortableHeader } from "@/components/admin/sortable-header";
 import {
   Select,
   SelectContent,
@@ -91,6 +93,8 @@ export type RoomOption = { id: string; name: string; locationId: string };
 export type VideoSetOption = { id: string; name: string; level: string | null };
 
 const NO_VIDEO_SET = "__none__";
+const ALL_LEVELS = "__all__";
+const ALL_STYLES = "__all__";
 
 export function CourseManager({
   courses,
@@ -99,6 +103,8 @@ export function CourseManager({
   rooms,
   teachers,
   videoSets,
+  initialLevel,
+  initialDanceStyle,
 }: {
   courses: CourseRow[];
   danceStyles: SimpleOption[];
@@ -106,11 +112,28 @@ export function CourseManager({
   rooms: RoomOption[];
   teachers: TeacherOption[];
   videoSets: VideoSetOption[];
+  initialLevel: string;
+  initialDanceStyle: string;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [editing, setEditing] = useState<CourseRow | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<CourseRow | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [waitlistTarget, setWaitlistTarget] = useState<CourseRow | null>(null);
+
+  function applyListFilter(key: "level" | "dance_style", value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set(key, value);
+    else params.delete(key);
+    router.push(`/admin/kurse${params.toString() ? `?${params.toString()}` : ""}`);
+  }
+
+  const listFiltersActive = initialLevel !== "" || initialDanceStyle !== "";
+
+  function resetListFilters() {
+    router.push("/admin/kurse");
+  }
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -142,15 +165,63 @@ export function CourseManager({
         </Alert>
       )}
 
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <Label htmlFor="course-level-filter">Level</Label>
+          <Select
+            value={initialLevel || ALL_LEVELS}
+            onValueChange={(value) => applyListFilter("level", value === ALL_LEVELS ? "" : value)}
+          >
+            <SelectTrigger id="course-level-filter" className="w-40">
+              <SelectValue placeholder="Alle" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_LEVELS}>Alle</SelectItem>
+              {levelOptions.map((level) => (
+                <SelectItem key={level.value} value={level.value}>
+                  {level.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="course-style-filter">Tanzstil</Label>
+          <Select
+            value={initialDanceStyle || ALL_STYLES}
+            onValueChange={(value) => applyListFilter("dance_style", value === ALL_STYLES ? "" : value)}
+          >
+            <SelectTrigger id="course-style-filter" className="w-40">
+              <SelectValue placeholder="Alle" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_STYLES}>Alle</SelectItem>
+              {danceStyles.map((style) => (
+                <SelectItem key={style.id} value={style.id}>
+                  {style.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {listFiltersActive && (
+          <Button type="button" variant="outline" size="sm" onClick={resetListFilters}>
+            Filter zurücksetzen
+          </Button>
+        )}
+      </div>
+
       {courses.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">Noch keine Kurse vorhanden.</p>
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          {listFiltersActive ? "Keine Kurse gefunden." : "Noch keine Kurse vorhanden."}
+        </p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
+              <SortableHeader label="Name" sortKey="name" />
               <TableHead>Tanzstil</TableHead>
-              <TableHead>Level</TableHead>
+              <SortableHeader label="Level" sortKey="level" />
               <TableHead>Standort / Raum</TableHead>
               <TableHead>Lehrer</TableHead>
               <TableHead>Videosatz</TableHead>

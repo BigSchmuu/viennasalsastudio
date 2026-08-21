@@ -7,9 +7,26 @@ import {
   type VideoSetOption,
 } from "@/components/admin/courses/course-manager";
 import type { TeacherOption } from "@/components/admin/courses/teacher-multi-select";
+import { levelValues } from "@/lib/constants/levels";
 
-export default async function CoursesPage() {
+export default async function CoursesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ level?: string; dance_style?: string; sort?: string; dir?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
+
+  let coursesQuery = supabase
+    .from("courses")
+    .select(
+      "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date)), course_entry_dates(id, entry_date), max_participants, price, prerequisite_note, role_query_enabled, max_role_difference"
+    )
+    .order("created_at", { ascending: true });
+
+  const isValidLevel = (levelValues as readonly string[]).includes(params.level ?? "");
+  if (isValidLevel) coursesQuery = coursesQuery.eq("level", params.level!);
+  if (params.dance_style) coursesQuery = coursesQuery.eq("dance_style_id", params.dance_style);
 
   const [
     coursesRes,
@@ -22,12 +39,7 @@ export default async function CoursesPage() {
     openBookingsRes,
     waitlistRes,
   ] = await Promise.all([
-    supabase
-      .from("courses")
-      .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date)), course_entry_dates(id, entry_date), max_participants, price, prerequisite_note, role_query_enabled, max_role_difference"
-      )
-      .order("created_at", { ascending: true }),
+    coursesQuery,
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
     supabase.from("locations").select("id, name").order("name", { ascending: true }),
     supabase.from("rooms").select("id, name, location_id").order("name", { ascending: true }),
@@ -98,7 +110,7 @@ export default async function CoursesPage() {
     waitlistByCourse.set(w.course_id, entries);
   }
 
-  const courses: CourseRow[] = (coursesRes.data ?? []).map((c) => ({
+  let courses: CourseRow[] = (coursesRes.data ?? []).map((c) => ({
     id: c.id,
     name: c.name,
     level: c.level,
@@ -137,6 +149,19 @@ export default async function CoursesPage() {
     roleCounts: roleCountsByCourse.get(c.id) ?? { leader: 0, follower: 0, both: 0 },
   }));
 
+  if (params.sort === "name" || params.sort === "level") {
+    const sortDir = params.dir === "desc" ? -1 : 1;
+    courses = [...courses].sort((a, b) => {
+      if (params.sort === "level") {
+        // Pedagogical order (beginner → open_level), not alphabetical.
+        const ai = a.level ? levelValues.indexOf(a.level as (typeof levelValues)[number]) : -1;
+        const bi = b.level ? levelValues.indexOf(b.level as (typeof levelValues)[number]) : -1;
+        return (ai - bi) * sortDir;
+      }
+      return a.name.localeCompare(b.name, "de") * sortDir;
+    });
+  }
+
   return (
     <CourseManager
       courses={courses}
@@ -145,6 +170,8 @@ export default async function CoursesPage() {
       rooms={rooms}
       teachers={teachers}
       videoSets={videoSets}
+      initialLevel={isValidLevel ? params.level! : ""}
+      initialDanceStyle={params.dance_style ?? ""}
     />
   );
 }
