@@ -18,6 +18,7 @@ export async function listCheckinEvents(): Promise<CheckinEventRow[]> {
 
 export type TicketSearchRow = {
   id: string;
+  customerId: string;
   customerName: string;
   paymentMethod: string;
   status: string;
@@ -29,13 +30,14 @@ export async function searchEventTickets(eventId: string, query: string): Promis
 
   const { data } = await supabase
     .from("tickets")
-    .select("id, payment_method, status, checked_in_at, profiles(full_name)")
+    .select("id, customer_id, payment_method, status, checked_in_at, profiles(full_name)")
     .eq("event_id", eventId)
     .neq("status", "cancelled")
     .order("created_at", { ascending: true });
 
   const rows: TicketSearchRow[] = (data ?? []).map((t) => ({
     id: t.id,
+    customerId: t.customer_id,
     customerName: t.profiles?.full_name ?? "—",
     paymentMethod: t.payment_method,
     status: t.status,

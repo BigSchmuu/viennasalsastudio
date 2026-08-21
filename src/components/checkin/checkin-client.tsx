@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { checkinTicket, searchEventTickets, type CheckinEventRow, type TicketSearchRow } from "@/lib/actions/checkin";
 import { ticketPaymentMethodLabel, ticketStatusLabel } from "@/lib/constants/events";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" });
 }
 
-export function CheckinClient({ events }: { events: CheckinEventRow[] }) {
+export function CheckinClient({ events, isAdmin }: { events: CheckinEventRow[]; isAdmin: boolean }) {
   const [eventId, setEventId] = useState(events[0]?.id ?? "");
   const [scannerOn, setScannerOn] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -98,7 +99,15 @@ export function CheckinClient({ events }: { events: CheckinEventRow[] }) {
           {results.map((r) => (
             <div key={r.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
               <div>
-                <p className="font-medium">{r.customerName}</p>
+                <p className="font-medium">
+                  {isAdmin ? (
+                    <Link href={`/admin/kunden/${r.customerId}`} className="hover:underline">
+                      {r.customerName}
+                    </Link>
+                  ) : (
+                    r.customerName
+                  )}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {ticketPaymentMethodLabel[r.paymentMethod as "sepa" | "onsite"] ?? r.paymentMethod} ·{" "}
                   {ticketStatusLabel(r.status)}

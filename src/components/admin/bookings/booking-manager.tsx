@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { confirmRegularBooking, confirmDropinBooking, rejectBooking } from "@/lib/actions/admin/bookings";
 import { bookingTypeLabel, bookingStatusLabel, bookingStatusColor, desiredPlanLabel } from "@/lib/constants/booking";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ function formatPrice(price: number): string {
 
 export type AdminBookingRow = {
   id: string;
+  customerId: string;
   customerName: string;
   courseName: string;
   type: string;
@@ -126,7 +128,11 @@ export function BookingManager({ bookings: initialBookings }: { bookings: AdminB
         <TableBody>
           {bookings.map((booking) => (
             <TableRow key={booking.id}>
-              <TableCell className="font-medium">{booking.customerName}</TableCell>
+              <TableCell className="font-medium">
+                <Link href={`/admin/kunden/${booking.customerId}`} className="hover:underline">
+                  {booking.customerName}
+                </Link>
+              </TableCell>
               <TableCell>{booking.courseName}</TableCell>
               <TableCell>{bookingTypeLabel[booking.type as keyof typeof bookingTypeLabel] ?? booking.type}</TableCell>
               <TableCell>{formatDate(booking.chosenDate)}</TableCell>

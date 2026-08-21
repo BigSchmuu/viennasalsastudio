@@ -13,7 +13,7 @@ export default async function RechnungenPage({
 
   let query = supabase
     .from("invoices")
-    .select("id, invoice_number, invoice_date, description, gross_amount, bounced_at, profiles(full_name)")
+    .select("id, customer_id, invoice_number, invoice_date, description, gross_amount, bounced_at, profiles(full_name)")
     .order("invoice_date", { ascending: false });
 
   if (params.from) query = query.gte("invoice_date", params.from);
@@ -23,6 +23,7 @@ export default async function RechnungenPage({
 
   let invoices: InvoiceRow[] = (data ?? []).map((i) => ({
     id: i.id,
+    customerId: i.customer_id,
     invoiceNumber: i.invoice_number,
     invoiceDate: i.invoice_date,
     customerName: i.profiles?.full_name ?? "—",

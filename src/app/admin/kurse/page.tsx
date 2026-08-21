@@ -37,7 +37,7 @@ export default async function CoursesPage() {
     supabase.from("course_bookings").select("course_id").eq("type", "regular").eq("status", "open"),
     supabase
       .from("waitlist_entries")
-      .select("id, course_id, desired_plan, chosen_date, created_at, profiles(full_name)")
+      .select("id, course_id, customer_id, desired_plan, chosen_date, created_at, profiles(full_name)")
       .order("created_at", { ascending: true }),
   ]);
 
@@ -69,6 +69,7 @@ export default async function CoursesPage() {
     const entries = waitlistByCourse.get(w.course_id) ?? [];
     entries.push({
       id: w.id,
+      customerId: w.customer_id,
       customerName: w.profiles?.full_name || "Unbenannter Kunde",
       desiredPlan: w.desired_plan,
       chosenDate: w.chosen_date,

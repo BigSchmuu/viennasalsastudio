@@ -18,5 +18,5 @@ export async function requireAdminOrTeacher() {
     redirect("/");
   }
 
-  return { supabase, user };
+  return { supabase, user, isAdmin: profile.role === "admin" };
 }

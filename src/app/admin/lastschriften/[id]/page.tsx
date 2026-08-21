@@ -15,12 +15,13 @@ export default async function LastschriftDetailPage({ params }: { params: Promis
 
   const { data: rawItems } = await supabase
     .from("sepa_collection_items")
-    .select("id, amount, bounced_at, subscriptions(name), profiles(full_name)")
+    .select("id, customer_id, amount, bounced_at, subscriptions(name), profiles(full_name)")
     .eq("run_id", id)
     .order("created_at", { ascending: true });
 
   const items: CollectionItemRow[] = (rawItems ?? []).map((item) => ({
     id: item.id,
+    customerId: item.customer_id,
     customerName: (item.profiles as { full_name: string | null } | null)?.full_name ?? "Unbenannt",
     subscriptionName: (item.subscriptions as { name: string | null } | null)?.name ?? "—",
     amount: item.amount,

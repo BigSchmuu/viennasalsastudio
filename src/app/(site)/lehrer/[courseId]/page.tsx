@@ -10,7 +10,7 @@ const PAST_WINDOW = 8;
 
 export default async function TeacherCoursePage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const { supabase } = await requireCourseAccess(courseId);
+  const { supabase, isAdmin } = await requireCourseAccess(courseId);
 
   const { data: course } = await supabase
     .from("courses")
@@ -94,7 +94,13 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
           Für diesen Kurs ist noch kein Wochentermin hinterlegt.
         </p>
       ) : (
-        <AttendanceMatrix courseId={course.id} columns={columns} rows={rows} eligibleCustomers={eligibleCustomers} />
+        <AttendanceMatrix
+          courseId={course.id}
+          columns={columns}
+          rows={rows}
+          eligibleCustomers={eligibleCustomers}
+          isAdmin={isAdmin}
+        />
       )}
     </div>
   );

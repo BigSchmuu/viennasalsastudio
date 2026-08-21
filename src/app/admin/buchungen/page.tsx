@@ -9,7 +9,7 @@ export default async function BuchungenPage() {
     supabase
       .from("course_bookings")
       .select(
-        "id, type, status, chosen_date, desired_plan, note, price, courses(name, price), profiles(full_name)"
+        "id, customer_id, type, status, chosen_date, desired_plan, note, price, courses(name, price), profiles(full_name)"
       )
       .order("created_at", { ascending: false }),
     supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
@@ -17,6 +17,7 @@ export default async function BuchungenPage() {
 
   const bookings: AdminBookingRow[] = (bookingsRes.data ?? []).map((b) => ({
     id: b.id,
+    customerId: b.customer_id,
     customerName: b.profiles?.full_name || "Unbenannt",
     courseName: b.courses?.name ?? "—",
     type: b.type,

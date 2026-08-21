@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { generateRunXml, markItemBounced } from "@/lib/actions/admin/sepa-collections";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 
 export type CollectionItemRow = {
   id: string;
+  customerId: string;
   customerName: string;
   subscriptionName: string;
   amount: number;
@@ -96,7 +98,11 @@ export function CollectionRunDetail({ runId, items: initialItems }: { runId: str
         <TableBody>
           {items.map((item) => (
             <TableRow key={item.id}>
-              <TableCell className="font-medium">{item.customerName}</TableCell>
+              <TableCell className="font-medium">
+                <Link href={`/admin/kunden/${item.customerId}`} className="hover:underline">
+                  {item.customerName}
+                </Link>
+              </TableCell>
               <TableCell>{item.subscriptionName}</TableCell>
               <TableCell>{formatPrice(item.amount)}</TableCell>
               <TableCell>

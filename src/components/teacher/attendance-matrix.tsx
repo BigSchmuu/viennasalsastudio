@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Check, X, FileText } from "lucide-react";
 import { markAttendance } from "@/lib/actions/teacher/attendance";
 import { loadMoreOccurrences } from "@/lib/actions/teacher/load-more-occurrences";
@@ -51,11 +52,13 @@ export function AttendanceMatrix({
   columns: initialColumns,
   rows: initialRows,
   eligibleCustomers,
+  isAdmin,
 }: {
   courseId: string;
   columns: MatrixColumn[];
   rows: MatrixRow[];
   eligibleCustomers: EligibleCustomer[];
+  isAdmin: boolean;
 }) {
   const [columns, setColumns] = useState(initialColumns);
   const [rows, setRows] = useState(initialRows);
@@ -224,7 +227,13 @@ export function AttendanceMatrix({
                 <TableRow key={row.customerId}>
                   <TableCell className="sticky left-0 z-10 bg-background font-medium whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      {row.fullName}
+                      {isAdmin ? (
+                        <Link href={`/admin/kunden/${row.customerId}`} className="hover:underline">
+                          {row.fullName}
+                        </Link>
+                      ) : (
+                        row.fullName
+                      )}
                       {unsavedIds.has(row.customerId) && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-700 border-amber-300">
                           Nicht gespeichert

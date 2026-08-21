@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { removeWaitlistEntry } from "@/lib/actions/admin/waitlist";
 import { desiredPlanLabel } from "@/lib/constants/booking";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 export type WaitlistEntryRow = {
   id: string;
+  customerId: string;
   customerName: string;
   desiredPlan: string;
   chosenDate: string;
@@ -76,7 +78,11 @@ export function CourseWaitlistDialog({
               {entries.map((entry, index) => (
                 <TableRow key={entry.id}>
                   <TableCell>{index + 1}</TableCell>
-                  <TableCell>{entry.customerName}</TableCell>
+                  <TableCell>
+                    <Link href={`/admin/kunden/${entry.customerId}`} className="hover:underline">
+                      {entry.customerName}
+                    </Link>
+                  </TableCell>
                   <TableCell>{desiredPlanLabel(entry.desiredPlan)}</TableCell>
                   <TableCell>{new Date(entry.chosenDate).toLocaleDateString("de-AT")}</TableCell>
                   <TableCell className="text-right">

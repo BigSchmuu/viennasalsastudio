@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -64,6 +65,18 @@ export function EventManager({ events }: { events: EventRow[] }) {
   const [editing, setEditing] = useState<EventRow | null>(null);
   const [cancelTarget, setCancelTarget] = useState<EventRow | null>(null);
   const [guestListEvent, setGuestListEvent] = useState<EventRow | null>(null);
+  const [guests, setGuests] = useState<EventGuestRow[] | null>(null);
+  const [guestsLoading, setGuestsLoading] = useState(false);
+
+  async function openGuestList(event: EventRow) {
+    setGuestListEvent(event);
+    setGuestsLoading(true);
+    try {
+      setGuests(await getEventGuestList(event.id));
+    } finally {
+      setGuestsLoading(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -104,7 +117,7 @@ export function EventManager({ events }: { events: EventRow[] }) {
                 </Badge>
               </TableCell>
               <TableCell className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setGuestListEvent(event)}>
+                <Button variant="outline" size="sm" onClick={() => openGuestList(event)}>
                   Gästeliste
                 </Button>
                 <Button
@@ -172,7 +185,17 @@ export function EventManager({ events }: { events: EventRow[] }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <GuestListDialog event={guestListEvent} onOpenChange={(open) => !open && setGuestListEvent(null)} />
+      <GuestListDialog
+        event={guestListEvent}
+        guests={guests}
+        loading={guestsLoading}
+        onOpenChange={(open) => {
+          if (!open) {
+            setGuestListEvent(null);
+            setGuests(null);
+          }
+        }}
+      />
     </div>
   );
 }
@@ -363,32 +386,17 @@ function EventFormDialog({
 
 function GuestListDialog({
   event,
+  guests,
+  loading,
   onOpenChange,
 }: {
   event: EventRow | null;
+  guests: EventGuestRow[] | null;
+  loading: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [guests, setGuests] = useState<EventGuestRow[] | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function load(eventId: string) {
-    setLoading(true);
-    try {
-      setGuests(await getEventGuestList(eventId));
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
-    <Dialog
-      open={!!event}
-      onOpenChange={(open) => {
-        if (open && event) load(event.id);
-        if (!open) setGuests(null);
-        onOpenChange(open);
-      }}
-    >
+    <Dialog open={!!event} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Gästeliste — {event?.name}</DialogTitle>
@@ -409,7 +417,11 @@ function GuestListDialog({
             <TableBody>
               {guests.map((g) => (
                 <TableRow key={g.id}>
-                  <TableCell>{g.customerName}</TableCell>
+                  <TableCell>
+                    <Link href={`/admin/kunden/${g.customerId}`} className="hover:underline">
+                      {g.customerName}
+                    </Link>
+                  </TableCell>
                   <TableCell>{ticketPaymentMethodLabel[g.paymentMethod as "sepa" | "onsite"] ?? g.paymentMethod}</TableCell>
                   <TableCell>
                     <Badge style={{ backgroundColor: ticketStatusColor(g.status) }} className="text-white">

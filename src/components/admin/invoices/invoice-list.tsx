@@ -11,6 +11,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 
 export type InvoiceRow = {
   id: string;
+  customerId: string;
   invoiceNumber: string;
   invoiceDate: string;
   customerName: string;
@@ -122,7 +123,11 @@ export function InvoiceList({
                   </Link>
                 </TableCell>
                 <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
-                <TableCell>{invoice.customerName}</TableCell>
+                <TableCell>
+                  <Link href={`/admin/kunden/${invoice.customerId}`} className="hover:underline">
+                    {invoice.customerName}
+                  </Link>
+                </TableCell>
                 <TableCell>{formatEUR(invoice.grossAmount)}</TableCell>
                 <TableCell>
                   <Badge variant={invoice.bounced ? "destructive" : "default"}>
