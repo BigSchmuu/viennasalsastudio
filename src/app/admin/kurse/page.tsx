@@ -26,10 +26,8 @@ export default async function CoursesPage({
 
   const isValidLevel = (levelValues as readonly string[]).includes(params.level ?? "");
   if (isValidLevel) coursesQuery = coursesQuery.eq("level", params.level!);
-  if (params.dance_style) coursesQuery = coursesQuery.eq("dance_style_id", params.dance_style);
 
   const [
-    coursesRes,
     danceStylesRes,
     locationsRes,
     roomsRes,
@@ -39,7 +37,6 @@ export default async function CoursesPage({
     openBookingsRes,
     waitlistRes,
   ] = await Promise.all([
-    coursesQuery,
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
     supabase.from("locations").select("id, name").order("name", { ascending: true }),
     supabase.from("rooms").select("id, name, location_id").order("name", { ascending: true }),
@@ -58,6 +55,14 @@ export default async function CoursesPage({
   ]);
 
   const danceStyles: SimpleOption[] = danceStylesRes.data ?? [];
+
+  // Validate against the loaded list (not just truthiness) so an invalid/stale
+  // dance_style value is ignored instead of causing a silent PostgREST query
+  // error that would otherwise look like a legitimate 0-result filter.
+  const isValidDanceStyle = danceStyles.some((s) => s.id === params.dance_style);
+  if (isValidDanceStyle) coursesQuery = coursesQuery.eq("dance_style_id", params.dance_style!);
+
+  const coursesRes = await coursesQuery;
   const locations: SimpleOption[] = locationsRes.data ?? [];
   const rooms: RoomOption[] = (roomsRes.data ?? []).map((r) => ({
     id: r.id,
@@ -171,7 +176,7 @@ export default async function CoursesPage({
       teachers={teachers}
       videoSets={videoSets}
       initialLevel={isValidLevel ? params.level! : ""}
-      initialDanceStyle={params.dance_style ?? ""}
+      initialDanceStyle={isValidDanceStyle ? params.dance_style! : ""}
     />
   );
 }

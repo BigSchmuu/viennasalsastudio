@@ -177,6 +177,13 @@ Neuer gemeinsamer Baustein `src/components/admin/sortable-header.tsx` (`Sortable
 
 **Damit ist die Frontend-Implementierung für alle 5 Listen abgeschlossen.**
 
+**Bugfixes nach QA (2026-08-21):**
+- **BUG-1** (Level/Tanzstil-Label-Kollision): Filter-Labels in `course-manager.tsx` von „Level"/„Tanzstil" auf „Level filtern"/„Tanzstil filtern" umbenannt, damit sie sich vom gleichnamigen Feld im „Neuer Kurs"-Dialog unterscheiden. Zusätzlich die zwei betroffenen PROJ-3-Regressionstests auf `{ exact: true }` umgestellt, da Playwright's `getByLabel()` standardmäßig Teilstring-Matching betreibt und „Level filtern"/„Tanzstil filtern" sonst weiterhin als Treffer für eine Suche nach „Level"/„Tanzstil" zählen würden.
+- **BUG-2** (unvalidierter `dance_style`-Parameter): `src/app/admin/kurse/page.tsx` umstrukturiert — die Tanzstil-Liste wird jetzt vor der Kurs-Abfrage geladen, `dance_style` wird gegen diese geladene Liste validiert (analog zu `level` gegen `levelValues`) und nur bei einem echten Treffer als Filter angewendet; ein ungültiger Wert wird jetzt still ignoriert statt einen Datenbankfehler zu verursachen.
+- **BUG-3** (Placeholder-Text): Suchfeld-Placeholder in `customer-list.tsx` zurück auf „Suche nach Name oder E-Mail…" geändert. Zusätzlich beim erneuten Testen festgestellt, dass der zugehörige PROJ-4-Regressionstest noch von der alten *live* (tastendruck-basierten) Suche ausging — dies war durch PROJ-33s bewusste, architektur-genehmigte Umstellung der Kundenliste auf Submit-basierte Suche (Klick auf „Filtern") ohnehin überholt, unabhängig vom Placeholder-Text. Test entsprechend um den `Filtern`-Klick ergänzt.
+- Alle drei Fixes live verifiziert (inkl. eines gezielten Tests, dass ein weiterhin gültiger `dance_style`-Wert korrekt filtert) sowie durch erneuten Lauf der betroffenen PROJ-3-, PROJ-4- und PROJ-33-Suiten bestätigt (`npm run build`/`npm run lint` sauber).
+- Bei der Verifikation zusätzlich zwei **vorbestehende, PROJ-33-unabhängige** Fixture-Pollution-Fälle beobachtet (nicht behoben, da außerhalb des Scopes dieser drei Bugs): der PROJ-3-Test „Kurs anlegen mit Lehrer" erzeugt bei wiederholten Läufen eine doppelte „E2E Salsa Kurs (erneut bearbeitet)"-Zeile (Test hat keine Selbstbereinigung), und der PROJ-4-Test „Kein Abo vorhanden" setzt voraus, dass „E2E4 Test Kunde" 0 Abos hat, was nach einem vorherigen erfolgreichen Lauf nicht mehr zutrifft (Test legt ein Abo an, löscht es aber nie wieder). Beide sind durch die wiederholten QA-Testläufe in dieser Session sichtbar geworden, nicht durch PROJ-33-Code verursacht.
+
 ## QA Test Results
 
 **Tested:** 2026-08-21

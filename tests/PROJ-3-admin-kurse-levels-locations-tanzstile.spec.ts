@@ -148,7 +148,7 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
     await page.goto("/admin/kurse");
     await page.getByRole("button", { name: "Neuer Kurs" }).click();
     await page.waitForTimeout(500);
-    await page.getByLabel("Tanzstil").click();
+    await page.getByLabel("Tanzstil", { exact: true }).click();
     await expect(page.getByRole("option", { name: "E2E Salsa" })).toBeVisible();
   });
 
@@ -168,9 +168,9 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
     await page.waitForTimeout(500);
 
     await page.getByLabel("Name").fill("E2E Salsa Kurs");
-    await page.getByLabel("Tanzstil").click();
+    await page.getByLabel("Tanzstil", { exact: true }).click();
     await page.getByRole("option", { name: "E2E Salsa" }).click();
-    await page.getByLabel("Level").click();
+    await page.getByLabel("Level", { exact: true }).click();
     await page.getByRole("option", { name: "Beginner" }).click();
     await page.getByLabel("Standort").click();
     await page.getByRole("option", { name: "E2E Studio" }).click();

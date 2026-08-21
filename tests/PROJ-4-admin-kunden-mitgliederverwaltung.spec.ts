@@ -43,10 +43,13 @@ test.describe("PROJ-4: Admin — Kunden-/Mitgliederverwaltung", () => {
     await expect(page.getByText("E2E4 Test Kunde")).toBeVisible();
     await expect(page.getByText("e2e4-kunde@viennasalsastudio.test")).toBeVisible();
 
+    // PROJ-33: search is submit-based (URL param), not live-as-you-type.
     await page.getByPlaceholder(/Suche/).fill("E2E4 Test Kunde");
+    await page.getByRole("button", { name: "Filtern" }).click();
     await expect(page.getByText("E2E4 Test Kunde")).toBeVisible();
 
     await page.getByPlaceholder(/Suche/).fill("kein-treffer-xyz");
+    await page.getByRole("button", { name: "Filtern" }).click();
     await expect(page.getByText("Keine Kunden gefunden")).toBeVisible();
   });
 

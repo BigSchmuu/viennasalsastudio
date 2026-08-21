@@ -75,7 +75,7 @@ export function CustomerList({
           <Label htmlFor="customer-search">Suche</Label>
           <Input
             id="customer-search"
-            placeholder="Name oder E-Mail…"
+            placeholder="Suche nach Name oder E-Mail…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-56"

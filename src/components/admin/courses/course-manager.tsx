@@ -167,7 +167,7 @@ export function CourseManager({
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
-          <Label htmlFor="course-level-filter">Level</Label>
+          <Label htmlFor="course-level-filter">Level filtern</Label>
           <Select
             value={initialLevel || ALL_LEVELS}
             onValueChange={(value) => applyListFilter("level", value === ALL_LEVELS ? "" : value)}
@@ -186,7 +186,7 @@ export function CourseManager({
           </Select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="course-style-filter">Tanzstil</Label>
+          <Label htmlFor="course-style-filter">Tanzstil filtern</Label>
           <Select
             value={initialDanceStyle || ALL_STYLES}
             onValueChange={(value) => applyListFilter("dance_style", value === ALL_STYLES ? "" : value)}
