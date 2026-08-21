@@ -3,6 +3,7 @@ import { sendNotificationEmail } from "@/lib/notifications/mailer";
 import { sendPushToCustomer } from "@/lib/notifications/push";
 import { buildNotificationContent, type NotificationContent } from "@/lib/notifications/templates";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
+import { hasConvertedSince } from "@/lib/trials/conversion";
 import type { Json } from "@/lib/supabase/types";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
@@ -127,6 +128,15 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         courseId: data.course_id,
       });
     }
+    case "newsletter": {
+      const { data } = await service
+        .from("newsletter_sends")
+        .select("subject, body")
+        .eq("id", payload.send_id as string)
+        .maybeSingle();
+      if (!data) return null;
+      return buildNotificationContent("newsletter", { subject: data.subject, body: data.body });
+    }
     default:
       return null;
   }
@@ -183,7 +193,10 @@ export async function processQueueRow(service: ServiceClient, row: QueueRow): Pr
         if (emailResult.error) errors.push(`E-Mail: ${emailResult.error}`);
       }
 
-      if (prefs.push) {
+      // PROJ-28: newsletter has no push channel — the settings UI hides the toggle,
+      // but getChannelPreferences() still defaults push to true when unset, so this
+      // must be excluded explicitly rather than relying on the (never-set) preference.
+      if (prefs.push && row.event_type !== "newsletter") {
         pushStatus = await sendPushToCustomer(service, row.customer_id, {
           title: content.pushTitle,
           body: content.pushBody,
@@ -335,29 +348,6 @@ export async function runDailyChecks(service: ServiceClient): Promise<{ reminder
   }
 
   return { reminders, effective };
-}
-
-/** True if `customerId` has any regular booking or subscription dated on/after `sinceDate` (PROJ-29 conversion check). */
-async function hasConvertedSince(service: ServiceClient, customerId: string, sinceDate: string): Promise<boolean> {
-  const { data: regularBooking } = await service
-    .from("course_bookings")
-    .select("id")
-    .eq("customer_id", customerId)
-    .eq("type", "regular")
-    .eq("status", "confirmed")
-    .gte("chosen_date", sinceDate)
-    .limit(1)
-    .maybeSingle();
-  if (regularBooking) return true;
-
-  const { data: subscription } = await service
-    .from("subscriptions")
-    .select("id")
-    .eq("customer_id", customerId)
-    .gte("created_at", `${sinceDate}T00:00:00Z`)
-    .limit(1)
-    .maybeSingle();
-  return !!subscription;
 }
 
 /** Enqueues the same-evening trial reminder (chosen_date = today, Vienna). Meant for a

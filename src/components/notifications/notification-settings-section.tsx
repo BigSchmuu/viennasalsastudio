@@ -12,6 +12,7 @@ import {
   notificationChannelValues,
   notificationEventGroupLabel,
   notificationEventGroupDescription,
+  notificationEmailOnlyGroups,
   type NotificationEventGroup,
   type NotificationChannel,
 } from "@/lib/constants/notifications";
@@ -118,6 +119,13 @@ export function NotificationSettingsSection({
                   <p className="text-xs text-muted-foreground">{notificationEventGroupDescription[eventGroup]}</p>
                 </TableCell>
                 {notificationChannelValues.map((channel) => {
+                  if (channel === "push" && notificationEmailOnlyGroups.includes(eventGroup)) {
+                    return (
+                      <TableCell key={channel} className="text-center text-muted-foreground">
+                        —
+                      </TableCell>
+                    );
+                  }
                   const key = `${eventGroup}:${channel}`;
                   const disabled = (channel === "push" && !pushReady) || pendingKey === key;
                   return (

@@ -1,6 +1,6 @@
 # PROJ-28: Newsletter-Versand mit Empfängergruppen
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -144,6 +144,27 @@ Empfängerdaten bleiben abgeleitet, nicht dupliziert.
 ### D) Dependencies (packages to install)
 
 - Keine neuen Pakete nötig — nutzt bereits vorhandene shadcn/ui-Bausteine (Textarea, Select, AlertDialog, Table) sowie die bestehende PROJ-16-Benachrichtigungs- und PROJ-29-Konvertierungs-Infrastruktur.
+
+## Implementation Notes (Backend)
+
+**Refactor vor der eigentlichen Implementierung:** Die Konvertierungs-Prüfung aus PROJ-29 (`hasConvertedSince`, bisher privat in `dispatch.ts`) wurde nach `src/lib/trials/conversion.ts` verschoben und exportiert, da PROJ-28 dieselbe Logik für die Gruppe „Probestunde ohne Folgebuchung" braucht. Eine dritte Kopie derselben Prüfung anzulegen hätte genau das Risiko wiederholt, das bereits zu PROJ-29s BUG-1 geführt hat (ein Status-Filter, der in einer Kopie vergessen wird). `dispatch.ts` importiert die Funktion jetzt von dort, keine Verhaltensänderung.
+
+**Datenbank** (Migration `proj28_newsletter_sends`): neue Tabelle `newsletter_sends` (Betreff, Text, Empfängergruppe, optionaler Kurs, Empfängeranzahl, Absender, Zeitpunkt) mit admin-only RLS (SELECT/INSERT, kein UPDATE/DELETE — reine Historie). `notification_queue`/`notification_preferences` CHECK-Constraints um `newsletter` erweitert.
+
+**Empfängerauflösung** (`src/lib/newsletter/recipients.ts`, `resolveRecipientIds`): eine gemeinsame Funktion für alle vier Gruppen, genutzt sowohl für die Live-Vorschau als auch den tatsächlichen Versand (garantiert, dass beide immer dieselbe Liste sehen). „Probestunde ohne Folgebuchung" ermittelt zuerst pro Kunde die jeweils *letzte* bestätigte Probestunde (per `ORDER BY chosen_date DESC`, erster Treffer pro Kunde gewinnt), prüft dann nur diese über die gemeinsame `hasConvertedSince`-Funktion.
+
+**Bug gefunden und behoben (noch vor QA, während der eigenen Verifikation):** „Kurs-Teilnehmer" zählte ursprünglich sowohl offene als auch bereits *bestätigte* reguläre Buchungen als aktuell Teilnehmende. Live-Verifikation zeigte: eine bestätigte Buchung erzeugt zwar bei der Bestätigung automatisch ein Abo, aber falls dieses Abo *später* gekündigt wird, bleibt die ursprüngliche Buchung für immer auf „confirmed" stehen — der Kunde wäre dadurch fälschlich weiterhin als aktueller Teilnehmer gezählt worden. Behoben: nur noch *offene* reguläre Buchungen zählen zusätzlich zu aktiven Abos, exakt dieselbe Konvention wie die bereits bestehende Auslastungsberechnung in `src/app/admin/kurse/page.tsx`.
+
+**Newsletter ist die erste Benachrichtigungsgruppe ohne Push-Kanal:** `notificationEmailOnlyGroups` (neuer Export in `constants/notifications.ts`) steuert sowohl die Kunden-Einstellungen-UI (zeigt einen Strich statt eines Schalters für Push) als auch `dispatch.ts` (versucht nie Push für `newsletter`, unabhängig vom — standardmäßig „an" — Präferenzwert, da es dafür ja gar keinen Schalter gibt).
+
+**Versand** (`src/lib/actions/admin/newsletter.ts`): `previewRecipientCount` (reine Zählung, keine Nebenwirkung) und `sendNewsletter` (legt den `newsletter_sends`-Datensatz an, enqueued dann pro Empfänger eine Zeile über das bestehende Bulk-`enqueueNotification`, kein `enqueueAndDispatch` — blockiert den Admin-Klick nicht). `dedupe_key` enthält die `send_id`, damit derselbe Kunde bei einem *späteren, neuen* Versand erneut angeschrieben werden kann (im Unterschied zu den anderen Ereignistypen, die dieselbe Erinnerung nie zweimal verschicken).
+
+**Verifikation:** `npm run build`/`npm run lint` sauber, `npm test` 197/197 (3 neue Tests für die Newsletter-Vorlage inkl. HTML-Escaping und Absatz-/Zeilenumbruch-Konvertierung). Live gegen die echte Produktionsdatenbank geprüft (vollständig eigenständige Testkunden/-kurs, danach restlos entfernt):
+- Alle 4 Empfängergruppen liefern die exakt erwartete Kundenmenge, inkl. gezielter Prüfung des „nur die letzte Probestunde zählt"-Falls (ein Kunde mit alter konvertierter + neuer unkonvertierter Probestunde wird korrekt eingeschlossen; ein Kunde mit alter unkonvertierter + neuer konvertierter Probestunde korrekt ausgeschlossen)
+- „Kurs-Teilnehmer"-Dedupe bestätigt (ein Kunde mit sowohl aktivem Abo als auch offener Buchung für denselben Kurs erscheint nur einmal)
+- Zwei unabhängige Versände an dieselben zwei Empfänger erzeugen korrekt 4 separate Warteschlangen-Einträge (kein fälschliches Dedupe zwischen unterschiedlichen Versänden)
+- Alle 4 verschickten Test-Zeilen zeigen `push_status: "skipped"` trotz Standard-Präferenz „an" — bestätigt die Push-Sperre
+- Inhaltsauflösung funktioniert (Betreff/Text korrekt aus `newsletter_sends` geladen), E-Mail-Versand schlug erwartungsgemäß nur an der Fake-Testdomain fehl
 
 ## QA Test Results
 _To be added by /qa_

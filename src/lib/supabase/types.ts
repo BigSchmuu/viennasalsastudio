@@ -683,6 +683,47 @@ export type Database = {
         }
         Relationships: []
       }
+      newsletter_sends: {
+        Row: {
+          body: string
+          course_id: string | null
+          id: string
+          recipient_count: number
+          recipient_group: string
+          sent_at: string
+          sent_by: string
+          subject: string
+        }
+        Insert: {
+          body: string
+          course_id?: string | null
+          id?: string
+          recipient_count: number
+          recipient_group: string
+          sent_at?: string
+          sent_by: string
+          subject: string
+        }
+        Update: {
+          body?: string
+          course_id?: string | null
+          id?: string
+          recipient_count?: number
+          recipient_group?: string
+          sent_at?: string
+          sent_by?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "newsletter_sends_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           channel: string

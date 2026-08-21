@@ -74,6 +74,7 @@ export type ProbestundeNachfassungDetails = {
   courseName: string;
   courseId: string;
 };
+export type NewsletterDetails = { subject: string; body: string };
 
 export function buildNotificationContent(
   eventType: NotificationEventGroup | "sepa_ankuendigung",
@@ -85,6 +86,7 @@ export function buildNotificationContent(
     | SepaAnkuendigungDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
+    | NewsletterDetails
 ): NotificationContent {
   switch (eventType) {
     case "buchungsstatus": {
@@ -231,6 +233,22 @@ export function buildNotificationContent(
         pushTitle: subject,
         pushBody: `Nächster Termin von ${d.courseName} steht bevor.`,
         url,
+      };
+    }
+    case "newsletter": {
+      const d = details as NewsletterDetails;
+      const bodyHtml = d.body
+        .split(/\n{2,}/)
+        .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
+        .join("");
+      return {
+        subject: d.subject,
+        emailHtml: emailShell(d.subject, bodyHtml),
+        // Newsletter is email-only (no push channel) — these are never sent, kept
+        // only so this case still satisfies the shared NotificationContent shape.
+        pushTitle: d.subject,
+        pushBody: d.subject,
+        url: "/profil",
       };
     }
   }

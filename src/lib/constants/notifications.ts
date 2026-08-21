@@ -5,11 +5,15 @@ export const notificationEventGroupValues = [
   "kursstart_erinnerung",
   "event_tickets",
   "probestunde_nachfassung",
+  "newsletter",
 ] as const;
 export type NotificationEventGroup = (typeof notificationEventGroupValues)[number];
 
 export const notificationChannelValues = ["email", "push"] as const;
 export type NotificationChannel = (typeof notificationChannelValues)[number];
+
+/** Groups with no push option at all (PROJ-28: newsletter is email-only by spec). */
+export const notificationEmailOnlyGroups: readonly NotificationEventGroup[] = ["newsletter"];
 
 export const notificationEventGroupLabel: Record<NotificationEventGroup, string> = {
   buchungsstatus: "Buchungsstatus",
@@ -18,6 +22,7 @@ export const notificationEventGroupLabel: Record<NotificationEventGroup, string>
   kursstart_erinnerung: "Kursstart-Erinnerung",
   event_tickets: "Event-Tickets",
   probestunde_nachfassung: "Probestunden-Nachfassung",
+  newsletter: "Newsletter",
 };
 
 export const notificationEventGroupDescription: Record<NotificationEventGroup, string> = {
@@ -27,4 +32,5 @@ export const notificationEventGroupDescription: Record<NotificationEventGroup, s
   kursstart_erinnerung: "Erinnerung am Vortag einer Probestunde oder eines Drop-ins",
   event_tickets: "Dein Event-Ticket wurde bestätigt oder das Event wurde abgesagt",
   probestunde_nachfassung: "Erinnerung nach einer Probestunde, mit direktem Buchungslink",
+  newsletter: "Ankündigungen und Aktionen des Studios",
 };

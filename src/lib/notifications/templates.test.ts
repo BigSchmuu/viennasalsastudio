@@ -168,4 +168,32 @@ describe("buildNotificationContent", () => {
     expect(content.emailHtml).not.toContain("<img");
     expect(content.emailHtml).toContain("&lt;img");
   });
+
+  it("builds a newsletter message using the admin-authored subject and body verbatim", () => {
+    const content = buildNotificationContent("newsletter", {
+      subject: "Neue Kurse im Herbst",
+      body: "Wir starten drei neue Kurse ab September.",
+    });
+    expect(content.subject).toBe("Neue Kurse im Herbst");
+    expect(content.emailHtml).toContain("Wir starten drei neue Kurse ab September.");
+  });
+
+  it("splits newsletter body paragraphs on blank lines and line breaks on single newlines", () => {
+    const content = buildNotificationContent("newsletter", {
+      subject: "Update",
+      body: "Erster Absatz.\n\nZweiter Absatz,\nmit Zeilenumbruch.",
+    });
+    expect(content.emailHtml).toContain("<p>Erster Absatz.</p>");
+    expect(content.emailHtml).toContain("Zweiter Absatz,<br />");
+  });
+
+  it("escapes HTML in the newsletter subject and body", () => {
+    const content = buildNotificationContent("newsletter", {
+      subject: '<img src=x onerror=alert(1)> Angebot',
+      body: '<script>alert("xss")</script>',
+    });
+    expect(content.emailHtml).not.toContain("<img");
+    expect(content.emailHtml).not.toContain("<script>");
+    expect(content.emailHtml).toContain("&lt;script&gt;");
+  });
 });
