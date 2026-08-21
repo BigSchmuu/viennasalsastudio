@@ -3,18 +3,29 @@ import { createClient } from "@/lib/supabase/server";
 import { InvoiceList, type InvoiceRow } from "@/components/admin/invoices/invoice-list";
 import { Button } from "@/components/ui/button";
 
+const SORTABLE_COLUMNS = ["invoice_date", "gross_amount", "customer_name"] as const;
+
 export default async function RechnungenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ q?: string; from?: string; to?: string; sort?: string; dir?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
 
+  const sortKey = SORTABLE_COLUMNS.includes(params.sort as (typeof SORTABLE_COLUMNS)[number])
+    ? (params.sort as (typeof SORTABLE_COLUMNS)[number])
+    : "invoice_date";
+  const ascending = params.sort ? params.dir !== "desc" : false; // default: newest invoice first
+
   let query = supabase
     .from("invoices")
-    .select("id, customer_id, invoice_number, invoice_date, description, gross_amount, bounced_at, profiles(full_name)")
-    .order("invoice_date", { ascending: false });
+    .select("id, customer_id, invoice_number, invoice_date, description, gross_amount, bounced_at, profiles(full_name)");
+
+  query =
+    sortKey === "customer_name"
+      ? query.order("full_name", { foreignTable: "profiles", ascending })
+      : query.order(sortKey, { ascending });
 
   if (params.from) query = query.gte("invoice_date", params.from);
   if (params.to) query = query.lte("invoice_date", params.to);

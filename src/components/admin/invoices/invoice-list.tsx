@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { SortableHeader } from "@/components/admin/sortable-header";
 
 export type InvoiceRow = {
   id: string;
@@ -40,12 +41,18 @@ export function InvoiceList({
   initialTo: string;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
 
   function applyFilters() {
+    // Preserve any active sort — filtering shouldn't reset it.
     const params = new URLSearchParams();
+    const sort = searchParams.get("sort");
+    const dir = searchParams.get("dir");
+    if (sort) params.set("sort", sort);
+    if (dir) params.set("dir", dir);
     if (query.trim()) params.set("q", query.trim());
     if (from) params.set("from", from);
     if (to) params.set("to", to);
@@ -65,7 +72,8 @@ export function InvoiceList({
   if (initialTo) exportParams.set("to", initialTo);
   const exportHref = `/api/admin/rechnungen/export${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
 
-  const filtersActive = initialQuery !== "" || initialFrom !== "" || initialTo !== "";
+  const filtersActive =
+    initialQuery !== "" || initialFrom !== "" || initialTo !== "" || searchParams.has("sort");
 
   return (
     <div className="space-y-4">
@@ -108,9 +116,9 @@ export function InvoiceList({
           <TableHeader>
             <TableRow>
               <TableHead>Nummer</TableHead>
-              <TableHead>Datum</TableHead>
-              <TableHead>Kunde</TableHead>
-              <TableHead>Betrag</TableHead>
+              <SortableHeader label="Datum" sortKey="invoice_date" />
+              <SortableHeader label="Kunde" sortKey="customer_name" />
+              <SortableHeader label="Betrag" sortKey="gross_amount" />
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
