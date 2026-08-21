@@ -1,6 +1,6 @@
 # PROJ-30: Leader/Follower-Auswahl bei Kursbuchung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -250,4 +250,10 @@ Beim Ausführen der Regressionstests für abhängige Features (PROJ-3, PROJ-8, P
 - **Recommendation:** Deploy. Die 13 vorbestehenden, unabhängigen Test-Suite-Fehlschläge (PROJ-3/8/12) sollten separat vom Nutzer priorisiert werden, blockieren aber nicht den Rollout von PROJ-30.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Deployed:** 2026-08-21
+- **Production URL:** https://viennasalsastudio.vercel.app
+- **Git tag:** `v1.0.0-PROJ-30`
+- **Commit:** `4b982df`
+- **Deployment method:** Push to `main` → Vercel auto-deploy (pre-existing project, no first-time Vercel setup needed)
+- **Post-deployment verification:** Confirmed live in production via Playwright against `e2e30-*` fixtures — booking dialog shows the "Ich tanze als (optional)" role selector on a course with the query enabled, and the admin course list correctly shows the live "1 L / 1 F / 1 B" / "1 wartend" distribution left over from the QA pass. No new environment variables required for this feature. No Vercel function log errors observed.

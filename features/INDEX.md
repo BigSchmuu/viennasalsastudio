@@ -44,7 +44,7 @@
 | PROJ-27 | Vorkenntnisse-Hinweis bei Kursbuchung | Deployed | [PROJ-27](../features/PROJ-27-vorkenntnisse-hinweis-kursbuchung.md) | 2026-08-18 |
 | PROJ-28 | Newsletter-Versand mit Empfängergruppen | Planned | [PROJ-28](../features/PROJ-28-newsletter-versand.md) | 2026-08-21 |
 | PROJ-29 | Probestunden-Follow-up & Conversion-Tracking | Planned | [PROJ-29](../features/PROJ-29-probestunden-follow-up-conversion-tracking.md) | 2026-08-21 |
-| PROJ-30 | Leader/Follower-Auswahl bei Kursbuchung | Approved | [PROJ-30](../features/PROJ-30-leader-follower-auswahl-kursbuchung.md) | 2026-08-21 |
+| PROJ-30 | Leader/Follower-Auswahl bei Kursbuchung | Deployed | [PROJ-30](../features/PROJ-30-leader-follower-auswahl-kursbuchung.md) | 2026-08-21 |
 | PROJ-31 | Geburtstags-Erinnerung | Planned | [PROJ-31](../features/PROJ-31-geburtstags-erinnerung.md) | 2026-08-21 |
 | PROJ-32 | Aktive-Kunden-Anzahl im Dashboard | Planned | [PROJ-32](../features/PROJ-32-aktive-kunden-dashboard.md) | 2026-08-21 |
 | PROJ-33 | Sortier- und Filterfunktion für Admin-Listen | Planned | [PROJ-33](../features/PROJ-33-sortier-filterfunktion-admin-listen.md) | 2026-08-21 |
