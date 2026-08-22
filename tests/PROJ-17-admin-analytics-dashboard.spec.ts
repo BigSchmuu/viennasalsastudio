@@ -22,7 +22,7 @@ test.describe("PROJ-17: Admin-Analytics-Dashboard", () => {
     await expect(page.getByText("Umsatz im Zeitraum")).toBeVisible();
     await expect(page.getByText("Auslastung (aktuell)")).toBeVisible();
     await expect(page.getByText("Kündigungen im Zeitraum")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Dashboard" })).toHaveClass(/text-primary/);
+    await expect(page.getByRole("link", { name: "Dashboard" })).toHaveClass(/bg-primary/);
   });
 
   test("AC3, AC9: Eigener Zeitraum mit Rechnungsdaten zeigt Umsatz und Trend-Chart", async ({ page }) => {
