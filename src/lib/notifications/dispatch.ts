@@ -1,7 +1,8 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { sendNotificationEmail } from "@/lib/notifications/mailer";
 import { sendPushToCustomer } from "@/lib/notifications/push";
-import { buildNotificationContent, type NotificationContent } from "@/lib/notifications/templates";
+import { buildNotificationContent, resolveTemplateKey, type NotificationContent } from "@/lib/notifications/templates";
+import type { TemplateFields } from "@/lib/notifications/template-registry";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { hasConvertedSince } from "@/lib/trials/conversion";
 import type { Json } from "@/lib/supabase/types";
@@ -30,6 +31,22 @@ async function getChannelPreferences(
   return { email, push };
 }
 
+/** PROJ-34: looks up an admin-authored override for one template variant, if any. */
+async function fetchOverride(service: ServiceClient, key: string): Promise<TemplateFields | undefined> {
+  const { data } = await service
+    .from("notification_template_overrides")
+    .select("email_subject, email_body, push_title, push_body")
+    .eq("template_key", key)
+    .maybeSingle();
+  if (!data) return undefined;
+  return {
+    emailSubject: data.email_subject,
+    emailBody: data.email_body,
+    pushTitle: data.push_title,
+    pushBody: data.push_body,
+  };
+}
+
 async function resolveContent(service: ServiceClient, row: QueueRow): Promise<NotificationContent | null> {
   const payload = row.payload;
 
@@ -40,10 +57,12 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         .select("courses(name)")
         .eq("id", payload.booking_id as string)
         .maybeSingle();
-      return buildNotificationContent("buchungsstatus", {
+      const details = {
         courseName: data?.courses?.name ?? "Kurs",
         newStatus: payload.new_status as "confirmed" | "rejected",
-      });
+      };
+      const key = resolveTemplateKey("buchungsstatus", details);
+      return buildNotificationContent("buchungsstatus", details, key ? await fetchOverride(service, key) : undefined);
     }
     case "warteliste": {
       const { data } = await service
@@ -51,10 +70,9 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         .select("name")
         .eq("id", payload.course_id as string)
         .maybeSingle();
-      return buildNotificationContent("warteliste", {
-        courseName: data?.name ?? "Kurs",
-        chosenDate: payload.chosen_date as string,
-      });
+      const details = { courseName: data?.name ?? "Kurs", chosenDate: payload.chosen_date as string };
+      const key = resolveTemplateKey("warteliste", details);
+      return buildNotificationContent("warteliste", details, key ? await fetchOverride(service, key) : undefined);
     }
     case "abo_kuendigung": {
       const { data } = await service
@@ -62,11 +80,13 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         .select("name, courses(name)")
         .eq("id", payload.subscription_id as string)
         .maybeSingle();
-      return buildNotificationContent("abo_kuendigung", {
+      const details = {
         subscriptionName: data?.name ?? data?.courses?.name ?? "Abo",
         newStatus: payload.new_status as "paused" | "cancelled",
         effectiveDate: payload.effective_date as string,
-      });
+      };
+      const key = resolveTemplateKey("abo_kuendigung", details);
+      return buildNotificationContent("abo_kuendigung", details, key ? await fetchOverride(service, key) : undefined);
     }
     case "kursstart_erinnerung": {
       const { data } = await service
@@ -75,17 +95,26 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         .eq("id", payload.booking_id as string)
         .maybeSingle();
       if (!data) return null;
-      return buildNotificationContent("kursstart_erinnerung", {
+      const details = {
         courseName: data.courses?.name ?? "Kurs",
         chosenDate: data.chosen_date,
         type: data.type as "trial" | "dropin",
-      });
+      };
+      const key = resolveTemplateKey("kursstart_erinnerung", details);
+      return buildNotificationContent(
+        "kursstart_erinnerung",
+        details,
+        key ? await fetchOverride(service, key) : undefined
+      );
     }
     case "sepa_ankuendigung": {
-      return buildNotificationContent("sepa_ankuendigung", {
-        amount: payload.amount as number,
-        dueDate: payload.due_date as string,
-      });
+      const details = { amount: payload.amount as number, dueDate: payload.due_date as string };
+      const key = resolveTemplateKey("sepa_ankuendigung", details);
+      return buildNotificationContent(
+        "sepa_ankuendigung",
+        details,
+        key ? await fetchOverride(service, key) : undefined
+      );
     }
     case "event_tickets": {
       if (payload.sub_type === "event_cancelled") {
@@ -95,11 +124,13 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
           .eq("id", payload.event_id as string)
           .maybeSingle();
         if (!data) return null;
-        return buildNotificationContent("event_tickets", {
-          subType: "event_cancelled",
-          eventName: data.name,
-          startsAt: data.starts_at,
-        });
+        const details = { subType: "event_cancelled" as const, eventName: data.name, startsAt: data.starts_at };
+        const key = resolveTemplateKey("event_tickets", details);
+        return buildNotificationContent(
+          "event_tickets",
+          details,
+          key ? await fetchOverride(service, key) : undefined
+        );
       }
 
       const { data } = await service
@@ -108,12 +139,14 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         .eq("id", payload.ticket_id as string)
         .maybeSingle();
       if (!data || !data.events) return null;
-      return buildNotificationContent("event_tickets", {
-        subType: "purchased",
+      const details = {
+        subType: "purchased" as const,
         eventName: data.events.name,
         startsAt: data.events.starts_at,
         ticketStatus: data.status as "confirmed" | "reserved",
-      });
+      };
+      const key = resolveTemplateKey("event_tickets", details);
+      return buildNotificationContent("event_tickets", details, key ? await fetchOverride(service, key) : undefined);
     }
     case "probestunde_nachfassung": {
       const { data } = await service
@@ -122,11 +155,17 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         .eq("id", payload.booking_id as string)
         .maybeSingle();
       if (!data) return null;
-      return buildNotificationContent("probestunde_nachfassung", {
+      const details = {
         subType: payload.sub_type as "abend" | "naechster_termin",
         courseName: data.courses?.name ?? "Kurs",
         courseId: data.course_id,
-      });
+      };
+      const key = resolveTemplateKey("probestunde_nachfassung", details);
+      return buildNotificationContent(
+        "probestunde_nachfassung",
+        details,
+        key ? await fetchOverride(service, key) : undefined
+      );
     }
     case "newsletter": {
       const { data } = await service

@@ -1,8 +1,40 @@
 # PROJ-34: Benachrichtigungs-Texte verwalten
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
+
+## Implementation Notes
+Frontend + backend built together in one pass (both were needed for the UI to be
+testable end-to-end):
+- New table `notification_template_overrides` (template_key primary key, 4 text
+  fields, updated_at), RLS scoped to admin read/insert/update/delete.
+- `src/lib/notifications/template-registry.ts`: the 12 template keys, their
+  placeholders, bold-placeholder, display samples, and default texts (extracted
+  verbatim from the previous hardcoded strings in `templates.ts`).
+- `src/lib/notifications/templates.ts` refactored so `buildNotificationContent`
+  takes an optional override and renders through a shared `renderTemplate`
+  helper; existing 17 unit tests pass unchanged (behavior-preserving refactor).
+  Added `resolveTemplateKey` and `buildPreviewContent` (reused by both the
+  editor's live preview and the real dispatch path, guaranteeing parity).
+- `src/lib/notifications/dispatch.ts`'s `resolveContent` now fetches the
+  matching override row (if any) before rendering each event type.
+- `src/lib/actions/admin/notification-templates.ts`: `saveTemplate`,
+  `resetTemplate`, `sendTestNotification` (bypasses the queue, sends directly
+  to the admin's own email/push), server-side placeholder validation.
+- `/admin/benachrichtigungen` (overview, grouped by event type, Standard/Angepasst
+  badges) + `/admin/benachrichtigungen/[key]` (editor with live preview) +
+  `TemplateEditor` client component. Nav entry added to `admin-nav.tsx` under
+  "Finanzen & Kommunikation".
+- Found and fixed a stale-state bug during manual verification: `TemplateEditor`'s
+  `useState(initialFields)` didn't resync after `router.refresh()` post-save/reset
+  (the component doesn't remount) — fixed with a `useEffect` keyed on the field
+  values, matching the project's known client-state/prop-sync pattern.
+- Live-verified in browser: overview page, editor (invalid-placeholder blocking,
+  live preview, save, reset-to-default), and test-send (verified both the
+  success path and the SMTP-rejection error path using the disposable
+  `.test` fixture domain). No leftover rows in `notification_template_overrides`
+  after verification.
 
 ## Dependencies
 - Requires: PROJ-16 (Automatische E-Mail-/Push-Benachrichtigungen) — definiert die bestehenden Vorlagen, Event-Typen und den Versand-Mechanismus, den dieses Feature editierbar macht

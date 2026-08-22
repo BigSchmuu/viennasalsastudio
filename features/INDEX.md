@@ -48,7 +48,7 @@
 | PROJ-31 | Geburtstags-Erinnerung | Deployed | [PROJ-31](../features/PROJ-31-geburtstags-erinnerung.md) | 2026-08-21 |
 | PROJ-32 | Aktive-Kunden-Anzahl im Dashboard | Deployed | [PROJ-32](../features/PROJ-32-aktive-kunden-dashboard.md) | 2026-08-21 |
 | PROJ-33 | Sortier- und Filterfunktion für Admin-Listen | Deployed | [PROJ-33](../features/PROJ-33-sortier-filterfunktion-admin-listen.md) | 2026-08-21 |
-| PROJ-34 | Benachrichtigungs-Texte verwalten | Architected | [PROJ-34](../features/PROJ-34-benachrichtigungs-texte-verwalten.md) | 2026-08-22 |
+| PROJ-34 | Benachrichtigungs-Texte verwalten | In Progress | [PROJ-34](../features/PROJ-34-benachrichtigungs-texte-verwalten.md) | 2026-08-22 |
 
 <!-- Add features above this line -->
 

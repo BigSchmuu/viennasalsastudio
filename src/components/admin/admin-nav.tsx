@@ -16,6 +16,7 @@ import {
   Mail,
   CreditCard,
   FileText,
+  Bell,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ const groups: NavGroup[] = [
     title: "Finanzen & Kommunikation",
     links: [
       { href: "/admin/newsletter", label: "Newsletter", icon: Mail },
+      { href: "/admin/benachrichtigungen", label: "Benachrichtigungen", icon: Bell },
       { href: "/admin/lastschriften", label: "Lastschriften", icon: CreditCard },
       { href: "/admin/rechnungen", label: "Rechnungen", icon: FileText },
     ],

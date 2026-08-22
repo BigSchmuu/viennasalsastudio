@@ -790,6 +790,33 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_template_overrides: {
+        Row: {
+          email_body: string
+          email_subject: string
+          push_body: string
+          push_title: string
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          email_body: string
+          email_subject: string
+          push_body: string
+          push_title: string
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          email_body?: string
+          email_subject?: string
+          push_body?: string
+          push_title?: string
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           birthdate: string | null
