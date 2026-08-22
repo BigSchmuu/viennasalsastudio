@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { signIn, resendConfirmationEmail } from "@/lib/actions/auth";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -49,7 +50,11 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         return;
       }
 
-      window.location.href = redirectTo || (result.role === "admin" ? "/admin" : "/profil");
+      // `redirectTo` comes straight from a query parameter, so it must be
+      // constrained to our own origin — otherwise a link to the real site
+      // could bounce the user to a phishing page right after a genuine login.
+      const fallback = result.role === "admin" ? "/admin" : "/profil";
+      window.location.href = safeRedirectPath(redirectTo, fallback, window.location.origin);
     } finally {
       setLoading(false);
     }

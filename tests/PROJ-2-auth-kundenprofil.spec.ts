@@ -22,6 +22,35 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await expect(page.getByText(CONFIRMED_EMAIL)).toBeVisible();
   });
 
+  // Security regression (audit finding): the ?redirect= parameter was written
+  // straight into window.location.href, so a link to the real site could
+  // bounce the user to a phishing page immediately after a genuine login.
+  test("Sicherheit: externes ?redirect=-Ziel wird nach dem Login ignoriert", async ({ page }) => {
+    for (const payload of ["https://example.com/pwned", "//example.com/pwned", "/\\example.com"]) {
+      await page.goto(`/login?redirect=${encodeURIComponent(payload)}`);
+      await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
+      await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
+      await page.waitForTimeout(1000);
+      await page.getByRole("button", { name: "Einloggen" }).click();
+      await page.waitForTimeout(2500);
+
+      expect(page.url()).not.toContain("example.com");
+      await expect(page).toHaveURL(/\/profil$/);
+
+      await page.getByRole("button", { name: "Logout" }).first().click();
+      await page.waitForTimeout(1200);
+    }
+  });
+
+  test("Ein internes ?redirect=-Ziel funktioniert weiterhin", async ({ page }) => {
+    await page.goto("/login?redirect=%2Fprofil");
+    await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
+    await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
+    await page.waitForTimeout(1000);
+    await page.getByRole("button", { name: "Einloggen" }).click();
+    await expect(page).toHaveURL(/\/profil$/);
+  });
+
   test("Login mit falschem Passwort zeigt generische Fehlermeldung", async ({ page }) => {
     await page.goto("/login");
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
