@@ -90,6 +90,29 @@ test.describe("PROJ-34: Benachrichtigungs-Texte verwalten", () => {
     await expect(page.getByText("Vorschau nicht verfügbar")).toBeVisible();
   });
 
+  // QA BUG-1 regression: substituteHtml() used to escape only the substituted
+  // placeholder VALUES, not the surrounding admin-typed literal text — a raw
+  // <img onerror=...> in the body rendered live in the preview (and would
+  // have shipped identically in the real email, since both share
+  // buildNotificationContent). Fixed by escaping the whole template text
+  // before substitution.
+  test("Roher HTML-Text im Vorlagenfeld wird escaped, nicht als HTML ausgeführt", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.goto(`/admin/benachrichtigungen/${TEST_KEY}`);
+    await page.waitForTimeout(600);
+
+    await page
+      .locator("#tpl-email-body")
+      .fill('<img src=x onerror="window.__xss=true"> Deine Buchungsanfrage für {kurs} wurde bestätigt.');
+    await page.waitForTimeout(500);
+
+    const xssFired = await page.evaluate(() => (window as unknown as { __xss?: boolean }).__xss === true);
+    expect(xssFired).toBe(false);
+
+    const previewText = await page.locator(".rounded-md.border.bg-white").innerText();
+    expect(previewText).toContain("<img");
+  });
+
   test("Leeres Feld blockiert Speichern", async ({ page }) => {
     await login(page, ADMIN);
     await page.goto(`/admin/benachrichtigungen/${TEST_KEY}`);

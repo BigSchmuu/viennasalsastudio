@@ -238,10 +238,16 @@ export function substitutePlain(text: string, values: Record<string, string>): s
   return text.replace(/\{(\w+)\}/g, (match, name) => (name in values ? values[name] : match));
 }
 
-/** HTML-safe substitution for the email body — escapes every value, and
- *  bold-wraps the template's designated "primary" placeholder. */
+/** HTML-safe substitution for the email body — escapes the admin-authored
+ *  template text itself (not just the substituted values; braces survive
+ *  escaping unchanged, so the placeholder regex still matches afterwards),
+ *  and bold-wraps the template's designated "primary" placeholder. Without
+ *  escaping the literal text too, a stray "<" typed by an admin (or a
+ *  deliberately injected tag) would be embedded raw into real customer
+ *  emails — see PROJ-34 QA BUG-1. */
 export function substituteHtml(text: string, values: Record<string, string>, boldPlaceholder: string): string {
-  return text.replace(/\{(\w+)\}/g, (match, name) => {
+  const escapedText = escapeHtml(text);
+  return escapedText.replace(/\{(\w+)\}/g, (match, name) => {
     if (!(name in values)) return match;
     const escaped = escapeHtml(values[name]);
     return name === boldPlaceholder ? `<strong>${escaped}</strong>` : escaped;

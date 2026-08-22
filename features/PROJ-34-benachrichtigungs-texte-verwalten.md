@@ -1,6 +1,6 @@
 # PROJ-34: Benachrichtigungs-Texte verwalten
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -246,34 +246,38 @@ Keine neuen Pakete nötig — das Feature nutzt ausschließlich bereits vorhande
 - [x] Authentifizierung: `/admin/benachrichtigungen` und `/admin/benachrichtigungen/[key]` ohne Login → Redirect (via `requireAdmin()` im Layout)
 - [x] Autorisierung (Rollen): Kunde UND Lehrer beide vom UI weggeleitet; **zusätzlich per direktem, UI-umgehendem Supabase-Client verifiziert:** ein eingeloggter Kunde erhält auf `SELECT notification_template_overrides` eine leere Liste (RLS-gefiltert, kein Fehler-Leak) und auf `INSERT` einen expliziten RLS-Policy-Verstoß — die Datenbank-Ebene ist unabhängig von der UI-Gate korrekt abgesichert
 - [x] `saveTemplate`, `resetTemplate`, `sendTestNotification`: alle drei rufen `requireAdmin()` auf, bevor irgendetwas gelesen/geschrieben/versendet wird
-- [ ] **BUG-2:** `previewTemplate` (in `src/lib/actions/admin/notification-templates.ts`) ruft `requireAdmin()` **nicht** auf
-- [ ] **BUG-1:** Admin-eigener Vorlagentext wird ungeprüft/unescaped in `emailHtml` eingebettet — reproduzierbares HTML-/Script-Injection
+- [x] **BUG-2 (fixed):** die ungenutzte `previewTemplate`-Action wurde entfernt (der Editor nutzte ohnehin `buildPreviewContent` direkt)
+- [x] **BUG-1 (fixed):** Admin-Vorlagentext wird jetzt vor dem Einbetten in `emailHtml` vollständig escaped — Re-Test mit demselben `<img onerror>`-Payload bestätigt: kein Ausführen mehr, Tag erscheint als literaler Text in der Vorschau
 
 ### Bugs Found
 
 #### BUG-1: Admin-Vorlagentext wird nicht escaped, bevor er als HTML in reale Kunden-E-Mails eingebettet wird
 - **Severity:** High
+- **Status:** Fixed (2026-08-22)
 - **Steps to Reproduce:**
   1. Als Admin auf `/admin/benachrichtigungen/buchungsstatus_bestaetigt` einloggen
   2. Im Feld "E-Mail-Text" eintragen: `<img src=x onerror="alert(1)"> Deine Buchungsanfrage für {kurs} wurde bestätigt.`
   3. Erwartet: Da das Spec explizit "reiner Text mit `{platzhalter}`-Syntax... kein Rich-Text/HTML" festlegt, sollte der Text als reiner Text behandelt und beim Rendern escaped werden (wie es die Newsletter-Funktion PROJ-28 mit ihrem Body-Text bereits tut)
   4. Tatsächlich: Der `<img>`-Tag wird roh in die Vorschau (und identisch in die reale `emailHtml`, da beide über denselben `buildNotificationContent`-Pfad laufen) eingebettet und **feuert im Browser** — reproduzierbar per E2E-Skript bestätigt (`window.onerror`-Payload löste tatsächlich aus)
 - **Root Cause:** `substituteHtml()` in `src/lib/notifications/template-registry.ts` escaped nur die **eingesetzten Platzhalter-Werte** (z.B. den Kursnamen), nicht den umgebenden, vom Admin selbst getippten literalen Text. Ein normaler Tippfehler wie "Preis < 40€" in einem beliebigen Vorlagentext würde die E-Mail bereits unbeabsichtigt kaputt machen; ein Admin mit (kompromittiertem) Zugriff könnte gezielt Markup/Links in echte Transaktions-Mails an Kunden einschleusen.
+- **Fix:** `substituteHtml()` escaped jetzt den gesamten Vorlagentext zuerst (geschweifte Klammern überleben das Escaping unverändert, die Platzhalter-Ersetzung funktioniert danach weiterhin), erst danach werden die Platzhalter ersetzt und ihr Wert einzeln escaped/fett markiert. Re-Test mit demselben Payload bestätigt: kein Ausführen mehr, `<img>` erscheint als literaler Text. Permanenter Regressionstest ergänzt (`tests/PROJ-34-...spec.ts`, "Roher HTML-Text..."), alle 211 Unit-Tests weiterhin grün (inkl. der bestehenden PROJ-16-Escaping-Tests, keine Verhaltensänderung bei Platzhalter-Werten).
 - **Priority:** Fix before deployment
 
 #### BUG-2: `previewTemplate` Server Action prüft keine Admin-Berechtigung
 - **Severity:** Low
+- **Status:** Fixed (2026-08-22)
 - **Steps to Reproduce:**
   1. `src/lib/actions/admin/notification-templates.ts` lesen: `saveTemplate`, `resetTemplate` und `sendTestNotification` rufen alle zu Beginn `requireAdmin()` auf — `previewTemplate` nicht
   2. Auswirkung ist aktuell gering: Die Funktion greift auf keine Datenbank/Kundendaten zu (reines Rendern von durch den Aufrufer selbst übergebenem Text) und wird vom UI gar nicht genutzt (der Editor importiert `buildPreviewContent` direkt für die Live-Vorschau, nicht diese Action) — aber als exportierte `"use server"`-Funktion ist sie unabhängig vom aktuellen UI-Aufrufer als Endpunkt erreichbar und verletzt damit die Projekt-Regel „Always verify authentication before processing API requests" (security.md) unabhängig vom aktuellen Blast-Radius
-- **Priority:** Fix before deployment (einfache Korrektur, gehört zur gleichen Aufräumarbeit wie BUG-1) — entweder `requireAdmin()` ergänzen oder die ungenutzte Funktion ganz entfernen, da der Editor sie nicht verwendet
+- **Fix:** Die ungenutzte `previewTemplate`-Funktion wurde entfernt statt nachträglich abgesichert, da sie tatsächlich nirgends aufgerufen wird.
+- **Priority:** Fix before deployment
 
 ### Summary
 - **Acceptance Criteria:** 13/13 passed
-- **Bugs Found:** 2 total (0 critical, 1 high, 0 medium, 1 low)
-- **Security:** Issues found (siehe BUG-1, BUG-2) — RLS/Rollen-Zugriffskontrolle selbst ist solide (verifiziert per direktem DB-Zugriff unter Umgehung der UI)
-- **Production Ready:** NO
-- **Recommendation:** BUG-1 vor Deployment fixen (Admin-Text vor dem Einbetten in `emailHtml` escapen, analog zu PROJ-28s Newsletter-Body). BUG-2 im selben Durchgang mitnehmen, da trivial. Nach Fix erneut `/qa` laufen lassen.
+- **Bugs Found:** 2 total (0 critical, 1 high, 0 medium, 1 low) — beide gefixt und re-verifiziert
+- **Security:** Beide Funde behoben; RLS/Rollen-Zugriffskontrolle war bereits solide (verifiziert per direktem DB-Zugriff unter Umgehung der UI)
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_

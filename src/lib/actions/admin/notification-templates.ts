@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { sendNotificationEmail } from "@/lib/notifications/mailer";
 import { sendPushToCustomer } from "@/lib/notifications/push";
-import { buildPreviewContent, type NotificationContent } from "@/lib/notifications/templates";
+import { buildPreviewContent } from "@/lib/notifications/templates";
 import {
   isTemplateKey,
   getTemplateMeta,
@@ -40,16 +40,6 @@ function validateFields(templateKey: string, fields: TemplateFields): string | n
     return `Unbekannte Platzhalter: ${invalidList}. Erlaubt sind: ${allowedList}.`;
   }
   return null;
-}
-
-export async function previewTemplate(
-  templateKey: string,
-  fields: TemplateFields
-): Promise<NotificationContent | { error: string }> {
-  if (!isTemplateKey(templateKey)) return { error: "Unbekannte Vorlage." };
-  const validationError = validateFields(templateKey, fields);
-  if (validationError) return { error: validationError };
-  return buildPreviewContent(templateKey, fields);
 }
 
 export async function saveTemplate(templateKey: string, fields: TemplateFields): Promise<ActionResult> {
