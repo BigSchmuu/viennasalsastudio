@@ -1,7 +1,64 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
 
 const CUSTOMER_NO_SUB = { email: "e2e26-customer-no-sub@viennasalsastudio.test", password: "CorrectPassword123!" };
 const CUSTOMER_WITH_SUB = { email: "e2e26-customer-with-sub@viennasalsastudio.test", password: "CorrectPassword123!" };
+
+const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+test.beforeAll(async () => {
+  // /stundenplan only renders upcoming occurrences, so a fixture course
+  // pinned to a fixed weekday is invisible on every other day of the week —
+  // the whole suite then fails for a reason that has nothing to do with the
+  // feature. Repin both fixture courses to *today* on every run, same
+  // approach as PROJ-25's re-priming.
+  const jsDay = new Date().getDay();
+  const todayWeekday = jsDay === 0 ? 6 : jsDay - 1; // app convention: 0=Mo ... 6=So
+
+  const { data: courses } = await service.from("courses").select("id, name").like("name", "E2E26%");
+  if (!courses?.length) throw new Error("PROJ-26 fixture courses not found");
+  for (const course of courses) {
+    await service.from("course_schedule").update({ weekday: todayWeekday }).eq("course_id", course.id);
+    // A pause dated today would suppress the occurrence entirely.
+    const { data: schedule } = await service
+      .from("course_schedule")
+      .select("id")
+      .eq("course_id", course.id)
+      .maybeSingle();
+    if (schedule) await service.from("course_schedule_pauses").delete().eq("schedule_id", schedule.id);
+  }
+
+  // AC6 books a drop-in and leaves it behind; on a re-run those pile up and
+  // the course can drift toward "full". Clear this suite's own leftovers.
+  const { data: users } = await service.auth.admin.listUsers({ perPage: 200 });
+  const noSubId = users?.users.find((u) => u.email === CUSTOMER_NO_SUB.email)?.id;
+  if (noSubId) {
+    await service
+      .from("course_bookings")
+      .delete()
+      .eq("customer_id", noSubId)
+      .in(
+        "course_id",
+        courses.map((c) => c.id)
+      );
+    // A customer whose profile has no referral_source gets the mandatory
+    // "Wie haben Sie von uns erfahren?" prompt (PROJ-8), which blocks
+    // submitting. AC6 is about booking a drop-in from /stundenplan, not
+    // about that prompt — so seed the answered state here rather than
+    // making every test click through it.
+    await service.from("profiles").update({ referral_source: "google" }).eq("id", noSubId);
+  }
+});
 
 async function login(page: Page, { email, password }: { email: string; password: string }) {
   await page.goto("/login");

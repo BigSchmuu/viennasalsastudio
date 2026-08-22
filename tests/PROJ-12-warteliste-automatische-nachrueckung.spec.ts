@@ -1,4 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
 
 const ADMIN = { email: "e2e8-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const CUSTOMER_NOMANDATE = {
@@ -43,11 +52,66 @@ async function openBookingDialog(page: Page, courseName: string) {
   await page.waitForTimeout(300);
 }
 
+const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+const CHOSEN_DATE = "2026-09-07";
+
+test.beforeAll(async () => {
+  // AC6 rejects Holder2's request, which promotes Nachruecker off the
+  // waitlist into a real booking — consuming the very waitlist entry AC8
+  // asserts on and leaving nothing left to reject. The suite was therefore
+  // one-shot. Rebuild the documented baseline here on every run:
+  //   E2E12 Kurs         -> Preischeck holds the single slot (open request)
+  //   E2E12 Nachrück Kurs -> Holder2 holds the slot, Nachruecker waits
+  const { data: courses } = await service.from("courses").select("id, name").like("name", "E2E12%");
+  const kurs = courses?.find((c) => c.name === "E2E12 Kurs");
+  const nachrueckKurs = courses?.find((c) => c.name === "E2E12 Nachrück Kurs");
+  if (!kurs || !nachrueckKurs) throw new Error("PROJ-12 fixture courses not found");
+
+  const { data: users } = await service.auth.admin.listUsers({ perPage: 200 });
+  const idFor = (email: string) => users?.users.find((u) => u.email === email)?.id;
+  const preischeckId = idFor("e2e12-preischeck@viennasalsastudio.test");
+  const holder2Id = idFor("e2e12-holder2@viennasalsastudio.test");
+  const nachrueckerId = idFor("e2e12-nachruecker@viennasalsastudio.test");
+  if (!preischeckId || !holder2Id || !nachrueckerId) throw new Error("PROJ-12 fixture customers not found");
+
+  const courseIds = [kurs.id, nachrueckKurs.id];
+  await service.from("course_bookings").delete().in("course_id", courseIds);
+  await service.from("waitlist_entries").delete().in("course_id", courseIds);
+  await service.from("subscriptions").delete().in("course_id", courseIds);
+
+  const { error: bookingError } = await service.from("course_bookings").insert([
+    {
+      customer_id: preischeckId,
+      course_id: kurs.id,
+      type: "regular",
+      status: "open",
+      desired_plan: "single_course",
+      chosen_date: CHOSEN_DATE,
+    },
+    {
+      customer_id: holder2Id,
+      course_id: nachrueckKurs.id,
+      type: "regular",
+      status: "open",
+      desired_plan: "single_course",
+      chosen_date: CHOSEN_DATE,
+    },
+  ]);
+  if (bookingError) throw new Error(`Could not seed PROJ-12 bookings: ${bookingError.message}`);
+
+  const { error: waitlistError } = await service.from("waitlist_entries").insert({
+    customer_id: nachrueckerId,
+    course_id: nachrueckKurs.id,
+    desired_plan: "single_course",
+    chosen_date: CHOSEN_DATE,
+  });
+  if (waitlistError) throw new Error(`Could not seed PROJ-12 waitlist entry: ${waitlistError.message}`);
+});
+
 test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
-  // AC6 promotes E2E12-Nachruecker off the waitlist and leaves E2E12-Holder2's
-  // request rejected — this test is one-shot against the live fixtures; a
-  // repeat run needs the fixture course reset (see QA Test Results, BUG-3
-  // section for the exact reset SQL) before "Ablehnen" is available again.
   test("AC1: Voller Kurs zeigt Warteliste-Hinweis statt Anmeldeformular, Katalog zeigt 'Ausgebucht'", async ({
     page,
   }) => {
@@ -143,7 +207,13 @@ test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
     await page.waitForTimeout(600);
     const row = page.locator("tr", { hasText: "E2E12 Holder2" }).filter({ hasText: "E2E12 Nachrück Kurs" });
     await row.getByRole("button", { name: "Ablehnen" }).click();
-    await page.waitForTimeout(800);
+
+    // rejectBooking sends the customer's rejection email *synchronously*
+    // before it promotes the waitlist, and the fixture accounts' ".test"
+    // domain makes that SMTP call run into a timeout — so a fixed short wait
+    // races the action. Wait for the status badge instead: it only flips once
+    // the server action has actually returned, i.e. after the promotion ran.
+    await expect(row.getByText("Abgelehnt")).toBeVisible({ timeout: 30000 });
 
     await page.reload();
     await page.waitForTimeout(600);

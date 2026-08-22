@@ -64,6 +64,19 @@ async function openBookingsSection(page: Page) {
   await page.waitForTimeout(400);
 }
 
+// This fixture customer is shared with other suites (notably PROJ-27, which
+// books its own trials for them on a different course). An unscoped
+// `li:has-text("Probestunde")` therefore counts *those* bookings too and
+// breaks this file's exact-count assertions whenever the suites run together.
+// Always scope profile bookings to this file's own course — exact text, since
+// "E2E8 Kurs" is a prefix of "E2E8 Kurs Ohne Einstieg".
+function bookingItems(page: Page, type: string) {
+  return page
+    .locator("li")
+    .filter({ has: page.getByText(COURSE_NAME, { exact: true }) })
+    .filter({ hasText: type });
+}
+
 // The course catalog is paginated (PAGE_SIZE=12, "Mehr laden") — fixture
 // courses created late sort past page 1 by created_at ascending.
 async function loadAllCourses(page: Page) {
@@ -164,7 +177,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.goto("/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
-    await expect(page.locator("li", { hasText: "Probestunde" }).getByText("Bestätigt")).toBeVisible();
+    await expect(bookingItems(page, "Probestunde").getByText("Bestätigt")).toBeVisible();
   });
 
   test("Drop-in zeigt Studierendenpreis live und erstellt offene Anfrage", async ({ page }) => {
@@ -184,7 +197,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.goto("/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
-    await expect(page.locator("li", { hasText: "Drop-in" }).getByText(/15,00/)).toBeVisible();
+    await expect(bookingItems(page, "Drop-in").getByText(/15,00/)).toBeVisible();
   });
 
   test("Admin bestätigt reguläre Anfrage; legt Abo an und Kunde sieht Bestätigung", async ({ page }) => {
@@ -205,22 +218,27 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.goto("/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
-    await expect(page.locator("li", { hasText: "Buchungsanfrage" }).getByText("Bestätigt")).toBeVisible();
+    await expect(bookingItems(page, "Buchungsanfrage").getByText("Bestätigt")).toBeVisible();
   });
 
   test("Admin lehnt Drop-in-Anfrage ab; Kunde sieht Ablehnung", async ({ page }) => {
     await login(page, ADMIN);
     await page.goto("/admin/buchungen");
     await page.waitForTimeout(600);
-    await page.locator("tr", { hasText: "Drop-in" }).getByRole("button", { name: "Ablehnen" }).click();
-    await page.waitForTimeout(600);
-    await expect(page.locator("tr", { hasText: "Drop-in" }).getByText("Abgelehnt")).toBeVisible();
+    // Scope to this fixture customer: other suites (e.g. PROJ-13) have their
+    // own Drop-in rows in this shared admin table.
+    const dropinRow = page.locator("tr", { hasText: "E2E8 Kunde" }).filter({ hasText: "Drop-in" });
+    await dropinRow.getByRole("button", { name: "Ablehnen" }).click();
+    // rejectBooking sends the rejection email synchronously and the fixture
+    // accounts' ".test" domain makes that SMTP call run into a timeout, so the
+    // status flip can take a while — wait for it rather than a fixed delay.
+    await expect(dropinRow.getByText("Abgelehnt")).toBeVisible({ timeout: 30000 });
 
     await login(page, CUSTOMER);
     await page.goto("/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
-    await expect(page.locator("li", { hasText: "Drop-in" }).getByText("Abgelehnt")).toBeVisible();
+    await expect(bookingItems(page, "Drop-in").getByText("Abgelehnt")).toBeVisible();
   });
 
   test("Kunde bucht Probestunde um; alte Buchung storniert, neue mit neuem Termin", async ({ page }) => {
@@ -228,7 +246,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.goto("/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
-    await page.locator("li", { hasText: "Probestunde" }).getByRole("button", { name: "Umbuchen" }).click();
+    await bookingItems(page, "Probestunde").getByRole("button", { name: "Umbuchen" }).click();
     await page.waitForTimeout(400);
     await page.getByRole("dialog").getByRole("combobox").click();
     await page.waitForTimeout(300);
@@ -236,7 +254,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.getByRole("button", { name: "Umbuchen bestätigen" }).click();
     await page.waitForTimeout(800);
 
-    const trialItems = page.locator("li", { hasText: "Probestunde" });
+    const trialItems = bookingItems(page, "Probestunde");
     await expect(trialItems).toHaveCount(2);
     await expect(trialItems.filter({ hasText: "Storniert" })).toHaveCount(1);
     await expect(trialItems.filter({ hasText: "Bestätigt" })).toHaveCount(1);
@@ -247,13 +265,12 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.goto("/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
-    await page
-      .locator("li", { hasText: "Probestunde" })
+    await bookingItems(page, "Probestunde")
       .filter({ hasText: "Bestätigt" })
       .getByRole("button", { name: "Stornieren" })
       .click();
     await page.waitForTimeout(800);
-    await expect(page.locator("li", { hasText: "Probestunde" }).filter({ hasText: "Storniert" })).toHaveCount(2);
+    await expect(bookingItems(page, "Probestunde").filter({ hasText: "Storniert" })).toHaveCount(2);
   });
 
   test("Buchung innerhalb der 1-Tages-Frist zeigt keine Stornieren-Aktion mehr an", async ({ page }) => {

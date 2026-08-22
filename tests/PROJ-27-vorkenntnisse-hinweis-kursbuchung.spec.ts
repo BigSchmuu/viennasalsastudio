@@ -1,7 +1,53 @@
 import { test, expect } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
 
 const HINWEIS_TEXT = "Baut auf Salsa Beginner 1 auf";
 const CONFIRM_LABEL = "Ich bestätige, dass ich die genannte Voraussetzung erfülle.";
+const HINWEIS_KURS = "E2E27 Mit Hinweis Kurs";
+
+const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+test.beforeAll(async () => {
+  // AC7 deliberately clears the course's prerequisite_note as the very thing
+  // it tests — which permanently destroys AC1's precondition, so the suite
+  // only ever passed once. Restore the note before each run.
+  const { error } = await service
+    .from("courses")
+    .update({ prerequisite_note: HINWEIS_TEXT })
+    .eq("name", HINWEIS_KURS);
+  if (error) throw new Error(`Could not restore PROJ-27 fixture note: ${error.message}`);
+
+  // AC2 also asserts the note on /stundenplan, which only renders upcoming
+  // occurrences — a course pinned to a fixed weekday is invisible there on
+  // every other day. Repin both fixture courses to today (same approach as
+  // PROJ-25/PROJ-26).
+  const jsDay = new Date().getDay();
+  const todayWeekday = jsDay === 0 ? 6 : jsDay - 1; // app convention: 0=Mo ... 6=So
+  const { data: scheduleCourses } = await service.from("courses").select("id").like("name", "E2E27%");
+  for (const c of scheduleCourses ?? []) {
+    await service.from("course_schedule").update({ weekday: todayWeekday }).eq("course_id", c.id);
+  }
+
+  // AC6 books a trial for e2e8-customer on this course every run. Those pile
+  // up and — because they share the e2e8-customer fixture — also break
+  // PROJ-8's trial-count assertions when both suites run together.
+  const { data: course } = await service.from("courses").select("id").eq("name", HINWEIS_KURS).maybeSingle();
+  const { data: users } = await service.auth.admin.listUsers({ perPage: 200 });
+  const customerId = users?.users.find((u) => u.email === "e2e8-customer@viennasalsastudio.test")?.id;
+  if (course && customerId) {
+    await service.from("course_bookings").delete().eq("course_id", course.id).eq("customer_id", customerId);
+  }
+});
 
 async function login(page: import("@playwright/test").Page, email: string) {
   await page.goto("/login");

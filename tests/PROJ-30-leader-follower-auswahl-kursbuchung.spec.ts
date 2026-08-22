@@ -1,4 +1,13 @@
 import { test, expect } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
 
 // Fixtures (see features/PROJ-30-leader-follower-auswahl-kursbuchung.md QA notes):
 // - "E2E30 Rollen Kurs": role_query_enabled=true, max_role_difference=1, no capacity limit
@@ -33,6 +42,38 @@ async function fillEntryDateAndPlan(dialog: import("@playwright/test").Locator, 
   await page.getByRole("option").first().click();
   await dialog.getByLabel("Nur diesen Kurs").click();
 }
+
+const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+test.beforeAll(async () => {
+  // This file is one sequential story that builds a role balance up to
+  // 1L/1F/1B (asserted by AC11) and, at the end, permanently switches role
+  // query ON for "Kein Rollen Kurs" — which is exactly the precondition AC2
+  // (the first test) needs switched OFF. So the suite only ever passed on a
+  // pristine database. Reset both course configs and all bookings here.
+  await service.from("course_bookings").delete().in("course_id", [ROLLEN_KURS_ID, KEIN_ROLLEN_KURS_ID]);
+  // AC8 ends by putting Kunde B on the waitlist; a leftover entry makes the
+  // dialog show "du stehst bereits auf der Warteliste" instead of offering
+  // it again, so AC8 can never pass twice without this.
+  await service.from("waitlist_entries").delete().in("course_id", [ROLLEN_KURS_ID, KEIN_ROLLEN_KURS_ID]);
+  // AC4/AC5 confirms Kunde A's booking, which creates a subscription; that
+  // subscription then counts toward the course's role balance on the next run.
+  await service.from("subscriptions").delete().in("course_id", [ROLLEN_KURS_ID, KEIN_ROLLEN_KURS_ID]);
+
+  const { error: rollenError } = await service
+    .from("courses")
+    .update({ role_query_enabled: true, max_role_difference: 1 })
+    .eq("id", ROLLEN_KURS_ID);
+  if (rollenError) throw new Error(`Could not reset PROJ-30 role course: ${rollenError.message}`);
+
+  const { error: keinRollenError } = await service
+    .from("courses")
+    .update({ role_query_enabled: false, max_role_difference: null })
+    .eq("id", KEIN_ROLLEN_KURS_ID);
+  if (keinRollenError) throw new Error(`Could not reset PROJ-30 no-role course: ${keinRollenError.message}`);
+});
 
 test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
   test("AC2: Kurs ohne aktivierte Rollenabfrage zeigt keine Rollenauswahl im Buchungsdialog", async ({ page }) => {
