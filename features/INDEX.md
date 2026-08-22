@@ -54,7 +54,8 @@
 | PROJ-37 | Offene Posten (Rücklastschriften-Übersicht) | Planned | [PROJ-37](../features/PROJ-37-offene-posten.md) | 2026-08-22 |
 | PROJ-38 | Kursausfall-Benachrichtigung | Planned | [PROJ-38](../features/PROJ-38-kursausfall-benachrichtigung.md) | 2026-08-22 |
 | PROJ-39 | Admin-Hinweis auf neue Buchungen | Architected | [PROJ-39](../features/PROJ-39-admin-hinweis-neue-buchungen.md) | 2026-08-22 |
+| PROJ-40 | Admin auch als Lehrer eintragbar | Planned | [PROJ-40](../features/PROJ-40-admin-als-lehrer-eintragbar.md) | 2026-08-22 |
 
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-40
+## Next Available ID: PROJ-41
