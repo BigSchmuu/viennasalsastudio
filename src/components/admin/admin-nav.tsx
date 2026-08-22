@@ -63,7 +63,7 @@ const groups: NavGroup[] = [
   },
 ];
 
-export function AdminNav() {
+export function AdminNav({ openBookingsCount = 0 }: { openBookingsCount?: number }) {
   const pathname = usePathname();
 
   return (
@@ -90,6 +90,19 @@ export function AdminNav() {
               >
                 <Icon className="size-3.5" aria-hidden="true" />
                 {link.label}
+                {/* PROJ-39: only on Buchungen, and only when something is
+                    actually waiting — a "0" badge would be pure noise. */}
+                {link.href === "/admin/buchungen" && openBookingsCount > 0 && (
+                  <span
+                    aria-label={`${openBookingsCount} offene Buchungen`}
+                    className={cn(
+                      "ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums",
+                      active ? "bg-primary-foreground text-primary" : "bg-destructive text-destructive-foreground"
+                    )}
+                  >
+                    {openBookingsCount > 99 ? "99+" : openBookingsCount}
+                  </span>
+                )}
               </Link>
             );
           })}

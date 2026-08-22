@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { bookingSchema } from "@/lib/validations/booking";
 import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
 import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
+import { notifyAdminsOfNewBooking } from "@/lib/notifications/admin-alerts";
 import type { ActionResult } from "@/lib/actions/types";
 
 type BookingRow = {
@@ -145,6 +147,12 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
         .eq("id", user.id);
     }
 
+    // PROJ-39: alert the admins — but only after this response has gone out.
+    // A booking must never be slowed down (or fail) because the operator is
+    // being notified; see PROJ-12, where a synchronous send made the
+    // triggering action noticeably sluggish.
+    after(() => notifyAdminsOfNewBooking(booking.id));
+
     revalidatePath("/kurse");
     revalidatePath("/profil");
     return {
@@ -188,6 +196,13 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       .from("profiles")
       .update({ referral_source: parsed.data.referral_source })
       .eq("id", user.id);
+  }
+
+  // PROJ-39: only bookings that actually wait for a decision are worth an
+  // alert. Trials are auto-confirmed by the RPC and therefore never "open" —
+  // keying on the status means no separate exception is needed for them.
+  if (booking.status === "open") {
+    after(() => notifyAdminsOfNewBooking(booking.id));
   }
 
   revalidatePath("/kurse");

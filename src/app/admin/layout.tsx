@@ -3,7 +3,16 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { AdminNav } from "@/components/admin/admin-nav";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdmin();
+  const { supabase } = await requireAdmin();
+
+  // PROJ-39: the badge is a question ("how many bookings are open right
+  // now?"), not a stored counter — so it can never drift out of sync and
+  // clears itself as soon as the last request is handled. Trials are
+  // auto-confirmed and therefore never "open", so they drop out on their own.
+  const { count } = await supabase
+    .from("course_bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "open");
 
   return (
     <div className="min-h-screen bg-background">
@@ -14,7 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             ← Zurück zu Mein Profil
           </Link>
         </div>
-        <AdminNav />
+        <AdminNav openBookingsCount={count ?? 0} />
         <div className="mt-6">{children}</div>
       </div>
     </div>

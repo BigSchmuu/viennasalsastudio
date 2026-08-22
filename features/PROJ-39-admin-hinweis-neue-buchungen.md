@@ -1,6 +1,6 @@
 # PROJ-39: Admin-Hinweis auf neue Buchungen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -156,6 +156,53 @@ bereits seit PROJ-16 — es kommt nur ein weiterer Auslöser hinzu, keine neue I
 
 Keine. Das Feature nutzt ausschließlich Vorhandenes: die Admin-Navigation, den Buchungsstatus und
 die Benachrichtigungs-Infrastruktur aus PROJ-16.
+
+---
+
+## Implementation Notes (Backend)
+
+**Umgesetzt am 2026-08-22.** Keine neue Tabelle, keine neue Spalte — wie im Entwurf vorgesehen.
+
+### Geänderte/neue Dateien
+| Datei | Zweck |
+|-------|-------|
+| `src/app/admin/layout.tsx` | Zählt beim Seitenaufbau die offenen Buchungen und reicht die Zahl an die Navigation weiter |
+| `src/components/admin/admin-nav.tsx` | Roter Kreis am Menüpunkt „Buchungen", nur bei > 0, Deckel bei „99+" |
+| `src/lib/notifications/admin-alerts.ts` (neu) | Ermittelt die Admins mit registriertem Gerät und stellt ihnen die Meldung zu |
+| `src/lib/notifications/templates.ts` | Neuer Meldungstext `neue_buchung` (Kundenname + Kursname) |
+| `src/lib/notifications/dispatch.ts` | Zustellweg für `neue_buchung` — nur Push, ohne E-Mail |
+| `src/lib/actions/booking.ts` | Löst die Meldung aus, **nachdem** die Antwort an den Kunden raus ist |
+| `supabase/migrations/20260822181924_proj39_neue_buchung_event_type.sql` | Erlaubt den neuen Anlass in der Warteschlange |
+
+### Abweichungen und bewusste Entscheidungen
+- **Nur Admins mit registriertem Gerät bekommen einen Warteschlangen-Eintrag.** Ohne diesen Filter
+  hätte jede Buchung 12 unzustellbare Einträge erzeugt (so viele Admin-Konten gibt es inkl.
+  Testkonten), die niemand je zugestellt bekommen hätte.
+- **Zustellung sofort statt über den Zeitplan.** Die geplante Verarbeitung läuft nur um 06:00 und
+  18:00 Uhr — eine Buchung um 09:00 hätte sich also erst neun Stunden später gemeldet. Die Meldung
+  wird deshalb direkt nach dem Einreihen zugestellt, wie es die SEPA-Ankündigung ebenfalls tut.
+- **Auslöser hängt am Status, nicht an der Buchungsart.** Es wird nur gemeldet, was auf „offen"
+  steht. Probestunden werden automatisch bestätigt und fallen dadurch von selbst heraus — genau wie
+  im Entwurf beschrieben, ohne eigene Sonderregel.
+
+### Aufgetretenes Problem
+Der erste Live-Test erzeugte **keine** Meldung, ohne sichtbaren Fehler für den Kunden (korrektes
+Verhalten — die Buchung darf nie scheitern, nur weil die Meldung scheitert). Ursache: Die Datenbank
+führt eine feste Liste erlaubter Benachrichtigungs-Anlässe, in der `neue_buchung` noch fehlte. Nach
+Ergänzen der Liste lief der Test durch.
+
+### Verifiziert (manuell, gegen die Produktionsdatenbank)
+- Zähler zeigt **7** — deckungsgleich mit 6 offenen Anfragen + 1 offenem Drop-in; ein Kundenkonto
+  sieht ihn **nirgends**.
+- Echte Drop-in-Buchung → Push kam auf dem Gerät des Betreibers tatsächlich an
+  (Status `sent`); ein zweites Admin-Testkonto mit absichtlich ungültigem Gerät scheiterte sauber,
+  ohne die Buchung zu beeinträchtigen. E-Mail bei beiden korrekt übersprungen.
+- Die 11 Admin-Konten **ohne** Gerät erzeugten erwartungsgemäß keinerlei Einträge.
+- Probestunden-Gegentest: Buchung erfolgreich, **keine** Meldung erzeugt.
+- Alle Testdaten (Testkonto, Testgerät, Testbuchungen, Warteschlangen-Einträge) wurden nach dem
+  Test wieder entfernt.
+
+Automatisierte Tests folgen im QA-Schritt.
 
 ## QA Test Results
 _To be added by /qa_

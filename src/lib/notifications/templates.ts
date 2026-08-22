@@ -106,6 +106,8 @@ export type ProbestundeNachfassungDetails = {
   courseId: string;
 };
 export type NewsletterDetails = { subject: string; body: string };
+/** PROJ-39: internal alert to the admin, not a customer-facing message. */
+export type NeueBuchungDetails = { customerName: string; courseName: string; bookingType: "regular" | "dropin" };
 
 /** PROJ-34: resolves which of the 12 editable template variants a given
  *  (eventType, details) pair renders as — e.g. so a caller can look up an
@@ -155,7 +157,7 @@ export function resolveTemplateKey(
  *  will actually render — the caller resolves which `TemplateKey` applies
  *  (e.g. confirmed vs. rejected) and passes the matching row, if any. */
 export function buildNotificationContent(
-  eventType: NotificationEventGroup | "sepa_ankuendigung",
+  eventType: NotificationEventGroup | "sepa_ankuendigung" | "neue_buchung",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
@@ -164,7 +166,8 @@ export function buildNotificationContent(
     | SepaAnkuendigungDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
-    | NewsletterDetails,
+    | NewsletterDetails
+    | NeueBuchungDetails,
   override?: TemplateFields
 ): NotificationContent {
   switch (eventType) {
@@ -233,6 +236,23 @@ export function buildNotificationContent(
       const key: TemplateKey =
         d.subType === "abend" ? "probestunde_nachfassung_abend" : "probestunde_nachfassung_naechster_termin";
       return { ...renderTemplate(key, { kurs: d.courseName }, override, linkHtml), url };
+    }
+    // PROJ-39: goes to the admin, not to a customer. Deliberately not part of
+    // the PROJ-34 template registry — that editor manages customer-facing
+    // texts, and an internal work alert there would only blur the picture.
+    // Push-only in practice (see dispatch.ts); subject/emailHtml exist solely
+    // to satisfy the shared NotificationContent shape.
+    case "neue_buchung": {
+      const d = details as NeueBuchungDetails;
+      const label = d.bookingType === "dropin" ? "Drop-in-Anfrage" : "Buchungsanfrage";
+      const subject = `Neue ${label}: ${d.customerName}`;
+      return {
+        subject,
+        emailHtml: emailShell(subject, `<p>${escapeHtml(d.customerName)} — ${escapeHtml(d.courseName)}</p>`),
+        pushTitle: `Neue ${label}`,
+        pushBody: `${d.customerName} — ${d.courseName}`,
+        url: "/admin/buchungen",
+      };
     }
     case "newsletter": {
       const d = details as NewsletterDetails;

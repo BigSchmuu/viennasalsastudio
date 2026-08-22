@@ -167,6 +167,19 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         key ? await fetchOverride(service, key) : undefined
       );
     }
+    case "neue_buchung": {
+      const { data } = await service
+        .from("course_bookings")
+        .select("type, courses(name), profiles(full_name)")
+        .eq("id", payload.booking_id as string)
+        .maybeSingle();
+      if (!data) return null;
+      return buildNotificationContent("neue_buchung", {
+        customerName: data.profiles?.full_name || "Unbenannter Kunde",
+        courseName: data.courses?.name ?? "Kurs",
+        bookingType: data.type === "dropin" ? "dropin" : "regular",
+      });
+    }
     case "newsletter": {
       const { data } = await service
         .from("newsletter_sends")
@@ -223,6 +236,16 @@ export async function processQueueRow(service: ServiceClient, row: QueueRow): Pr
       const emailResult = await trySendEmail(service, row.customer_id, content);
       emailStatus = emailResult.status;
       if (emailResult.error) errors.push(`E-Mail: ${emailResult.error}`);
+    } else if (row.event_type === "neue_buchung") {
+      // PROJ-39: internal admin alert — push only, and deliberately outside
+      // the customer notification preferences (same reasoning as
+      // sepa_ankuendigung). No e-mail: the admin's own inbox shouldn't fill
+      // up with every incoming booking.
+      pushStatus = await sendPushToCustomer(service, row.customer_id, {
+        title: content.pushTitle,
+        body: content.pushBody,
+        url: content.url,
+      });
     } else {
       const prefs = await getChannelPreferences(service, row.customer_id, row.event_type);
 
