@@ -251,7 +251,45 @@ Automatisierte Tests folgen im QA-Schritt.
   3. Tatsächlich: **5 von 5 Versuchen angenommen** — es existiert weder ein Unique-Constraint noch ein Rate-Limit
 - **Folge für PROJ-39:** Jede dieser Buchungen steht auf `open` und löst je eine Push-Nachricht an jedes Admin-Gerät aus; zusätzlich bläht sie den Zähler auf
 - **Einordnung:** Die Lücke ist **vorbestehend** (fehlende Dublettenprüfung in PROJ-8) und trifft nur Drop-ins — reguläre Anfragen sind durch „already requested" geschützt. PROJ-39 verändert nicht die Lücke, sondern ihre Folge: aus unordentlicher Liste wird Dauerklingeln
-- **Priorität:** Vor echter Nutzung durch Fremde beheben, nicht zwingend vor dem Deployment
+- **Status: BEHOBEN am 2026-08-22**
+
+**Lösung — zwei Ebenen, beide in der Datenbank** (`create_self_service_booking`).
+Die App-Schicht wäre wirkungslos gewesen: Der gefundene Angriff rief die RPC direkt mit dem
+öffentlichen Schlüssel auf und ging an Next.js komplett vorbei — dieselbe Erkenntnis wie beim
+Gutschein-Ratenlimit aus PROJ-15.
+
+1. **Dublettensperre:** Gleicher Kunde, gleicher Kurs, gleiches Datum, gleiche Art und noch aktiv
+   → abgelehnt. Stornierte und abgelehnte Buchungen zählen bewusst **nicht**, sonst wäre ein Termin
+   nach einer Stornierung für immer blockiert.
+2. **Stundenlimit:** Höchstens 10 Selbstbuchungen pro Kunde und Stunde. Nötig, weil die
+   Dublettensperre allein nichts nützt — ein Angreifer weicht einfach auf andere Termine und Kurse
+   aus. Stornierte Buchungen zählen mit, sonst könnte man das Limit durch Stornieren zurücksetzen.
+
+**Verifikation — derselbe Angriff wie im Befund, unverändert wiederholt:**
+
+| Angriff | Vorher | Nachher |
+|---------|--------|---------|
+| 5× identische Drop-in-Buchung | 5 von 5 angenommen | **1 angenommen, 4 abgelehnt** („already booked") |
+| Ausweichen auf 14 verschiedene Termine | alle angenommen | **nach dem Limit abgeriegelt** („booking rate limit") |
+
+**Legitime Nutzung unberührt:** 36 Tests aus PROJ-8, 26, 27 und 30 laufen unverändert grün,
+inklusive Umbuchen und wiederholtem Buchen desselben Kurses an anderen Terminen.
+
+**Warum 10 pro Stunde:** Ein Kunde, der seinen Monat plant, bucht realistisch fünf bis acht
+Drop-ins am Stück — das Limit greift dort nicht. Für einen Angreifer sinkt die Obergrenze von
+„unbegrenzt" auf 10 Meldungen pro Stunde. Der Wert steht an einer Stelle in der Migration und ist
+jederzeit anpassbar.
+
+**Nebenbei behoben:** `course_bookings` hatte außer dem Primärschlüssel **keinen einzigen Index**.
+Die beiden neuen Prüfungen und die Zähler-Abfrage laufen alle über Kunde bzw. Status, daher zwei
+passende Indizes. Bei heute 21 Zeilen ist das nicht messbar, verhindert aber, dass jede Buchung
+später die ganze Tabelle durchsucht.
+
+**Regressionstests:** `tests/PROJ-39-booking-abuse-guard.test.ts` — 5 Integrationstests direkt
+gegen die Datenbank (nicht über die Oberfläche, weil der Angriff dort ebenfalls nicht entlangläuft).
+Abgedeckt: Dublette abgelehnt, anderes Datum weiterhin erlaubt, nach Stornierung wieder buchbar,
+Stundenlimit greift, Stornieren setzt das Limit nicht zurück. Eigenes Wegwerf-Konto, damit das
+Stundenbudget der geteilten Testkunden unangetastet bleibt und die Reihenfolge der Suiten egal ist.
 
 #### BUG-2: E2E-Testläufe erzeugen echte Push-Nachrichten in der Produktion
 - **Schweregrad:** Medium
@@ -324,12 +362,11 @@ dem Stand vor dem Lauf.
 
 ### Zusammenfassung
 - **Akzeptanzkriterien:** 11/12 vollständig bestanden, 1 nur hergeleitet (Antippen)
-- **Fehler:** 2 gefunden (0 kritisch, 0 hoch, **2 mittel**, 0 niedrig) — **BUG-2 behoben und verifiziert**, BUG-1 offen
-- **Sicherheit:** Bestanden bis auf den Missbrauchsweg in BUG-1
-- **Produktionsreif:** **JA** — kein kritischer oder hoher Fehler
-- **Empfehlung:** Deployment möglich. BUG-1 beheben, bevor die App für Fremde offen ist. Die 22
-  vorbestehenden Testfehler sind ein eigenes Thema und sollten nicht mit diesem Feature vermischt
-  werden
+- **Fehler:** 2 gefunden (0 kritisch, 0 hoch, **2 mittel**, 0 niedrig) — **beide behoben und verifiziert**
+- **Sicherheit:** Bestanden. Der Missbrauchsweg aus BUG-1 ist geschlossen und durch Regressionstests abgesichert
+- **Produktionsreif:** **JA**
+- **Empfehlung:** Deployment möglich. Die 22 vorbestehenden Testfehler in PROJ-6, 7, 9, 10, 14, 23
+  und 25 sind ein eigenes Thema und sollten nicht mit diesem Feature vermischt werden
 
 ## Deployment
 _To be added by /deploy_

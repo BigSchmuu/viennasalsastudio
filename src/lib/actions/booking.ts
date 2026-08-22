@@ -187,7 +187,19 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     p_prerequisite_confirmed: parsed.data.prerequisite_confirmed ?? false,
   });
 
-  if (error || !booking) {
+  if (error) {
+    // PROJ-39 BUG-1: the guards live in the RPC because the abuse path bypasses
+    // this action entirely — but a customer who simply double-clicked deserves
+    // a real explanation rather than "could not be saved".
+    if (error.message.includes("already booked")) {
+      return { error: "Du hast diesen Termin bereits gebucht." };
+    }
+    if (error.message.includes("booking rate limit")) {
+      return { error: "Du hast in kurzer Zeit sehr viele Termine gebucht. Bitte versuche es später noch einmal." };
+    }
+    return { error: "Buchung konnte nicht gespeichert werden." };
+  }
+  if (!booking) {
     return { error: "Buchung konnte nicht gespeichert werden." };
   }
 
@@ -307,6 +319,9 @@ export async function rebookBooking(bookingId: string, newDate: string): Promise
     p_prerequisite_confirmed: true,
   });
 
+  if (insertError?.message.includes("already booked")) {
+    return { error: "Für diesen Termin hast du bereits eine Buchung." };
+  }
   if (insertError || !newBooking) {
     return { error: "Umbuchung konnte nicht gespeichert werden." };
   }
