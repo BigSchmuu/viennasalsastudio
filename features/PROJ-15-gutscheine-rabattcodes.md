@@ -57,8 +57,8 @@
 - Die Einlösungs-Prüfung (Limit erreicht? abgelaufen? aktiv?) muss serverseitig beim Bestätigen erfolgen, nicht nur im UI — ein Kunde/Admin darf einen Code nicht durch reines Umgehen der UI ein zweites Mal einlösen.
 
 ## Open Questions
-- [ ] Exaktes Datenmodell (eigene Tabelle für Codes + wie die Einlösung an `course_bookings`/`subscriptions` verknüpft wird) — wird in `/architecture` festgelegt.
-- [ ] Ob die Rabatt-Anzeige beim Admin auch auf `/admin/kunden/[id]` (falls dort ebenfalls Abos angelegt werden können) erscheinen muss, oder nur auf `/admin/buchungen` — zu klären beim Blick auf den bestehenden Bestätigungs-Flow in `/architecture`.
+- [x] Exaktes Datenmodell → siehe Tech Design, Abschnitt B) Data Model (2026-08-22)
+- [x] Ob die Rabatt-Anzeige auch auf `/admin/kunden/[id]` erscheinen muss → Nein, bewusst nur im Bestätigungs-Dialog auf `/admin/buchungen`. Das manuelle "Neues Abo"-Formular auf `/admin/kunden/[id]` (PROJ-4) ist ein eigenständiger Admin-Vorgang ohne Kunden-Buchungsanfrage und damit ohne Code-Eingabefeld — ein Gutschein kann dort also nie angehängt sein (2026-08-22)
 
 ## Decision Log
 <!-- Record of conscious decisions made and why. Added to by /write-spec and /architecture. -->
@@ -80,12 +80,77 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Neue eigenständige Tabelle "Gutscheine" statt Erweiterung einer bestehenden Tabelle | Gutscheine sind eine unabhängige Entität mit eigenem Lebenszyklus (aktiv/inaktiv, Ablauf, Einlöse-Zähler), unabhängig von einer einzelnen Buchung | 2026-08-22 |
+| Der Gutschein-Code wird als neues, optionales Feld direkt an die Buchungsanfrage angehängt (nicht in einer separaten "Einlösungen"-Tabelle vor der Bestätigung) | Der Code ist bis zur Bestätigung nur eine unverbindliche Absicht, kein Verbrauch — ein einfaches Feld auf der Anfrage genügt, bis der Admin sie bestätigt | 2026-08-22 |
+| Prüfung + Einlösungs-Zählung passiert serverseitig, atomar, im selben Bestätigungs-Schritt wie die bestehende Abo-Anlage (`confirmRegularBooking`) | Verhindert, dass zwei fast gleichzeitig bestätigte Buchungen denselben letzten Restplatz eines Codes doppelt verbrauchen — nutzt dasselbe Locking-Muster, das die App schon für Kurs-Kapazität in `create_regular_course_booking` einsetzt | 2026-08-22 |
+| "Erstes Abo"-Prüfung anhand der kompletten `subscriptions`-Historie des Kunden (jede Zeile, unabhängig vom Status) | Direkt aus bestehenden Daten ableitbar, keine neue Tabelle für den Kunden-Status nötig | 2026-08-22 |
+| Preisfeld-Vorschlag im Bestätigungs-Dialog nutzt den bereits bestehenden Kurs-Preis (`courses.price`), der schon heute zur Vorbefüllung des Preisfelds dient | Bei "Nur diesen Kurs"-Anfragen kann der vorgeschlagene Preis direkt rabattiert vorbefüllt werden (Admin kann weiterhin frei überschreiben) — echte Zwangs-Verrechnung bleibt bewusst Produkt-Entscheidung (siehe Decision Log), aber die bestehende Vorbefüllungs-Logik lässt sich ohne neuen Mechanismus um den Rabatt erweitern. Bei Flatrate-Anfragen gibt es wie heute schon keinen Basispreis, daher nur der reine Text-Hinweis | 2026-08-22 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Admin
+├── Neuer Nav-Punkt "Gutscheine" (Gruppe "Finanzen & Kommunikation", neben Newsletter/Benachrichtigungen)
+│   └── /admin/gutscheine
+│       ├── "Neuer Gutschein"-Formular (Code, Rabatt-Typ Prozent/Festbetrag, Rabatt-Höhe, max. Einlösungen, optionales Ablaufdatum)
+│       └── Gutschein-Liste (Code, Rabatt, Status Aktiv/Inaktiv mit Umschalter, "X von Y eingelöst")
+│
+└── Buchungsanfragen (/admin/buchungen, bestehend)
+    └── Bestätigungs-Dialog (bestehend, wird erweitert)
+        ├── NEU: Gutschein-Hinweis-Zeile, falls ein gültiger Code angehängt ist (z.B. "Gutschein WELCOME20: -20%")
+        └── Preisfeld (bestehend) — bei "Nur diesen Kurs"-Anfragen jetzt inkl. Rabatt vorbefüllt, weiterhin frei änderbar
+
+Kunde
+└── Buchungsdialog (/kurse, bestehend), Tab "Anmeldung"
+    └── NEU: optionales Feld "Gutscheincode" mit Inline-Fehlermeldung bei ungültigem/abgelaufenem/aufgebrauchtem Code
+```
+
+### B) Data Model (plain language)
+
+**Neue Tabelle "Gutscheine":**
+```
+- Code (Text, eindeutig, wird case-insensitive verglichen)
+- Rabatt-Typ: Prozent oder Festbetrag
+- Rabatt-Höhe (Zahl)
+- Maximale Einlösungen (Zahl)
+- Bisherige Einlösungen (Zähler, startet bei 0)
+- Ablaufdatum (optional)
+- Aktiv/Inaktiv (Umschalter, unabhängig von Limit/Ablauf manuell steuerbar)
+```
+
+**Bestehende Buchungsanfrage** bekommt ein neues, optionales Feld:
+```
+- Angehängter Gutschein-Code (nur die Referenz — bis zur Bestätigung rein informativ, noch kein Verbrauch)
+```
+
+**Ablauf beim Bestätigen einer Buchungsanfrage durch den Admin** (im bestehenden `confirmRegularBooking`-Schritt):
+```
+1. Ist ein Gutschein-Code angehängt?
+2. Wenn ja: ist er noch aktiv, nicht abgelaufen, Einlöse-Limit noch nicht erreicht,
+   UND hatte der Kunde noch nie zuvor irgendein Abo?
+3. Wenn alle Bedingungen erfüllt: Einlösungs-Zähler wird um 1 erhöht (atomar,
+   damit zwei gleichzeitige Bestätigungen sich nicht gegenseitig überholen
+   können), das Abo wird wie gewohnt mit dem vom Admin eingetragenen Preis angelegt.
+4. Wenn eine Bedingung nicht (mehr) erfüllt ist: Das Abo wird trotzdem ganz
+   normal angelegt, nur ohne Rabatt-Vermerk und ohne dass ein Zähler erhöht wird.
+```
+
+### C) Tech Decisions (justified for PM)
+
+- **Eigene Tabelle für Gutscheine:** Codes haben einen eigenen Lebenszyklus (aktiv/inaktiv, Ablauf, Zähler) unabhängig von einzelnen Buchungen — eine eigene Tabelle bildet das sauber ab, statt bestehende Tabellen zu überladen.
+- **Serverseitige, atomare Prüfung erst beim Bestätigen:** Die eigentliche Rabatt-Vergabe passiert serverseitig im selben Moment, in dem auch das Abo angelegt wird — dasselbe bewährte Muster, das die App schon nutzt, um zu verhindern, dass zwei Kunden gleichzeitig den letzten freien Kursplatz bekommen.
+- **"Erstes Abo" direkt aus der bestehenden Abo-Historie ableitbar:** Keine zusätzliche Tabelle nötig, um zu wissen, ob ein Kunde Neukunde ist — die Antwort steckt schon in den vorhandenen Daten.
+- **Rabattierter Preisvorschlag nutzt den bereits hinterlegten Kurs-Preis:** Kurse haben schon heute einen Preis, der das Preisfeld beim Bestätigen vorausfüllt. Diese bestehende Vorbefüllung wird einfach um den Rabatt ergänzt — der Admin sieht direkt einen sinnvollen Vorschlag, kann ihn aber wie bisher frei überschreiben. Das ist kein Bruch mit der Produkt-Entscheidung "keine automatische Verrechnung", weil das Feld weiterhin ein normales, frei editierbares Eingabefeld bleibt.
+- **Zugriff:** `/admin/gutscheine` nur für Admins, wie jeder andere Admin-Bereich.
+
+### D) Dependencies (packages to install)
+
+Keine neuen Pakete nötig — reine Erweiterung der bestehenden Buchungs- und Admin-Infrastruktur.
 
 ## QA Test Results
 _To be added by /qa_
