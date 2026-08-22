@@ -12,6 +12,7 @@ export const bookingSchema = z
     referral_source: z.enum(referralSourceValues).optional().or(z.literal("")),
     prerequisite_confirmed: z.boolean().optional(),
     dance_role: z.enum(danceRoleValues).optional().or(z.literal("")),
+    coupon_code: z.string().trim().max(50, "Code ist zu lang").optional().or(z.literal("")),
   })
   .superRefine((data, ctx) => {
     if (data.type === "regular" && !data.desired_plan) {

@@ -16,6 +16,7 @@ type BookingRow = {
   note: string | null;
   price: number | null;
   wantsStudentPrice: boolean | null;
+  couponId: string | null;
 };
 
 type CreateBookingResult =
@@ -117,6 +118,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       p_note: parsed.data.note ?? "",
       p_prerequisite_confirmed: parsed.data.prerequisite_confirmed ?? false,
       p_dance_role: parsed.data.dance_role ?? "",
+      p_coupon_code: parsed.data.coupon_code ?? "",
     });
 
     if (error) {
@@ -155,6 +157,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
         note: booking.note,
         price: booking.price,
         wantsStudentPrice: booking.wants_student_price,
+        couponId: booking.coupon_id,
       },
     };
   }
@@ -199,6 +202,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       note: booking.note,
       price: booking.price,
       wantsStudentPrice: booking.wants_student_price,
+      couponId: null,
     },
   };
 }
@@ -305,6 +309,7 @@ export async function rebookBooking(bookingId: string, newDate: string): Promise
       note: newBooking.note,
       price: newBooking.price,
       wantsStudentPrice: newBooking.wants_student_price,
+      couponId: null,
     },
   };
 }

@@ -86,6 +86,42 @@ export type Database = {
           },
         ]
       }
+      coupons: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          discount_amount: number
+          discount_type: string
+          expires_at: string | null
+          id: string
+          max_redemptions: number
+          redemption_count: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          discount_amount: number
+          discount_type: string
+          expires_at?: string | null
+          id?: string
+          max_redemptions: number
+          redemption_count?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          discount_amount?: number
+          discount_type?: string
+          expires_at?: string | null
+          id?: string
+          max_redemptions?: number
+          redemption_count?: number
+        }
+        Relationships: []
+      }
       course_attendance: {
         Row: {
           course_id: string
@@ -155,6 +191,7 @@ export type Database = {
       course_bookings: {
         Row: {
           chosen_date: string
+          coupon_id: string | null
           course_id: string
           created_at: string
           customer_id: string
@@ -170,6 +207,7 @@ export type Database = {
         }
         Insert: {
           chosen_date: string
+          coupon_id?: string | null
           course_id: string
           created_at?: string
           customer_id: string
@@ -185,6 +223,7 @@ export type Database = {
         }
         Update: {
           chosen_date?: string
+          coupon_id?: string | null
           course_id?: string
           created_at?: string
           customer_id?: string
@@ -199,6 +238,13 @@ export type Database = {
           wants_student_price?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "course_bookings_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "course_bookings_course_id_fkey"
             columns: ["course_id"]
@@ -1418,6 +1464,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      check_coupon_code: {
+        Args: { p_code: string }
+        Returns: {
+          discount_amount: number
+          discount_type: string
+          valid: boolean
+        }[]
+      }
       checkin_event_ticket: {
         Args: { p_ticket_id: string }
         Returns: {
@@ -1443,37 +1497,72 @@ export type Database = {
         Args: { p_run_id: string }
         Returns: undefined
       }
-      create_regular_course_booking: {
-        Args: {
-          p_chosen_date: string
-          p_course_id: string
-          p_dance_role?: string
-          p_desired_plan: string
-          p_note: string
-          p_prerequisite_confirmed?: boolean
-        }
-        Returns: {
-          chosen_date: string
-          course_id: string
-          created_at: string
-          customer_id: string
-          dance_role: string | null
-          desired_plan: string | null
-          id: string
-          note: string | null
-          price: number | null
-          status: string
-          subscription_id: string | null
-          type: string
-          wants_student_price: boolean | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "course_bookings"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      create_regular_course_booking:
+        | {
+            Args: {
+              p_chosen_date: string
+              p_course_id: string
+              p_dance_role?: string
+              p_desired_plan: string
+              p_note: string
+              p_prerequisite_confirmed?: boolean
+            }
+            Returns: {
+              chosen_date: string
+              coupon_id: string | null
+              course_id: string
+              created_at: string
+              customer_id: string
+              dance_role: string | null
+              desired_plan: string | null
+              id: string
+              note: string | null
+              price: number | null
+              status: string
+              subscription_id: string | null
+              type: string
+              wants_student_price: boolean | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "course_bookings"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_chosen_date: string
+              p_coupon_code?: string
+              p_course_id: string
+              p_dance_role?: string
+              p_desired_plan: string
+              p_note: string
+              p_prerequisite_confirmed?: boolean
+            }
+            Returns: {
+              chosen_date: string
+              coupon_id: string | null
+              course_id: string
+              created_at: string
+              customer_id: string
+              dance_role: string | null
+              desired_plan: string | null
+              id: string
+              note: string | null
+              price: number | null
+              status: string
+              subscription_id: string | null
+              type: string
+              wants_student_price: boolean | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "course_bookings"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       create_self_service_booking: {
         Args: {
           p_chosen_date: string
@@ -1484,6 +1573,7 @@ export type Database = {
         }
         Returns: {
           chosen_date: string
+          coupon_id: string | null
           course_id: string
           created_at: string
           customer_id: string
@@ -1629,6 +1719,13 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      redeem_coupon_for_booking: {
+        Args: { p_booking_id: string }
+        Returns: {
+          discount_amount: number
+          discount_type: string
+        }[]
       }
       self_reactivate_subscription: {
         Args: { p_subscription_id: string }

@@ -1,8 +1,20 @@
 # PROJ-15: Gutscheine & Rabattcodes
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
+
+## Implementation Notes (Backend)
+- New `coupons` table (code unique case-insensitively via an expression index on `upper(code)`, discount_type/amount, max_redemptions, redemption_count, expires_at, active), RLS: admin-only read/insert/update, no delete policy (matches "no delete, only deactivate" decision).
+- `course_bookings` got a new nullable `coupon_id` (FK, `on delete set null`).
+- `create_regular_course_booking` extended with an optional `p_coupon_code` param — looks up a matching active/non-expired/non-exhausted code and attaches it only if the requesting customer (via `auth.uid()`) has never had any subscription before; silently drops an invalid/ineligible code rather than blocking the booking.
+- New `check_coupon_code(p_code)` RPC — read-only, customer-invokable, used for the inline "is this code valid?" hint in the booking dialog (not authoritative).
+- New `redeem_coupon_for_booking(p_booking_id)` RPC — admin-only, called from `confirmRegularBooking` **before** the subscription insert (so its own "never had a subscription" re-check is still accurate), atomically increments `redemption_count` only if the coupon is still valid at that exact moment (`UPDATE ... WHERE ... RETURNING`, race-safe).
+- `src/lib/actions/coupons.ts` (customer-facing `checkCouponCode`) and `src/lib/actions/admin/coupons.ts` (`createCoupon`, `toggleCouponActive`) — plain inline validation (matching the newsletter action's style, no Zod needed here).
+- **Bug caught and fixed during implementation:** `CREATE OR REPLACE FUNCTION` on `create_regular_course_booking` with an added trailing parameter created a second, overloaded function (Postgres treats a different parameter signature as a distinct function) instead of replacing the original — leaving two versions registered simultaneously and causing intermittent PostgREST RPC resolution issues. Fixed by explicitly dropping the old 6-parameter overload; only the 7-parameter version remains.
+- **Verification:** no Vitest suite added (this feature is almost entirely RPC/SQL logic, not pure JS) — instead live-verified with disposable fixtures via the service-role client, matching this project's established backend-verification convention: 11 checks covering valid/invalid/case-insensitive code lookup, attach-on-request, redeem-on-confirm, no-double-redeem, exhausted-code rejection, "already has a subscription" rejection, and — critically — two concurrent redemption attempts against a `max_redemptions=1` coupon (exactly one wins, confirming the atomic UPDATE pattern is race-safe). Plus 4 separate red-team checks: customer cannot SELECT/INSERT on `coupons` directly, customer cannot call `redeem_coupon_for_booking` (admin-only guard), unauthenticated caller cannot call `check_coupon_code`.
+- **Regression testing:** full unit suite (211 tests) and PROJ-8's own 13-test E2E suite (run in isolation) both green, confirming the existing regular-booking flow is unaffected.
+- **Found but explicitly out of scope:** while chasing an unrelated-looking mass test failure, discovered two **pre-existing** test-hygiene bugs, neither caused by this feature and neither in a file previously covered by this session's earlier test-hygiene pass: (1) `PROJ-27`'s own "AC7: Admin entfernt Hinweis" test permanently clears the course's `prerequisite_note`, breaking its own "AC1" on any later re-run; (2) `PROJ-8`'s trial-count assertions use `page.locator("li", { hasText: "Probestunde" })` unscoped to the course, so they also count trial bookings `PROJ-27` leaves behind on the same shared `e2e8-customer` fixture. Both only surfaced because these files had never been run together before. Left unfixed — out of scope for this feature; flagged to the user for a possible follow-up pass.
 
 ## Dependencies
 - Requires: PROJ-8 (Kursbuchung) — der Gutschein-Code wird im bestehenden Buchungsdialog bei einer regulären Buchungsanfrage eingegeben und beim Bestätigen durch den Admin (`confirmRegularBooking`) eingelöst.

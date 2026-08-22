@@ -32,6 +32,13 @@ export async function confirmRegularBooking(
     return { error: "Buchung nicht gefunden oder nicht mehr offen." };
   }
 
+  // PROJ-15: redeem (atomically, re-checked fresh) before the subscription
+  // insert below — the RPC's own "customer never had a subscription" check
+  // relies on the subscription not existing yet. A coupon that's since
+  // become invalid (expired/exhausted/deactivated) is silently not redeemed;
+  // the booking still gets confirmed either way.
+  await supabase.rpc("redeem_coupon_for_booking", { p_booking_id: bookingId });
+
   const { data: subscription, error: subError } = await supabase
     .from("subscriptions")
     .insert({
