@@ -2,6 +2,21 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 
 /**
+ * A booking made by a test account must not reach anyone's phone.
+ *
+ * The E2E suite runs against the production database — this project has no
+ * staging environment — and books through the real UI. Without this guard a
+ * single full test run sent the operator 9 real push notifications and wrote
+ * 9 rows into the live notification queue (measured during PROJ-39 QA).
+ *
+ * `.test` is reserved by RFC 2606 for exactly this purpose, so it can never
+ * collide with a real customer address.
+ */
+export function isTestAccountEmail(email: string | null | undefined): boolean {
+  return Boolean(email?.trim().toLowerCase().endsWith(".test"));
+}
+
+/**
  * PROJ-39: tells the admins that a booking is waiting for them.
  *
  * Only admins who actually registered a device are notified. Without that
@@ -16,6 +31,16 @@ import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 export async function notifyAdminsOfNewBooking(bookingId: string): Promise<void> {
   try {
     const service = createServiceClient();
+
+    const { data: booking } = await service
+      .from("course_bookings")
+      .select("customer_id")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!booking) return;
+
+    const { data: customer } = await service.auth.admin.getUserById(booking.customer_id);
+    if (isTestAccountEmail(customer?.user?.email)) return;
 
     const { data: admins } = await service.from("profiles").select("id").eq("role", "admin");
     if (!admins?.length) return;

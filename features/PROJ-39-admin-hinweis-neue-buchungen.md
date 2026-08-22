@@ -259,10 +259,35 @@ Automatisierte Tests folgen im QA-Schritt.
 - **Gemessen:** Ein voller Chromium-Lauf erzeugte **9 Meldungen, alle mit Status `sent`** an das Gerät des Betreibers, dazu 9 Zeilen in der produktiven Warteschlange
 - **Ursache:** Es gibt keine Staging-Datenbank; die Tests buchen über die echte Oberfläche, also durch die echte Buchungsaktion
 - **Einordnung:** Direkt durch PROJ-39 entstanden. Kein Nutzerschaden, aber der Testlauf wird für den Betreiber unangenehm und verschmutzt Produktivdaten
-- **Priorität:** Vor dem nächsten routinemäßigen Testlauf beheben
+- **Status: BEHOBEN am 2026-08-22**
+
+**Lösung:** Buchungen von Testkonten lösen keine Meldung mehr aus. Die Weiche sitzt in
+`isTestAccountEmail()` (`admin-alerts.ts`) und erkennt Adressen auf der Top-Level-Domain `.test`,
+die per RFC 2606 genau dafür reserviert ist und daher nie mit einer echten Kundenadresse kollidieren
+kann. Alle 64 buchenden Testkonten laufen auf `viennasalsastudio.test`.
+
+Bewusst **nicht** über die Umgebung gelöst (etwa „nur in der Produktion senden"): Damit hätte man
+die Meldung lokal nie mehr prüfen können — genau diese lokale Prüfung war aber der Beweis, dass das
+Feature überhaupt funktioniert.
+
+**Verifikation — beide Richtungen geprüft:**
+
+| Auslöser | Erzeugte offene Buchungen | Meldungen |
+|----------|---------------------------|-----------|
+| Testkonten (PROJ-8 + PROJ-30, 23 Tests) | 4 | **0** |
+| Kunde mit echter Adresse (`@example.com`) | 1 | **1, zugestellt** |
+
+Die Gegenprobe war der wichtigere Teil: Ein zu grober Filter hätte das Feature stillschweigend
+komplett abgeschaltet, und das wäre im Betrieb erst aufgefallen, wenn eine echte Buchung
+unbemerkt liegen bleibt.
+
+**Verbleibende Lücke:** Würde jemand später einen Buchungstest mit einer *echten* Adresse schreiben,
+löst dieser wieder Meldungen aus. Der Filter erkennt Testkonten an der Adresse, nicht am Kontext.
+Für die aktuelle Testsuite ist das abgedeckt.
 
 ### Automatisierte Tests
-- **Unit/Komponente:** 11 neue Tests (`admin-nav.test.tsx`, Ergänzungen in `templates.test.ts`) — Gesamtsuite **233/233 grün**
+- **Unit/Komponente:** 16 neue Tests (`admin-nav.test.tsx`, `admin-alerts.test.ts`, Ergänzungen in `templates.test.ts`) — Gesamtsuite **238/238 grün**
+  - `admin-alerts.test.ts` pinnt die Weiche aus BUG-2 fest, inklusive der Fälle, die einen naiven Filter aushebeln würden: Groß-/Kleinschreibung, umgebende Leerzeichen, `test@gmail.com`, `anna@test.com` (beides **echte** Kunden) sowie fehlende Adresse — dort wird bewusst benachrichtigt statt unterdrückt
   - Enthält eine gezielte Regressionsbremse gegen die `{0 && …}`-Falle, die im Geburtsdatumsfeld schon einmal produktiv sichtbar war
 - **E2E:** 9 neue Tests in `tests/PROJ-39-admin-hinweis-neue-buchungen.spec.ts` — **9/9 grün auf Chromium**
 - **Methodik:** Die E2E-Tests messen bewusst **Differenzen** statt absoluter Zahlen und seeden per Direkt-Insert statt über die Oberfläche. Grund: Es gibt keine Staging-DB, parallele Suiten erzeugen eigene offene Buchungen, und ein Seeding über die Oberfläche würde bei jedem Testlauf echte Pushes auslösen
@@ -299,12 +324,12 @@ dem Stand vor dem Lauf.
 
 ### Zusammenfassung
 - **Akzeptanzkriterien:** 11/12 vollständig bestanden, 1 nur hergeleitet (Antippen)
-- **Fehler:** 2 (0 kritisch, 0 hoch, **2 mittel**, 0 niedrig)
+- **Fehler:** 2 gefunden (0 kritisch, 0 hoch, **2 mittel**, 0 niedrig) — **BUG-2 behoben und verifiziert**, BUG-1 offen
 - **Sicherheit:** Bestanden bis auf den Missbrauchsweg in BUG-1
 - **Produktionsreif:** **JA** — kein kritischer oder hoher Fehler
-- **Empfehlung:** Deployment möglich. BUG-2 sollte vor dem nächsten Testlauf behoben werden, BUG-1
-  bevor die App für Fremde offen ist. Die 22 vorbestehenden Testfehler sind ein eigenes Thema und
-  sollten nicht mit diesem Feature vermischt werden
+- **Empfehlung:** Deployment möglich. BUG-1 beheben, bevor die App für Fremde offen ist. Die 22
+  vorbestehenden Testfehler sind ein eigenes Thema und sollten nicht mit diesem Feature vermischt
+  werden
 
 ## Deployment
 _To be added by /deploy_
