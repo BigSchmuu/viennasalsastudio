@@ -39,12 +39,48 @@ async function login(page: Page) {
   await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
 }
 
-/** Opens the given customer's admin detail page and sets/clears their birthdate. */
+const MONTH_NAMES = [
+  "Januar",
+  "Februar",
+  "März",
+  "April",
+  "Mai",
+  "Juni",
+  "Juli",
+  "August",
+  "September",
+  "Oktober",
+  "November",
+  "Dezember",
+];
+
+/**
+ * Opens the given customer's admin detail page and sets/clears their birthdate.
+ * The field is three selects (Tag/Monat/Jahr) rather than a date input, so that
+ * picking a birth year doesn't mean scrolling a wheel back decades.
+ * Pass "" to clear it via the field's "Löschen" button.
+ */
 async function setCustomerBirthdate(page: Page, customerName: string, birthdate: string) {
   await page.goto("/admin/kunden");
   await page.getByRole("link", { name: customerName }).click();
   await page.waitForURL(/\/admin\/kunden\/.+/);
-  await page.getByLabel("Geburtsdatum").fill(birthdate);
+  await page.waitForTimeout(400);
+
+  if (birthdate === "") {
+    const clear = page.getByRole("button", { name: "Geburtsdatum löschen" });
+    if (await clear.count()) await clear.click();
+  } else {
+    const [year, month, day] = birthdate.split("-").map(Number);
+    // Year first: it narrows nothing, but picking day before month can be
+    // clamped by the shorter month, so set the coarse parts first.
+    await page.getByLabel("Jahr").click();
+    await page.getByRole("option", { name: String(year), exact: true }).click();
+    await page.getByLabel("Monat").click();
+    await page.getByRole("option", { name: MONTH_NAMES[month - 1], exact: true }).click();
+    await page.getByLabel("Tag").click();
+    await page.getByRole("option", { name: String(day), exact: true }).click();
+  }
+
   await page.getByRole("button", { name: "Speichern" }).click();
   await page.waitForTimeout(600);
 }

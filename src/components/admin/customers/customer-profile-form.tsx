@@ -8,6 +8,7 @@ import { updateCustomerProfile } from "@/lib/actions/admin/customers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BirthdateField } from "@/components/form/birthdate-field";
 import {
   Select,
   SelectContent,
@@ -121,7 +122,7 @@ export function CustomerProfileForm({
             <FormItem>
               <FormLabel>Geburtsdatum</FormLabel>
               <FormControl>
-                <Input type="date" {...field} />
+                <BirthdateField value={field.value ?? ""} onChange={field.onChange} idPrefix="admin-birthdate" />
               </FormControl>
               <FormMessage />
             </FormItem>

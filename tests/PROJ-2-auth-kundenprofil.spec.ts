@@ -96,7 +96,12 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await expect(page.getByLabel("Name")).toHaveValue("QA Test Kundin");
   });
 
-  test("Zukünftiges Geburtsdatum wird beim Speichern abgelehnt", async ({ page }) => {
+  // The birthdate field is three selects (Tag/Monat/Jahr) whose year list ends
+  // at the current year, so a future birthdate can no longer be entered at all
+  // — prevention instead of after-the-fact rejection. The schema's
+  // "nicht in der Zukunft" rule still runs server-side in updateProfile as a
+  // backstop against a crafted request; this test covers the UI guarantee.
+  test("Zukünftiges Geburtsdatum kann gar nicht erst ausgewählt werden", async ({ page }) => {
     await page.goto("/login");
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL_2);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
@@ -104,11 +109,11 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await expect(page).toHaveURL(/\/profil$/);
     await page.waitForTimeout(2000);
 
-    const futureYear = new Date().getFullYear() + 1;
-    await page.getByLabel("Geburtsdatum").fill(`${futureYear}-01-01`);
-    await page.getByRole("button", { name: "Speichern", exact: true }).click();
-
-    await expect(page.getByText("Geburtsdatum darf nicht in der Zukunft liegen")).toBeVisible();
+    const currentYear = new Date().getFullYear();
+    await page.getByLabel("Jahr").click();
+    await page.waitForTimeout(300);
+    await expect(page.getByRole("option", { name: String(currentYear), exact: true })).toBeVisible();
+    await expect(page.getByRole("option", { name: String(currentYear + 1), exact: true })).toHaveCount(0);
   });
 
   test("Logout beendet die Sitzung und /profil ist danach wieder geschützt", async ({ page }) => {

@@ -8,6 +8,7 @@ import { updateProfile } from "@/lib/actions/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BirthdateField } from "@/components/form/birthdate-field";
 import {
   Select,
   SelectContent,
@@ -118,7 +119,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
             <FormItem>
               <FormLabel>Geburtsdatum</FormLabel>
               <FormControl>
-                <Input type="date" max={new Date().toISOString().split("T")[0]} {...field} />
+                <BirthdateField value={field.value ?? ""} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>
