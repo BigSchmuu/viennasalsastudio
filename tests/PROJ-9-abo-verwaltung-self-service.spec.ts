@@ -1,4 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
 
 const ADMIN = { email: "e2e8-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const CUSTOMER = { email: "e2e24-customer@viennasalsastudio.test", password: "CorrectPassword123!" };
@@ -25,6 +34,79 @@ async function openAboSection(page: Page) {
   await page.getByRole("button", { name: "Mein Abo" }).click();
   await page.waitForTimeout(400);
 }
+
+/**
+ * Every test here changes the subscription it depends on: one reactivates the
+ * paused one, another applies the due cancellation. Nothing restored those, so
+ * the suite passed once and then failed forever — the fixtures ended up
+ * contradicting their names ("Paused Abo" sitting on active, "Due Abo" already
+ * cancelled). There is no staging database, so the starting state is restored
+ * explicitly here.
+ */
+test.beforeAll(async () => {
+  const service = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+
+  // AC8 creates a debit run for 2026-12-24 and confirms the duplicate-run
+  // dialog on re-runs, so every past run left another one behind — five had
+  // piled up before this reset existed.
+  const { data: staleRuns } = await service
+    .from("sepa_collection_runs")
+    .select("id")
+    .eq("due_date", "2026-12-24");
+  const staleRunIds = (staleRuns ?? []).map((r) => r.id);
+  if (staleRunIds.length) {
+    await service.from("sepa_collection_items").delete().in("run_id", staleRunIds);
+    await service.from("sepa_collection_runs").delete().in("id", staleRunIds);
+  }
+
+  const { data: bodymovement } = await service
+    .from("courses")
+    .select("id")
+    .eq("name", "Bodymovement")
+    .maybeSingle();
+  if (!bodymovement) throw new Error("PROJ-9 Fixture-Kurs fehlt: Bodymovement");
+
+  const clean = { pending_status: null, pending_effective_date: null, cancelled_at: null };
+
+  const resets: { name: string; patch: Record<string, unknown> }[] = [
+    // AC6 moves this one to Pachanga and back; restoring the course guards
+    // against a run that aborted midway.
+    { name: "E2E9 Testabo", patch: { ...clean, status: "active", course_id: bodymovement.id } },
+    { name: "E2E9 Multi Abo A", patch: { ...clean, status: "active" } },
+    { name: "E2E9 Multi Abo B", patch: { ...clean, status: "active" } },
+    // AC4 reactivates this one — it has to start out paused.
+    { name: "E2E9 Paused Abo", patch: { ...clean, status: "paused" } },
+    { name: "E2E7 Solo Abo", patch: { ...clean, status: "active" } },
+  ];
+
+  for (const { name, patch } of resets) {
+    const { error } = await service.from("subscriptions").update(patch).eq("name", name);
+    if (error) throw new Error(`PROJ-9 Fixture-Reset (${name}) fehlgeschlagen: ${error.message}`);
+  }
+
+  // "Due Abo" needs a cancellation that is already due, so the admin page
+  // offers "Jetzt übernehmen". Yesterday keeps it due regardless of run time.
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const dueDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, "0")}-${String(
+    yesterday.getDate()
+  ).padStart(2, "0")}`;
+
+  const { error: dueError } = await service
+    .from("subscriptions")
+    .update({
+      status: "active",
+      pending_status: "cancelled",
+      pending_effective_date: dueDate,
+      cancelled_at: null,
+    })
+    .eq("name", "E2E9 Due Abo");
+  if (dueError) throw new Error(`PROJ-9 Fixture-Reset (Due Abo) fehlgeschlagen: ${dueError.message}`);
+});
 
 test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
   test("Kunde ohne Abo sieht Leerzustand statt leerer Liste", async ({ page }) => {

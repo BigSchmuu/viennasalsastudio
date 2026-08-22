@@ -1,7 +1,56 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
 
 const ADMIN_EMAIL = "qa-proj6-admin@viennasalsastudio.test";
 const PASSWORD = "CorrectPassword123!";
+
+// weekday: 0 = Montag … 6 = Sonntag
+const MONTAG = 0;
+const FREITAG = 4;
+
+/**
+ * These tests rewrite the very schedules they depend on: one creates a slot on
+ * "Kurs Ohne Termin", another deletes the one on "Kurs Montag". Without a
+ * reset the suite therefore passes exactly once and fails on every later run —
+ * the fixtures end up contradicting their own names ("Ohne Termin" carrying a
+ * Wednesday slot, "Montag" carrying none). There is no staging database, so
+ * the starting state has to be restored explicitly here.
+ */
+test.beforeAll(async () => {
+  const service = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+
+  const names = ["E2E6 Kurs Ohne Termin", "E2E6 Kurs Montag", "E2E6 Kurs Heute"];
+  const { data: courses, error } = await service.from("courses").select("id, name").in("name", names);
+  if (error) throw new Error(`PROJ-6 Fixture-Reset fehlgeschlagen: ${error.message}`);
+
+  const byName = new Map((courses ?? []).map((c) => [c.name, c.id]));
+  for (const name of names) {
+    if (!byName.has(name)) throw new Error(`PROJ-6 Fixture-Kurs fehlt: ${name}`);
+  }
+
+  // Dropping the schedules also clears any pause rows left behind by an
+  // aborted run (course_schedule_pauses cascades from course_schedule).
+  await service.from("course_schedule").delete().in("course_id", [...byName.values()]);
+
+  await service.from("course_schedule").insert([
+    // "Kurs Montag" starts at 18:00 so the edit test can move it to 18:30.
+    { course_id: byName.get("E2E6 Kurs Montag"), weekday: MONTAG, start_time: "18:00", end_time: "19:00" },
+    { course_id: byName.get("E2E6 Kurs Heute"), weekday: FREITAG, start_time: "19:00", end_time: "20:00" },
+    // "Kurs Ohne Termin" deliberately gets none — that is what its name means.
+  ]);
+});
 
 async function loginAsAdmin(page: Page) {
   await page.goto("/login");
@@ -90,13 +139,23 @@ test.describe("PROJ-6: Stundenplan & Kalender", () => {
   test("Admin markiert eine Woche als Pause; Kurs verschwindet nur für diese Woche", async ({ page }) => {
     await loginAsAdmin(page);
     await openCourseEdit(page, "E2E6 Kurs Heute");
-    // "E2E6 Kurs Heute" is scheduled on Freitag — pause the date of the next
-    // actual Friday occurrence (not literal "today", which won't generally
-    // land on a Friday). Local date components, not toISOString() — see
-    // PROJ-8 QA notes on the UTC-conversion date-shift bug that causes.
-    const d = new Date();
-    const daysUntilFriday = (5 - d.getDay() + 7) % 7; // JS getDay(): 0=Sonntag..5=Freitag
-    d.setDate(d.getDate() + daysUntilFriday);
+    // "E2E6 Kurs Heute" is scheduled on Freitag, and /stundenplan shows the
+    // *current* week: it hides a course only when the pause matches this
+    // week's date for that weekday. So the pause has to target this week's
+    // Friday, computed exactly like currentWeekDates() does — Monday-based.
+    //
+    // The previous version paused the *next* Friday instead, which is the same
+    // day Mon–Fri but a week off on Saturday and Sunday. The test therefore
+    // failed every weekend regardless of whether the feature worked.
+    //
+    // Local date components, not toISOString() — see PROJ-8 QA notes on the
+    // UTC-conversion date-shift bug that causes.
+    const now = new Date();
+    const jsDayToWeekday = (day: number) => (day + 6) % 7; // 0=Montag … 6=Sonntag
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - jsDayToWeekday(now.getDay()));
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + 4); // Freitag dieser Woche
     const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     await page.locator("#schedule-pause-date").fill(today);
     // Two "Hinzufügen" buttons exist since PROJ-8 added its own entry-dates
