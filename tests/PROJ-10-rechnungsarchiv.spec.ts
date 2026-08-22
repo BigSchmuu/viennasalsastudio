@@ -93,7 +93,13 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
     await page.getByLabel("Kunde").fill("E2E8 Kunde");
     await page.getByRole("button", { name: "Filtern" }).click();
     await page.waitForLoadState("networkidle");
-    await page.getByRole("row", { name: /E2E8 Kunde/ }).getByRole("link").click();
+    // Each row carries two links since the customer column became clickable:
+    // the invoice itself and the customer. Target the invoice explicitly.
+    await page
+      .getByRole("row", { name: /E2E8 Kunde/ })
+      .locator('a[href^="/rechnungen/"]')
+      .first()
+      .click();
     await page.waitForURL(/\/rechnungen\//, { timeout: 10000 });
 
     await expect(page.getByText("Rechnungsempfänger")).toBeVisible();
@@ -127,7 +133,13 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
     await page.getByLabel("Kunde").fill("E2E8 Kunde");
     await page.getByRole("button", { name: "Filtern" }).click();
     await page.waitForLoadState("networkidle");
-    await page.getByRole("row", { name: /E2E8 Kunde/ }).getByRole("link").click();
+    // Each row carries two links since the customer column became clickable:
+    // the invoice itself and the customer. Target the invoice explicitly.
+    await page
+      .getByRole("row", { name: /E2E8 Kunde/ })
+      .locator('a[href^="/rechnungen/"]')
+      .first()
+      .click();
     await page.waitForURL(/\/rechnungen\/(.+)/, { timeout: 10000 });
     const otherCustomerInvoiceUrl = page.url();
 

@@ -59,6 +59,11 @@ test.beforeAll(async () => {
     .eq("due_date", "2026-12-24");
   const staleRunIds = (staleRuns ?? []).map((r) => r.id);
   if (staleRunIds.length) {
+    // Every run also writes invoices. Leaving those behind was how 98 invoices
+    // for this single date piled up and eventually broke PROJ-10, whose
+    // assertions drowned in the noise. Invoices first — they reference the
+    // collection items.
+    await service.from("invoices").delete().eq("invoice_date", "2026-12-24");
     await service.from("sepa_collection_items").delete().in("run_id", staleRunIds);
     await service.from("sepa_collection_runs").delete().in("id", staleRunIds);
   }

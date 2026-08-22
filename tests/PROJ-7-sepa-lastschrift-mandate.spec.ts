@@ -29,6 +29,10 @@ test.beforeAll(async () => {
   const { data: runs } = await service.from("sepa_collection_runs").select("id").in("due_date", RUN_DATES);
   const runIds = (runs ?? []).map((r) => r.id);
   if (runIds.length) {
+    // Every run also writes invoices; leaving those behind let 79 of them pile
+    // up for a single due date and eventually broke PROJ-10. Invoices first —
+    // they reference the collection items.
+    await service.from("invoices").delete().in("invoice_date", RUN_DATES);
     await service.from("sepa_collection_items").delete().in("run_id", runIds);
     await service.from("sepa_collection_runs").delete().in("id", runIds);
   }
