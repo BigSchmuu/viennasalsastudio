@@ -156,7 +156,11 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
     await page.waitForTimeout(300);
     await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
     await page.waitForTimeout(300);
-    await expect(page.getByText(STANDORT_NAME)).not.toBeVisible();
+    // Assert the table row is gone rather than "the text isn't visible": a
+    // toast or dialog left over from the delete also carries the name, and a
+    // negative assertion against multiple matches fails on strict mode instead
+    // of passing.
+    await expect(page.getByRole("row", { name: STANDORT_NAME })).toHaveCount(0);
   });
 
   test("Tanzstil anlegen und sofort im Kurs-Formular verfügbar", async ({ page }) => {

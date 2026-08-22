@@ -1,4 +1,21 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
+
+// Debit runs created by PROJ-7 and PROJ-9 each write invoices. Those suites
+// clean up after themselves, but they run *after* this one alphabetically —
+// so their invoices from the previous run are still around when these tests
+// execute, and the "rows for this customer" assertions drown in them (38 rows
+// at the last count). Clearing them here is what makes this suite independent
+// of run order.
+const FOREIGN_INVOICE_DATES = ["2026-11-01", "2026-11-15", "2026-12-24"];
 
 // Permanente Fixture: ein SEPA-Lastschriftlauf für dieses feste Fälligkeitsdatum
 // erzeugt automatisch Rechnungen für die bestehenden PROJ-7/PROJ-8-Fixture-Kunden
@@ -31,6 +48,27 @@ async function openInvoicesSection(page: Page) {
   await page.getByRole("button", { name: "Meine Rechnungen" }).click();
   await page.waitForTimeout(400);
 }
+
+test.beforeAll(async () => {
+  const service = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+
+  const { data: runs } = await service
+    .from("sepa_collection_runs")
+    .select("id")
+    .in("due_date", FOREIGN_INVOICE_DATES);
+  const runIds = (runs ?? []).map((r) => r.id);
+
+  // Invoices first — they reference the collection items.
+  await service.from("invoices").delete().in("invoice_date", FOREIGN_INVOICE_DATES);
+  if (runIds.length) {
+    await service.from("sepa_collection_items").delete().in("run_id", runIds);
+    await service.from("sepa_collection_runs").delete().in("id", runIds);
+  }
+});
 
 test.describe("PROJ-10: Rechnungsarchiv", () => {
   test("Setup: Lastschriftlauf für die PROJ-10-Fixtures existiert (idempotent)", async ({ page }) => {
