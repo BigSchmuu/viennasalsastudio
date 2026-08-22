@@ -43,6 +43,7 @@ Vienna Salsa Studio App ist eine Kunden-Self-Service-Plattform für die Tanzschu
 | P2 | Community/Newsfeed | Roadmap |
 | P2 | Gamification (Badges, Streaks, Level) | Roadmap |
 | P2 | Affiliate-System, granulare Rollen, Dokumente & Verträge | Roadmap |
+| P2 | Pagination für Admin-Listen (DB-seitig filtern/sortieren) | Roadmap |
 
 ## Success Metrics
 - 80%+ der Abo-Änderungen (Pause/Kündigung) laufen über Self-Service statt manuell
@@ -60,3 +61,18 @@ Vienna Salsa Studio App ist eine Kunden-Self-Service-Plattform für die Tanzschu
 - Keine native Mobile-App (App Store/Play Store) in dieser Version
 - Kein Nimbuscloud-API-Integration — vollständiger Ersatz statt Anbindung
 - P2-Features (Online-Kurs-Plattform, Community, Gamification, Affiliate) sind explizit nicht Teil des MVP
+
+## Bekannte technische Schulden
+
+### Pagination für Admin-Listen (PROJ-35, P2)
+Die Admin-Listen (v.a. `/admin/kunden`) laden bei jedem Seitenaufruf **alle** Datensätze
+und filtern/sortieren erst danach im Speicher, statt in der Datenbank-Abfrage
+(`.ilike()` / `.range()` / `.order()`). Der Kurskatalog macht es bereits richtig
+(12 pro Seite, „Mehr laden").
+
+**Bewusst zurückgestellt:** Bei aktuell ~50 Kunden ist der Unterschied nicht messbar.
+
+**Auslöser für die Umsetzung:** spürbar ab grob 1.000–2.000 Kunden, oder sobald das Laden
+einer Admin-Liste subjektiv träge wird. Vorher besteht kein Risiko — nur später etwas Arbeit.
+
+*Herkunft: externer Code-Audit vom 2026-08-22 (dort Befund P2-2).*

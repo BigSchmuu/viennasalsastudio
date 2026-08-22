@@ -49,7 +49,8 @@
 | PROJ-32 | Aktive-Kunden-Anzahl im Dashboard | Deployed | [PROJ-32](../features/PROJ-32-aktive-kunden-dashboard.md) | 2026-08-21 |
 | PROJ-33 | Sortier- und Filterfunktion für Admin-Listen | Deployed | [PROJ-33](../features/PROJ-33-sortier-filterfunktion-admin-listen.md) | 2026-08-21 |
 | PROJ-34 | Benachrichtigungs-Texte verwalten | Deployed | [PROJ-34](../features/PROJ-34-benachrichtigungs-texte-verwalten.md) | 2026-08-22 |
+| PROJ-35 | Pagination für Admin-Listen (DB-seitig filtern/sortieren) | Roadmap | — | 2026-08-22 |
 
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-35
+## Next Available ID: PROJ-36
