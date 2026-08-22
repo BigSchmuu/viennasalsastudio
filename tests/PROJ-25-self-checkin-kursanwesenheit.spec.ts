@@ -1,16 +1,110 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
 
-// NOTE: This feature's core behavior is deliberately wall-clock-time-sensitive
-// (window opens 30 min before class, closes at class end). The fixture course
-// times below were chosen relative to when these fixtures were created
-// (2026-08-18, ~13:00 Vienna time) and will need to be re-primed if re-run
-// on a different day or far outside that window — see QA notes in the spec.
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
+
+// This feature's core behavior is deliberately wall-clock-time-sensitive
+// (self-check-in window opens 30 min before class, closes at class end),
+// and course_schedule.weekday must match "today" in Vienna time for an
+// occurrence to render at all (see src/lib/scheduling/dates.ts). A fixed
+// fixture anchor date goes stale as soon as it isn't run on that exact day —
+// the beforeAll below recomputes each fixture course's weekday/start_time/
+// end_time relative to the actual current time on every run instead.
 
 const CUSTOMER_WITH_ABO = { email: "e2e25-customer-with-abo@viennasalsastudio.test", password: "CorrectPassword123!" };
 const CUSTOMER_NO_ABO = { email: "e2e25-customer-no-abo@viennasalsastudio.test", password: "CorrectPassword123!" };
 const ADMIN = { email: "e2e14-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 
 const COURSE_IM_FENSTER_ID = "d61c66bd-338d-433a-b109-930ef0ef1e1b";
+
+const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+// Mirrors src/lib/scheduling/dates.ts's Vienna-wall-clock + weekday
+// conventions (0=Montag...6=Sonntag) — duplicated here rather than imported
+// since test files don't reach into app source elsewhere in this repo.
+function viennaNow(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Vienna" }));
+}
+function viennaWeekday(date: Date): number {
+  const jsDay = date.getDay();
+  return jsDay === 0 ? 6 : jsDay - 1;
+}
+function timeString(date: Date): string {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:00`;
+}
+function dateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+function addMinutes(date: Date, minutes: number): Date {
+  return new Date(date.getTime() + minutes * 60000);
+}
+
+test.beforeAll(async () => {
+  const now = viennaNow();
+  const todayWeekday = viennaWeekday(now);
+  const today = dateString(now);
+
+  async function setSchedule(courseName: string, startOffsetMin: number, endOffsetMin: number) {
+    const { data: course } = await service.from("courses").select("id").eq("name", courseName).single();
+    if (!course) throw new Error(`PROJ-25 fixture course '${courseName}' not found`);
+    const { error } = await service
+      .from("course_schedule")
+      .update({
+        weekday: todayWeekday,
+        start_time: timeString(addMinutes(now, startOffsetMin)),
+        end_time: timeString(addMinutes(now, endOffsetMin)),
+      })
+      .eq("course_id", course.id);
+    if (error) throw new Error(`Could not reprime schedule for '${courseName}': ${error.message}`);
+  }
+
+  await setSchedule("E2E25 Zu Früh Kurs", 120, 180); // starts in 2h — well outside the 30-min pre-window
+  await setSchedule("E2E25 Im Fenster Kurs", 15, 90); // starts in 15min (inside window), ends in 90min
+  await setSchedule("E2E25 Beendet Kurs", -120, -60); // started 2h ago, ended 1h ago — but still today
+
+  // "Pausiert Kurs" keeps the same weekday as today (it would otherwise
+  // occur), but a pause exception dated today suppresses the occurrence —
+  // that's the actual behavior AC9 exercises.
+  const { data: pausedCourse } = await service.from("courses").select("id").eq("name", "E2E25 Pausiert Kurs").single();
+  if (!pausedCourse) throw new Error("PROJ-25 fixture course 'E2E25 Pausiert Kurs' not found");
+  const { data: pausedSchedule } = await service
+    .from("course_schedule")
+    .update({ weekday: todayWeekday, start_time: timeString(addMinutes(now, 180)), end_time: timeString(addMinutes(now, 240)) })
+    .eq("course_id", pausedCourse.id)
+    .select("id")
+    .single();
+  if (!pausedSchedule) throw new Error("Could not reprime 'E2E25 Pausiert Kurs' schedule");
+  await service.from("course_schedule_pauses").update({ pause_date: today }).eq("schedule_id", pausedSchedule.id);
+
+  // AC2/3 assumes CUSTOMER_WITH_ABO is NOT yet checked in for today's
+  // occurrence (unlike AC4/AC6/7/"Rand", which self-heal either way) — clear
+  // any leftover attendance row so a same-day re-run starts clean too.
+  const { data: users } = await service.auth.admin.listUsers({ perPage: 200 });
+  const customerId = users?.users.find((u) => u.email === CUSTOMER_WITH_ABO.email)?.id;
+  if (!customerId) throw new Error("PROJ-25 fixture customer not found");
+  const { data: imFensterCourse } = await service.from("courses").select("id").eq("name", "E2E25 Im Fenster Kurs").single();
+  const { data: beendetCourse } = await service.from("courses").select("id").eq("name", "E2E25 Beendet Kurs").single();
+  for (const course of [imFensterCourse, beendetCourse]) {
+    if (!course) continue;
+    await service
+      .from("course_attendance")
+      .delete()
+      .eq("customer_id", customerId)
+      .eq("course_id", course.id)
+      .eq("occurrence_date", today);
+  }
+});
 
 async function login(page: Page, { email, password }: { email: string; password: string }) {
   await page.goto("/login");

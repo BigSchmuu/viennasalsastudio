@@ -1,4 +1,17 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
+
+const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 
 const ADMIN = { email: "e2e13-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const LEHRER_A = { email: "e2e13-lehrer-a@viennasalsastudio.test", password: "CorrectPassword123!" };
@@ -35,6 +48,27 @@ async function openCell(page: Page, row: ReturnType<typeof rowFor>, cellIndex: n
 }
 
 test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () => {
+  test.beforeAll(async () => {
+    // AC7 requires "E2E13 Flatrate Kunde" to have NO attendance history for
+    // COURSE_ID yet — the matrix renders a permanent roster row for anyone
+    // with even one course_attendance row in any visible column, and the
+    // "Kunde hinzufügen" dialog (list_attendance_eligible_customers) isn't
+    // filtered by roster membership at all, so once they'd been marked
+    // present on any past Thursday they stayed a roster row forever and the
+    // dialog's search correctly reported "Keine Kunden gefunden" (they're
+    // not really addable — they're already there). AC7 itself marks them
+    // present each run, so a re-run leaves another historical row behind.
+    // Purge all of this customer's attendance for this course so AC7 always
+    // starts from the same "never been in the roster" precondition.
+    const { data: customer } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E13 Flatrate Kunde")
+      .single();
+    if (!customer) throw new Error("PROJ-13 fixture customer 'E2E13 Flatrate Kunde' not found");
+    await service.from("course_attendance").delete().eq("course_id", COURSE_ID).eq("customer_id", customer.id);
+  });
+
   test("AC1: Eingeloggter Lehrer sieht 'Meine Kurse' in der globalen Navigation", async ({ page }) => {
     await login(page, LEHRER_A);
     await expect(page.getByRole("link", { name: "Meine Kurse" })).toBeVisible();
@@ -167,10 +201,8 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
 
   // Marks E2E13 Flatrate Kunde present today, which persists a real
   // course_attendance row — on a re-run they'd already be listed (no longer
-  // "addable"), so this test needs `DELETE FROM course_attendance WHERE
-  // course_id = '6032ce07-...' AND occurrence_date = today AND customer_id =
-  // 'b2b880e6-...'` re-run before it to stay green, same category of
-  // re-priming as the AC5/AC5b fixtures.
+  // "addable"). Reset in beforeAll below, same category of re-priming as the
+  // AC5/AC5b fixtures.
   test("AC7: 'Kunde hinzufügen' listet nur Kunden mit aktivem Abo/Buchung, fügt Zeile hinzu, in passender Spalte markierbar", async ({ page }) => {
     await login(page, LEHRER_A);
     await page.goto(`/lehrer/${COURSE_ID}`);
@@ -234,7 +266,10 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     await login(page, ADMIN);
     await page.goto("/admin/kurse");
     await page.waitForTimeout(1000);
-    const courseRow = page.locator("tr", { hasText: "E2E13 Kurs" }).first();
+    // "E2E13 Kurs" is also a substring of "E2E13 Kurs Ohne Termin" — a loose
+    // hasText match can resolve .first() to either row depending on table
+    // order, so require an exact-text match on the course name cell.
+    const courseRow = page.locator("tr").filter({ has: page.getByText("E2E13 Kurs", { exact: true }) });
     await courseRow.getByRole("link", { name: "Anwesenheit" }).click();
     await page.waitForURL(`**/lehrer/${COURSE_ID}`, { timeout: 10000 });
     await page.waitForTimeout(1000);

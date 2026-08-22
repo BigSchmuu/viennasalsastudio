@@ -42,8 +42,14 @@ test.describe("PROJ-17: Admin-Analytics-Dashboard", () => {
     await page.goto("/admin?from=2026-08-01&to=2026-08-31");
     await page.waitForTimeout(1000);
 
+    // At least the PROJ-9 fixture's own cancellation ("E2E9 Due Abo") must be
+    // counted here — but this is a shared, ever-growing live DB, so other
+    // suites' unrelated cancellations in this window can push the real count
+    // above 1. Assert "counted, non-zero" rather than an exact value, see
+    // [[no-staging-test-assumptions]].
     const cancelTile = page.getByText("Kündigungen im Zeitraum").locator("xpath=following-sibling::*").first();
-    await expect(cancelTile).toHaveText("1");
+    await expect(cancelTile).not.toHaveText("0");
+    expect(Number(await cancelTile.textContent())).toBeGreaterThanOrEqual(1);
     await expect(page.getByText("Kündigungs-Verlauf")).toBeVisible();
   });
 

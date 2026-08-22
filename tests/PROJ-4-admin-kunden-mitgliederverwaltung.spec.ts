@@ -1,8 +1,33 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
 
 const ADMIN_EMAIL = "qa-proj4-admin@viennasalsastudio.test";
 const CUSTOMER_EMAIL = "qa-proj4-customer@viennasalsastudio.test";
 const PASSWORD = "CorrectPassword123!";
+
+const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+test.beforeAll(async () => {
+  // "Kein Abo vorhanden..." and "Mehrere unabhängige Abos..." are one
+  // sequential story: the first test requires zero pre-existing abos, then
+  // both tests together create/edit/delete subscriptions for "E2E4 Test
+  // Kunde", ending with exactly 1 row. Without a reset, that leftover row
+  // broke the first test's empty-state precondition on every re-run. Reset
+  // to zero here so the story reproduces identically every time.
+  const { data: profile } = await service.from("profiles").select("id").eq("full_name", "E2E4 Test Kunde").single();
+  if (!profile) throw new Error("PROJ-4 fixture customer not found");
+  await service.from("subscriptions").delete().eq("customer_id", profile.id);
+});
 
 async function loginAsAdmin(page: Page) {
   await page.goto("/login");

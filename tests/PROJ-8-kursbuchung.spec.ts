@@ -1,4 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
 
 const ADMIN = { email: "e2e8-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const CUSTOMER = { email: "e2e8-customer@viennasalsastudio.test", password: "CorrectPassword123!" };
@@ -10,6 +19,32 @@ const CUSTOMER_TODAY = {
   email: "e2e8-customer-today@viennasalsastudio.test",
   password: "CorrectPassword123!",
 };
+const COURSE_NAME = "E2E8 Kurs";
+
+const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+test.beforeAll(async () => {
+  // The tests below drive CUSTOMER through one continuous booking-request
+  // story on COURSE_NAME every run: first-ever-booking triggers the
+  // acquisition-channel prompt, a second open request is blocked, admin
+  // confirms the regular request (creating a subscription), rejects the
+  // drop-in, and the customer reschedules/cancels their trial. None of that
+  // is idempotent by itself — re-running it left referral_source
+  // permanently non-null and accumulated cancelled/rejected rows behind,
+  // breaking the acquisition-channel prompt and exact-count assertions on
+  // every run after the first. Reset to a pristine state here so the whole
+  // story reproduces identically on every run.
+  const { data: list } = await service.auth.admin.listUsers({ perPage: 200 });
+  const customerId = list?.users.find((u) => u.email === CUSTOMER.email)?.id;
+  const { data: course } = await service.from("courses").select("id").eq("name", COURSE_NAME).single();
+  if (!customerId || !course) throw new Error("PROJ-8 fixture customer/course not found");
+
+  await service.from("profiles").update({ referral_source: null }).eq("id", customerId);
+  await service.from("course_bookings").delete().eq("customer_id", customerId).eq("course_id", course.id);
+  await service.from("subscriptions").delete().eq("customer_id", customerId).eq("course_id", course.id);
+});
 
 async function login(page: Page, { email, password }: { email: string; password: string }) {
   await page.goto("/login");

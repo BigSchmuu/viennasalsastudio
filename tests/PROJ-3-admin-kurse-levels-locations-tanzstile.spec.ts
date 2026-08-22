@@ -1,9 +1,32 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
 
 const ADMIN_EMAIL = "qa-proj3-admin@viennasalsastudio.test";
 const TEACHER_EMAIL = "qa-proj3-teacher@viennasalsastudio.test";
 const CUSTOMER_EMAIL = "qa-proj3-customer@viennasalsastudio.test";
 const PASSWORD = "CorrectPassword123!";
+
+const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+test.beforeAll(async () => {
+  // "Kurs anlegen mit Lehrer" creates + renames a course fresh every run;
+  // without cleanup, each run left another "E2E Salsa Kurs (erneut
+  // bearbeitet)" row behind, and by the second run two rows shared that
+  // exact name — a strict-mode locator violation on the final assertion.
+  // This course is never booked (course_bookings/subscriptions would RESTRICT
+  // the delete), so a plain delete is safe.
+  await service.from("courses").delete().ilike("name", "E2E Salsa Kurs%");
+});
 
 async function loginAsAdmin(page: Page) {
   await page.goto("/login");
