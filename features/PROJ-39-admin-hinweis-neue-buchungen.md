@@ -1,6 +1,6 @@
 # PROJ-39: Admin-Hinweis auf neue Buchungen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -369,4 +369,31 @@ dem Stand vor dem Lauf.
   und 25 sind ein eigenes Thema und sollten nicht mit diesem Feature vermischt werden
 
 ## Deployment
-_To be added by /deploy_
+
+**Live seit:** 2026-08-22
+**Produktions-URL:** https://viennasalsastudio.vercel.app
+**Git-Tag:** `v1.0.0-PROJ-39`
+
+### Vorab-Prüfungen
+- [x] `npm run build` erfolgreich (38 Seiten, keine Warnungen)
+- [x] `npm run lint` sauber
+- [x] Alle 243 Unit-/Integrationstests grün
+- [x] QA abgeschlossen, beide gefundenen Fehler behoben und verifiziert
+- [x] Keine `.env`-Datei versioniert; alle Variablen in `.env.local.example` dokumentiert
+- [x] Beide Migrationen in der Datenbank angewendet **und** im Repo versioniert
+      (`20260822181924_proj39_neue_buchung_event_type`,
+      `20260822195054_proj39_selfservice_booking_abuse_guard`) — inhaltlich gegen den Live-Stand
+      abgeglichen, nicht nur abgelegt
+
+### Verifikation in der Produktion
+- [x] Startseite HTTP 200 (0,6 s), Kurskatalog HTTP 200
+- [x] `/admin` leitet unangemeldete Besucher korrekt auf `/login?redirect=/admin` (HTTP 307)
+- [x] **Zähler live geprüft:** zeigt `6` und die Datenbank meldet zeitgleich exakt 6 offene
+      Buchungen — der Zähler stimmt also, statt nur vorhanden zu sein
+- [x] Zähler hängt am richtigen Menüpunkt (`/admin/buchungen`)
+- [x] Kundenkonto sieht den Zähler in der Produktion nicht
+
+### Bekannte Einschränkung
+Der Push-Versand wurde in der Produktion **nicht** erneut ausgelöst — das hätte eine echte
+Benachrichtigung an den Betreiber bedeutet, ohne zusätzlichen Erkenntnisgewinn: Der Versandweg
+ist identisch mit dem lokal bereits real verifizierten und nutzt dieselbe Datenbank.
