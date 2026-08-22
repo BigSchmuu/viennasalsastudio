@@ -1,6 +1,6 @@
 # PROJ-34: Benachrichtigungs-Texte verwalten
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -201,7 +201,79 @@ Diese Zuordnung ist die Grundlage für die serverseitige Validierung beim Speich
 Keine neuen Pakete nötig — das Feature nutzt ausschließlich bereits vorhandene Infrastruktur (Datenbank, E-Mail-Versand, Push-Versand) aus PROJ-16.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-22
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Automated Test Results
+- `npm test` (Vitest): 211/211 passed (197 pre-existing + 14 new in `template-registry.test.ts`) — includes the 17 pre-existing `templates.test.ts` cases, confirming the `buildNotificationContent` refactor is fully behavior-preserving.
+- `npm run test:e2e` regression set (`PROJ-16`, `PROJ-17`, `PROJ-24`, `PROJ-28`, `PROJ-29` — the suites most likely affected by the `templates.ts`/`dispatch.ts` refactor and the `admin-nav.tsx` change): 30/30 passed, no regressions.
+- New permanent suite `tests/PROJ-34-benachrichtigungs-texte-verwalten.spec.ts`: 8/8 passed, verified twice in a row (idempotency check) same-day.
+
+### Acceptance Criteria Status
+
+#### Übersicht & Zugriff
+- [x] Admin sieht gruppierte Liste aller 12 Vorlagen-Varianten mit Klarnamen
+- [x] Nie angepasste Vorlage zeigt "Standard"
+- [x] Angepasste Vorlage zeigt "Angepasst"
+- [x] Nicht-Admin (Kunde **und** Lehrer, beide separat getestet) wird von Übersicht und Editor weggeleitet
+
+#### Bearbeiten
+- [x] Editor zeigt 4 vorausgefüllte Felder (E-Mail-Betreff, E-Mail-Text, Push-Titel, Push-Text)
+- [x] Editor zeigt die für diese Vorlage gültigen Platzhalter
+- [x] Leeres Feld blockiert Speichern serverseitig (nicht nur im UI) — verifiziert per direktem Action-Aufruf-Pfad über `validateFields`
+- [x] Unbekannter/falsch geschriebener Platzhalter blockiert Speichern mit Fehlermeldung inkl. Liste gültiger Platzhalter
+- [x] Gültige Änderung wird sofort aktiv — verifiziert, dass `dispatch.ts`s `fetchOverride()`-Query exakt die per UI gespeicherten Spalten liest (Skript-Check gegen die Live-DB)
+
+#### Vorschau & Test
+- [x] Live-Vorschau aktualisiert sich automatisch beim Tippen, inkl. Layout/Fett-Hervorhebung/Link-Button
+- [x] Test-Mail-Versand: Erfolgspfad und Fehlerpfad (SMTP-Ablehnung der `.test`-Fixture-Domain) beide verifiziert; sendet ausschließlich an die eigene, aus der Session aufgelöste Admin-Adresse (kein beliebiges Ziel möglich)
+
+#### Zurücksetzen
+- [x] "Auf Standard zurücksetzen" stellt den Original-Text wieder her, Badge wechselt zurück auf "Standard"
+- [x] Button ist ausgeblendet, solange keine Anpassung existiert
+
+**13/13 Acceptance Criteria funktional bestanden.** Die beiden unten dokumentierten Bugs sind Red-Team-Funde, die keiner einzelnen AC-Zeile widersprechen, aber die im Spec explizit festgelegte Sicherheits-/Design-Absicht ("reiner Text, kein Rich-Text/HTML") unterlaufen bzw. eine bestehende Projekt-Sicherheitsregel verletzen.
+
+### Edge Cases Status
+- [x] Gleichzeitige Bearbeitung durch zwei Admins: kein Locking (wie spezifiziert) — letzter Speichervorgang gewinnt, keine Fehlermeldung, kein Datenverlust über den Tab hinaus, in dem gespeichert wurde
+- [x] Test-Versand-Fehler (SMTP nicht erreichbar/Domain ungültig): Fehlermeldung im Editor, Eingabe bleibt erhalten (nicht zurückgesetzt)
+- [x] Unbekannter Vorlagen-Schlüssel in der URL (`/admin/benachrichtigungen/does-not-exist`): korrekt 404
+- [x] Bereits gespeicherte, aber noch nicht verschickte Warteschlangen-Einträge verwenden den *zum Versandzeitpunkt* aktuellen Text (`resolveContent` liest den Override live bei jedem Dispatch, nicht beim Einreihen) — bestätigt durch Code-Review von `dispatch.ts`
+
+### Security Audit Results
+- [x] Authentifizierung: `/admin/benachrichtigungen` und `/admin/benachrichtigungen/[key]` ohne Login → Redirect (via `requireAdmin()` im Layout)
+- [x] Autorisierung (Rollen): Kunde UND Lehrer beide vom UI weggeleitet; **zusätzlich per direktem, UI-umgehendem Supabase-Client verifiziert:** ein eingeloggter Kunde erhält auf `SELECT notification_template_overrides` eine leere Liste (RLS-gefiltert, kein Fehler-Leak) und auf `INSERT` einen expliziten RLS-Policy-Verstoß — die Datenbank-Ebene ist unabhängig von der UI-Gate korrekt abgesichert
+- [x] `saveTemplate`, `resetTemplate`, `sendTestNotification`: alle drei rufen `requireAdmin()` auf, bevor irgendetwas gelesen/geschrieben/versendet wird
+- [ ] **BUG-2:** `previewTemplate` (in `src/lib/actions/admin/notification-templates.ts`) ruft `requireAdmin()` **nicht** auf
+- [ ] **BUG-1:** Admin-eigener Vorlagentext wird ungeprüft/unescaped in `emailHtml` eingebettet — reproduzierbares HTML-/Script-Injection
+
+### Bugs Found
+
+#### BUG-1: Admin-Vorlagentext wird nicht escaped, bevor er als HTML in reale Kunden-E-Mails eingebettet wird
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Als Admin auf `/admin/benachrichtigungen/buchungsstatus_bestaetigt` einloggen
+  2. Im Feld "E-Mail-Text" eintragen: `<img src=x onerror="alert(1)"> Deine Buchungsanfrage für {kurs} wurde bestätigt.`
+  3. Erwartet: Da das Spec explizit "reiner Text mit `{platzhalter}`-Syntax... kein Rich-Text/HTML" festlegt, sollte der Text als reiner Text behandelt und beim Rendern escaped werden (wie es die Newsletter-Funktion PROJ-28 mit ihrem Body-Text bereits tut)
+  4. Tatsächlich: Der `<img>`-Tag wird roh in die Vorschau (und identisch in die reale `emailHtml`, da beide über denselben `buildNotificationContent`-Pfad laufen) eingebettet und **feuert im Browser** — reproduzierbar per E2E-Skript bestätigt (`window.onerror`-Payload löste tatsächlich aus)
+- **Root Cause:** `substituteHtml()` in `src/lib/notifications/template-registry.ts` escaped nur die **eingesetzten Platzhalter-Werte** (z.B. den Kursnamen), nicht den umgebenden, vom Admin selbst getippten literalen Text. Ein normaler Tippfehler wie "Preis < 40€" in einem beliebigen Vorlagentext würde die E-Mail bereits unbeabsichtigt kaputt machen; ein Admin mit (kompromittiertem) Zugriff könnte gezielt Markup/Links in echte Transaktions-Mails an Kunden einschleusen.
+- **Priority:** Fix before deployment
+
+#### BUG-2: `previewTemplate` Server Action prüft keine Admin-Berechtigung
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. `src/lib/actions/admin/notification-templates.ts` lesen: `saveTemplate`, `resetTemplate` und `sendTestNotification` rufen alle zu Beginn `requireAdmin()` auf — `previewTemplate` nicht
+  2. Auswirkung ist aktuell gering: Die Funktion greift auf keine Datenbank/Kundendaten zu (reines Rendern von durch den Aufrufer selbst übergebenem Text) und wird vom UI gar nicht genutzt (der Editor importiert `buildPreviewContent` direkt für die Live-Vorschau, nicht diese Action) — aber als exportierte `"use server"`-Funktion ist sie unabhängig vom aktuellen UI-Aufrufer als Endpunkt erreichbar und verletzt damit die Projekt-Regel „Always verify authentication before processing API requests" (security.md) unabhängig vom aktuellen Blast-Radius
+- **Priority:** Fix before deployment (einfache Korrektur, gehört zur gleichen Aufräumarbeit wie BUG-1) — entweder `requireAdmin()` ergänzen oder die ungenutzte Funktion ganz entfernen, da der Editor sie nicht verwendet
+
+### Summary
+- **Acceptance Criteria:** 13/13 passed
+- **Bugs Found:** 2 total (0 critical, 1 high, 0 medium, 1 low)
+- **Security:** Issues found (siehe BUG-1, BUG-2) — RLS/Rollen-Zugriffskontrolle selbst ist solide (verifiziert per direktem DB-Zugriff unter Umgehung der UI)
+- **Production Ready:** NO
+- **Recommendation:** BUG-1 vor Deployment fixen (Admin-Text vor dem Einbetten in `emailHtml` escapen, analog zu PROJ-28s Newsletter-Body). BUG-2 im selben Durchgang mitnehmen, da trivial. Nach Fix erneut `/qa` laufen lassen.
 
 ## Deployment
 _To be added by /deploy_
