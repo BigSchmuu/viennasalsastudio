@@ -50,8 +50,28 @@ function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60000);
 }
 
+// The fixtures place courses from 2 hours before to 3 hours after "now", all
+// on today's weekday. Near midnight that is impossible: at 00:34 a course that
+// "already ended two hours ago" would land at 22:34 — yesterday — but only the
+// time is stored while the weekday stays today, so it silently turns into a
+// course later this evening and the assertions fail for a reason that has
+// nothing to do with the feature.
+//
+// Self-check-in is by definition about *today's* occurrences, so instead of
+// pretending otherwise the suite states the boundary it needs.
+const EARLIEST_HOUR = 2; // needs 2h of elapsed day behind it
+const LATEST_HOUR = 21; // needs 3h of remaining day ahead of it
+
 test.beforeAll(async () => {
   const now = viennaNow();
+  const hour = now.getHours();
+  test.skip(
+    hour < EARLIEST_HOUR || hour >= LATEST_HOUR,
+    `Self-Check-In prüft Kurse von heute. Zwischen ${LATEST_HOUR}:00 und ${EARLIEST_HOUR}:00 Uhr passen die ` +
+      `benötigten Zeitfenster (2h zurück bis 3h voraus) nicht in denselben Kalendertag. ` +
+      `Aktuell: ${hour}:${String(now.getMinutes()).padStart(2, "0")} Uhr Wiener Zeit.`
+  );
+
   const todayWeekday = viennaWeekday(now);
   const today = dateString(now);
 

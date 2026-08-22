@@ -1,4 +1,30 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
+
+/**
+ * The suite creates two courses and deletes only one of them again, so
+ * "E2E23 Kurs ohne Videosatz" piled up one copy per run and eventually made
+ * the "is it visible?" assertion ambiguous. Video sets are cleaned up too, in
+ * case a run aborted between creating and deleting one.
+ */
+test.beforeAll(async () => {
+  const service = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+
+  await service.from("courses").delete().like("name", "E2E23 Kurs%");
+  await service.from("video_sets").delete().like("name", "E2E23 Videosatz%");
+});
 
 const ADMIN_EMAIL = "qa-proj23-admin@viennasalsastudio.test";
 const TEACHER_EMAIL = "qa-proj23-teacher@viennasalsastudio.test";
@@ -124,11 +150,15 @@ test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
     await page.waitForTimeout(500);
 
     await page.getByLabel("Name").fill("E2E23 Kurs ohne Videosatz");
-    await page.getByLabel("Tanzstil").click();
+    // Scoped to the dialog: since PROJ-33 the page behind it also carries
+    // "Tanzstil filtern" and "Level filtern", so an unscoped label lookup is
+    // ambiguous and Playwright refuses it.
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Tanzstil").click();
     await page.getByRole("option").first().click();
-    await page.getByLabel("Level").click();
+    await dialog.getByLabel("Level").click();
     await page.getByRole("option", { name: "Beginner" }).click();
-    await page.getByLabel("Standort").click();
+    await dialog.getByLabel("Standort").click();
     await page.getByRole("option").first().click();
     await page.waitForTimeout(500);
     await page.getByLabel("Raum").click();
@@ -142,11 +172,11 @@ test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
     await page.getByRole("button", { name: "Neuer Kurs" }).click();
     await page.waitForTimeout(500);
     await page.getByLabel("Name").fill("E2E23 Kurs mit Videosatz");
-    await page.getByLabel("Tanzstil").click();
+    await dialog.getByLabel("Tanzstil").click();
     await page.getByRole("option").first().click();
-    await page.getByLabel("Level").click();
+    await dialog.getByLabel("Level").click();
     await page.getByRole("option", { name: "Beginner" }).click();
-    await page.getByLabel("Standort").click();
+    await dialog.getByLabel("Standort").click();
     await page.getByRole("option").first().click();
     await page.waitForTimeout(500);
     await page.getByLabel("Raum").click();
