@@ -98,7 +98,11 @@ test.describe("PROJ-31: Geburtstags-Erinnerung", () => {
     await setCustomerBirthdate(page, "E2E30 Kunde A", formatLocalDate(today));
 
     await page.goto("/admin");
-    await expect(page.getByText("Geburtstage")).toBeVisible();
+    // Exact match: the empty-state line "Keine Geburtstage in den nächsten
+    // 7 Tagen" also contains the word, so a substring match is ambiguous
+    // whenever the list happens to be empty — which is exactly the case this
+    // assertion is meant to rule out.
+    await expect(page.getByText("Geburtstage", { exact: true })).toBeVisible();
     const row = page.locator("li", { hasText: "E2E30 Kunde A" });
     await expect(row).toBeVisible();
     await expect(row).toContainText("Heute");

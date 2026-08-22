@@ -57,10 +57,19 @@ export const profileSchema = z.object({
     .string()
     .optional()
     .or(z.literal(""))
-    .refine(
-      (value) => !value || new Date(value) <= new Date(),
-      "Geburtsdatum darf nicht in der Zukunft liegen"
-    ),
+    .refine((value) => {
+      if (!value) return true;
+      // Compare calendar days, not instants: `new Date("2026-08-23")` is
+      // parsed as UTC midnight, while `new Date()` is the current instant.
+      // In a UTC+2 timezone that made *today* count as "in the future"
+      // between 00:00 and 02:00 local time. ISO date strings compare
+      // correctly as plain strings.
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+        now.getDate()
+      ).padStart(2, "0")}`;
+      return value <= today;
+    }, "Geburtsdatum darf nicht in der Zukunft liegen"),
   gender: z.enum(genderValues).optional().or(z.literal("")),
 });
 

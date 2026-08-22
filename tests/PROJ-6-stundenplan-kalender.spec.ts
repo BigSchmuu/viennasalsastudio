@@ -113,8 +113,24 @@ test.describe("PROJ-6: Stundenplan & Kalender", () => {
   });
 
   test("Wochentag ohne terminierten Kurs zeigt verständlichen Leerzustand", async ({ page }) => {
+    // Sonntag used to be hardcoded here, but PROJ-25 moves its fixture courses
+    // onto *today's* weekday — so on a Sunday this suite asserted an empty day
+    // that another suite had just filled. Ask the database which weekday is
+    // actually free instead of assuming one.
+    const service = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    const { data: scheduled } = await service.from("course_schedule").select("weekday");
+    const taken = new Set((scheduled ?? []).map((s) => s.weekday));
+    const dayNames = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+    const freeDay = dayNames.find((_, i) => !taken.has(i));
+
+    test.skip(!freeDay, "Aktuell hat jeder Wochentag mindestens einen terminierten Kurs.");
+
     await page.goto("/stundenplan");
-    await page.getByRole("tab", { name: "Sonntag" }).click();
+    await page.getByRole("tab", { name: freeDay! }).click();
     await page.waitForTimeout(400);
     await expect(page.getByText("Keine Kurse an diesem Tag")).toBeVisible();
   });

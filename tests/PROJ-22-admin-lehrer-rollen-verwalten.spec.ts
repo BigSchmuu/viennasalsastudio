@@ -1,4 +1,43 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
+
+/**
+ * This suite promotes a customer and demotes two teachers, and nothing put the
+ * roles back. After one run the fixtures said the exact opposite of their
+ * names — "E2E22 Kunde" was a teacher, both "Lehrer" were customers — and
+ * every later run failed looking for people who no longer held those roles.
+ * There is no staging database, so the roles are restored here.
+ *
+ * The course assignment of "Lehrer Mit Kurs" is left alone: demoting does not
+ * remove it, and it is what the warning dialog test relies on.
+ */
+test.beforeAll(async () => {
+  const service = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+
+  const roles: Record<string, string> = {
+    "E2E22 Admin": "admin",
+    "E2E22 Kunde": "customer",
+    "E2E22 Lehrer Mit Kurs": "teacher",
+    "E2E22 Lehrer Ohne Kurs": "teacher",
+  };
+
+  for (const [fullName, role] of Object.entries(roles)) {
+    const { error } = await service.from("profiles").update({ role }).eq("full_name", fullName);
+    if (error) throw new Error(`PROJ-22 Fixture-Reset (${fullName}) fehlgeschlagen: ${error.message}`);
+  }
+});
 
 const ADMIN = { email: "e2e22-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const CUSTOMER = { email: "e2e22-customer@viennasalsastudio.test", password: "CorrectPassword123!" };

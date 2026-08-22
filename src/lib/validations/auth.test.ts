@@ -77,6 +77,18 @@ describe("profileSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  // Regression guard: the check used to compare a UTC-parsed date against the
+  // current instant, so in a UTC+X timezone today's date counted as future
+  // during the first X hours of the day.
+  it("accepts today as a birthdate regardless of the hour", () => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+      now.getDate()
+    ).padStart(2, "0")}`;
+    const result = profileSchema.safeParse({ birthdate: today });
+    expect(result.success).toBe(true);
+  });
+
   it("rejects a birthdate in the future", () => {
     const futureYear = new Date().getFullYear() + 1;
     const result = profileSchema.safeParse({ birthdate: `${futureYear}-01-01` });
