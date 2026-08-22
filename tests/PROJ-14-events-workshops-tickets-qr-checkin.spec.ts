@@ -1,4 +1,91 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+// The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
+// the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Already loaded (e.g. CI env vars set directly) — safe to ignore.
+}
+
+/**
+ * Three of these events are bought from during the run and one gets cancelled,
+ * but nothing released the tickets or restored the status. After a handful of
+ * runs "Kaufen Event" and "Checkin Event" had used up all 5 seats and
+ * "Cancel Notify Event" was permanently cancelled, so the app correctly showed
+ * "Ausgebucht" and hid the cancelled event — and the tests, expecting seats to
+ * be available, failed.
+ *
+ * The two events that are *supposed* to stay occupied ("Ausgebucht Event",
+ * capacity 1, and "Stornofrist Event") keep their tickets untouched.
+ *
+ * Dates are recomputed relative to now as well: they were fixed timestamps and
+ * would have silently started failing once they slipped into the past.
+ */
+test.beforeAll(async () => {
+  const service = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+
+  const { data: events, error } = await service.from("events").select("id, name").like("name", "E2E14%");
+  if (error) throw new Error(`PROJ-14 Fixture-Reset fehlgeschlagen: ${error.message}`);
+  const byName = new Map((events ?? []).map((e) => [e.name, e.id]));
+
+  const hoursFromNow = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
+
+  // Seats must be free again for the three events the suite buys from.
+  const needFreeSeats = ["E2E14 Kaufen Event", "E2E14 Checkin Event", "E2E14 Cancel Notify Event"]
+    .map((n) => byName.get(n))
+    .filter((id): id is string => Boolean(id));
+  if (needFreeSeats.length) {
+    // Cancelling rather than deleting: tickets that were billed in a SEPA run
+    // are referenced by sepa_collection_items, so a delete fails on that
+    // foreign key. Capacity counts only confirmed/checked_in/reserved seats,
+    // so cancelling frees them without tearing up accounting references.
+    const { error: seatError } = await service
+      .from("tickets")
+      .update({ status: "cancelled" })
+      .in("event_id", needFreeSeats)
+      .neq("status", "cancelled");
+    if (seatError) throw new Error(`PROJ-14 Ticket-Reset fehlgeschlagen: ${seatError.message}`);
+
+    await service.from("events").update({ status: "geplant", starts_at: hoursFromNow(24 * 7) }).in("id", needFreeSeats);
+  }
+
+  const ausgebucht = byName.get("E2E14 Ausgebucht Event");
+  if (ausgebucht) {
+    await service.from("events").update({ status: "geplant", starts_at: hoursFromNow(24 * 7) }).eq("id", ausgebucht);
+  }
+
+  // "Stornofrist Event" must sit inside the 1-day cancellation deadline, so
+  // the cancel button stays hidden. Its existing ticket is left alone.
+  const stornofrist = byName.get("E2E14 Stornofrist Event");
+  if (stornofrist) {
+    await service.from("events").update({ status: "geplant", starts_at: hoursFromNow(12) }).eq("id", stornofrist);
+  }
+
+  // AC13 switches the event-ticket e-mail preference off and tries to switch it
+  // back at the end — but by then it has opened another accordion section, so
+  // the switch is no longer mounted and the restore never lands. One aborted
+  // run therefore left the preference off for good, and every later run failed
+  // on its very first assertion. Restore it here instead, where nothing can
+  // interfere.
+  const { data: customer } = await service
+    .from("profiles")
+    .select("id")
+    .eq("full_name", "E2E14 Kunde Mit Mandat")
+    .maybeSingle();
+  if (customer) {
+    await service
+      .from("notification_preferences")
+      .delete()
+      .eq("customer_id", customer.id)
+      .eq("event_group", "event_tickets");
+  }
+});
 
 const CUSTOMER_MANDATE = { email: "e2e14-customer-mandate@viennasalsastudio.test", password: "CorrectPassword123!" };
 const CUSTOMER_NOMANDATE = { email: "e2e14-customer-nomandate@viennasalsastudio.test", password: "CorrectPassword123!" };
@@ -200,9 +287,11 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await expect(page.getByRole("switch", { name: "Event-Tickets per E-Mail" })).toHaveAttribute("data-state", "unchecked");
 
     // Ticket must still be visible in profile regardless of notification preference.
+    // The customer keeps every ticket ever bought for this event, cancelled ones
+    // included, so the claim is "still shown" — not "shown exactly once".
     await page.getByRole("button", { name: "Meine Tickets" }).click();
     await page.waitForTimeout(400);
-    await expect(page.getByText("E2E14 Kaufen Event")).toBeVisible();
+    await expect(page.getByText("E2E14 Kaufen Event").first()).toBeVisible();
 
     // Reset to default for repeatable runs.
     await page.getByRole("switch", { name: "Event-Tickets per E-Mail" }).click();
