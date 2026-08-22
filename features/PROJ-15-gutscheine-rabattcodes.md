@@ -1,6 +1,6 @@
 # PROJ-15: Gutscheine & Rabattcodes
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -258,4 +258,11 @@ Alle Angriffe über einen direkten Supabase-Client unter **Umgehung der UI** aus
 - **Recommendation:** Deploy.
 
 ## Deployment
-_To be added by /deploy_
+- **Production URL:** https://viennasalsastudio.vercel.app
+- **Deployed:** 2026-08-22
+- **Migrationen** (bereits während `/backend` bzw. dem BUG-1-Fix direkt auf die Produktions-Supabase angewendet): `proj15_coupons`, `proj15_coupon_booking_rpcs`, `proj15_drop_stale_overload`, `proj15_coupon_check_rate_limit`
+- **Post-Deploy-Verifikation gegen Produktion:**
+  - `/admin/gutscheine` lädt, Nav-Eintrag vorhanden, keine Konsolen-Fehler
+  - Zufallscode-Generator erzeugt live gültige Codes (z.B. `NH4LGLZSZZ`)
+  - **BUG-1-Fix live nachgeprüft:** 10 von 20 Rateversuchen serverseitig blockiert; das Versuchsprotokoll ist für Kunden in Produktion weder les- noch löschbar; die `coupons`-Tabelle ist für Kunden nicht lesbar
+  - Keine Testdaten hinterlassen (0 Gutscheine, 0 Versuchs-Einträge, 0 Buchungen mit Gutschein)

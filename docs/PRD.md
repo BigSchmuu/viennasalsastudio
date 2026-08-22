@@ -27,7 +27,7 @@ Vienna Salsa Studio App ist eine Kunden-Self-Service-Plattform für die Tanzschu
 | P0 (MVP) | Warteliste & automatische Nachrückung | Deployed |
 | P0 (MVP) | Events & Workshops (Tickets, QR-Check-in) | Deployed |
 | P0 (MVP) | Lehrer-Ansicht (Stundenplan, Anwesenheit) | Deployed |
-| P0 (MVP) | Gutscheine & Rabattcodes | Planned |
+| P0 (MVP) | Gutscheine & Rabattcodes | Deployed |
 | P0 (MVP) | Automatische E-Mail-/Push-Benachrichtigungen | Deployed |
 | P0 (MVP) | Admin-Analytics (Umsatz, Auslastung, Churn) | Deployed |
 | P0 (MVP) | Admin: Lehrer-Rollen verwalten | Deployed |

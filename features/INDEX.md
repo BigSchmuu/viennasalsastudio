@@ -29,7 +29,7 @@
 | PROJ-12 | Warteliste & automatische Nachrückung | Deployed | [PROJ-12](../features/PROJ-12-warteliste-automatische-nachrueckung.md) | 2026-08-12 |
 | PROJ-13 | Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen) | Deployed | [PROJ-13](../features/PROJ-13-lehrer-ansicht-stundenplan-anwesenheit-notizen.md) | 2026-08-12 |
 | PROJ-14 | Events & Workshops (Tickets, QR-Check-in) | Deployed | [PROJ-14](../features/PROJ-14-events-workshops-tickets-qr-checkin.md) | 2026-08-12 |
-| PROJ-15 | Gutscheine & Rabattcodes | Approved | [PROJ-15](../features/PROJ-15-gutscheine-rabattcodes.md) | 2026-08-12 |
+| PROJ-15 | Gutscheine & Rabattcodes | Deployed | [PROJ-15](../features/PROJ-15-gutscheine-rabattcodes.md) | 2026-08-12 |
 | PROJ-16 | Automatische E-Mail-/Push-Benachrichtigungen | Deployed | [PROJ-16](../features/PROJ-16-automatische-email-push-benachrichtigungen.md) | 2026-08-12 |
 | PROJ-17 | Admin-Analytics-Dashboard | Deployed | [PROJ-17](../features/PROJ-17-admin-analytics-dashboard.md) | 2026-08-12 |
 | PROJ-18 | Online-Kurs-Plattform | Roadmap | — | 2026-08-12 |
