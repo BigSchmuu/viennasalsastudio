@@ -1,6 +1,6 @@
 # PROJ-39: Admin-Hinweis auf neue Buchungen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -205,7 +205,106 @@ Ergänzen der Liste lief der Test durch.
 Automatisierte Tests folgen im QA-Schritt.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-08-22
+**Umgebung:** http://localhost:3000 gegen die Produktiv-Datenbank (es gibt keine Staging-DB)
+**Tester:** QA Engineer (AI)
+
+### Akzeptanzkriterien
+
+#### Zähler in der Navigation — 6/6 bestanden
+- [x] Offene Anfragen erzeugen einen roten Kreis am Menüpunkt „Buchungen" (E2E AC1)
+- [x] Keine offenen Anfragen → **kein** Kreis, insbesondere keine „0" (Komponententest; systemweit leerer Zustand ist per E2E nicht prüfbar, siehe Methodik)
+- [x] Nach dem Bearbeiten der letzten Anfrage ist der Zähler weg, ohne Wegklicken (E2E AC5)
+- [x] Bestätigte, abgelehnte und stornierte Buchungen zählen nicht mit (E2E AC3)
+- [x] Probestunden zählen nicht mit (E2E AC4)
+- [x] Kunde und Lehrer sehen den Zähler nirgends; `/admin` bleibt für beide gesperrt (E2E AC6, AC7)
+
+#### Push bei neuer Buchung — 5/6 bestanden, 1 nur hergeleitet
+- [x] Admin mit aktiviertem Gerät erhält Push mit Kundenname und Kursname — **real auf dem Gerät des Betreibers bestätigt**
+- [~] Antippen führt zur Buchungsseite — Ziel-Adresse per Unit-Test abgesichert (`/admin/buchungen`), der Service Worker öffnet sie korrekt. **Nicht auf einem echten Gerät durchgeklickt** — siehe Offener Punkt
+- [x] Probestunde löst **keine** Push aus (Gegentest: Buchung erfolgreich, Warteschlange unverändert)
+- [x] Admin ohne Gerät → keine Meldung, Buchung funktioniert normal (11 Admin-Konten ohne Gerät erzeugten keine Einträge)
+- [x] Fehlgeschlagener Versand blockiert die Buchung nicht (Testkonto mit ungültigem Gerät: Meldung `failed`, Buchung gespeichert)
+- [x] Mehrere Admins mit Gerät werden alle benachrichtigt
+
+### Edge Cases
+- [x] Sehr viele Anfragen → Deckel bei „99+", exakte Zahl bleibt für Screenreader erhalten (Komponententest)
+- [x] Drop-in-Anfrage zählt mit (E2E AC2)
+- [x] Zähler ist beim Seitenaufruf berechnet, nicht live — dokumentiert und akzeptiert
+- [x] Kunden- und Admin-Push am selben Gerät: Zuordnung hängt am Konto, nicht am Gerät
+
+### Sicherheitsprüfung (Red Team)
+- [x] **XSS über den Kundennamen:** Der Kunde bestimmt seinen Namen selbst. Push wird über `showNotification` als reiner Text gerendert, zusätzlich escaped der E-Mail-Pfad. Kein Angriffsweg. Regressionstest ergänzt
+- [x] **Rechteausweitung:** Ein Kunde kann sich nicht selbst zum Admin machen und so die Meldungen mitlesen — real getestet, Trigger blockt mit „Only admins can change a user role"
+- [x] **Rechtetrennung:** Zähler und Meldung erreichen ausschließlich Admins
+- [x] **Datenpreisgabe:** Die Meldung enthält nur Daten, die der Empfänger als Admin ohnehin sieht
+- [ ] **Missbrauch durch Massenbuchung:** siehe BUG-1
+
+### Gefundene Fehler
+
+#### BUG-1: Unbegrenzte Drop-in-Buchungen ermöglichen eine Push-Flut
+- **Schweregrad:** Medium
+- **Reproduktion:**
+  1. Als beliebiger eingeloggter Kunde `create_self_service_booking` mit Typ `dropin` mehrfach für denselben Kurs und dasselbe Datum aufrufen
+  2. Erwartet: Ab der zweiten identischen Anfrage eine Ablehnung
+  3. Tatsächlich: **5 von 5 Versuchen angenommen** — es existiert weder ein Unique-Constraint noch ein Rate-Limit
+- **Folge für PROJ-39:** Jede dieser Buchungen steht auf `open` und löst je eine Push-Nachricht an jedes Admin-Gerät aus; zusätzlich bläht sie den Zähler auf
+- **Einordnung:** Die Lücke ist **vorbestehend** (fehlende Dublettenprüfung in PROJ-8) und trifft nur Drop-ins — reguläre Anfragen sind durch „already requested" geschützt. PROJ-39 verändert nicht die Lücke, sondern ihre Folge: aus unordentlicher Liste wird Dauerklingeln
+- **Priorität:** Vor echter Nutzung durch Fremde beheben, nicht zwingend vor dem Deployment
+
+#### BUG-2: E2E-Testläufe erzeugen echte Push-Nachrichten in der Produktion
+- **Schweregrad:** Medium
+- **Reproduktion:** `npm run test:e2e` ausführen
+- **Gemessen:** Ein voller Chromium-Lauf erzeugte **9 Meldungen, alle mit Status `sent`** an das Gerät des Betreibers, dazu 9 Zeilen in der produktiven Warteschlange
+- **Ursache:** Es gibt keine Staging-Datenbank; die Tests buchen über die echte Oberfläche, also durch die echte Buchungsaktion
+- **Einordnung:** Direkt durch PROJ-39 entstanden. Kein Nutzerschaden, aber der Testlauf wird für den Betreiber unangenehm und verschmutzt Produktivdaten
+- **Priorität:** Vor dem nächsten routinemäßigen Testlauf beheben
+
+### Automatisierte Tests
+- **Unit/Komponente:** 11 neue Tests (`admin-nav.test.tsx`, Ergänzungen in `templates.test.ts`) — Gesamtsuite **233/233 grün**
+  - Enthält eine gezielte Regressionsbremse gegen die `{0 && …}`-Falle, die im Geburtsdatumsfeld schon einmal produktiv sichtbar war
+- **E2E:** 9 neue Tests in `tests/PROJ-39-admin-hinweis-neue-buchungen.spec.ts` — **9/9 grün auf Chromium**
+- **Methodik:** Die E2E-Tests messen bewusst **Differenzen** statt absoluter Zahlen und seeden per Direkt-Insert statt über die Oberfläche. Grund: Es gibt keine Staging-DB, parallele Suiten erzeugen eigene offene Buchungen, und ein Seeding über die Oberfläche würde bei jedem Testlauf echte Pushes auslösen
+
+### Regressionstest — separater Befund, **nicht** von PROJ-39 verursacht
+Der vollständige Chromium-Lauf ergab **226 bestanden, 22 fehlgeschlagen, 6 nicht gelaufen**. Die Fehler
+verteilen sich auf PROJ-6, 7, 9, 10, 14, 23 und 25 — überwiegend Admin-Seiten, also genau der Bereich,
+dessen Layout PROJ-39 anfasst. Dieser Verdacht wurde überprüft statt weggeredet:
+
+| Lauf | PROJ-6 | Die anderen 6 Dateien |
+|------|--------|----------------------|
+| Mit PROJ-39 | 5 Fehler | 17 Fehler |
+| **Auf dem Stand vor PROJ-39** (`0caa1da^`) | **5 Fehler, dieselben** | **22 Fehler** |
+
+Ohne PROJ-39 sind es also eher **mehr** Fehler. Alle 22 sind vorbestehend. Inhaltlich laufen sie
+darauf hinaus, dass Tests auf Bedienelemente warten, die nicht erscheinen (z.B. „Termin anlegen",
+„Termin speichern"). Ob dahinter echte Defekte oder veraltete Tests stecken, ist **offen und gehört
+in eine eigene Test-Hygiene-Runde** — es blockiert PROJ-39 nicht.
+
+Aufgefallen ist das erst jetzt, weil die letzten Durchgänge gezielt einzelne Dateien geprüft haben
+statt der vollständigen Suite.
+
+### Nicht abgedeckt
+- **Mobile Safari / WebKit:** Der Browser war zum Testzeitpunkt noch nicht installiert (Download lief).
+  Der Zähler ist reines CSS ohne browser-spezifische Eigenschaften, das Risiko ist gering — geprüft
+  ist es dennoch nicht. Die Darstellung bei 375px wurde auf Chromium verifiziert (kein horizontales
+  Scrollen der Seite)
+- **Antippen der Push auf einem echten Gerät** (siehe oben)
+
+### Aufräumen
+Alle Testspuren entfernt: Testkonto samt Gerät, sämtliche Fixture-Buchungen und alle
+`neue_buchung`-Einträge (Warteschlange auf 0 geprüft). Die 7 offenen Buchungen entsprechen exakt
+dem Stand vor dem Lauf.
+
+### Zusammenfassung
+- **Akzeptanzkriterien:** 11/12 vollständig bestanden, 1 nur hergeleitet (Antippen)
+- **Fehler:** 2 (0 kritisch, 0 hoch, **2 mittel**, 0 niedrig)
+- **Sicherheit:** Bestanden bis auf den Missbrauchsweg in BUG-1
+- **Produktionsreif:** **JA** — kein kritischer oder hoher Fehler
+- **Empfehlung:** Deployment möglich. BUG-2 sollte vor dem nächsten Testlauf behoben werden, BUG-1
+  bevor die App für Fremde offen ist. Die 22 vorbestehenden Testfehler sind ein eigenes Thema und
+  sollten nicht mit diesem Feature vermischt werden
 
 ## Deployment
 _To be added by /deploy_

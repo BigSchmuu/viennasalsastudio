@@ -196,4 +196,53 @@ describe("buildNotificationContent", () => {
     expect(content.emailHtml).not.toContain("<script>");
     expect(content.emailHtml).toContain("&lt;script&gt;");
   });
+
+  // PROJ-39: internal admin alert. The admin must be able to decide from the
+  // lock screen alone whether this needs attention, so name and course both
+  // have to be in the push body.
+  it("names customer and course in the new-booking alert", () => {
+    const content = buildNotificationContent("neue_buchung", {
+      customerName: "Maria Huber",
+      courseName: "Salsa Beginner 2",
+      bookingType: "regular",
+    });
+    expect(content.pushBody).toContain("Maria Huber");
+    expect(content.pushBody).toContain("Salsa Beginner 2");
+  });
+
+  it("distinguishes a drop-in request from a regular booking request", () => {
+    const regular = buildNotificationContent("neue_buchung", {
+      customerName: "Maria Huber",
+      courseName: "Salsa Beginner 2",
+      bookingType: "regular",
+    });
+    const dropin = buildNotificationContent("neue_buchung", {
+      customerName: "Maria Huber",
+      courseName: "Salsa Beginner 2",
+      bookingType: "dropin",
+    });
+    expect(regular.pushTitle).toContain("Buchungsanfrage");
+    expect(dropin.pushTitle).toContain("Drop-in");
+    expect(regular.pushTitle).not.toEqual(dropin.pushTitle);
+  });
+
+  it("sends the admin to the bookings page, not the customer profile", () => {
+    const content = buildNotificationContent("neue_buchung", {
+      customerName: "Maria Huber",
+      courseName: "Salsa Beginner 2",
+      bookingType: "regular",
+    });
+    expect(content.url).toBe("/admin/buchungen");
+  });
+
+  // The customer picks their own name, so it is attacker-controlled input.
+  it("escapes HTML in a customer-supplied name", () => {
+    const content = buildNotificationContent("neue_buchung", {
+      customerName: '<img src=x onerror=alert(1)>',
+      courseName: "Salsa Beginner 2",
+      bookingType: "regular",
+    });
+    expect(content.emailHtml).not.toContain("<img");
+    expect(content.emailHtml).toContain("&lt;img");
+  });
 });
