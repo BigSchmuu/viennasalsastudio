@@ -1,6 +1,6 @@
 # PROJ-15: Gutscheine & Rabattcodes
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -175,7 +175,82 @@ Kunde
 Keine neuen Pakete nötig — reine Erweiterung der bestehenden Buchungs- und Admin-Infrastruktur.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-08-22
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Automated Test Results
+- `npm test` (Vitest): 211/211 passed — unchanged, this feature adds no pure-JS logic worth unit-testing (it's RPC/SQL + UI).
+- New permanent suite `tests/PROJ-15-gutscheine-rabattcodes.spec.ts`: **10/10 passed**, verified twice back-to-back (idempotency check — the suite resets its own coupons/bookings/subscription in `beforeAll`, which matters because a coupon only attaches to a customer who has never had a subscription).
+- Regression an den drei Suiten, die die geänderte `create_regular_course_booking`-RPC bzw. den Buchungsdialog nutzen:
+  - **PROJ-8 (Kursbuchung): 13/13 grün** — der wichtigste Regressionsnachweis, da diese Suite den gesamten regulären Buchungsablauf abdeckt.
+  - **PROJ-30 (Leader/Follower): 8 Fehler → nach Bereinigen von Fixture-Altlasten 4 Fehler.** Ursache nachgewiesen: `course_bookings`-Zeilen vom **2026-08-21 13:52** (also aus einem Lauf vor jeder PROJ-15-Arbeit) ließen die Rollenbilanz nicht bei 0L/0F starten → "role imbalance". Die verbleibenden 4 sind Drift *innerhalb* der Datei: `AC2` besteht **isoliert ausgeführt**, scheitert aber im Gesamtlauf, weil Geschwister-Tests den Rollenabfrage-Schalter am Kurs umstellen und nicht zurücksetzen. Meine Änderung fasst die Rollen-Logik nicht an (der Gutschein-Block sitzt hinter allen Rollenprüfungen).
+  - **PROJ-12 (Warteliste): 2 Fehler.** Ursache nachgewiesen: `waitlist_entries` ist für die E2E12-Kurse **komplett leer** — der wartende Eintrag, den `AC8` erwartet, wurde von `AC6` eines früheren Laufs nachgerückt und nie neu gesät. Eine Gutschein-Änderung kann keine Wartelisten-Einträge löschen.
+  - **Fazit:** kein einziger Fehlschlag hat Bezug zu Gutscheinen; alle sind nicht-idempotente Fixtures in Dateien, die beim früheren Test-Hygiene-Durchgang dieser Session nicht im Scope waren (siehe auch die drei bereits dokumentierten Vorfunde zu PROJ-26/PROJ-27/PROJ-8).
+
+### Acceptance Criteria Status
+
+#### Admin: Gutscheine verwalten
+- [x] Gutschein anlegen erscheint als "Aktiv" mit "0 von X eingelöst"
+- [x] Doppelter Code wird abgelehnt — **auch bei abweichender Groß-/Kleinschreibung** (zusätzlich geprüft, über den `upper(code)`-Unique-Index)
+- [x] Deaktivierter Code ist nicht mehr einlösbar, bleibt mit Historie sichtbar
+- [x] "X von [Limit] eingelöst" wird pro Code angezeigt
+
+#### Kunde: Code bei Buchungsanfrage eingeben
+- [x] Optionales Feld "Gutscheincode" im Buchungsdialog
+- [x] Ungültiger/abgelaufener/ausgeschöpfter Code → Inline-Fehler, Absenden bleibt möglich
+- [x] Gültiger Code wird an die Anfrage angehängt, ohne die Einlösung zu zählen
+- [x] Kunde mit bereits bestehendem Abo bekommt den Code nicht angerechnet
+
+#### Admin: Buchung mit Gutschein bestätigen
+- [x] Rabatt-Hinweis neben dem Preisfeld im Bestätigungs-Dialog
+- [x] Einlösung zählt genau beim Bestätigen (verifiziert: Zähler 0 → 1)
+- [x] Abgelehnte Buchung lässt die Einlösung unangetastet (Code bleibt nutzbar)
+- [x] Zwischenzeitlich ausgeschöpfter/abgelaufener/deaktivierter Code: Abo wird trotzdem angelegt, ohne Rabatt-Vermerk und ohne Zählung
+
+**13/13 Acceptance Criteria bestanden.**
+
+### Edge Cases Status
+- [x] Wettlaufsituation: zwei gleichzeitige Bestätigungen gegen einen Code mit Limit 1 → genau eine gewinnt, `redemption_count` bleibt exakt 1
+- [x] Groß-/Kleinschreibung: `proj15ui20` findet `PROJ15UI20`
+- [x] Rabatt-Hinweis wird bei jedem Seitenaufruf neu berechnet (deaktivierter Code verschwindet sofort)
+- [x] Kein Löschen von Codes vorgesehen (nur Deaktivieren) — entspricht der Produktentscheidung
+- [x] **Zusätzlich geprüft (nicht im Spec):** Grenzwert Ablaufdatum — ein Code, der *heute* abläuft, ist heute noch gültig (inklusive Grenze)
+- [x] **Zusätzlich geprüft:** Festbetrag-Rabatt größer als der Kurspreis → vorgeschlagener Preis wird auf 0 € begrenzt, nicht negativ
+- [x] **Zusätzlich geprüft (DB-Ebene, nicht nur UI):** 0 %, negativer Rabatt, >100 %, 0 Einlösungen und ungültiger Rabatt-Typ werden alle von Datenbank-Constraints abgelehnt — die serverseitige Absicherung hält auch bei Umgehung der UI
+- [x] Responsive: 375 px und 768 px ohne horizontales Scrollen, Formular stapelt sauber; Leerzustand ("Noch keine Gutscheine angelegt.") wird korrekt angezeigt
+
+### Security Audit Results (Red Team)
+Alle Angriffe über einen direkten Supabase-Client unter **Umgehung der UI** ausgeführt:
+- [x] Kunde kann den eigenen Rabatt nicht hochsetzen (`UPDATE coupons` wirkungslos)
+- [x] Kunde kann sich den Gutschein nicht selbst einlösen — `redeem_coupon_for_booking` lehnt mit "not authorized" ab
+- [x] Kunde kann seiner Buchung keinen wertvolleren Gutschein unterschieben (RLS-Verstoß auf `course_bookings`)
+- [x] Kunde kann die Gutschein-Tabelle nicht auslesen (RLS liefert leere Liste, kein Fehler-Leak)
+- [x] Injection-artige Eingaben (`' OR 1=1 --`, `%`, `_`, `CODE' --`) werden alle als ungültig behandelt — insbesondere werden `%` und `_` **nicht** als SQL-Wildcards interpretiert
+- [x] Nicht eingeloggter Aufruf von `check_coupon_code` wird abgelehnt
+- [x] Nicht-Admin wird von `/admin/gutscheine` weggeleitet
+- [ ] **BUG-1:** Keine Rate-Begrenzung auf `check_coupon_code` — Gutscheincodes sind erratbar
+
+### Bugs Found
+
+#### BUG-1: Gutscheincodes lassen sich unbegrenzt schnell durchprobieren (kein Rate-Limiting)
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Als neu registrierter Kunde einloggen (noch kein Abo — sonst greift die Prüfung ohnehin nicht)
+  2. `check_coupon_code` direkt aufrufen (die 500 ms Verzögerung im Eingabefeld ist reine UI-Kosmetik und damit trivial umgehbar)
+  3. Erwartet: Nach einigen fehlgeschlagenen Versuchen wird gebremst oder blockiert
+  4. Tatsächlich: 35 Rateversuche in 450 ms (~78 Anfragen/Sekunde), **keinerlei Drosselung**. Ein realistischer Marketing-Code (`SOMMER25`) wurde in unter einer halben Sekunde gefunden — die Antwort verrät zusätzlich Rabatt-Typ und -Höhe.
+- **Impact:** Begrenzt, aber real. Breit gestreute Aktionscodes sind ohnehin halböffentlich (laut Spec werden sie über Social Media/vor Ort verteilt) — der Spec sieht aber ausdrücklich auch **persönliche Einzelcodes** ("1" als Limit für einen einzelnen Lead) vor, und genau die lassen sich so stehlen. Mildernd: die Einlösung bleibt durch `max_redemptions` gedeckelt, und der Admin legt den Preis beim Bestätigen weiterhin von Hand fest — ein erratener Code führt also nie automatisch zu einem Rabatt, sondern taucht sichtbar im Bestätigungs-Dialog auf.
+- **Empfehlung:** Rate-Limiting auf die Prüf-Funktion (das Projekt hat dafür bereits `docs/production/rate-limiting.md`), z.B. N Versuche pro Kunde und Stunde. Alternativ/ergänzend: bei persönlichen Codes auf ausreichend lange, zufällige Codes achten.
+- **Priority:** Fix in next sprint — kein Deployment-Blocker
+
+### Summary
+- **Acceptance Criteria:** 13/13 passed
+- **Bugs Found:** 1 total (0 critical, 0 high, 1 medium, 0 low)
+- **Security:** Die eigentliche Autorisierung ist solide — alle 7 Umgehungsversuche über einen direkten DB-Client wurden abgewehrt. Einzige Schwäche: fehlendes Rate-Limiting (BUG-1).
+- **Production Ready:** YES
+- **Recommendation:** Deploy. BUG-1 ist kein Blocker (Einlösung bleibt gedeckelt und der Admin bestätigt jeden Preis manuell), sollte aber als nächster Schritt nachgezogen werden.
 
 ## Deployment
 _To be added by /deploy_
