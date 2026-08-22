@@ -1,6 +1,6 @@
 # PROJ-34: Benachrichtigungs-Texte verwalten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -280,4 +280,7 @@ Keine neuen Pakete nötig — das Feature nutzt ausschließlich bereits vorhande
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+- **Production URL:** https://viennasalsastudio.vercel.app
+- **Deployed:** 2026-08-22
+- **Migration:** `notification_template_overrides` table + RLS already applied directly to the production Supabase project during `/backend`
+- **Post-deploy verification:** logged into production as the `e2e8-admin` fixture — overview page loads with all 12 templates, editor prefills correctly, and the BUG-1 escaping fix is confirmed live (same `<img onerror>` payload no longer executes, renders as literal text). No test data left behind (`notification_template_overrides` empty after verification).
