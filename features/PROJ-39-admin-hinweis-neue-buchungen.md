@@ -1,6 +1,6 @@
 # PROJ-39: Admin-Hinweis auf neue Buchungen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -55,7 +55,7 @@
 - Der Push-Versand darf den Buchungsvorgang des Kunden **nicht** verlangsamen oder zum Scheitern bringen (siehe Erfahrung aus PROJ-12: der synchrone E-Mail-Versand beim Ablehnen verzögert die Aktion spürbar).
 
 ## Open Questions
-- [ ] Muss der Admin Push separat aktivieren, oder soll das für Admin-Konten automatisch geschehen? → In `/architecture` klären; die Browser-Berechtigung muss in jedem Fall aktiv erteilt werden.
+- [x] Muss der Admin Push separat aktivieren? → Ja, einmalig pro Gerät über den bereits vorhandenen Schalter unter „Mein Profil → Benachrichtigungen". Es wird kein neuer Mechanismus gebaut (2026-08-22)
 
 ## Decision Log
 
@@ -71,11 +71,91 @@
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Zähler wird beim Laden der Verwaltungsseite serverseitig ermittelt, nicht laufend im Hintergrund aktualisiert | Der Server baut die Seite ohnehin auf; eine Dauerverbindung nur für eine Zahl wäre unverhältnismäßig. Die Sofort-Information übernimmt die Push-Nachricht | 2026-08-22 |
+| "Offen" wird nicht extra markiert, sondern aus dem vorhandenen Buchungsstatus abgeleitet | Es braucht keine neue Spalte und keinen "gelesen"-Zustand — der Zähler kann gar nicht falsch stehen, weil er direkt aus der Arbeit selbst folgt | 2026-08-22 |
+| Probestunden fallen ohne Sonderregel heraus | Sie werden bei der Buchung automatisch bestätigt und haben deshalb nie den Status "offen" — es ist keine zusätzliche Ausnahme nötig | 2026-08-22 |
+| Neuer Benachrichtigungs-Anlass, der **nicht** in den Kunden-Einstellungen auftaucht | Sonst stünde "Neue Buchung" bei jedem Kunden im Profil, obwohl es ihn nichts angeht. Es gibt dafür bereits ein Vorbild: die SEPA-Ankündigung läuft ebenfalls außerhalb der Kunden-Einstellungen | 2026-08-22 |
+| Text dieser Meldung ist **nicht** über PROJ-34 anpassbar | PROJ-34 verwaltet Texte, die an Kunden gehen. Eine interne Arbeitsmeldung dort einzureihen würde die Übersicht verwässern | 2026-08-22 |
+| Push-Versand erfolgt entkoppelt vom Buchungsvorgang | Beim Ablehnen einer Buchung (PROJ-12) verzögert der synchrone Mailversand die Aktion spürbar. Dieser Fehler wird hier bewusst nicht wiederholt: Der Kunde darf nie warten, weil der Betreiber benachrichtigt wird | 2026-08-22 |
+| Push-Aktivierung über den bestehenden Schalter im Profil, kein eigener Admin-Weg | Der Mechanismus existiert bereits vollständig (Geräte-Registrierung, Berechtigung, Abmelden). Ein zweiter Weg wäre doppelte Wartung | 2026-08-22 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Verwaltung (bestehendes Layout um alle /admin-Seiten)
+└── Admin-Navigation (bestehend)
+    └── Menüpunkt "Buchungen"
+        └── NEU: roter Zähler — nur sichtbar, wenn > 0
+
+Mein Profil → Benachrichtigungen (bestehend, unverändert)
+└── Schalter "Push-Benachrichtigungen aktivieren"
+    └── denselben Schalter nutzt der Admin für seine Geräte
+
+Kunde bucht (bestehender Ablauf, unverändert für den Kunden)
+└── NEU im Hintergrund: Meldung an alle Admins mit aktivem Push
+```
+
+### B) Data Model (plain language)
+
+**Es wird nichts Neues gespeichert.** Das ist die wichtigste Eigenschaft dieses Entwurfs.
+
+```
+Der Zähler ist keine gespeicherte Zahl, sondern eine Frage an die Datenbank:
+"Wie viele Buchungen stehen gerade auf 'offen'?"
+
+Offen  = wartet auf deine Entscheidung (Buchungsanfrage oder Drop-in)
+Nicht offen = bestätigt, abgelehnt oder storniert — und damit erledigt
+Probestunden = werden sofort automatisch bestätigt, sind also nie offen
+
+Folge: Der Zähler kann nicht "falsch stehen" oder hängenbleiben. Er sinkt
+in dem Moment, in dem du eine Anfrage bearbeitest, weil er direkt aus der
+Arbeit selbst abgeleitet ist — und nicht aus einem separaten
+"gelesen"-Vermerk, den jemand pflegen müsste.
+```
+
+**Für die Push-Nachricht** wird ein neuer Anlass in der bestehenden Benachrichtigungs-Warteschlange
+ergänzt („neue Buchung"). Diese Warteschlange, die Geräte-Registrierung und der Versand existieren
+bereits seit PROJ-16 — es kommt nur ein weiterer Auslöser hinzu, keine neue Infrastruktur.
+
+### C) Tech Decisions (justified for PM)
+
+- **Kein „gelesen"-Status.** Die naheliegende Lösung wäre, neue Buchungen als „ungelesen" zu
+  markieren und beim Ansehen zurückzusetzen. Das haben wir bewusst verworfen: Es bräuchte eine
+  zusätzliche Spalte, jemand müsste sie pflegen, und sie kann mit der Realität auseinanderlaufen
+  (Zähler zeigt 3, aber alles ist längst bearbeitet). Die Frage *„wie viel Arbeit wartet auf mich?"*
+  beantwortet der offene Buchungsstatus ohnehin exakt — und er räumt sich selbst auf.
+
+- **Der Zähler wird beim Seitenaufruf berechnet.** Er ist damit nicht sekundengenau live. Das ist
+  Absicht: Für „gerade eben ist etwas reingekommen" gibt es die Push-Nachricht; eine dauerhafte
+  Live-Verbindung nur für eine Zahl wäre unverhältnismäßig.
+
+- **Die Push-Meldung taucht nicht in den Kunden-Einstellungen auf.** Würde sie als normale
+  Benachrichtigungsart geführt, stünde „Neue Buchung" bei jedem Kunden im Profil — verwirrend und
+  sinnlos. Für genau solche Fälle gibt es bereits ein Vorbild im System: die SEPA-Ankündigung läuft
+  ebenfalls an den Kunden-Einstellungen vorbei.
+
+- **Die Benachrichtigung darf den Kunden nicht ausbremsen.** Beim Ablehnen einer Buchung wartet die
+  App heute, bis die E-Mail an den Kunden verschickt ist — das verzögert die Aktion spürbar
+  (aufgefallen bei der Test-Aufräumarbeit an PROJ-12). Diesen Fehler machen wir hier nicht: Die
+  Meldung an dich wird eingereiht und im Hintergrund zugestellt. Selbst wenn der Versand komplett
+  scheitert, wird die Buchung des Kunden normal gespeichert.
+
+- **Push-Aktivierung nutzt den vorhandenen Weg.** Du aktivierst Push einmalig pro Gerät unter
+  „Mein Profil → Benachrichtigungen" — derselbe Schalter, den auch Kunden verwenden. Es wird kein
+  zweiter Mechanismus gebaut. Wichtig zu wissen: Die Berechtigung hängt am **Gerät**. Willst du die
+  Meldungen auf Handy *und* Laptop, musst du sie auf beiden einmal aktivieren.
+
+- **Sichtbarkeit:** Zähler und Meldung sind ausschließlich für Admins. Kunden und Lehrer sehen
+  weder den Zähler noch erhalten sie die Push-Nachricht.
+
+### D) Dependencies (packages to install)
+
+Keine. Das Feature nutzt ausschließlich Vorhandenes: die Admin-Navigation, den Buchungsstatus und
+die Benachrichtigungs-Infrastruktur aus PROJ-16.
 
 ## QA Test Results
 _To be added by /qa_
