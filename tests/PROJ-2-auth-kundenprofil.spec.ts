@@ -116,6 +116,21 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await expect(page.getByRole("option", { name: String(currentYear + 1), exact: true })).toHaveCount(0);
   });
 
+  // Regression: the "Löschen" button was rendered with `{(day || month ||
+  // year) && ...}`, which is the number 0 when nothing is picked — React
+  // renders that as a literal "0" next to the field.
+  test("Leeres Geburtsdatum zeigt keine überflüssige '0' neben dem Feld", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL_2);
+    await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
+    await page.getByRole("button", { name: "Einloggen" }).click();
+    await expect(page).toHaveURL(/\/profil$/);
+    await page.waitForTimeout(2000);
+
+    const field = page.locator("div.flex.gap-2").filter({ has: page.getByLabel("Jahr") });
+    await expect(field).not.toContainText(/\b0\b/);
+  });
+
   test("Logout beendet die Sitzung und /profil ist danach wieder geschützt", async ({ page }) => {
     await page.goto("/login");
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);

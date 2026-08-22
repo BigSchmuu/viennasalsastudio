@@ -131,7 +131,9 @@ export function BirthdateField({
 
       {/* Selects have no empty state to go back to, unlike the date input this
           replaced — without this there'd be no way to remove a birthdate again. */}
-      {(day || month || year) && (
+      {/* Boolean(): `day || month || year` is 0 when nothing is picked, and
+          React renders a literal "0" for that instead of nothing. */}
+      {Boolean(day || month || year) && (
         <Button
           type="button"
           variant="ghost"
