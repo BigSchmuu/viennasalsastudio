@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createBooking } from "@/lib/actions/booking";
+import { checkCouponCode, type CouponCheckResult } from "@/lib/actions/coupons";
 import { joinWaitlist } from "@/lib/actions/waitlist";
 import {
   desiredPlanOptions,
@@ -14,6 +15,7 @@ import {
   type DanceRole,
 } from "@/lib/constants/booking";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -84,8 +86,35 @@ export function BookingDialog({
   const [prerequisiteConfirmed, setPrerequisiteConfirmed] = useState(false);
   const [danceRole, setDanceRole] = useState<DanceRole | "">("");
   const [roleImbalance, setRoleImbalance] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponStatus, setCouponStatus] = useState<CouponCheckResult | null>(null);
+  const [couponChecking, setCouponChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Debounced validity hint for the coupon field (PROJ-15): purely advisory —
+  // an invalid code never blocks submitting, it just shows an inline error so
+  // the customer can fix a typo before sending the request.
+  useEffect(() => {
+    const trimmed = couponCode.trim();
+    if (!trimmed) {
+      setCouponStatus(null);
+      setCouponChecking(false);
+      return;
+    }
+    setCouponChecking(true);
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const result = await checkCouponCode(trimmed);
+      if (cancelled) return;
+      setCouponStatus(result);
+      setCouponChecking(false);
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [couponCode]);
 
   const dropinPrice = wantsStudentPrice ? dropinPricing.student : dropinPricing.normal;
 
@@ -147,6 +176,7 @@ export function BookingDialog({
         formData.set("desired_plan", desiredPlan);
         formData.set("note", note);
         formData.set("dance_role", danceRole);
+        formData.set("coupon_code", couponCode.trim());
       } else if (tab === "trial") {
         formData.set("chosen_date", trialDate);
       } else {
@@ -298,10 +328,35 @@ export function BookingDialog({
                   </div>
                 )}
                 {!course.isFull && !roleImbalance && (
-                  <div className="space-y-1">
-                    <Label htmlFor="booking-note">Notiz (optional)</Label>
-                    <Textarea id="booking-note" value={note} onChange={(e) => setNote(e.target.value)} />
-                  </div>
+                  <>
+                    <div className="space-y-1">
+                      <Label htmlFor="booking-note">Notiz (optional)</Label>
+                      <Textarea id="booking-note" value={note} onChange={(e) => setNote(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="booking-coupon">Gutscheincode (optional)</Label>
+                      <Input
+                        id="booking-coupon"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        placeholder="z.B. WILLKOMMEN20"
+                      />
+                      {couponChecking ? (
+                        <p className="text-xs text-muted-foreground">Code wird geprüft…</p>
+                      ) : couponStatus?.valid ? (
+                        <p className="text-xs text-emerald-600">
+                          Gutschein gültig:{" "}
+                          {couponStatus.discountType === "percent"
+                            ? `${couponStatus.discountAmount}% Rabatt`
+                            : `${formatPrice(couponStatus.discountAmount)} Rabatt`}
+                        </p>
+                      ) : couponStatus ? (
+                        <p className="text-xs text-destructive">
+                          Dieser Code ist nicht gültig. Du kannst trotzdem ohne Gutschein buchen.
+                        </p>
+                      ) : null}
+                    </div>
+                  </>
                 )}
               </>
             )}

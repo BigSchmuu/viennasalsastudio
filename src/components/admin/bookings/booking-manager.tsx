@@ -49,7 +49,24 @@ export type AdminBookingRow = {
   note: string | null;
   price: number | null;
   coursePrice: number | null;
+  coupon: { code: string; discountType: "percent" | "fixed"; discountAmount: number } | null;
 };
+
+function formatDiscount(coupon: NonNullable<AdminBookingRow["coupon"]>): string {
+  return coupon.discountType === "percent" ? `${coupon.discountAmount}%` : formatPrice(coupon.discountAmount);
+}
+
+/** Suggests the discounted price for the confirm dialog. Only possible for
+ *  single-course plans, which are the only ones with a course list price to
+ *  discount from — flatrate requests have no base price, so the admin still
+ *  enters it freely (PROJ-15 Tech Design). */
+function discountedPrice(basePrice: number, coupon: NonNullable<AdminBookingRow["coupon"]>): number {
+  const result =
+    coupon.discountType === "percent"
+      ? basePrice * (1 - coupon.discountAmount / 100)
+      : basePrice - coupon.discountAmount;
+  return Math.max(0, Math.round(result * 100) / 100);
+}
 
 export function BookingManager({
   bookings: initialBookings,
@@ -219,7 +236,15 @@ export function BookingManager({
                         if (booking.type === "regular") {
                           setConfirmTarget(booking);
                           setSubName(booking.courseName);
-                          setSubPrice(booking.coursePrice != null ? String(booking.coursePrice) : "");
+                          // Prefill with the discounted price when a valid coupon
+                          // is attached to a single-course plan; the admin can
+                          // still overwrite it freely either way.
+                          const base = booking.coursePrice;
+                          const suggested =
+                            base != null && booking.coupon && booking.desiredPlan === "single_course"
+                              ? discountedPrice(base, booking.coupon)
+                              : base;
+                          setSubPrice(suggested != null ? String(suggested) : "");
                           setError(null);
                         } else {
                           handleConfirmDropin(booking.id);
@@ -251,6 +276,16 @@ export function BookingManager({
             <DialogTitle>Abo anlegen und Buchung bestätigen</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {confirmTarget?.coupon && (
+              <Alert>
+                <AlertDescription>
+                  Gutschein <strong>{confirmTarget.coupon.code}</strong>: {formatDiscount(confirmTarget.coupon)} Rabatt
+                  {confirmTarget.desiredPlan === "single_course" && confirmTarget.coursePrice != null
+                    ? ` — Preis bereits rabattiert vorgeschlagen (regulär ${formatPrice(confirmTarget.coursePrice)}).`
+                    : " — bitte beim Preis berücksichtigen."}
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="space-y-1">
               <Label htmlFor="sub-name">Abo-Name</Label>
               <Input id="sub-name" value={subName} onChange={(e) => setSubName(e.target.value)} />

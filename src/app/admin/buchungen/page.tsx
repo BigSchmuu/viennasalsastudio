@@ -21,7 +21,7 @@ export default async function BuchungenPage({
   let query = supabase
     .from("course_bookings")
     .select(
-      "id, customer_id, type, status, chosen_date, desired_plan, note, price, courses(name, price), profiles(full_name)"
+      "id, customer_id, type, status, chosen_date, desired_plan, note, price, courses(name, price), profiles(full_name), coupons(code, discount_type, discount_amount, max_redemptions, redemption_count, expires_at, active)"
     );
 
   if (sortKey === "customer_name") {
@@ -40,19 +40,40 @@ export default async function BuchungenPage({
     supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
   ]);
 
-  const bookings: AdminBookingRow[] = (bookingsRes.data ?? []).map((b) => ({
-    id: b.id,
-    customerId: b.customer_id,
-    customerName: b.profiles?.full_name || "Unbenannt",
-    courseName: b.courses?.name ?? "—",
-    type: b.type,
-    status: b.status,
-    chosenDate: b.chosen_date,
-    desiredPlan: b.desired_plan,
-    note: b.note,
-    price: b.price,
-    coursePrice: b.courses?.price ?? null,
-  }));
+  // PROJ-15: recomputed on every page load rather than trusted from the
+  // attach-time decision, so a coupon that has since expired, been exhausted
+  // or deactivated stops showing as a discount hint immediately.
+  const today = new Date().toISOString().slice(0, 10);
+
+  const bookings: AdminBookingRow[] = (bookingsRes.data ?? []).map((b) => {
+    const coupon = b.coupons;
+    const couponStillValid =
+      !!coupon &&
+      coupon.active &&
+      (!coupon.expires_at || coupon.expires_at >= today) &&
+      coupon.redemption_count < coupon.max_redemptions;
+
+    return {
+      id: b.id,
+      customerId: b.customer_id,
+      customerName: b.profiles?.full_name || "Unbenannt",
+      courseName: b.courses?.name ?? "—",
+      type: b.type,
+      status: b.status,
+      chosenDate: b.chosen_date,
+      desiredPlan: b.desired_plan,
+      note: b.note,
+      price: b.price,
+      coursePrice: b.courses?.price ?? null,
+      coupon: couponStillValid
+        ? {
+            code: coupon.code,
+            discountType: coupon.discount_type as "percent" | "fixed",
+            discountAmount: Number(coupon.discount_amount),
+          }
+        : null,
+    };
+  });
 
   return (
     <div className="space-y-6">

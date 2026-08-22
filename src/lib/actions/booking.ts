@@ -55,6 +55,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     referral_source: formData.get("referral_source") ?? "",
     prerequisite_confirmed: formData.get("prerequisite_confirmed") === "true",
     dance_role: formData.get("dance_role") ?? "",
+    coupon_code: formData.get("coupon_code") ?? "",
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };

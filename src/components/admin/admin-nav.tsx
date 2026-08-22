@@ -17,6 +17,7 @@ import {
   CreditCard,
   FileText,
   Bell,
+  TicketPercent,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,7 @@ const groups: NavGroup[] = [
     links: [
       { href: "/admin/newsletter", label: "Newsletter", icon: Mail },
       { href: "/admin/benachrichtigungen", label: "Benachrichtigungen", icon: Bell },
+      { href: "/admin/gutscheine", label: "Gutscheine", icon: TicketPercent },
       { href: "/admin/lastschriften", label: "Lastschriften", icon: CreditCard },
       { href: "/admin/rechnungen", label: "Rechnungen", icon: FileText },
     ],
