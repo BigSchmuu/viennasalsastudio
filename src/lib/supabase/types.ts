@@ -86,6 +86,39 @@ export type Database = {
           },
         ]
       }
+      coupon_check_attempts: {
+        Row: {
+          attempted_at: string
+          customer_id: string
+          id: number
+        }
+        Insert: {
+          attempted_at?: string
+          customer_id: string
+          id?: number
+        }
+        Update: {
+          attempted_at?: string
+          customer_id?: string
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_check_attempts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_check_attempts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coupons: {
         Row: {
           active: boolean
@@ -1469,6 +1502,7 @@ export type Database = {
         Returns: {
           discount_amount: number
           discount_type: string
+          rate_limited: boolean
           valid: boolean
         }[]
       }
@@ -1497,72 +1531,39 @@ export type Database = {
         Args: { p_run_id: string }
         Returns: undefined
       }
-      create_regular_course_booking:
-        | {
-            Args: {
-              p_chosen_date: string
-              p_course_id: string
-              p_dance_role?: string
-              p_desired_plan: string
-              p_note: string
-              p_prerequisite_confirmed?: boolean
-            }
-            Returns: {
-              chosen_date: string
-              coupon_id: string | null
-              course_id: string
-              created_at: string
-              customer_id: string
-              dance_role: string | null
-              desired_plan: string | null
-              id: string
-              note: string | null
-              price: number | null
-              status: string
-              subscription_id: string | null
-              type: string
-              wants_student_price: boolean | null
-            }
-            SetofOptions: {
-              from: "*"
-              to: "course_bookings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: {
-              p_chosen_date: string
-              p_coupon_code?: string
-              p_course_id: string
-              p_dance_role?: string
-              p_desired_plan: string
-              p_note: string
-              p_prerequisite_confirmed?: boolean
-            }
-            Returns: {
-              chosen_date: string
-              coupon_id: string | null
-              course_id: string
-              created_at: string
-              customer_id: string
-              dance_role: string | null
-              desired_plan: string | null
-              id: string
-              note: string | null
-              price: number | null
-              status: string
-              subscription_id: string | null
-              type: string
-              wants_student_price: boolean | null
-            }
-            SetofOptions: {
-              from: "*"
-              to: "course_bookings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
+      create_regular_course_booking: {
+        Args: {
+          p_chosen_date: string
+          p_coupon_code?: string
+          p_course_id: string
+          p_dance_role?: string
+          p_desired_plan: string
+          p_note: string
+          p_prerequisite_confirmed?: boolean
+        }
+        Returns: {
+          chosen_date: string
+          coupon_id: string | null
+          course_id: string
+          created_at: string
+          customer_id: string
+          dance_role: string | null
+          desired_plan: string | null
+          id: string
+          note: string | null
+          price: number | null
+          status: string
+          subscription_id: string | null
+          type: string
+          wants_student_price: boolean | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "course_bookings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_self_service_booking: {
         Args: {
           p_chosen_date: string

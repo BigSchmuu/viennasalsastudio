@@ -230,7 +230,7 @@ Alle Angriffe über einen direkten Supabase-Client unter **Umgehung der UI** aus
 - [x] Injection-artige Eingaben (`' OR 1=1 --`, `%`, `_`, `CODE' --`) werden alle als ungültig behandelt — insbesondere werden `%` und `_` **nicht** als SQL-Wildcards interpretiert
 - [x] Nicht eingeloggter Aufruf von `check_coupon_code` wird abgelehnt
 - [x] Nicht-Admin wird von `/admin/gutscheine` weggeleitet
-- [ ] **BUG-1:** Keine Rate-Begrenzung auf `check_coupon_code` — Gutscheincodes sind erratbar
+- [x] **BUG-1 (behoben):** Rate-Begrenzung auf `check_coupon_code` ergänzt + Zufallscode-Generator für persönliche Gutscheine
 
 ### Bugs Found
 
@@ -242,15 +242,20 @@ Alle Angriffe über einen direkten Supabase-Client unter **Umgehung der UI** aus
   3. Erwartet: Nach einigen fehlgeschlagenen Versuchen wird gebremst oder blockiert
   4. Tatsächlich: 35 Rateversuche in 450 ms (~78 Anfragen/Sekunde), **keinerlei Drosselung**. Ein realistischer Marketing-Code (`SOMMER25`) wurde in unter einer halben Sekunde gefunden — die Antwort verrät zusätzlich Rabatt-Typ und -Höhe.
 - **Impact:** Begrenzt, aber real. Breit gestreute Aktionscodes sind ohnehin halböffentlich (laut Spec werden sie über Social Media/vor Ort verteilt) — der Spec sieht aber ausdrücklich auch **persönliche Einzelcodes** ("1" als Limit für einen einzelnen Lead) vor, und genau die lassen sich so stehlen. Mildernd: die Einlösung bleibt durch `max_redemptions` gedeckelt, und der Admin legt den Preis beim Bestätigen weiterhin von Hand fest — ein erratener Code führt also nie automatisch zu einem Rabatt, sondern taucht sichtbar im Bestätigungs-Dialog auf.
-- **Empfehlung:** Rate-Limiting auf die Prüf-Funktion (das Projekt hat dafür bereits `docs/production/rate-limiting.md`), z.B. N Versuche pro Kunde und Stunde. Alternativ/ergänzend: bei persönlichen Codes auf ausreichend lange, zufällige Codes achten.
-- **Priority:** Fix in next sprint — kein Deployment-Blocker
+- **Status:** Behoben (2026-08-22)
+- **Fix — zwei sich ergänzende Maßnahmen:**
+  1. **Rate-Limiting in der Datenbank, nicht in der App.** Bewusst *nicht* nach `docs/production/rate-limiting.md` (Upstash/Next.js) umgesetzt: der nachgewiesene Angriff ruft die RPC **direkt mit dem Anon-Key** auf und geht damit an der Next.js-Ebene komplett vorbei — ein App-seitiger Limiter hätte ihn nie zu sehen bekommen. Die Sperre muss auf derselben Ebene sitzen wie die Lücke. Neue Tabelle `coupon_check_attempts` (ohne RLS-Policies, also nur über die `SECURITY DEFINER`-Funktion erreichbar — der Angreifer kann sein eigenes Versuchsprotokoll weder lesen noch löschen, beides verifiziert); `check_coupon_code` blockt ab 10 Versuchen pro Kunde je 15 Minuten und meldet das über ein neues `rate_limited`-Feld zurück. Alte Zeilen werden bei jedem Aufruf opportunistisch aufgeräumt, damit die Tabelle nicht wächst. Nebenbei kein neuer externer Dienst und keine neuen Env-Variablen nötig.
+  2. **Zufallscode-Generator im Admin-Formular.** Die eigene Verifikation des Rate-Limits zeigte schonungslos, dass es allein **nicht reicht**: `SOMMER25` stand an Rateposition 5 und wurde trotz Limit gefunden. Ein Limit senkt die Rate, macht einen einprägsamen Code aber nicht unerratbar. Deshalb erzeugt ein Würfel-Button jetzt 10-stellige Zufallscodes (32er-Alphabet ohne verwechselbare 0/O und 1/I, da Codes vorgelesen und abgetippt werden) — Schlüsselraum ≈ 1,1 Billiarden. Breit gestreute Marketing-Codes dürfen weiterhin frei benannt werden (sie sind laut Spec ohnehin halböffentlich); für **persönliche Einzelcodes**, die das eigentliche Risiko darstellten, gibt es damit einen sicheren Standardweg.
+- **Verifikation:** Derselbe Angriff wie im ursprünglichen Fund erneut gefahren — 56 Rateversuche, **46 davon serverseitig blockiert**, kein einziger Code erraten. Effektive Obergrenze jetzt 960 Versuche/Tag statt vorher unbegrenzt (~78/Sekunde), also rund Faktor 3600 langsamer. Gleichzeitig geprüft, dass ein echter Kunde nicht behindert wird: ein Tippfehler gilt weiterhin nur als "ungültig", und der korrekte Code validiert direkt danach normal. Zwei permanente Regressionstests ergänzt (Drosselung inkl. "Buchen bleibt trotzdem möglich", sowie Zufälligkeit/Format des Generators).
+- **Priority:** Behoben vor Deployment
 
 ### Summary
 - **Acceptance Criteria:** 13/13 passed
-- **Bugs Found:** 1 total (0 critical, 0 high, 1 medium, 0 low)
-- **Security:** Die eigentliche Autorisierung ist solide — alle 7 Umgehungsversuche über einen direkten DB-Client wurden abgewehrt. Einzige Schwäche: fehlendes Rate-Limiting (BUG-1).
+- **Bugs Found:** 1 total (0 critical, 0 high, 1 medium, 0 low) — **behoben und re-verifiziert**
+- **Security:** Autorisierung solide — alle 7 Umgehungsversuche über einen direkten DB-Client abgewehrt. Die einzige Schwäche (BUG-1) ist mit Rate-Limiting *und* unerratbaren Zufallscodes geschlossen.
+- **Tests:** 12/12 in der permanenten PROJ-15-Suite, 211/211 Unit-Tests
 - **Production Ready:** YES
-- **Recommendation:** Deploy. BUG-1 ist kein Blocker (Einlösung bleibt gedeckelt und der Admin bestätigt jeden Preis manuell), sollte aber als nächster Schritt nachgezogen werden.
+- **Recommendation:** Deploy.
 
 ## Deployment
 _To be added by /deploy_

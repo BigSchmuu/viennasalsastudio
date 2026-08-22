@@ -244,4 +244,42 @@ test.describe("PROJ-15: Gutscheine & Rabattcodes", () => {
     await page.waitForTimeout(600);
     expect(page.url()).not.toContain("/admin/gutscheine");
   });
+
+  // QA BUG-1 regression: coupon codes used to be brute-forceable at ~78 req/s
+  // with no throttling. The limit lives in the RPC (not the app layer),
+  // because the original attack called the RPC directly with an anon key.
+  test("Sicherheit: Code-Rateversuche werden serverseitig gedrosselt", async ({ page }) => {
+    await login(page, CUSTOMER);
+    await service.from("coupon_check_attempts").delete().eq("customer_id", customerId);
+
+    await openBookingDialog(page);
+    await fillRegularForm(page);
+    for (let i = 0; i < 11; i++) {
+      await page.locator("#booking-coupon").fill(`RATELIMITPROBE${i}`);
+      await page.waitForTimeout(650);
+    }
+    await expect(page.getByText(/Zu viele Code-Versuche/)).toBeVisible();
+    // Booking must still be possible even while throttled (spec: a coupon never blocks).
+    await expect(page.getByRole("button", { name: "Absenden" })).toBeEnabled();
+
+    await service.from("coupon_check_attempts").delete().eq("customer_id", customerId);
+  });
+
+  // A rate limit alone cannot protect a memorable code like "SOMMER25" — an
+  // attacker still gets 10 guesses per window. Personal one-off codes must be
+  // unguessable, so the admin form can generate one.
+  test("Admin: Zufallscode-Generator erzeugt unerratbare, jedes Mal andere Codes", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.goto("/admin/gutscheine");
+    await page.waitForTimeout(800);
+
+    await page.getByRole("button", { name: "Zufälligen Code erzeugen" }).click();
+    const first = await page.locator("#coupon-code").inputValue();
+    await page.getByRole("button", { name: "Zufälligen Code erzeugen" }).click();
+    const second = await page.locator("#coupon-code").inputValue();
+
+    // Ambiguous characters (0/O, 1/I) are excluded — these get read aloud and re-typed.
+    expect(first).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{10}$/);
+    expect(second).not.toBe(first);
+  });
 });

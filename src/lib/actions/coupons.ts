@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type CouponCheckResult =
   | { valid: true; discountType: "percent" | "fixed"; discountAmount: number }
-  | { valid: false };
+  | { valid: false; rateLimited?: boolean };
 
 /**
  * Read-only hint for the booking dialog's coupon field, so an invalid code
@@ -13,6 +13,10 @@ export type CouponCheckResult =
  * The actual attach-if-valid decision happens fresh inside
  * create_regular_course_booking on submit, and the real, atomic redemption
  * happens later when an admin confirms the request.
+ *
+ * Brute-force protection lives in the RPC itself, not here (QA BUG-1): the
+ * attack calls the RPC directly with an anon key, so an app-side limiter
+ * would never see it.
  */
 export async function checkCouponCode(code: string): Promise<CouponCheckResult> {
   const trimmed = code.trim();
@@ -21,7 +25,9 @@ export async function checkCouponCode(code: string): Promise<CouponCheckResult> 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("check_coupon_code", { p_code: trimmed }).maybeSingle();
 
-  if (error || !data || !data.valid) return { valid: false };
+  if (error || !data) return { valid: false };
+  if (data.rate_limited) return { valid: false, rateLimited: true };
+  if (!data.valid) return { valid: false };
   return {
     valid: true,
     discountType: data.discount_type as "percent" | "fixed",

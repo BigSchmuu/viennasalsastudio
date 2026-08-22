@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Shuffle } from "lucide-react";
 import { createCoupon, toggleCouponActive } from "@/lib/actions/admin/coupons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,18 @@ function formatDiscount(type: "percent" | "fixed", amount: number): string {
 
 function formatDate(date: string): string {
   return new Date(date + "T00:00:00").toLocaleDateString("de-AT");
+}
+
+// Excludes easily-confused characters (0/O, 1/I) since these codes get read
+// aloud, written on flyers and re-typed by customers.
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/** Unguessable code for personal one-off vouchers — rate limiting alone can't
+ *  protect a memorable code like "SOMMER25" (see PROJ-15 QA BUG-1). */
+function generateRandomCode(): string {
+  const bytes = new Uint32Array(10);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
 }
 
 export function CouponManager({ coupons: initialCoupons }: { coupons: CouponRow[] }) {
@@ -114,12 +127,24 @@ export function CouponManager({ coupons: initialCoupons }: { coupons: CouponRow[
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1">
             <Label htmlFor="coupon-code">Code</Label>
-            <Input
-              id="coupon-code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="z.B. WILLKOMMEN20"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="coupon-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="z.B. WILLKOMMEN20"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                title="Zufälligen Code erzeugen (für persönliche Gutscheine)"
+                aria-label="Zufälligen Code erzeugen"
+                onClick={() => setCode(generateRandomCode())}
+              >
+                <Shuffle className="size-4" aria-hidden="true" />
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-1">

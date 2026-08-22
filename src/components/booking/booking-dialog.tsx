@@ -350,6 +350,11 @@ export function BookingDialog({
                             ? `${couponStatus.discountAmount}% Rabatt`
                             : `${formatPrice(couponStatus.discountAmount)} Rabatt`}
                         </p>
+                      ) : couponStatus?.rateLimited ? (
+                        <p className="text-xs text-destructive">
+                          Zu viele Code-Versuche. Bitte warte ein paar Minuten. Du kannst trotzdem ohne Gutschein
+                          buchen.
+                        </p>
                       ) : couponStatus ? (
                         <p className="text-xs text-destructive">
                           Dieser Code ist nicht gültig. Du kannst trotzdem ohne Gutschein buchen.
