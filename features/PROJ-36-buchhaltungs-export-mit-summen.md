@@ -205,6 +205,59 @@ Filterleiste. Kein neuer Bildschirm, keine Datenbankänderung, keine neue Abhän
 Summenzeilen, getrennte Rücklastschriften, Reichweiten-Hinweis, österreichisches Zahlenformat und
 der Dateiname nach Zeitraum.
 
+---
+
+## Implementation Notes (Backend)
+
+**Umgesetzt am 2026-08-23.** Keine Datenbankänderung, keine neue Abhängigkeit, keine neue Route —
+der vorhandene Export wurde erweitert.
+
+### Geänderte Dateien
+| Datei | Zweck |
+|-------|-------|
+| `src/lib/invoices.ts` | `summarizeInvoices`, `exportFileName`, `formatAmountDe`, `CSV_SEPARATOR`, `CSV_BOM`; `toCsvField`/`toCsvRow` nehmen jetzt ein Trennzeichen |
+| `src/app/api/admin/rechnungen/export/route.ts` | Summenzeilen, Reichweiten-Hinweis, Dateiname nach Zeitraum |
+| `src/lib/invoices.test.ts` | 21 neue Tests; 3 bestehende an das neue Format angepasst |
+
+### Abweichung vom Spec — bewusst
+Das Spec nennt die Zeile für Rücklastschriften **„davon Rücklastschriften"**, legt aber zugleich
+fest, dass sie **nicht** in GESAMT enthalten ist. „Davon" behauptet für einen Buchhalter das
+Gegenteil — nämlich Enthaltensein. Umgesetzt ist deshalb:
+
+- `GESAMT (eingegangen)` — nur tatsächlich vereinnahmtes Geld
+- `Nicht eingegangen (Rücklastschriften)` — getrennt, unmissverständlich
+
+Die Zahlen entsprechen exakt dem Spec; nur die Beschriftung wurde eindeutig gemacht.
+
+### Weitere Entscheidungen
+- **Trennzeichen jetzt Semikolon, Beträge mit Komma** (`33,33`). Mit Komma-Trennung hätte jeder
+  Betrag in Anführungszeichen gestanden, und eine falsch erkannte Datei fällt in Excel zu einer
+  einzigen Textspalte zusammen — genau das macht einen Export für den Steuerberater wertlos.
+- **BOM am Dateianfang.** Ohne ihn liest Excel unter Windows Latin-1 und macht aus „Müller" ein
+  „MÃ¼ller". Verifiziert: erstes Zeichen ist Codepoint 65279.
+- **Der Formelschutz bleibt bestehen** und wurde auf das neue Trennzeichen erweitert: Ein Kundenname
+  mit Semikolon wird korrekt eingefasst, ein Name wie `=SUM(A1)` weiterhin entschärft.
+- **Zwischensumme erscheint auch bei nur einem Steuersatz** — die Datei sieht dadurch immer gleich
+  aus, was Rückfragen erspart.
+- **Leerer Zeitraum** liefert Kopfzeile plus Nullsummen, keine leere Datei und keinen Fehler.
+
+### Verifiziert an der echten Datei
+Export für Januar 2028 (3 Rechnungen, davon 2 zurückgebucht):
+
+```
+Rechnungsnummer;Datum;Kunde;Netto;USt-Satz;USt-Betrag;Brutto;Status
+2028-0003;2028-01-15;E2E8 Kunde;33,33;20%;6,67;40,00;Rücklastschrift
+2028-0002;2028-01-15;E2E7 Multi Kunde;25,00;20%;5,00;30,00;Bezahlt
+2028-0001;2028-01-15;E2E7 Multi Kunde;25,00;20%;5,00;30,00;Rücklastschrift
+;;Zwischensumme 20%;25,00;20%;5,00;30,00;
+;;GESAMT (eingegangen);25,00;;5,00;30,00;
+;;Nicht eingegangen (Rücklastschriften);58,33;;11,67;70,00;
+;;Hinweis: Diese Datei enthält ausschließlich Einnahmen aus SEPA-Lastschriften. …
+```
+
+Dateiname: `rechnungsjournal-2028-01.csv`. GESAMT enthält korrekt nur die eine bezahlte Rechnung;
+die beiden zurückgebuchten (40,00 + 30,00 = 70,00) stehen getrennt darunter.
+
 ## QA Test Results
 _To be added by /qa_
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeInvoiceAmounts, toCsvField, toCsvRow, monthRange, monthFromRange, monthLabel, recentMonths } from "./invoices";
+import { computeInvoiceAmounts, toCsvField, toCsvRow, monthRange, monthFromRange, monthLabel, recentMonths, summarizeInvoices, exportFileName, formatAmountDe, CSV_SEPARATOR } from "./invoices";
 
 describe("computeInvoiceAmounts", () => {
   it("splits a gross amount into net + VAT at 20%", () => {
@@ -28,8 +28,12 @@ describe("toCsvField", () => {
     expect(toCsvField("2026-0001")).toBe("2026-0001");
   });
 
-  it("quotes and escapes a field containing a comma", () => {
-    expect(toCsvField("Muster, Anna")).toBe('"Muster, Anna"');
+  // Seit PROJ-36 trennt die Datei mit Semikolon. Ein Komma ist damit ein
+  // gewöhnliches Zeichen und braucht keine Anführungszeichen mehr — ein
+  // Semikolon dafür sehr wohl.
+  it("quotes and escapes a field containing the separator", () => {
+    expect(toCsvField("Muster; Anna")).toBe('"Muster; Anna"');
+    expect(toCsvField("Muster, Anna")).toBe("Muster, Anna");
   });
 
   it("quotes and escapes internal double quotes", () => {
@@ -49,7 +53,7 @@ describe("toCsvField", () => {
   it("neutralizes leading +, -, and @ as well", () => {
     expect(toCsvField("+1+1")).toBe("'+1+1");
     expect(toCsvField("-1+1")).toBe("'-1+1");
-    expect(toCsvField("@SUM(1,1)")).toBe('"\'@SUM(1,1)"');
+    expect(toCsvField("@SUM(1,1)")).toBe("'@SUM(1,1)");
   });
 
   it("does not touch an invoice number that happens to contain a dash mid-string", () => {
@@ -58,8 +62,8 @@ describe("toCsvField", () => {
 });
 
 describe("toCsvRow", () => {
-  it("joins fields with commas, quoting where necessary", () => {
-    expect(toCsvRow(["2026-0001", "Muster, Anna", 45.0])).toBe('2026-0001,"Muster, Anna",45');
+  it("joins fields with semicolons, quoting where necessary", () => {
+    expect(toCsvRow(["2026-0001", "Muster; Anna", 45.0])).toBe('2026-0001;"Muster; Anna";45');
   });
 });
 
@@ -105,5 +109,96 @@ describe("Monatsauswahl für den Export (PROJ-36)", () => {
     const months = recentMonths(3, new Date(2026, 0, 15)); // Januar 2026
     expect(months.map((m) => m.value)).toEqual(["2026-01", "2025-12", "2025-11"]);
     expect(months[0].label).toBe("Januar 2026");
+  });
+});
+
+describe("Summen für den Buchhaltungs-Export (PROJ-36)", () => {
+  const bezahlt = (gross: number, rate: number) => ({ grossAmount: gross, vatRatePercent: rate, bounced: false });
+  const zurueck = (gross: number, rate: number) => ({ grossAmount: gross, vatRatePercent: rate, bounced: true });
+
+  it("addiert bezahlte Rechnungen zur Gesamtsumme", () => {
+    const s = summarizeInvoices([bezahlt(120, 20), bezahlt(60, 20)]);
+    expect(s.total.gross).toBe(180);
+    expect(s.total.net).toBe(150);
+    expect(s.total.vat).toBe(30);
+  });
+
+  // Der wichtigste Test der ganzen Datei: Zurückgebuchtes Geld ist nicht
+  // eingegangen. Zählte es mit, behauptete die Zahl Einnahmen, die es nie gab.
+  it("hält Rücklastschriften aus der Gesamtsumme heraus und weist sie getrennt aus", () => {
+    const s = summarizeInvoices([bezahlt(120, 20), zurueck(60, 20)]);
+    expect(s.total.gross).toBe(120);
+    expect(s.bounced.gross).toBe(60);
+  });
+
+  it("trennt nach Steuersatz, aufsteigend sortiert", () => {
+    const s = summarizeInvoices([bezahlt(110, 10), bezahlt(120, 20), bezahlt(220, 20)]);
+    expect(s.byVatRate.map((r) => r.vatRatePercent)).toEqual([10, 20]);
+    expect(s.byVatRate[0].gross).toBe(110);
+    expect(s.byVatRate[1].gross).toBe(340);
+  });
+
+  it("zählt Rücklastschriften auch nicht in die Zwischensummen", () => {
+    const s = summarizeInvoices([bezahlt(120, 20), zurueck(120, 20)]);
+    expect(s.byVatRate).toHaveLength(1);
+    expect(s.byVatRate[0].gross).toBe(120);
+  });
+
+  it("liefert bei leerer Auswahl Nullsummen statt eines Fehlers", () => {
+    const s = summarizeInvoices([]);
+    expect(s.total).toEqual({ net: 0, vat: 0, gross: 0 });
+    expect(s.bounced).toEqual({ net: 0, vat: 0, gross: 0 });
+    expect(s.byVatRate).toEqual([]);
+  });
+
+  // Die Spalte muss von Hand nachrechenbar sein: Summe der gerundeten
+  // Einzelwerte, nicht die gerundete exakte Summe.
+  it("summiert die bereits gerundeten Einzelbeträge", () => {
+    const s = summarizeInvoices([bezahlt(0.05, 20), bezahlt(0.05, 20), bezahlt(0.05, 20)]);
+    const einzelNetto = Math.round((0.05 / 1.2) * 100) / 100;
+    expect(s.total.net).toBeCloseTo(einzelNetto * 3, 2);
+  });
+});
+
+describe("CSV-Formatierung für Österreich (PROJ-36)", () => {
+  it("schreibt Beträge mit Komma als Dezimalzeichen", () => {
+    expect(formatAmountDe(45)).toBe("45,00");
+    expect(formatAmountDe(1234.5)).toBe("1234,50");
+    expect(formatAmountDe(0)).toBe("0,00");
+  });
+
+  it("trennt Spalten mit Semikolon", () => {
+    expect(toCsvRow(["a", "b"])).toBe("a;b");
+    expect(CSV_SEPARATOR).toBe(";");
+  });
+
+  // Bei Semikolon-Trennung braucht ein Komma keine Anführungszeichen mehr —
+  // sonst stünde jeder Betrag unnötig in Anführungszeichen.
+  it("setzt Beträge mit Komma nicht in Anführungszeichen", () => {
+    expect(toCsvRow(["45,00"])).toBe("45,00");
+  });
+
+  it("schützt Felder, die ein Semikolon enthalten", () => {
+    expect(toCsvRow(["Meier; Anna"])).toBe('"Meier; Anna"');
+  });
+
+  it("neutralisiert weiterhin Formel-Einleitungen im Kundennamen", () => {
+    expect(toCsvRow(["=SUM(A1)"])).toBe("'=SUM(A1)");
+  });
+});
+
+describe("Dateiname des Exports (PROJ-36)", () => {
+  it("benennt einen vollen Monat nach diesem Monat", () => {
+    expect(exportFileName("2026-08-01", "2026-08-31")).toBe("rechnungsjournal-2026-08.csv");
+  });
+
+  it("benennt einen freien Zeitraum nach seinen Grenzen", () => {
+    expect(exportFileName("2026-07-01", "2026-08-15")).toBe("rechnungsjournal-2026-07-01_bis_2026-08-15.csv");
+  });
+
+  it("kommt mit einseitig offenen Zeiträumen und ohne Filter zurecht", () => {
+    expect(exportFileName("2026-07-01", "")).toBe("rechnungsjournal-ab-2026-07-01.csv");
+    expect(exportFileName("", "2026-07-31")).toBe("rechnungsjournal-bis-2026-07-31.csv");
+    expect(exportFileName("", "")).toBe("rechnungsjournal-gesamt.csv");
   });
 });
