@@ -54,7 +54,10 @@ async function fillRegularForm(page: Page) {
   await page.getByRole("dialog").getByRole("combobox").first().click();
   await page.waitForTimeout(400);
   await page.getByRole("option").first().click();
-  await page.getByLabel("Nur diesen Kurs").click();
+  // PROJ-41: Die Abo-Art ist jetzt eine Kachel. Das Radio darunter ist
+  // sr-only, ein Klick darauf wird von der sichtbaren Beschriftung
+  // abgefangen — also die Kachel selbst anklicken, wie ein Nutzer auch.
+  await page.getByText("Nur diesen Kurs").click();
   await page.waitForTimeout(300);
 }
 

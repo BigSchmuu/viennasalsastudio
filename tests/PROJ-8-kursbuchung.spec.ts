@@ -150,7 +150,10 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.getByRole("dialog").getByRole("combobox").first().click();
     await page.waitForTimeout(300);
     await page.getByRole("option", { name: /07\.09/ }).click();
-    await page.getByLabel("Nur diesen Kurs").click();
+    // PROJ-41: Die Abo-Art ist jetzt eine Kachel. Das Radio darunter ist
+    // sr-only, ein Klick darauf wird von der sichtbaren Beschriftung
+    // abgefangen — also die Kachel selbst anklicken, wie ein Nutzer auch.
+    await page.getByText("Nur diesen Kurs").click();
 
     const submit = page.getByRole("button", { name: "Absenden" });
     await expect(submit).toBeDisabled();

@@ -65,6 +65,9 @@
 
 ## Open Questions
 - [ ] Soll die Flatrate-Kachel erwähnen, ab wie vielen Kursen sie sich rechnet? → Naheliegend, aber erst nach dem ersten Praxiseindruck entscheiden.
+- [ ] BUG-1: Soll ein Studierendenpreis über dem Normalpreis abgelehnt oder nur gewarnt werden? (QA 2026-08-23)
+- [ ] BUG-2: Sollen Interessenten ohne Konto die Preise sehen? Der Buchungsdialog war für Gäste noch nie erreichbar — das wäre eine eigene Ansicht, kein reiner Fix. (QA 2026-08-23)
+- [ ] BUG-3: Platzhalter mit dem Standardpreis am Kurs-Preisfeld nachziehen (im Tech Design vorgesehen, nicht umgesetzt). (QA 2026-08-23)
 
 ## Decision Log
 
@@ -191,6 +194,41 @@ Tabelle, keine neue Abhängigkeit.
 
 ---
 
+## Implementation Notes (Frontend)
+
+**Stand:** Frontend umgesetzt am 2026-08-23.
+
+### Was gebaut wurde
+- `src/lib/pricing.ts` — die Preisliste als Typ (`StudioPricing`), das Lesen der
+  Datenbankzeile (`readStudioPricing`) und die **einzige** Stelle, an der ein Abo-Preis
+  entsteht (`planPrice`).
+- `src/components/booking/plan-price-tiles.tsx` — die zwei Kacheln. Darunter liegt
+  weiterhin eine RadioGroup: sie bringt Pfeiltasten-Navigation und einen einzigen
+  Tab-Stopp mit, was eine Sammlung anklickbarer Kacheln erst mühsam nachbauen müsste.
+- `src/components/admin/bookings/pricing-form.tsx` (vorher `dropin-pricing-form.tsx`) —
+  drei Gruppen: Drop-in, Kursabo, Flatrate. Überschrift jetzt „Preise".
+- `src/lib/actions/admin/pricing.ts` (vorher `dropin-pricing.ts`) — `updatePricing`.
+  Ein leeres Feld wird zu `null`, nicht zu `0`.
+- `src/lib/validations/booking.ts` — `pricingSchema` mit `MAX_PRICE = 1000`.
+
+### Migration (vorgezogen aus dem Backend-Schritt)
+`20260823195748_proj41_subscription_and_flatrate_prices.sql` legt vier nullable Spalten in
+`dropin_pricing` an und setzt die Startwerte 65 / 45 / 145 / 100. Vorgezogen, weil das
+Preisformular ohne die Spalten nicht speichern kann.
+
+### Studierendenpreis beim Abo
+Bisher gab es die Angabe „Ich bin Student(in)" nur im Drop-in-Reiter. Für die Kacheln
+braucht es sie auch bei der Anmeldung — sie steht jetzt unter den Kacheln und schaltet
+beide auf den ermäßigten Preis um.
+
+### Prop-Umbenennung
+`dropinPricing: { normal, student }` heißt jetzt durchgehend `pricing: StudioPricing` —
+in `booking-dialog`, `course-catalog`, `course-detail-booking`, `weekly-schedule-view`,
+`schedule-booking-button` und den drei Seiten, die sie speisen. Die Abfragen auf
+`dropin_pricing` holen `*` statt einzelner Spalten.
+
+---
+
 ## Implementation Notes (Backend)
 
 **Stand:** Backend umgesetzt am 2026-08-23.
@@ -262,7 +300,126 @@ MD5-Vergleich gegen `pg_proc.prosrc` geprüft — sie stimmen bit-genau mit der 
 ---
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet am:** 2026-08-23 · **Umgebung:** lokal gegen die Produktionsdatenbank (kein Staging)
+
+### Akzeptanzkriterien: 14 von 14 erfüllt
+
+| # | Kriterium | Ergebnis |
+|---|---|---|
+| 1 | Vier neue Felder an der Stelle der Drop-in-Preise | ✅ |
+| 2 | Geänderter Preis erscheint im Buchungsdialog | ✅ |
+| 3 | Negativer / unrealistisch hoher Betrag abgelehnt, alter Wert bleibt | ✅ |
+| 4 | Preisänderung lässt laufende Abos unberührt | ✅ |
+| 5 | Kurs ohne eigenen Preis übernimmt den Standard | ✅ |
+| 6 | Eigener Kurspreis schlägt den Standard, andere Kurse unberührt | ✅ |
+| 7 | Geleertes Preisfeld → wieder Standard | ✅ |
+| 8 | Zwei Kacheln mit Preis pro Monat und Erläuterung | ✅ |
+| 9 | Gewählte Kachel erkennbar, Auswahl wird übernommen | ✅ |
+| 10 | Studierendenangabe schaltet beide Kacheln um | ✅ |
+| 11 | Ohne Auswahl bleibt das Absenden gesperrt | ✅ |
+| 12 | Abweichender Einzelpreis erscheint in der Kachel | ✅ |
+| 13 | Vorgeschlagener Preis = gezeigter Preis | ✅ |
+| 14 | Ohne gepflegten Preis: Hinweis statt 0,00 €, Buchen bleibt möglich | ✅ |
+
+Zu #4: strukturell abgesichert, nicht nur beobachtet — es gibt keinen Trigger auf
+`subscriptions` oder `dropin_pricing` und keine Funktion, die `subscriptions.price`
+nachträglich setzt (`pg_proc` durchsucht, 0 Treffer). Der Preis kommt beim Bestätigen
+ins Abo und wird danach von niemandem mehr angefasst.
+
+Zu #13: die Kette wurde durchgehend nachgewiesen — Kunde sieht „€ 45,00" →
+`course_bookings.price` = 45 → Bestätigungsdialog schlägt 45 vor.
+
+### Edge Cases
+
+| Edge Case aus dem Spec | Ergebnis |
+|---|---|
+| Preisänderung bei offenem Dialog | ✅ Kunde sieht den alten Preis bis zum Neuladen; die offene Anfrage behält ihren Betrag (von 65 auf 90 geändert → Vorschlag blieb 65) |
+| 12 Kurse ohne Preis übernehmen den Standard | ✅ |
+| Studierendenpreis höher als Normalpreis | ❌ **BUG-1** |
+| Nicht eingeloggter Besucher sieht dieselben Preise | ❌ **BUG-2** |
+| Wechsel zwischen Kursabo und Flatrate bis zum Absenden | ✅ |
+
+### Gefundene Fehler
+
+**BUG-1 — Studierendenpreis darf über dem Normalpreis liegen (Medium)**
+Der Spec verlangt in den Edge Cases, dass ein solcher Zahlendreher beim Speichern
+abgelehnt wird. `pricingSchema` prüft jede Zahl nur für sich, nie im Verhältnis zur
+anderen. Reproduziert für alle drei Paare:
+Drop-in 20 / 50 → angenommen · Kursabo 65 / 99 → angenommen · Flatrate 145 / 200 → angenommen.
+*Folge:* Studierende bekämen den teureren Preis angezeigt, ohne dass etwas warnt.
+
+**BUG-2 — Ein nicht eingeloggter Besucher sieht die Preise gar nicht (Medium)**
+„Jetzt buchen" leitet Gäste auf `/login` (`course-catalog.tsx:100`, Verhalten aus einem
+früheren Feature). Der Dialog öffnet nie, also erscheint auch keine Preiskachel. Der Spec
+begründet in den Edge Cases genau das Gegenteil: „wer sich anmelden will, soll vorher
+wissen, was es kostet."
+*Einordnung:* Das ist ebenso sehr eine falsche Annahme im Spec wie ein Fehler im Code —
+der Dialog war für Gäste noch nie erreichbar. Für Interessenten ohne Konto bleibt das
+Studio damit preislich stumm. E2E-Test liegt als `test.fixme` bereit.
+
+**BUG-3 — Das Kurs-Preisfeld erklärt nicht mehr, was „leer" bedeutet (Low)**
+Beschriftung heute: „Preis pro Monat in € (optional, wird beim Bestätigen vorausgefüllt)".
+Seit PROJ-41 heißt leer aber „es gelten 65 €", nicht „nichts". Das Tech Design sah einen
+Platzhalter mit dem aktuellen Standardpreis vor; er wurde nicht umgesetzt.
+*Folge:* Der Betreiber sieht ein leeres Feld und weiß nicht, was der Kurs kostet.
+
+### Regression
+
+**Von PROJ-41 verursacht und behoben (Testebene):** Drei Suiten wählten die Abo-Art über
+`getByLabel("Nur diesen Kurs")`. Das trifft das Radio, das jetzt `sr-only` ist — der Klick
+wurde von der sichtbaren Kachel abgefangen. 6 Tests in PROJ-15, je einer in PROJ-8 und
+PROJ-30. Auf `getByText` umgestellt, alle wieder grün. **Das Produkt war nie betroffen:**
+Maus- und Tastaturbedienung geprüft (Fokus, Leertaste wählt, Pfeiltaste wechselt), und ein
+Screenreader liest die Kachel jetzt als „Nur diesen Kurs, € 65,00 / Monat, Dieser eine
+Kurs, wöchentlich" — mehr Kontext als vorher.
+
+**Nicht von PROJ-41 — nachgewiesen, nicht vermutet:**
+- PROJ-15 „Kunde mit bestehendem Abo bekommt keinen Gutschein mehr angerechnet" fällt auch
+  auf Commit `078b9f3` (vor jeder Zeile PROJ-41-Code). Ursache ist die
+  Doppelanmeldungs-Sperre aus PROJ-8: der Dialog zeigt einem eingeschriebenen Kunden den
+  Hinweis statt des Formulars, das der Test ausfüllen will.
+- Mobile Safari scheitert bei jedem Test bereits am Login. Ein Kontrolllauf zeigt dasselbe
+  bei PROJ-12 (ohne PROJ-41-Bezug), während ein Mobile-Safari-Test **ohne** Login
+  (PROJ-6) durchläuft. Bekanntes WebKit-Problem, siehe `docs/troubleshooting-tests.md`.
+
+**Grün:** PROJ-12 vollständig (8/8), PROJ-8 (14/14), PROJ-30 (5/5), PROJ-15 (13/14, siehe oben).
+
+### Sicherheitsprüfung (Red Team)
+
+| Angriff | Ergebnis |
+|---|---|
+| Anonym die Preisliste ändern | ✅ abgewehrt (RLS, 0 Zeilen) |
+| Als Kunde die Preisliste ändern | ✅ abgewehrt (0 Zeilen) |
+| Als Kunde einen Kurspreis ändern | ✅ abgewehrt (0 Zeilen) |
+| Erfundenen `p_price` an die Buchungs-RPC hängen | ✅ abgewehrt (Parameter existiert nicht) |
+| Buchung direkt mit `price = 1` einfügen | ✅ abgewehrt (RLS) |
+
+Die Preisliste war nach allen Versuchen unverändert. Der Preis entsteht ausschließlich in
+`resolve_plan_price` auf dem Server; der Client kann keinen Betrag beisteuern.
+
+*Bewusst kein Fehler:* Wer „Ich bin Student(in)" ankreuzt, bekommt den ermäßigten Preis
+ohne Nachweis. Das ist dieselbe Selbstauskunft wie beim Drop-in und im Tech Design so
+entschieden.
+
+### Automatisierte Tests
+- `npm test`: **295 grün** (25 Dateien), darunter 12 neue für `planPrice`/`pricingSchema`.
+- `tests/PROJ-41-preisdarstellung-kursbuchung.spec.ts`: **13 grün, 1 fixme** (BUG-2).
+  Zweimal hintereinander gelaufen — die Suite stellt Preisliste und Kurspreise selbst
+  zurück und ist unabhängig von der Reihenfolge.
+- Eigene Fixture-Kurse `E2E41 Kurs Standardpreis` (ohne Preis) und `E2E41 Kurs Eigenpreis`
+  (80 €), damit die Tests nicht an echten Kursen drehen.
+
+### Darstellung
+375 px, 768 px und 1440 px geprüft: Kacheln stehen nebeneinander ab `sm`, darunter
+gestapelt, kein seitliches Scrollen.
+
+### Produktionsreife: **JA**
+
+Keine kritischen oder hohen Fehler. Die drei Befunde sind Abweichungen vom Spec, die den
+Kernnutzen nicht blockieren — der Betreiber pflegt Preise, der Kunde sieht sie, und was er
+sieht, steht auch in der Buchung.
+
 
 ---
 
