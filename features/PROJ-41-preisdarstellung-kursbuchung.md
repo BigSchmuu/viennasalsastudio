@@ -82,16 +82,108 @@
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
-
----
-
-## Tech Design (Solution Architect)
-_To be added by /architecture_
+| Die vier Preise kommen in die bestehende Preisliste, nicht in eine neue Tabelle | Ein zweiter Ort für Preise wäre eine zusätzliche Stelle zum Vergessen; der interne Name „Drop-in-Preise" ist ein Überbleibsel und bleibt technisch bestehen | 2026-08-23 |
+| Leerer Kurspreis bedeutet „Standard", nicht „kostenlos" | Zwölf von vierzehn Kursen haben keinen Preis. Sie leer zu lassen erspart das Nachziehen und lässt eine spätere Standardänderung überall wirken | 2026-08-23 |
+| Preisermittlung an genau einer Stelle für Kachel und Bestätigungsformular | Zwei Rechenwege laufen auseinander — der Kunde sähe dann etwas anderes als der Betreiber beim Bestätigen | 2026-08-23 |
+| Der Abo-Preis wird beim Abschluss ins Abo geschrieben und danach nicht mehr angefasst | Nur so bleibt ein laufender Vertrag von Preisänderungen unberührt | 2026-08-23 |
+| Fehlender Standardpreis zeigt einen Hinweis statt „0,00 €" | Eine Null wäre eine Preisaussage, die niemand getroffen hat | 2026-08-23 |
+| Obergrenze und Vorzeichenprüfung wie bei den bestehenden Preisfeldern | Ein Zahlendreher (650 statt 65) darf nicht stillschweigend zu einem Vertragsangebot werden | 2026-08-23 |
 
 ---
 
 ## Implementation Notes
 _To be added by /frontend and /backend_
+
+---
+
+## Tech Design (Solution Architect)
+
+### A) Component Structure (Visual Tree)
+
+```
+Verwaltung → Buchungen (bestehende Seite)
+└── Preis-Formular (heute „Drop-in-Preise")
+    ├── Drop-in normal / Studierende        (bestehend)
+    ├── NEU: Kursabo normal / Studierende
+    └── NEU: Flatrate normal / Studierende
+
+Verwaltung → Kurse → Kurs bearbeiten (bestehend)
+└── Feld „Preis pro Monat"
+       NEU: leer lassen = Standardpreis gilt; ausgefüllt = dieser Kurs weicht ab
+       Der Platzhalter zeigt den aktuellen Standard, damit sichtbar ist, wovon abgewichen wird
+
+Buchungsdialog → Reiter „Anmeldung" (bestehend)
+└── Abo-Art
+       vorher: zwei Auswahlknöpfe ohne Preis
+       NEU:    zwei Kacheln nebeneinander
+       ┌──────────────────────┐ ┌──────────────────────┐
+       │ Nur diesen Kurs      │ │ Flatrate             │
+       │ 65,00 € / Monat      │ │ 145,00 € / Monat     │
+       │ Dieser eine Kurs,    │ │ Alle Kurse, so oft   │
+       │ wöchentlich          │ │ du willst            │
+       └──────────────────────┘ └──────────────────────┘
+       Bei „Ich bin Studierende:r" zeigen beide den ermäßigten Preis
+```
+
+Es entsteht **keine neue Seite**. Ein bestehendes Formular bekommt vier Felder, ein bestehendes
+Feld eine klarere Bedeutung, und zwei Auswahlknöpfe werden zu Kacheln.
+
+### B) Data Model (plain language)
+
+```
+Die Preisliste des Studios (heute „Drop-in-Preise") führt künftig sechs Beträge:
+- Drop-in       normal / Studierende      (bestehend)
+- Kursabo       normal / Studierende      NEU
+- Flatrate      normal / Studierende      NEU
+
+Beim Kurs bleibt alles wie es ist — ein Preisfeld, das leer sein darf:
+- leer      → der Standardpreis für Kursabos gilt
+- ausgefüllt → dieser Betrag gilt für diesen Kurs
+```
+
+**Der Preis eines Kurses wird nicht gespeichert, sondern beantwortet:** „Hat dieser Kurs einen
+eigenen Preis? Wenn nein, nimm den Standard." Dadurch wirkt eine Änderung des Standards sofort auf
+alle Kurse, die keinen eigenen haben — ohne dass irgendwo 14 Zeilen nachgezogen werden müssen.
+
+**Was ein Kunde bereits abgeschlossen hat, bleibt unberührt:** Der Preis eines laufenden Abos steht
+im Abo selbst und wird von Änderungen an der Preisliste nicht angefasst.
+
+### C) Tech Decisions (justified for PM)
+
+- **Die Preisliste wächst, statt dass eine zweite entsteht.** Du pflegst Preise heute an einer
+  Stelle; eine zweite wäre eine weitere Stelle zum Vergessen. Dass die Liste intern noch
+  „Drop-in-Preise" heißt, ist ein Überbleibsel — nach außen heißt sie künftig schlicht „Preise".
+
+- **Leer bedeutet Standard, nicht null.** Das ist die Entscheidung, die dir die meiste Arbeit
+  spart: Zwölf deiner vierzehn Kurse haben heute keinen Preis. Statt zwölfmal 65 € einzutragen,
+  bleiben sie leer und übernehmen den Standard — und wenn du den Standard später änderst, ändern
+  sie sich alle mit. Nur echte Ausnahmen bekommen einen eigenen Betrag.
+
+- **Ein Preis, eine Quelle.** Der Preis in der Kachel und der Preis, den dir das
+  Bestätigungsformular vorschlägt, werden an derselben Stelle ermittelt. Zwei getrennte Rechenwege
+  würden irgendwann auseinanderlaufen — und dann sähe der Kunde etwas anderes als du.
+
+- **Der Studierendenpreis ist eine Selbstauskunft**, genau wie beim Drop-in heute. Ein Nachweis
+  wäre ein eigenes Thema und würde die Buchung deutlich schwerfälliger machen.
+
+- **Kacheln statt Auswahlknöpfen.** Zwei Angebote nebeneinander laden zum Vergleich ein. Eine Liste
+  mit Radiobuttons stellt die Frage „welches?", ohne bei der Antwort zu helfen — mit Preis und
+  einem Satz Erläuterung beantwortet die Kachel sie mit.
+
+- **Ohne gepflegten Preis wird nichts behauptet.** Fehlt ein Standardpreis, zeigt die Kachel keinen
+  Betrag „0,00 €", sondern einen Hinweis — und das Buchen bleibt möglich. Eine Null wäre eine
+  Aussage, die niemand gemacht hat.
+
+### D) Dependencies (packages to install)
+
+Keine. Es kommen Felder in ein vorhandenes Formular, und eine vorhandene Auswahl bekommt eine
+andere Darstellung.
+
+### Umfang
+
+Erweitert: die Preisliste um vier Beträge, das Preis-Formular in der Verwaltung, die
+Preisermittlung an einer Stelle, die Abo-Auswahl im Buchungsdialog. Keine neue Seite, keine neue
+Tabelle, keine neue Abhängigkeit.
 
 ---
 
