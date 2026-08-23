@@ -1,6 +1,6 @@
 # PROJ-38: Kursausfall-Benachrichtigung
 
-## Status: Planned
+## Status: Approved
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -253,7 +253,88 @@ der Erfolgspfad ist damit nur bis zur Übergabe an den Versand geprüft. Der Feh
 wichtigere, weil er einen falschen „benachrichtigt"-Vermerk verhindert — ist real durchgespielt.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-08-23
+**Umgebung:** http://localhost:3000 gegen die Produktiv-Datenbank (es gibt keine Staging-DB)
+**Tester:** QA Engineer (AI)
+
+### Akzeptanzkriterien
+
+#### Auslösen — 5/5 bestanden
+- [x] Jede Pause hat einen Knopf „Kunden benachrichtigen"
+- [x] Vor dem Versand steht die Empfängerzahl, das Datum und der Hinweis, dass es sich nicht
+      zurücknehmen lässt — plus „Abbrechen"
+- [x] Eine neu eingetragene Pause benachrichtigt **niemanden** von selbst (weder Vermerk noch
+      Warteschlangen-Eintrag)
+- [x] Nach dem Versand steht der Zeitpunkt daneben, der Knopf heißt „Erneut benachrichtigen"
+- [x] Ein Kunde erreicht die Kursverwaltung nicht
+
+#### Empfängerkreis — 4/4 bestanden
+Der Kern des Features, deshalb mit einer eigens gebauten Ausgangslage geprüft: ein Gast mit
+bestätigtem Drop-in **am Ausfalltag**, einer an einem **anderen** Termin, einer mit **unbestätigter**
+Buchung am Ausfalltag.
+
+- [x] Abo-Kunden zählen
+- [x] Der Gast am Ausfalltag zählt
+- [x] Der Gast am anderen Termin zählt **nicht**
+- [x] Die unbestätigte Buchung zählt **nicht**
+- [x] **Jede Person wird einmal gezählt** — im Test hielt ein Kunde 23 aktive Abos für denselben
+      Kurs (Altlast aus wiederholten Testläufen); gezählt wurde er einmal
+
+#### Inhalt & Zustellung — 3/3 bestanden
+- [x] Die Nachricht trägt Kursname und Datum
+- [x] Der Text ist unter „Benachrichtigungs-Texte" als „Kursausfall" anpassbar
+- [x] **Fehlgeschlagene Zustellung wird nicht als benachrichtigt vermerkt** und meldet es
+
+#### Leerzustand — 1/1 bestanden
+- [x] Ist niemand betroffen, sagt der Dialog es und der Senden-Knopf ist gesperrt
+
+### Sicherheitsprüfung (Red Team)
+Der gefährlichste Missbrauch wäre hier ein Massenversand an alle Kursteilnehmer.
+
+- [x] **Kunde:** erreicht `/admin/kurse` nicht, sieht den Knopf nirgends
+- [x] Alle Aktionen laufen über `requireAdmin`
+- [x] Die Empfängerzahl wird serverseitig ermittelt — ein manipulierter Wert im Browser ändert
+      nichts daran, wer tatsächlich benachrichtigt wird
+
+### Gefundene Fehler
+Keine. Der eine Fehler dieser Runde — ein Empfänger galt nur bei zugestellter **E-Mail** als
+erreicht, obwohl Push genauso zählt — fiel im Backend-Schritt auf und ist dort behoben und
+dokumentiert.
+
+### Automatisierte Tests
+- **E2E:** 8 neue Tests in `tests/PROJ-38-kursausfall.spec.ts` — **8/8 grün auf Chromium und
+  Mobile Safari**
+- **Unit:** keine neuen. Die Logik lebt in einer Server Action gegen die Datenbank; ein Unit-Test
+  würde nur eine Attrappe prüfen
+- **Gesamtsuite:** 280/280 grün
+- **Methodik:** `beforeEach` baut Pause und Buchungen neu auf — sie sind genau das, worauf die
+  Tests zusicherern, und dürfen nicht von einem vorherigen Lauf abhängen
+
+### Regression
+- PROJ-3 (Kursverwaltung): grün
+- PROJ-34 (Benachrichtigungs-Texte): grün
+- PROJ-6 (Stundenplan): **eine Zusicherung musste nachgezogen werden.** Sie prüfte die Pause anhand
+  des technischen Datums `2026-08-21`; die Liste zeigt jetzt `21.08.2026` wie die übrige Verwaltung.
+  Keine Fehlfunktion, sondern eine veraltete Erwartung nach einer bewussten Angleichung
+- Zusammen 27/27
+
+### Nicht abgedeckt
+Ein **erfolgreicher** Versand. Alle Fixture-Kunden haben `.test`-Adressen und keine Push-Geräte;
+der Erfolgspfad ist nur bis zur Übergabe an den Versand geprüft. Der Fehlerpfad — der wichtigere,
+weil er einen falschen „benachrichtigt"-Vermerk verhindert — ist real durchgespielt.
+
+### Beobachtung (kein Fehler dieses Features)
+Ein Testkunde hält **23 aktive Abos für denselben Kurs**. Das ist eine Altlast aus wiederholten
+Testläufen, verzerrt aber potenziell Umsatz- und Auslastungszahlen. Ob mehrfache aktive Abos
+desselben Kunden für denselben Kurs überhaupt möglich sein sollten, wäre eine eigene Frage.
+
+### Zusammenfassung
+- **Akzeptanzkriterien:** 13/13 bestanden
+- **Fehler:** 0 offen (1 im Backend-Schritt gefunden und behoben)
+- **Sicherheit:** Bestanden
+- **Produktionsreif:** **JA**
+
 
 ## Deployment
 _To be added by /deploy_

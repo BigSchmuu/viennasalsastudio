@@ -184,7 +184,15 @@ test.describe("PROJ-6: Stundenplan & Kalender", () => {
       .getByRole("button", { name: "Hinzufügen" })
       .click();
     await page.waitForTimeout(800);
-    await expect(page.getByText(today)).toBeVisible();
+    // Die Pausen-Liste zeigt seit PROJ-38 deutsches Datumsformat, wie die übrige
+    // Verwaltung auch — der Eintrag wird also als 21.08.2026 gerendert, nicht
+    // als 2026-08-21.
+    const angezeigtesDatum = new Date(today).toLocaleDateString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    await expect(page.getByText(angezeigtesDatum)).toBeVisible();
 
     await page.goto("/stundenplan");
     await page.getByRole("tab", { name: "Freitag" }).click();
@@ -193,7 +201,7 @@ test.describe("PROJ-6: Stundenplan & Kalender", () => {
 
     // Pause wieder entfernen -> Kurs erscheint wieder
     await openCourseEdit(page, "E2E6 Kurs Heute");
-    await page.getByText(today).locator("..").getByRole("button", { name: "Entfernen" }).click();
+    await page.getByText(angezeigtesDatum).locator("..").getByRole("button", { name: "Entfernen" }).click();
     await page.waitForTimeout(800);
 
     await page.goto("/stundenplan");
