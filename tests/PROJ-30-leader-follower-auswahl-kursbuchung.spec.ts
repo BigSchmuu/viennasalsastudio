@@ -60,6 +60,15 @@ test.beforeAll(async () => {
   await service.from("waitlist_entries").delete().in("course_id", [ROLLEN_KURS_ID, KEIN_ROLLEN_KURS_ID]);
   // AC4/AC5 confirms Kunde A's booking, which creates a subscription; that
   // subscription then counts toward the course's role balance on the next run.
+  // Stornieren vor dem Löschen: Abos, die schon in einem SEPA-Lauf abgerechnet
+  // wurden, hängen an sepa_collection_items und lassen sich nicht löschen — das
+  // scheiterte hier still, bis die Prüfung "bereits angemeldet" darauf ansprang
+  // und die Fixture-Kunden ihren eigenen Kurs nicht mehr buchen konnten.
+  await service
+    .from("subscriptions")
+    .update({ status: "cancelled" })
+    .in("course_id", [ROLLEN_KURS_ID, KEIN_ROLLEN_KURS_ID])
+    .neq("status", "cancelled");
   await service.from("subscriptions").delete().in("course_id", [ROLLEN_KURS_ID, KEIN_ROLLEN_KURS_ID]);
 
   const { error: rollenError } = await service

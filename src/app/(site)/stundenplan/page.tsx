@@ -122,6 +122,9 @@ export default async function StundenplanPage() {
           pauseDates: schedule.course_schedule_pauses.map((p) => p.pause_date),
         }),
         hasOpenRegularBooking: myOpenRegularCourseIds.has(course.id),
+        // Immer false: dieser Zweig wird nur betreten, wenn der Kunde KEIN
+        // aktives Abo für den Kurs hat (siehe Bedingung oben).
+        hasActiveSubscription: false,
         isFull: course.max_participants !== null && (occupiedByCourse.get(course.id) ?? 0) >= course.max_participants,
         isOnWaitlist: myWaitlistCourseIds.has(course.id),
         isLoggedIn: !!user,

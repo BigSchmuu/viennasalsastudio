@@ -39,6 +39,7 @@ export type CatalogCourseRow = {
   nextOccurrenceDates: string[];
   entryDates: string[];
   hasOpenRegularBooking: boolean;
+  hasActiveSubscription: boolean;
   isFull: boolean;
   isOnWaitlist: boolean;
   prerequisiteNote: string | null;

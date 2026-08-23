@@ -281,3 +281,52 @@ Keine Critical-, High-, Medium- oder Low-Bugs gefunden. Alle 13 Acceptance Crite
 - Kein Rate-Limiting auf den neuen Formular-Endpunkten — deckt sich mit dem bereits in PROJ-6 dokumentierten BUG-1
 - Mobile-Safari/WebKit-E2E-Lauf weiterhin nicht möglich (siehe QA-Notizen)
 - Repo-weiter ESLint-Ausfall (Next.js 16), unverändert seit PROJ-3
+
+---
+
+## Nachträglicher Fix 2026-08-23: Doppelte Einschreibung war möglich
+
+**Gefunden bei der QA zu PROJ-38**, als ein Testkunde mit **23 aktiven Abos für denselben Kurs**
+auffiel.
+
+### Was falsch war
+Ein bereits eingeschriebener Kunde konnte denselben Kurs erneut anfragen:
+
+| Schritt | Verhalten vorher |
+|---------|------------------|
+| Kunde fragt Kurs erneut an | erlaubt — geprüft wurde nur eine *offene* Anfrage, nie ein bestehendes Abo |
+| Buchungsdialog | zeigte das normale Anmeldeformular, ohne Hinweis |
+| Admin bestätigt | die Buchungsliste zeigt keine Information über bestehende Abos |
+| Ergebnis | zweites Abo — **beide werden per SEPA eingezogen**, Monat für Monat |
+
+Nachgewiesen über die echte Oberfläche: Ein Kunde mit 23 aktiven Abos bekam das Anmeldeformular
+angeboten und konnte absenden.
+
+**Kein echter Kunde war betroffen** — der einzige Fall hing an einem Testkonto. Der Weg stand aber
+offen.
+
+### Behoben
+- **In der Datenbank:** `create_regular_course_booking` lehnt mit `already enrolled` ab. Dort, weil
+  der Weg über die RPC auch am Formular vorbei offensteht.
+- **Im Dialog:** „Du bist für diesen Kurs bereits angemeldet. Dein Abo läuft weiter — du musst dich
+  nicht erneut anmelden." Der Absenden-Knopf ist gesperrt, wie bei den bestehenden Fällen
+  „offene Anfrage" und „auf Warteliste".
+- **Im Kurskatalog** wurden die Abos bisher gar nicht abgefragt — genau dort klaffte die Lücke. Der
+  Stundenplan bot Eingeschriebenen ohnehin schon keine Buchung an (PROJ-26).
+
+Bemerkenswert: Der **Wartelisten**-Weg kannte diese Prüfung längst („already enrolled"). Bei der
+regulären Buchung fehlte sie schlicht.
+
+### Nebenbefund: Zwei Fixture-Resets liefen still ins Leere
+PROJ-8 und PROJ-30 löschen in ihrem `beforeAll` die Abos ihrer Kurse — das schlug seit jeher fehl,
+weil bereits abgerechnete Abos an `sepa_collection_items` hängen. Unbemerkt, weil bis jetzt nichts
+davon abhing; erst die neue Prüfung machte es sichtbar (die Fixture-Kunden konnten ihren eigenen
+Kurs nicht mehr buchen). Beide stornieren jetzt zuerst und löschen nur, was löschbar ist.
+
+### Tests
+- Neuer Test in `tests/PROJ-8-kursbuchung.spec.ts`: Hinweis im Dialog, gesperrter Knopf **und**
+  Ablehnung direkt gegen die Datenbank
+- PROJ-12 AC9 heißt „sieht **Hinweis** statt Warteliste-Option" — der Test füllte bisher das
+  Formular aus und wartete auf eine serverseitige Ablehnung, weil es den Hinweis noch nicht gab.
+  Jetzt prüft er, was die Überschrift verlangt
+- Regression: PROJ-5, 8, 9, 12, 26, 30 zusammen **56/56 grün**; 280 Unit-Tests grün

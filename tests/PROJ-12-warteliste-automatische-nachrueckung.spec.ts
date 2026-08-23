@@ -156,15 +156,13 @@ test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
   test("AC9: Kunde mit aktivem Abo für den Kurs sieht Hinweis statt Warteliste-Option", async ({ page }) => {
     await login(page, CUSTOMER_HOLDER);
     await openBookingDialog(page, "E2E12 Kurs");
-    // Holder already has an active subscription for this course but no open
-    // request, so the dialog falls through to the normal full-course form;
-    // submitting is expected to be rejected server-side ("already enrolled").
-    await page.getByRole("combobox").first().click();
-    await page.getByRole("option").first().click();
-    await page.getByText("Nur diesen Kurs").click();
-    await page.getByRole("button", { name: "Auf Warteliste eintragen" }).click();
-    await page.waitForTimeout(600);
-    await expect(page.getByText(/nicht möglich/)).toBeVisible();
+    // Der Dialog sagt es jetzt vorab, statt das Formular anzubieten und die
+    // Eingabe erst beim Absenden abzulehnen. Der frühere Umweg — ausfüllen,
+    // abschicken, serverseitige Ablehnung abwarten — war eine Notlösung,
+    // solange der Hinweis fehlte; die Überschrift dieses Kriteriums verlangt
+    // genau das, was jetzt passiert.
+    await expect(page.getByRole("dialog").getByText("bereits angemeldet")).toBeVisible();
+    await expect(page.getByRole("dialog").getByRole("button", { name: "Auf Warteliste eintragen" })).toHaveCount(0);
   });
 
   test("AC3/AC4: Kunde trägt sich auf die Warteliste ein, sieht Position im Profil und trägt sich wieder aus", async ({

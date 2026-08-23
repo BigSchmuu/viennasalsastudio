@@ -51,6 +51,8 @@ export type BookingDialogCourse = {
   entryDates: string[];
   nextOccurrenceDates: string[];
   hasOpenRegularBooking: boolean;
+  /** Fix zu PROJ-8: schon eingeschrieben — eine zweite Anmeldung hieße doppelter Einzug. */
+  hasActiveSubscription: boolean;
   isFull: boolean;
   isOnWaitlist: boolean;
   prerequisiteNote: string | null;
@@ -123,6 +125,7 @@ export function BookingDialog({
     (course.isFull || roleImbalance) &&
     !course.isOnWaitlist &&
     !course.hasOpenRegularBooking &&
+    !course.hasActiveSubscription &&
     hasMandate;
 
   const canSubmit =
@@ -131,6 +134,7 @@ export function BookingDialog({
       : tab === "regular"
         ? hasMandate &&
           !course.hasOpenRegularBooking &&
+          !course.hasActiveSubscription &&
           !course.isOnWaitlist &&
           !!regularDate &&
           !!desiredPlan
@@ -244,7 +248,14 @@ export function BookingDialog({
           </TabsList>
 
           <TabsContent value="regular" className="space-y-3 pt-2">
-            {course.hasOpenRegularBooking ? (
+            {course.hasActiveSubscription ? (
+              <Alert>
+                <AlertDescription>
+                  Du bist für diesen Kurs bereits angemeldet. Dein Abo läuft weiter — du musst dich nicht
+                  erneut anmelden.
+                </AlertDescription>
+              </Alert>
+            ) : course.hasOpenRegularBooking ? (
               <Alert>
                 <AlertDescription>Du hast bereits eine offene Anfrage für diesen Kurs.</AlertDescription>
               </Alert>

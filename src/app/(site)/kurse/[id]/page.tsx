@@ -53,6 +53,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   let hasMandate = false;
   let hasReferralSource = false;
   let hasOpenRegularBooking = false;
+  let hasActiveSubscription = false;
   let hasVideoAccess = false;
   let isOnWaitlist = false;
 
@@ -84,6 +85,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     hasReferralSource = !!profileRes.data?.referral_source;
     hasOpenRegularBooking = !!bookingRes.data;
     hasVideoAccess = (subscriptionsRes.data ?? []).some((s) => s.course_id === id || s.course_id === null);
+    hasActiveSubscription = (subscriptionsRes.data ?? []).some((s) => s.course_id === id);
     isOnWaitlist = !!waitlistRes.data;
   }
 
@@ -112,6 +114,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     entryDates: (course.course_entry_dates ?? []).map((d) => d.entry_date).sort(),
     nextOccurrenceDates,
     hasOpenRegularBooking,
+    hasActiveSubscription,
     isFull,
     isOnWaitlist,
     prerequisiteNote: course.prerequisite_note,

@@ -43,7 +43,26 @@ test.beforeAll(async () => {
 
   await service.from("profiles").update({ referral_source: null }).eq("id", customerId);
   await service.from("course_bookings").delete().eq("customer_id", customerId).eq("course_id", course.id);
-  await service.from("subscriptions").delete().eq("customer_id", customerId).eq("course_id", course.id);
+  // Stornieren statt löschen: Abos, die schon in einem SEPA-Lauf abgerechnet
+  // wurden, hängen an sepa_collection_items — das Löschen scheiterte dort still
+  // am Fremdschlüssel, weshalb sich 23 aktive Abos desselben Kunden für
+  // denselben Kurs angesammelt hatten. Aufgefallen erst, als die neue Prüfung
+  // "bereits angemeldet" darauf ansprang.
+  const { error: cancelError } = await service
+    .from("subscriptions")
+    .update({ status: "cancelled" })
+    .eq("customer_id", customerId)
+    .eq("course_id", course.id)
+    .neq("status", "cancelled");
+  if (cancelError) throw new Error(`PROJ-8 Abo-Reset fehlgeschlagen: ${cancelError.message}`);
+
+  // Was nicht abgerechnet wurde, darf ganz weg — hält die Fixture-Daten schlank.
+  await service
+    .from("subscriptions")
+    .delete()
+    .eq("customer_id", customerId)
+    .eq("course_id", course.id)
+    .is("cancelled_at", null);
 });
 
 async function login(page: Page, { email, password }: { email: string; password: string }) {
@@ -319,5 +338,70 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.getByRole("button", { name: "Speichern" }).click();
     await page.waitForTimeout(600);
     await expect(page.getByText("Preise gespeichert.")).toBeVisible();
+  });
+
+  // Fix nach dem PROJ-38-QA: Ein bereits eingeschriebener Kunde konnte denselben
+  // Kurs erneut anfragen. Bestätigte der Admin, entstand ein zweites Abo — und
+  // damit ein doppelter SEPA-Einzug, Monat für Monat. Nachgewiesen an einem
+  // Kunden mit 23 aktiven Abos für denselben Kurs.
+  test("Ein eingeschriebener Kunde kann denselben Kurs nicht erneut buchen", async ({ page }) => {
+    const { data: list } = await service.auth.admin.listUsers({ perPage: 200 });
+    const customerId = list!.users.find((u) => u.email === CUSTOMER.email)!.id;
+    const { data: course } = await service.from("courses").select("id, price").eq("name", COURSE_NAME).single();
+
+    // Einschreibung herstellen und offene Anfragen wegräumen, damit wirklich
+    // das Abo blockt und nicht "bereits angefragt".
+    await service.from("course_bookings").delete().eq("customer_id", customerId).eq("course_id", course!.id).eq("status", "open");
+    const { data: abo } = await service
+      .from("subscriptions")
+      .insert({
+        customer_id: customerId,
+        course_id: course!.id,
+        name: "Doppelbuchungs-Test",
+        status: "active",
+        price: course!.price ?? 45,
+      })
+      .select("id")
+      .single();
+
+    try {
+      await login(page, CUSTOMER);
+      await page.goto(`/kurse/${course!.id}`);
+      await page.waitForTimeout(1500);
+      await page.getByRole("button", { name: "Jetzt buchen" }).first().click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+
+      await expect(dialog.getByText("bereits angemeldet")).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "Absenden" })).toBeDisabled();
+
+      // Der wichtigere Teil: Auch am Formular vorbei, direkt gegen die
+      // Datenbank, darf keine zweite Einschreibung entstehen.
+      const anon = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: false } }
+      );
+      const { data: auth } = await anon.auth.signInWithPassword(CUSTOMER);
+      expect(auth?.user).toBeTruthy();
+      const { data: termine } = await service
+        .from("course_entry_dates")
+        .select("entry_date")
+        .eq("course_id", course!.id)
+        .limit(1);
+      const { data: neueBuchung, error } = await anon.rpc("create_regular_course_booking", {
+        p_course_id: course!.id,
+        p_desired_plan: "single_course",
+        p_chosen_date: termine![0].entry_date,
+        p_note: "",
+        p_prerequisite_confirmed: true,
+        p_dance_role: "",
+        p_coupon_code: "",
+      });
+      if (neueBuchung) await service.from("course_bookings").delete().eq("id", neueBuchung.id);
+      expect(error?.message, "Die Datenbank muss die zweite Einschreibung ablehnen").toContain("already enrolled");
+    } finally {
+      await service.from("subscriptions").delete().eq("id", abo!.id);
+    }
   });
 });

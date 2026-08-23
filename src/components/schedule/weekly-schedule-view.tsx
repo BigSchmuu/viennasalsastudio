@@ -31,6 +31,7 @@ export type ScheduleEntry = {
     entryDates: string[];
     nextOccurrenceDates: string[];
     hasOpenRegularBooking: boolean;
+    hasActiveSubscription: boolean;
     isFull: boolean;
     isOnWaitlist: boolean;
     isLoggedIn: boolean;
@@ -112,6 +113,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
               entryDates: entry.booking.entryDates,
               nextOccurrenceDates: entry.booking.nextOccurrenceDates,
               hasOpenRegularBooking: entry.booking.hasOpenRegularBooking,
+              hasActiveSubscription: entry.booking.hasActiveSubscription,
               isFull: entry.booking.isFull,
               isOnWaitlist: entry.booking.isOnWaitlist,
               prerequisiteNote: entry.prerequisiteNote,

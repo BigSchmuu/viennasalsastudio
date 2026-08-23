@@ -11,6 +11,7 @@ export type CourseDetailData = {
   entryDates: string[];
   nextOccurrenceDates: string[];
   hasOpenRegularBooking: boolean;
+  hasActiveSubscription: boolean;
   isFull: boolean;
   isOnWaitlist: boolean;
   prerequisiteNote: string | null;

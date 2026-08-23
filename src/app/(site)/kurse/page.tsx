@@ -43,9 +43,10 @@ export default async function KurskatalogPage() {
   let hasReferralSource = false;
   let openRegularCourseIds = new Set<string>();
   let waitlistCourseIds = new Set<string>();
+  let enrolledCourseIds = new Set<string>();
 
   if (user) {
-    const [mandateRes, profileRes, bookingsRes, waitlistRes] = await Promise.all([
+    const [mandateRes, profileRes, bookingsRes, waitlistRes, subscriptionsRes] = await Promise.all([
       supabase.from("sepa_mandates").select("id").eq("customer_id", user.id).is("revoked_at", null).maybeSingle(),
       supabase.from("profiles").select("referral_source").eq("id", user.id).single(),
       supabase
@@ -55,11 +56,18 @@ export default async function KurskatalogPage() {
         .eq("type", "regular")
         .eq("status", "open"),
       supabase.from("waitlist_entries").select("course_id").eq("customer_id", user.id),
+      // Fix zu PROJ-8: Ohne diese Abfrage bot der Katalog einem bereits
+      // eingeschriebenen Kunden erneut das Anmeldeformular an — bestätigt der
+      // Admin, entsteht ein zweites Abo und damit ein doppelter Einzug.
+      supabase.from("subscriptions").select("course_id").eq("customer_id", user.id).eq("status", "active"),
     ]);
     hasMandate = !!mandateRes.data;
     hasReferralSource = !!profileRes.data?.referral_source;
     openRegularCourseIds = new Set((bookingsRes.data ?? []).map((b) => b.course_id));
     waitlistCourseIds = new Set((waitlistRes.data ?? []).map((w) => w.course_id));
+    enrolledCourseIds = new Set(
+      (subscriptionsRes.data ?? []).map((s) => s.course_id).filter((id): id is string => id !== null)
+    );
   }
 
   const courses: CatalogCourseRow[] = (coursesRes.data ?? []).map((c) => {
@@ -86,6 +94,7 @@ export default async function KurskatalogPage() {
       nextOccurrenceDates: nextDates,
       entryDates: (c.course_entry_dates ?? []).map((d) => d.entry_date).sort(),
       hasOpenRegularBooking: openRegularCourseIds.has(c.id),
+      hasActiveSubscription: enrolledCourseIds.has(c.id),
       isFull: c.max_participants !== null && (occupiedByCourse.get(c.id) ?? 0) >= c.max_participants,
       isOnWaitlist: waitlistCourseIds.has(c.id),
       prerequisiteNote: c.prerequisite_note,
