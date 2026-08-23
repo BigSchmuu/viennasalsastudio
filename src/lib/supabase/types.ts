@@ -653,6 +653,7 @@ export type Database = {
       invoice_settings: {
         Row: {
           address: string
+          bounce_fee_default: number
           company_name: string
           id: string
           uid_number: string
@@ -661,6 +662,7 @@ export type Database = {
         }
         Insert: {
           address?: string
+          bounce_fee_default?: number
           company_name?: string
           id?: string
           uid_number?: string
@@ -669,6 +671,7 @@ export type Database = {
         }
         Update: {
           address?: string
+          bounce_fee_default?: number
           company_name?: string
           id?: string
           uid_number?: string
@@ -679,6 +682,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          bounce_fee: number
           bounced_at: string | null
           collection_item_id: string | null
           created_at: string
@@ -688,9 +692,12 @@ export type Database = {
           id: string
           invoice_date: string
           invoice_number: string
+          reminded_at: string | null
+          settled_at: string | null
           vat_rate: number
         }
         Insert: {
+          bounce_fee?: number
           bounced_at?: string | null
           collection_item_id?: string | null
           created_at?: string
@@ -700,9 +707,12 @@ export type Database = {
           id?: string
           invoice_date: string
           invoice_number: string
+          reminded_at?: string | null
+          settled_at?: string | null
           vat_rate: number
         }
         Update: {
+          bounce_fee?: number
           bounced_at?: string | null
           collection_item_id?: string | null
           created_at?: string
@@ -712,6 +722,8 @@ export type Database = {
           id?: string
           invoice_date?: string
           invoice_number?: string
+          reminded_at?: string | null
+          settled_at?: string | null
           vat_rate?: number
         }
         Relationships: [

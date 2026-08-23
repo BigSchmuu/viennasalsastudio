@@ -12,16 +12,19 @@ export function InvoiceSettingsForm({
   address: initialAddress,
   uidNumber: initialUidNumber,
   vatRate: initialVatRate,
+  bounceFeeDefault: initialBounceFeeDefault,
 }: {
   companyName: string;
   address: string;
   uidNumber: string;
   vatRate: number;
+  bounceFeeDefault: number;
 }) {
   const [companyName, setCompanyName] = useState(initialCompanyName);
   const [address, setAddress] = useState(initialAddress);
   const [uidNumber, setUidNumber] = useState(initialUidNumber);
   const [vatRate, setVatRate] = useState(String(initialVatRate));
+  const [bounceFeeDefault, setBounceFeeDefault] = useState(String(initialBounceFeeDefault));
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,6 +39,7 @@ export function InvoiceSettingsForm({
       formData.set("address", address);
       formData.set("uid_number", uidNumber);
       formData.set("vat_rate", vatRate);
+      formData.set("bounce_fee_default", bounceFeeDefault);
       const result = await updateInvoiceSettings(formData);
       if ("error" in result) {
         setError(result.error);
@@ -89,6 +93,22 @@ export function InvoiceSettingsForm({
             onChange={(e) => setVatRate(e.target.value)}
             className="w-32"
           />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="bounce-fee-default">Rücklastschrift-Gebühr (€)</Label>
+          <Input
+            id="bounce-fee-default"
+            type="number"
+            step="0.01"
+            min="0"
+            value={bounceFeeDefault}
+            onChange={(e) => setBounceFeeDefault(e.target.value)}
+            className="w-32"
+          />
+          <p className="text-xs text-muted-foreground">
+            Wird bei neuen offenen Posten vorgeschlagen und lässt sich dort einzeln überschreiben. Eine
+            Änderung hier wirkt sich nicht auf bereits erfasste Posten aus.
+          </p>
         </div>
         <Button type="button" size="sm" disabled={loading} onClick={handleSave}>
           {loading ? "Wird gespeichert…" : "Speichern"}

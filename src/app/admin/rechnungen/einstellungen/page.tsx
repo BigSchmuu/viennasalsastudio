@@ -8,7 +8,7 @@ export default async function InvoiceSettingsPage() {
 
   const { data: settings } = await supabase
     .from("invoice_settings")
-    .select("company_name, address, uid_number, vat_rate")
+    .select("company_name, address, uid_number, vat_rate, bounce_fee_default")
     .limit(1)
     .single();
 
@@ -25,6 +25,7 @@ export default async function InvoiceSettingsPage() {
         address={settings?.address ?? ""}
         uidNumber={settings?.uid_number ?? ""}
         vatRate={settings?.vat_rate ?? 20}
+        bounceFeeDefault={settings?.bounce_fee_default ?? 0}
       />
     </div>
   );

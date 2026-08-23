@@ -11,6 +11,7 @@ export async function updateInvoiceSettings(formData: FormData): Promise<ActionR
     address: formData.get("address") ?? "",
     uid_number: formData.get("uid_number") ?? "",
     vat_rate: Number(formData.get("vat_rate")),
+    bounce_fee_default: Number(formData.get("bounce_fee_default") ?? 0),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
@@ -30,6 +31,7 @@ export async function updateInvoiceSettings(formData: FormData): Promise<ActionR
       address: parsed.data.address || "",
       uid_number: parsed.data.uid_number || "",
       vat_rate: parsed.data.vat_rate,
+      bounce_fee_default: parsed.data.bounce_fee_default,
       updated_at: new Date().toISOString(),
     })
     .eq("id", existing.id);

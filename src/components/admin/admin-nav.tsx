@@ -12,6 +12,7 @@ import {
   Users,
   UserCog,
   ClipboardList,
+  ReceiptEuro,
   UserCheck,
   Mail,
   CreditCard,
@@ -59,6 +60,7 @@ const groups: NavGroup[] = [
       { href: "/admin/gutscheine", label: "Gutscheine", icon: TicketPercent },
       { href: "/admin/lastschriften", label: "Lastschriften", icon: CreditCard },
       { href: "/admin/rechnungen", label: "Rechnungen", icon: FileText },
+      { href: "/admin/offene-posten", label: "Offene Posten", icon: ReceiptEuro },
     ],
   },
 ];

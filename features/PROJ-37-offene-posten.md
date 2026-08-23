@@ -183,6 +183,57 @@ bestehende Admin-Navigation.
 Neu: eine Verwaltungsseite und ein Menüpunkt. Erweitert: die Rechnungstabelle um drei Angaben, die
 Rechnungseinstellungen um ein Feld, die Textvorlagen um eine Erinnerung.
 
+---
+
+## Implementation Notes (Frontend)
+
+**Umgesetzt am 2026-08-23.** Die Seite steht und zeigt echte Daten; die **Aktionen** (Erinnerung
+senden, Erledigt markieren, Gebühr speichern) folgen im Backend-Schritt und sind vorerst
+deaktiviert dargestellt.
+
+### Geänderte/neue Dateien
+| Datei | Zweck |
+|-------|-------|
+| `src/app/admin/offene-posten/page.tsx` (neu) | Lädt zurückgebuchte Rechnungen |
+| `src/components/admin/open-items/open-items-list.tsx` (neu) | Kachel, Tabelle, Leerzustand, Umschalter |
+| `src/components/admin/admin-nav.tsx` | Menüpunkt „Offene Posten" |
+| `src/components/admin/invoices/invoice-settings-form.tsx` | Feld „Rücklastschrift-Gebühr (€)" |
+| `src/app/admin/rechnungen/einstellungen/page.tsx` | Reicht den Standardwert durch |
+| `src/lib/validations/admin.ts`, `src/lib/actions/admin/invoices.ts` | Standardwert wird validiert und gespeichert |
+| `supabase/migrations/…_proj37_offene_posten_felder.sql` | Drei Felder an der Rechnung, ein Feld an den Einstellungen, ein Index |
+| `src/lib/supabase/types.ts` | Neu erzeugt |
+
+### Bewusste Abweichungen von der Phasentrennung
+Zwei Dinge, die streng genommen zum Backend gehören, wurden hier miterledigt — mit Begründung:
+
+1. **Die Datenbankfelder.** Ohne sie könnte die Seite nichts Echtes anzeigen; sie wäre nicht prüfbar.
+2. **Das Speichern des Standardwerts.** Ein Eingabefeld in den Einstellungen, das seinen Wert
+   stillschweigend verwirft, wäre schlimmer als gar keines.
+
+Die eigentlichen Aktionen bleiben unangetastet.
+
+### Entscheidungen bei der Umsetzung
+- **Die Kachel summiert Rechnungsbetrag und Gebühr**, weil sie die Frage „wie viel fehlt mir"
+  beantwortet — die Gebühr ist real an die Bank geflossen.
+- **„seit X Tagen" zählt ab der Rückbuchung**, nicht ab dem Rechnungsdatum. Erst dann ist das Geld
+  tatsächlich ausgeblieben.
+- **Erledigte Posten werden abgeblendet statt versteckt**, sobald man sie einblendet — der
+  Unterschied bleibt so auf einen Blick sichtbar.
+- **Ein Index auf genau die Filterbedingung** (zurückgebucht und nicht erledigt) statt eines
+  allgemeinen: Die Liste fragt immer exakt danach.
+- **Grenze von 1000 € beim Standardwert.** Ein Tippfehler wie `4500` statt `45,00` soll nicht
+  stillschweigend als Forderung an einen Kunden gehen.
+
+### Verifiziert
+- Seite zeigt die beiden zurückgebuchten Rechnungen mit Kachel „€ 70,00 — 2 offene Posten"
+- Einzahl korrigiert: „seit 1 Tag" statt „seit 1 Tagen"
+- Einstellungsfeld vorhanden und beschriftet
+- 275 Unit-Tests grün, `tsc` und Lint sauber
+
+### Noch offen (Backend-Schritt)
+Erinnerung senden (inkl. Textvorlage über PROJ-34), Erledigt markieren und zurücknehmen, Gebühr pro
+Posten speichern, Absicherung gegen Nicht-Admins.
+
 ## QA Test Results
 _To be added by /qa_
 

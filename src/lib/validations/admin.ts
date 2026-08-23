@@ -125,5 +125,12 @@ export const invoiceSettingsSchema = z.object({
     .number({ message: "Bitte einen gültigen USt-Satz eingeben" })
     .min(0, "USt-Satz darf nicht negativ sein")
     .max(100, "USt-Satz darf 100% nicht übersteigen"),
+  // PROJ-37: Standardwert für die Rücklastschrift-Gebühr. Obergrenze bewusst
+  // großzügig, aber vorhanden — ein Tippfehler wie 4500 statt 45,00 soll nicht
+  // stillschweigend als Forderung an einen Kunden landen.
+  bounce_fee_default: z
+    .number({ message: "Bitte einen gültigen Betrag eingeben" })
+    .min(0, "Die Gebühr darf nicht negativ sein")
+    .max(1000, "Die Gebühr erscheint unrealistisch hoch"),
 });
 export type InvoiceSettingsInput = z.infer<typeof invoiceSettingsSchema>;
