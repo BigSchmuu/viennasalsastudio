@@ -323,7 +323,14 @@ die beiden zurückgebuchten (40,00 + 30,00 = 70,00) stehen getrennt darunter.
 - **Auswirkung:** Rein optisch. Filter, Summen und Export arbeiten korrekt, die Daten stehen sichtbar
   in den Von-/Bis-Feldern. Realistischer Auslöser: ein Monat, der länger als zwei Jahre zurückliegt —
   etwa bei einer Betriebsprüfung.
-- **Priorität:** Nice to have. Blockiert nichts.
+- **Status: BEHOBEN am 2026-08-23**
+
+**Lösung:** Die Auswahl leitet ihre Beschriftung jetzt aus dem Zeitraum selbst ab
+(`selectionFromRange`) und ergänzt einen erkannten Zeitraum als eigenen Eintrag, wenn er nicht in
+den angebotenen Listen steht. März 2019 zeigt damit „März 2019", nicht mehr nichts.
+
+**Verifiziert:** `?from=2019-03-01&to=2019-03-31` → „März 2019"; `?from=2019-01-01&to=2019-12-31`
+→ „Jahr 2019"; `?from=2026-01-05&to=2026-03-20` → „Eigener Zeitraum".
 
 ### Automatisierte Tests
 - **Unit:** 21 neue Tests in `src/lib/invoices.test.ts`, 3 bestehende an das neue Format angepasst —
@@ -354,6 +361,34 @@ die beiden zurückgebuchten (40,00 + 30,00 = 70,00) stehen getrennt darunter.
 - **Produktionsreif:** **JA**
 - **Empfehlung:** Deployment möglich. BUG-1 ist kosmetisch und kann jederzeit nachgezogen werden
 
+
+---
+
+## Nachtrag 2026-08-23: Ganze Jahre und BUG-1
+
+Auf Wunsch des Betreibers nach dem Deployment ergänzt.
+
+### Jahresauswahl
+Das Feld heißt jetzt **„Zeitraum"** statt „Monat" und bietet zusätzlich die letzten drei ganze
+Jahre an — für den Jahresabschluss wäre sonst zwölfmal exportieren und addieren nötig gewesen.
+Die Reihenfolge ist bewusst „Eigener Zeitraum, Jahre, Monate": Das Grobe zuerst, weil ein
+Jahresexport seltener, aber gezielter gesucht wird.
+
+Ein Jahres-Export heißt entsprechend `rechnungsjournal-2026.csv`.
+
+**Jahr und Monat können sich nicht verwechseln:** Januar bis Dezember ist ein Jahr, nie ein
+einzelner Monat — die Erkennung prüft das Jahr zuerst.
+
+### BUG-1 behoben
+Siehe oben. Ursache war, dass die Auswahl nur auf eine feste Liste zurückgreifen konnte; jetzt
+beschriftet sie sich aus dem Zeitraum und ergänzt fehlende Einträge selbst.
+
+### Tests
+- **Unit:** 15 weitere Tests (`yearRange`, `yearFromRange`, `recentYears`, `selectionFromRange`,
+  `rangeFromSelection`, Jahres-Dateiname) — Gesamtsuite **275/275 grün**
+- **E2E:** 3 weitere Tests plus einer, der BUG-1 dauerhaft festnagelt — **14/14 grün auf Chromium
+  und Mobile Safari**
+- **Regression:** PROJ-10 12/12, PROJ-33 10/10
 
 ## Deployment
 

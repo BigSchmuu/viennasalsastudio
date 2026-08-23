@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { SortableHeader } from "@/components/admin/sortable-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CUSTOM_RANGE, monthRange, monthFromRange, recentMonths } from "@/lib/invoices";
+import { CUSTOM_RANGE, rangeFromSelection, recentMonths, recentYears, selectionFromRange } from "@/lib/invoices";
 
 export type InvoiceRow = {
   id: string;
@@ -48,22 +48,27 @@ export function InvoiceList({
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
 
-  // Two years back covers "last year's figures" without turning the list into a
-  // scroll marathon. Computed once per mount — the option list must not shift
-  // under the user while the page is open.
+  // Computed once per mount — the option list must not shift under the user
+  // while the picker is open. Three years of whole years plus two years of
+  // months: enough for "last year's figures" without a scroll marathon.
+  const [years] = useState(() => recentYears(3));
   const [months] = useState(() => recentMonths(24));
 
-  // Derived, not stored: editing Von/Bis by hand immediately falls back to
-  // "Eigener Zeitraum" instead of leaving a month label that no longer matches.
-  const selectedMonth = monthFromRange(from, to) ?? CUSTOM_RANGE;
+  // Derived, not stored: editing Von/Bis by hand immediately re-reads what the
+  // dates actually say instead of leaving a label that no longer matches.
+  const selection = selectionFromRange(from, to);
 
-  function pickMonth(value: string) {
-    if (value === CUSTOM_RANGE) {
-      setFrom("");
-      setTo("");
-      return;
-    }
-    const range = monthRange(value);
+  // A recognised period can sit outside the offered lists — a month from four
+  // years ago, say. Without adding it the picker would render blank while the
+  // dates below it are perfectly valid, which reads as broken (BUG-1).
+  const isListed =
+    selection.kind === "custom" ||
+    years.some((y) => y.value === selection.value) ||
+    months.some((m) => m.value === selection.value);
+  const extraOption = isListed ? null : { value: selection.value, label: selection.label };
+
+  function pickPeriod(value: string) {
+    const range = rangeFromSelection(value);
     if (!range) return;
     setFrom(range.from);
     setTo(range.to);
@@ -112,13 +117,21 @@ export function InvoiceList({
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="invoice-month">Monat</Label>
-          <Select value={selectedMonth} onValueChange={pickMonth}>
+          <Label htmlFor="invoice-month">Zeitraum</Label>
+          <Select value={selection.value} onValueChange={pickPeriod}>
             <SelectTrigger id="invoice-month" className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={CUSTOM_RANGE}>Eigener Zeitraum</SelectItem>
+              {extraOption && (
+                <SelectItem value={extraOption.value}>{extraOption.label}</SelectItem>
+              )}
+              {years.map((y) => (
+                <SelectItem key={y.value} value={y.value}>
+                  {y.label}
+                </SelectItem>
+              ))}
               {months.map((m) => (
                 <SelectItem key={m.value} value={m.value}>
                   {m.label}

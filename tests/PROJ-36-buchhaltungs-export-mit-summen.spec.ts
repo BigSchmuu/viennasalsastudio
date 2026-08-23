@@ -82,13 +82,51 @@ test.describe("PROJ-36: Buchhaltungs-Export mit Summen", () => {
     await page.goto("/admin/rechnungen");
     await page.waitForLoadState("networkidle");
 
-    await page.getByLabel("Monat").click();
+    await page.getByLabel("Zeitraum").click();
     await page.waitForTimeout(400);
     await page.getByRole("option", { name: "Juli 2026" }).click();
     await page.waitForTimeout(400);
 
     await expect(page.locator("#invoice-from")).toHaveValue("2026-07-01");
     await expect(page.locator("#invoice-to")).toHaveValue("2026-07-31");
+  });
+
+  test("Ein ganzes Jahr lässt sich in einem Schritt wählen", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.goto("/admin/rechnungen");
+    await page.waitForLoadState("networkidle");
+
+    await page.getByLabel("Zeitraum").click();
+    await page.waitForTimeout(400);
+    await page.getByRole("option", { name: "Jahr 2026" }).click();
+    await page.waitForTimeout(400);
+
+    await expect(page.locator("#invoice-from")).toHaveValue("2026-01-01");
+    await expect(page.locator("#invoice-to")).toHaveValue("2026-12-31");
+  });
+
+  test("Der Dateiname eines Jahres-Exports nennt das Jahr", async ({ page }) => {
+    await login(page, ADMIN);
+    const { res } = await exportCsv(page, "from=2028-01-01&to=2028-12-31");
+    expect(res.headers()["content-disposition"]).toContain("rechnungsjournal-2028.csv");
+  });
+
+  // BUG-1 aus der QA: Ein erkannter Zeitraum außerhalb der angebotenen Listen
+  // ließ die Auswahl leer und damit kaputt aussehen, obwohl die Daten stimmten.
+  test("BUG-1: Auch Zeiträume außerhalb der Auswahlliste werden beschriftet", async ({ page }) => {
+    await login(page, ADMIN);
+
+    await page.goto("/admin/rechnungen?from=2019-03-01&to=2019-03-31");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByLabel("Zeitraum")).toContainText("März 2019");
+
+    await page.goto("/admin/rechnungen?from=2019-01-01&to=2019-12-31");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByLabel("Zeitraum")).toContainText("Jahr 2019");
+
+    await page.goto("/admin/rechnungen?from=2026-01-05&to=2026-03-20");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByLabel("Zeitraum")).toContainText("Eigener Zeitraum");
   });
 
   test("AC7: Der Dateiname nennt den exportierten Zeitraum", async ({ page }) => {
@@ -109,10 +147,9 @@ test.describe("PROJ-36: Buchhaltungs-Export mit Summen", () => {
 
     await expect(page).toHaveURL(/from=2028-01-01/);
     await expect(page.getByRole("row", { name: /2028-0002/ })).toBeVisible();
-    // Die Beschriftung der Monatsauswahl wird hier bewusst NICHT geprüft: Bei
-    // einem Monat außerhalb der angebotenen 24 bleibt sie leer (BUG-1). Das
-    // Akzeptanzkriterium verlangt nur, dass die freien Datumsfelder unverändert
-    // filtern — und das tun sie.
+    // Seit der BUG-1-Behebung wird auch ein handgesetzter Monat außerhalb der
+    // Liste korrekt beschriftet.
+    await expect(page.getByLabel("Zeitraum")).toContainText("Januar 2028");
   });
 
   test("AC9: Beträge im österreichischen Format, Umlaute intakt", async ({ page }) => {

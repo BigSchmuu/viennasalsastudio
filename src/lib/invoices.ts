@@ -190,10 +190,66 @@ export function summarizeInvoices(invoices: SummarizableInvoice[]): InvoiceSumma
  * month it holds.
  */
 export function exportFileName(from: string, to: string): string {
+  const year = yearFromRange(from, to);
+  if (year) return `rechnungsjournal-${year}.csv`;
   const month = monthFromRange(from, to);
   if (month) return `rechnungsjournal-${month}.csv`;
   if (from && to) return `rechnungsjournal-${from}_bis_${to}.csv`;
   if (from) return `rechnungsjournal-ab-${from}.csv`;
   if (to) return `rechnungsjournal-bis-${to}.csv`;
   return "rechnungsjournal-gesamt.csv";
+}
+
+/* ------------------------------------------------------------------------ *
+ * PROJ-36: Ganze Jahre als Auswahl
+ * ------------------------------------------------------------------------ */
+
+/** "2026" → { from: "2026-01-01", to: "2026-12-31" }. */
+export function yearRange(year: string): { from: string; to: string } | null {
+  if (!/^\d{4}$/.test(year)) return null;
+  return { from: `${year}-01-01`, to: `${year}-12-31` };
+}
+
+/** Inverse of yearRange. Checked before the month case: a January-to-December
+ * span is a year, never a single month, so the two can't be confused. */
+export function yearFromRange(from: string, to: string): string | null {
+  const match = /^(\d{4})-01-01$/.exec(from);
+  if (!match) return null;
+  return to === `${match[1]}-12-31` ? match[1] : null;
+}
+
+/** The current year and the ones before it, newest first. */
+export function recentYears(count: number, today: Date = new Date()): { value: string; label: string }[] {
+  const years: { value: string; label: string }[] = [];
+  for (let i = 0; i < count; i++) {
+    const value = String(today.getFullYear() - i);
+    years.push({ value, label: `Jahr ${value}` });
+  }
+  return years;
+}
+
+export type RangeSelection = { kind: "year" | "month" | "custom"; value: string; label: string };
+
+/**
+ * Turns a from/to pair into the entry the picker should show.
+ *
+ * Returns the label as well, because a recognised period may fall outside the
+ * offered lists — a month older than the two years on offer, for instance. The
+ * picker then has to add that entry itself; otherwise it renders blank and
+ * looks broken while the dates below it are perfectly valid (PROJ-36 BUG-1).
+ */
+export function selectionFromRange(from: string, to: string): RangeSelection {
+  const year = yearFromRange(from, to);
+  if (year) return { kind: "year", value: year, label: `Jahr ${year}` };
+
+  const month = monthFromRange(from, to);
+  if (month) return { kind: "month", value: month, label: monthLabel(month) };
+
+  return { kind: "custom", value: CUSTOM_RANGE, label: "Eigener Zeitraum" };
+}
+
+/** Resolves a picker value back into a date range. */
+export function rangeFromSelection(value: string): { from: string; to: string } | null {
+  if (value === CUSTOM_RANGE) return { from: "", to: "" };
+  return yearRange(value) ?? monthRange(value);
 }

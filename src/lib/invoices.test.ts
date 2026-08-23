@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeInvoiceAmounts, toCsvField, toCsvRow, monthRange, monthFromRange, monthLabel, recentMonths, summarizeInvoices, exportFileName, formatAmountDe, CSV_SEPARATOR } from "./invoices";
+import { computeInvoiceAmounts, toCsvField, toCsvRow, monthRange, monthFromRange, monthLabel, recentMonths, summarizeInvoices, exportFileName, formatAmountDe, CSV_SEPARATOR, yearRange, yearFromRange, recentYears, selectionFromRange, rangeFromSelection } from "./invoices";
 
 describe("computeInvoiceAmounts", () => {
   it("splits a gross amount into net + VAT at 20%", () => {
@@ -200,5 +200,64 @@ describe("Dateiname des Exports (PROJ-36)", () => {
     expect(exportFileName("2026-07-01", "")).toBe("rechnungsjournal-ab-2026-07-01.csv");
     expect(exportFileName("", "2026-07-31")).toBe("rechnungsjournal-bis-2026-07-31.csv");
     expect(exportFileName("", "")).toBe("rechnungsjournal-gesamt.csv");
+  });
+});
+
+describe("Jahresauswahl für den Export (PROJ-36)", () => {
+  it("spannt ein Jahr vom 1. Januar bis zum 31. Dezember auf", () => {
+    expect(yearRange("2026")).toEqual({ from: "2026-01-01", to: "2026-12-31" });
+  });
+
+  it("weist unsinnige Jahresangaben ab", () => {
+    expect(yearRange("26")).toBeNull();
+    expect(yearRange("2026-01")).toBeNull();
+    expect(yearRange("")).toBeNull();
+  });
+
+  it("erkennt ein volles Jahr in einem Von/Bis-Paar wieder", () => {
+    expect(yearFromRange("2026-01-01", "2026-12-31")).toBe("2026");
+  });
+
+  it("behandelt angebrochene Jahre nicht als Jahr", () => {
+    expect(yearFromRange("2026-01-01", "2026-12-30")).toBeNull();
+    expect(yearFromRange("2026-02-01", "2026-12-31")).toBeNull();
+    expect(yearFromRange("2026-01-01", "2027-12-31")).toBeNull();
+  });
+
+  it("listet das aktuelle Jahr zuerst", () => {
+    const years = recentYears(3, new Date(2026, 5, 1));
+    expect(years.map((y) => y.value)).toEqual(["2026", "2025", "2024"]);
+    expect(years[0].label).toBe("Jahr 2026");
+  });
+
+  // Januar bis Dezember ist ein Jahr, kein Monat — die beiden dürfen sich nicht
+  // in die Quere kommen.
+  it("hält Jahr und Monat auseinander", () => {
+    expect(selectionFromRange("2026-01-01", "2026-12-31")).toMatchObject({ kind: "year", value: "2026" });
+    expect(selectionFromRange("2026-01-01", "2026-01-31")).toMatchObject({ kind: "month", value: "2026-01" });
+  });
+
+  it("meldet alles andere als eigenen Zeitraum", () => {
+    expect(selectionFromRange("2026-01-05", "2026-03-20").kind).toBe("custom");
+    expect(selectionFromRange("", "").kind).toBe("custom");
+  });
+
+  // BUG-1: Auch ein Zeitraum, der nicht in der angebotenen Liste steht, muss
+  // eine Beschriftung liefern — sonst bliebe die Auswahl leer.
+  it("liefert für jeden erkannten Zeitraum eine Beschriftung, auch für weit zurückliegende", () => {
+    expect(selectionFromRange("2019-03-01", "2019-03-31").label).toBe("März 2019");
+    expect(selectionFromRange("2019-01-01", "2019-12-31").label).toBe("Jahr 2019");
+    expect(selectionFromRange("2026-01-05", "2026-03-20").label).toBe("Eigener Zeitraum");
+  });
+
+  it("löst eine Auswahl wieder in einen Zeitraum auf", () => {
+    expect(rangeFromSelection("2026")).toEqual({ from: "2026-01-01", to: "2026-12-31" });
+    expect(rangeFromSelection("2026-08")).toEqual({ from: "2026-08-01", to: "2026-08-31" });
+    expect(rangeFromSelection("custom")).toEqual({ from: "", to: "" });
+    expect(rangeFromSelection("Unsinn")).toBeNull();
+  });
+
+  it("benennt eine Jahresdatei nach dem Jahr", () => {
+    expect(exportFileName("2026-01-01", "2026-12-31")).toBe("rechnungsjournal-2026.csv");
   });
 });
