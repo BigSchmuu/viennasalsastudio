@@ -1,6 +1,6 @@
 # PROJ-40: Admin auch als Lehrer eintragbar
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -307,4 +307,36 @@ Wettlaufsituation zwischen dem Setzen der Zuweisung und dem Seitenaufbau.
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Live seit:** 2026-08-23
+**Produktions-URL:** https://viennasalsastudio.vercel.app
+**Git-Tag:** `v1.0.0-PROJ-40`
+
+### Vorab-Prüfungen
+- [x] `npm run build` erfolgreich, `npm run lint` sauber, 280 Unit-Tests grün
+- [x] QA abgeschlossen, keine Fehler
+- [x] Keine `.env`-Datei versioniert
+- [x] Migration angewendet und im Repo versioniert
+
+### Verifikation in der Produktion
+Ein Admin-Konto wurde auf der Live-Seite testweise einem Kurs zugewiesen und danach wieder entfernt:
+
+| Prüfung | ohne Zuweisung | mit Zuweisung |
+|---------|----------------|---------------|
+| Menüpunkt „Meine Kurse" | nein | **ja** |
+| `/lehrer` erreichbar | — | **ja** |
+| Sieht seinen Kurs | — | **ja** |
+| Öffentlich auf der Kursseite | — | **ja** |
+| Rolle | — | **unverändert `admin`** |
+
+### Was jetzt möglich ist
+- Lisa kann zur Admin befördert werden, **ohne** von „Salsa Beginner 1" zu verschwinden — der
+  Grund, warum diese Beförderung zuvor bewusst blockiert wurde
+- Der Betreiber kann sich selbst als Lehrer eintragen, ohne dafür sein Zweitkonto zu brauchen
+
+### Offen
+- **Zusammenlegen der beiden Konten des Betreibers** bleibt eine eigene Aufräumaktion
+  (Anwesenheiten, Kurszuweisungen und Notizen hängen am Zweitkonto) — siehe Out of Scope
+- **Die elf technischen Admin-Konten** stehen jetzt in der Lehrer-Auswahl. Öffentlich erscheinen
+  sie nicht; ob sie aufgeräumt werden, ist eine eigene Entscheidung
+
