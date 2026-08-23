@@ -330,3 +330,10 @@ Kurs nicht mehr buchen). Beide stornieren jetzt zuerst und löschen nur, was lö
   Formular aus und wartete auf eine serverseitige Ablehnung, weil es den Hinweis noch nicht gab.
   Jetzt prüft er, was die Überschrift verlangt
 - Regression: PROJ-5, 8, 9, 12, 26, 30 zusammen **56/56 grün**; 280 Unit-Tests grün
+
+### Live seit 2026-08-23
+In der Produktion verifiziert, auf beiden Wegen:
+- **Direkt gegen die Datenbank** (am Formular vorbei): abgelehnt mit `already enrolled`
+- **Über die Live-Oberfläche**: Hinweis „bereits angemeldet" sichtbar, Absenden-Knopf gesperrt
+
+Testdaten anschließend entfernt.
