@@ -90,11 +90,91 @@ verschwunden**. Die Rollenänderung wurde deshalb bewusst nicht durchgeführt.
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Öffentliche Sichtbarkeit hängt an der Kurszuweisung, nicht an der Rolle | Die Rolle ist eine interne Berechtigung, die Kurskarte eine öffentliche Aussage. Beides zu koppeln ist genau der Grund, warum eine Beförderung heute jemanden von der Kursseite löschen würde | 2026-08-23 |
+| Kein neues Datenfeld, keine zweite Rolle | Die Zuweisung Kurs ↔ Person existiert bereits und wird genutzt. Ein Mehrfachrollen-System wäre ungleich aufwendiger und löst kein vorhandenes Problem | 2026-08-23 |
+| Technische Admin-Konten brauchen keine Ausnahmeliste | Sie unterrichten keinen Kurs und fallen dadurch von selbst aus der öffentlichen Liste. Eine gepflegte Ausschlussliste würde irgendwann veralten | 2026-08-23 |
+| Ein Lehrer ohne Kurs erscheint nicht mehr in der öffentlichen Liste | Sein Name stand ohnehin auf keiner Kurskarte; die Liste dient nur dazu, Namen zu Kursen aufzulösen | 2026-08-23 |
+| „Meine Kurse" nur bei tatsächlicher Zuweisung | Ein Menüpunkt, der auf eine leere Seite führt, ist kein Angebot. Der Vollzugriff auf Anwesenheiten über die Verwaltung bleibt davon unberührt | 2026-08-23 |
+| Kunden bleiben aus der Lehrer-Auswahl ausgeschlossen | Für Kunden gibt es weiterhin den Rollenwechsel aus PROJ-22; die Auswahl bleibt auf Lehrer und Admins begrenzt | 2026-08-23 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Verwaltung → Kurse → Kurs bearbeiten
+└── Lehrer-Auswahl
+       vorher: nur Personen mit Rolle „Lehrer"
+       NEU:    Lehrer UND Admins
+
+Öffentliche Seiten (Kurskatalog, Stundenplan, Kursdetail)
+└── Lehrer-Name auf der Kurskarte
+       vorher: nur Personen mit Rolle „Lehrer"
+       NEU:    jede Person, die dem Kurs tatsächlich zugewiesen ist
+
+Globale Navigation
+└── Menüpunkt „Meine Kurse"
+       vorher: nur bei Rolle „Lehrer"
+       NEU:    auch für Admins, die mindestens einen Kurs unterrichten
+```
+
+Es entsteht **kein neuer Bildschirm**. Drei bestehende Stellen ändern ihre Frage.
+
+### B) Data Model (plain language)
+
+**Es wird nichts Neues gespeichert.** Keine neue Tabelle, keine neue Spalte, keine zweite Rolle.
+
+```
+Bisher lautete die Frage überall:  "Welche Rolle hat diese Person?"
+Künftig lautet sie:                "Unterrichtet diese Person diesen Kurs?"
+
+Die Zuweisung Kurs ↔ Person existiert bereits (course_teachers) und wird
+heute schon genutzt. Sie wird nur an drei Stellen zur maßgeblichen Quelle.
+```
+
+**Die Rolle bleibt unangetastet.** Ein Admin, der einem Kurs zugewiesen wird, bleibt Admin und
+behält alle Verwaltungsrechte. Wird er wieder entfernt, ändert sich an seinem Konto nichts.
+
+### C) Tech Decisions (justified for PM)
+
+- **Die Zuweisung entscheidet, nicht die Rolle.** Das ist die eigentliche Idee dieses Features. Wer
+  öffentlich als Lehrer erscheint, ist heute an der internen Rolle festgemacht — deshalb würde eine
+  Beförderung zur Mitinhaberin jemanden von den Kurskarten löschen. Künftig zählt, was tatsächlich
+  zutrifft: Unterrichtest du diesen Kurs?
+
+- **Damit löst sich ein Problem, das dieses Feature gar nicht adressieren sollte:** Es gibt mehrere
+  technische Admin-Konten aus der Entwicklung. Nach der Umstellung tauchen sie öffentlich nirgends
+  auf — nicht weil sie ausgefiltert werden, sondern weil sie schlicht keinen Kurs unterrichten. Die
+  Regel braucht keine Ausnahmeliste, die jemand pflegen müsste.
+
+- **Ein Lehrer ohne Kurs verschwindet aus der öffentlichen Liste.** Das klingt nach Nebenwirkung,
+  ist aber richtig: Sein Name stand ohnehin auf keiner Kurskarte, weil er keinem Kurs zugeordnet ist.
+  Die Liste dient ausschließlich dazu, Namen zu Kursen aufzulösen.
+
+- **„Meine Kurse" erscheint nur bei tatsächlicher Zuweisung.** Ein Admin, der nicht unterrichtet,
+  bekommt keinen Menüpunkt, der ihm eine leere Seite zeigt. Er behält davon unabhängig vollen
+  Zugriff auf alle Anwesenheiten über die Verwaltung — das ist ein bestehendes Admin-Recht und
+  wird nicht angetastet.
+
+- **Kein allgemeines Mehrfachrollen-Konzept.** Es geht ausschließlich darum, dass ein Admin
+  zusätzlich unterrichten kann. Admins haben ohnehin bereits Zugriff auf sämtliche
+  Lehrer-Funktionen — es fehlt nur die Zuweisbarkeit und die Sichtbarkeit. Ein frei kombinierbares
+  Rollensystem wäre ungleich aufwendiger und löst kein Problem, das du hast.
+
+- **Kunden bleiben außen vor.** In der Lehrer-Auswahl stehen weiterhin nur Lehrer und Admins. Wer
+  einen Kunden unterrichten lassen will, befördert ihn wie bisher über die Lehrer-Verwaltung.
+
+### D) Dependencies (packages to install)
+
+Keine. Es ändern sich drei bestehende Abfragen.
+
+### Umfang
+
+Betroffen sind drei Stellen: die öffentliche Lehrer-Liste, die Auswahl im Kursformular und die
+Bedingung für den Menüpunkt „Meine Kurse". Kein neuer Bildschirm, keine neue Tabelle, keine neue
+Abhängigkeit.
 
 ## QA Test Results
 _To be added by /qa_
