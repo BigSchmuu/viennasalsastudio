@@ -1,6 +1,6 @@
 # PROJ-36: Buchhaltungs-Export mit Summen
 
-## Status: Planned
+## Status: Deployed
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -356,4 +356,40 @@ die beiden zurückgebuchten (40,00 + 30,00 = 70,00) stehen getrennt darunter.
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Live seit:** 2026-08-23
+**Produktions-URL:** https://viennasalsastudio.vercel.app
+**Git-Tag:** `v1.0.0-PROJ-36`
+
+### Vorab-Prüfungen
+- [x] `npm run build` erfolgreich, `npm run lint` sauber
+- [x] 265 Unit-Tests grün, 11 E2E-Tests grün auf Chromium und Mobile Safari
+- [x] QA abgeschlossen, kein kritischer oder hoher Fehler
+- [x] Keine `.env`-Datei versioniert
+- [x] **Keine Datenbankänderung nötig** — das Feature rechnet nur, es speichert nichts
+
+### Verifikation in der Produktion
+Export für Januar 2028 über die Live-Seite heruntergeladen:
+
+```
+Rechnungsnummer;Datum;Kunde;Netto;USt-Satz;USt-Betrag;Brutto;Status
+2028-0003;2028-01-15;E2E8 Kunde;33,33;20%;6,67;40,00;Rücklastschrift
+2028-0002;2028-01-15;E2E7 Multi Kunde;25,00;20%;5,00;30,00;Bezahlt
+2028-0001;2028-01-15;E2E7 Multi Kunde;25,00;20%;5,00;30,00;Rücklastschrift
+;;Zwischensumme 20%;25,00;20%;5,00;30,00;
+;;GESAMT (eingegangen);25,00;;5,00;30,00;
+;;Nicht eingegangen (Rücklastschriften);58,33;;11,67;70,00;
+;;Hinweis: Diese Datei enthält ausschließlich Einnahmen aus SEPA-Lastschriften. …
+```
+
+- [x] Dateiname `rechnungsjournal-2028-01.csv`
+- [x] BOM vorhanden (Codepoint 65279), Umlaute intakt, Beträge mit Komma
+- [x] GESAMT enthält **nur** die bezahlte Rechnung; die beiden zurückgebuchten (70,00) stehen getrennt
+- [x] Monatsauswahl in der Produktion: „Juli 2026" setzt Von `2026-07-01`, Bis `2026-07-31`
+
+### Offen
+- **BUG-1 (Low)** aus der QA bleibt bestehen: Die Monatsauswahl zeigt nichts an, wenn der
+  eingegebene Zeitraum ein Monat außerhalb der angebotenen 24 ist. Rein optisch.
+- **Ein Probe-Download durch den Betreiber in echtem Excel** steht noch aus — das ist der einzige
+  Test, den diese Umgebung nicht leisten kann.
+
