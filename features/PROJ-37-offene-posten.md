@@ -1,6 +1,6 @@
 # PROJ-37: Offene Posten (Rücklastschriften-Übersicht)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -368,4 +368,27 @@ gegengeprüft: Bei Zustellstatus `failed` bleibt der Vermerk leer und es erschei
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Live seit:** 2026-08-23
+**Produktions-URL:** https://viennasalsastudio.vercel.app
+**Git-Tag:** `v1.0.0-PROJ-37`
+
+### Vorab-Prüfungen
+- [x] `npm run build` erfolgreich, `npm run lint` sauber, 280 Unit-Tests grün
+- [x] QA abgeschlossen, kein kritischer oder hoher Fehler
+- [x] Keine `.env`-Datei versioniert
+- [x] **Beide Migrationen angewendet und im Repo versioniert** — Repo-Stand und Datenbank
+      abgeglichen, nicht nur abgelegt
+
+### Verifikation in der Produktion
+- [x] Seite lädt, Kachel zeigt „€ 70,00 — 2 offene Posten"
+- [x] Beide zurückgebuchten Rechnungen gelistet
+- [x] **Gebühr 4,50 € über die Live-Seite gesetzt und in der Datenbank angekommen**
+- [x] Standardwert-Feld in den Rechnungseinstellungen vorhanden
+- [x] Testdaten anschließend zurückgesetzt
+
+### Offen
+- **Ein Probe-Versand an eine echte Adresse** steht noch aus. Alle Fixture-Kunden haben
+  `.test`-Adressen; der Fehlerpfad ist real geprüft, der Erfolgspfad nur bis zur Übergabe an den
+  Versand. Das ist der einzige Test, den diese Umgebung nicht leisten kann.
+
