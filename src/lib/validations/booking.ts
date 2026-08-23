@@ -47,13 +47,43 @@ const requiredPrice = (label: string) =>
 /** Abo- und Flatrate-Preise dürfen fehlen: `null` heißt „noch nicht gepflegt". */
 const optionalPrice = (label: string) => requiredPrice(label).nullable();
 
-export const pricingSchema = z.object({
-  normal_price: requiredPrice("Drop-in-Normalpreis"),
-  student_price: requiredPrice("Drop-in-Studierendenpreis"),
-  course_price: optionalPrice("Kursabo-Normalpreis"),
-  course_student_price: optionalPrice("Kursabo-Studierendenpreis"),
-  flatrate_price: optionalPrice("Flatrate-Normalpreis"),
-  flatrate_student_price: optionalPrice("Flatrate-Studierendenpreis"),
-});
+/**
+ * Paare, bei denen der ermäßigte Satz nie über dem normalen liegen darf
+ * (PROJ-41 BUG-1). Beide Felder je Paar dürfen fehlen — geprüft wird nur, wenn
+ * tatsächlich zwei Beträge vorliegen.
+ */
+const STUDENT_PRICE_PAIRS = [
+  { normal: "normal_price", student: "student_price", label: "Drop-in" },
+  { normal: "course_price", student: "course_student_price", label: "Kursabo" },
+  { normal: "flatrate_price", student: "flatrate_student_price", label: "Flatrate" },
+] as const;
+
+export const pricingSchema = z
+  .object({
+    normal_price: requiredPrice("Drop-in-Normalpreis"),
+    student_price: requiredPrice("Drop-in-Studierendenpreis"),
+    course_price: optionalPrice("Kursabo-Normalpreis"),
+    course_student_price: optionalPrice("Kursabo-Studierendenpreis"),
+    flatrate_price: optionalPrice("Flatrate-Normalpreis"),
+    flatrate_student_price: optionalPrice("Flatrate-Studierendenpreis"),
+  })
+  // Eine Ermäßigung, die teurer ist als der reguläre Preis, ist immer ein
+  // Zahlendreher — und einer, den niemand bemerkt, weil er plausibel aussieht.
+  // Der Fehler hängt am Studierendenfeld, damit die Meldung dort steht, wo
+  // korrigiert werden muss.
+  .superRefine((data, ctx) => {
+    for (const pair of STUDENT_PRICE_PAIRS) {
+      const normal = data[pair.normal];
+      const student = data[pair.student];
+      if (normal == null || student == null) continue;
+      if (student > normal) {
+        ctx.addIssue({
+          code: "custom",
+          path: [pair.student],
+          message: `${pair.label}: Der Studierendenpreis darf nicht über dem Normalpreis liegen.`,
+        });
+      }
+    }
+  });
 
 export type PricingInput = z.infer<typeof pricingSchema>;

@@ -44,6 +44,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -105,6 +106,7 @@ export function CourseManager({
   videoSets,
   initialLevel,
   initialDanceStyle,
+  standardCoursePrice,
 }: {
   courses: CourseRow[];
   danceStyles: SimpleOption[];
@@ -114,6 +116,8 @@ export function CourseManager({
   videoSets: VideoSetOption[];
   initialLevel: string;
   initialDanceStyle: string;
+  /** PROJ-41: Standardpreis für Kursabos; `null`, wenn keiner gepflegt ist. */
+  standardCoursePrice: number | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -305,6 +309,7 @@ export function CourseManager({
           rooms={rooms}
           teachers={teachers}
           videoSets={videoSets}
+          standardCoursePrice={standardCoursePrice}
         />
       )}
 
@@ -356,6 +361,7 @@ function CourseFormDialog({
   rooms,
   teachers,
   videoSets,
+  standardCoursePrice,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -365,6 +371,7 @@ function CourseFormDialog({
   rooms: RoomOption[];
   teachers: TeacherOption[];
   videoSets: VideoSetOption[];
+  standardCoursePrice: number | null;
 }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -617,10 +624,21 @@ function CourseFormDialog({
               name="price"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Preis pro Monat in € (optional, wird beim Bestätigen vorausgefüllt)</FormLabel>
+                  <FormLabel>Preis pro Monat in €</FormLabel>
                   <FormControl>
-                    <Input type="number" min="0" step="0.01" {...field} />
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder={standardCoursePrice != null ? String(standardCoursePrice) : undefined}
+                      {...field}
+                    />
                   </FormControl>
+                  <FormDescription>
+                    {standardCoursePrice != null
+                      ? `Leer lassen, damit der Standardpreis von ${standardCoursePrice} € gilt. Ein Betrag hier gilt nur für diesen Kurs.`
+                      : "Es ist kein Standardpreis gepflegt — trage hier einen Betrag ein oder setze den Standard unter Verwaltung → Buchungen."}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

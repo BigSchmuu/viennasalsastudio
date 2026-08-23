@@ -65,9 +65,9 @@
 
 ## Open Questions
 - [ ] Soll die Flatrate-Kachel erwähnen, ab wie vielen Kursen sie sich rechnet? → Naheliegend, aber erst nach dem ersten Praxiseindruck entscheiden.
-- [ ] BUG-1: Soll ein Studierendenpreis über dem Normalpreis abgelehnt oder nur gewarnt werden? (QA 2026-08-23)
-- [ ] BUG-2: Sollen Interessenten ohne Konto die Preise sehen? Der Buchungsdialog war für Gäste noch nie erreichbar — das wäre eine eigene Ansicht, kein reiner Fix. (QA 2026-08-23)
-- [ ] BUG-3: Platzhalter mit dem Standardpreis am Kurs-Preisfeld nachziehen (im Tech Design vorgesehen, nicht umgesetzt). (QA 2026-08-23)
+- [x] BUG-1: Soll ein Studierendenpreis über dem Normalpreis abgelehnt oder nur gewarnt werden? → Abgelehnt; gleich hoch bleibt erlaubt, ein Studio muss nicht ermäßigen (2026-08-24)
+- [x] BUG-2: Sollen Interessenten ohne Konto die Preise sehen? → Ja, auf der Kurskarte und der Detailseite. Der Buchungsdialog bleibt angemeldeten Kunden vorbehalten (2026-08-24)
+- [x] BUG-3: Platzhalter mit dem Standardpreis am Kurs-Preisfeld nachziehen → umgesetzt, mit erklärendem Text statt der irreführenden alten Beschriftung (2026-08-24)
 
 ## Decision Log
 
@@ -420,6 +420,51 @@ Keine kritischen oder hohen Fehler. Die drei Befunde sind Abweichungen vom Spec,
 Kernnutzen nicht blockieren — der Betreiber pflegt Preise, der Kunde sieht sie, und was er
 sieht, steht auch in der Buchung.
 
+
+---
+
+## Bugfixes nach QA (2026-08-24)
+
+Alle drei Befunde behoben.
+
+**BUG-1 — Studierendenpreis über dem Normalpreis**
+`pricingSchema` vergleicht die drei Paare jetzt miteinander (`superRefine`). Der Fehler
+hängt am Studierendenfeld, damit die Meldung dort steht, wo korrigiert werden muss:
+„Kursabo: Der Studierendenpreis darf nicht über dem Normalpreis liegen."
+Ein *gleich hoher* Satz bleibt erlaubt — ein Studio muss nicht ermäßigen. Fehlt eine
+Hälfte eines Paares, wird nicht verglichen.
+
+**BUG-2 — Preise für Interessenten ohne Konto**
+Neue Komponente `src/components/catalog/course-price-line.tsx`, eingebunden auf der
+Kurskarte im Katalog und auf der Kursdetailseite: „€ 65,00 / Monat · ermäßigt € 45,00".
+Sichtbar beim Blättern, ohne Klick und ohne Anmeldung.
+
+Der Buchungsdialog bleibt bewusst angemeldeten Kunden vorbehalten — vom Betreiber so
+entschieden. Er steckt voller Logik, die ein Konto voraussetzt (Mandat, Gutschein,
+Einstiegstermin); ihn für Gäste zu öffnen wäre ein deutlich größerer Eingriff für
+denselben Zweck. Der ermäßigte Satz erscheint nur, wenn er tatsächlich günstiger ist,
+und ohne gepflegten Preis erscheint gar nichts.
+
+**BUG-3 — „Leer" heißt Standardpreis**
+Die Beschriftung „Preis pro Monat in € (optional, wird beim Bestätigen vorausgefüllt)"
+war seit PROJ-41 irreführend. Jetzt: schlichtes „Preis pro Monat in €", Platzhalter mit
+dem aktuellen Standard (65) und darunter „Leer lassen, damit der Standardpreis von 65 €
+gilt. Ein Betrag hier gilt nur für diesen Kurs." Ist kein Standard gepflegt, weist der
+Text auf Verwaltung → Buchungen hin.
+
+### Testabdeckung danach
+- `npm test`: **299 grün** — vier neue Fälle zu BUG-1 (Ablehnung je Paar, Fehlerpfad am
+  richtigen Feld, gleicher Preis erlaubt, halbes Paar wird übersprungen).
+- `tests/PROJ-41-…`: **17 grün, keine `fixme` mehr.** Die frühere Lücke ist ein echter
+  Test geworden, dazu je einer für BUG-1 und BUG-3.
+- Zweimal hintereinander gelaufen. Der Fixture-Reset musste dabei von `beforeAll` auf
+  `beforeEach` wandern: ein Test leert absichtlich einen Kurspreis, wodurch das Ergebnis
+  eines späteren Tests an der Reihenfolge hing.
+- Regression: PROJ-8, PROJ-12, PROJ-15, PROJ-30 → **43 von 44 grün**. Der eine Fehlschlag
+  ist der oben nachgewiesene, von PROJ-8 stammende.
+- Preisliste und Kurspreise nach allen Läufen auf den Ausgangswerten.
+
+### Produktionsreife: **JA** — keine offenen Befunde
 
 ---
 

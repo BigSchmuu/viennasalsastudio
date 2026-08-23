@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CourseDetailBooking, type CourseDetailData } from "@/components/catalog/course-detail-booking";
 import { YoutubeEmbed } from "@/components/video/youtube-embed";
 import { readStudioPricing } from "@/lib/pricing";
+import { CoursePriceLine } from "@/components/catalog/course-price-line";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -147,6 +148,11 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
                 .join(", ")
             : "Lehrer wird noch bekanntgegeben"}
         </p>
+        <CoursePriceLine
+          pricing={readStudioPricing(pricingRow)}
+          coursePrice={course.price}
+          className="text-base"
+        />
         {course.prerequisite_note && (
           <p className="text-sm bg-muted rounded-md px-3 py-2">{course.prerequisite_note}</p>
         )}

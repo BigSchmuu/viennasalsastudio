@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import type { StudioPricing } from "@/lib/pricing";
+import { CoursePriceLine } from "@/components/catalog/course-price-line";
 import {
   Select,
   SelectContent,
@@ -224,6 +225,7 @@ export function CourseCatalog({
                         ? course.teacherNames.join(", ")
                         : "Lehrer wird noch bekanntgegeben"}
                     </p>
+                    <CoursePriceLine pricing={pricing} coursePrice={course.price} className="text-sm" />
                     {course.prerequisiteNote && (
                       <p className="text-xs bg-muted rounded-md px-2 py-1">{course.prerequisiteNote}</p>
                     )}

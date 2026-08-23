@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/courses/course-manager";
 import type { TeacherOption } from "@/components/admin/courses/teacher-multi-select";
 import { levelValues } from "@/lib/constants/levels";
+import { readStudioPricing } from "@/lib/pricing";
 
 export default async function CoursesPage({
   searchParams,
@@ -36,6 +37,7 @@ export default async function CoursesPage({
     activeSubsRes,
     openBookingsRes,
     waitlistRes,
+    pricingRes,
   ] = await Promise.all([
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
     supabase.from("locations").select("id, name").order("name", { ascending: true }),
@@ -55,6 +57,9 @@ export default async function CoursesPage({
       .from("waitlist_entries")
       .select("id, course_id, customer_id, desired_plan, chosen_date, created_at, profiles(full_name)")
       .order("created_at", { ascending: true }),
+    // PROJ-41 BUG-3: Der Standardpreis erklärt im Kursformular, was ein leeres
+    // Preisfeld bedeutet.
+    supabase.from("dropin_pricing").select("*").limit(1).single(),
   ]);
 
   const danceStyles: SimpleOption[] = danceStylesRes.data ?? [];
@@ -179,6 +184,7 @@ export default async function CoursesPage({
       rooms={rooms}
       teachers={teachers}
       videoSets={videoSets}
+      standardCoursePrice={readStudioPricing(pricingRes.data).course.normal}
       initialLevel={isValidLevel ? params.level! : ""}
       initialDanceStyle={isValidDanceStyle ? params.dance_style! : ""}
     />

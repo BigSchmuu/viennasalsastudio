@@ -55,28 +55,17 @@ async function resetCourses() {
   await service.from("subscriptions").delete().in("course_id", ids);
 }
 
-async function clearCustomerBookings() {
-  const { data: courses } = await service
-    .from("courses")
-    .select("id")
-    .in("name", [STANDARD_COURSE, EIGEN_COURSE]);
-  const ids = (courses ?? []).map((c) => c.id);
-  if (ids.length === 0) return;
-  await service.from("course_bookings").delete().in("course_id", ids);
-  await service.from("subscriptions").delete().in("course_id", ids);
-}
-
 test.beforeAll(async () => {
   await resetPricing();
-  await resetCourses();
 });
 
-// Sobald ein Test eine Anfrage abschickt, zeigt der Dialog dem selben Kunden
-// beim nächsten Öffnen „Du hast bereits eine offene Anfrage" statt des
-// Formulars — die folgenden Tests liefen dann ins Leere. Es gibt keine
-// Staging-Datenbank, also wird hier vor jedem Test aufgeräumt.
+// Vor *jedem* Test, nicht nur vor dem ersten. Zwei Gründe: eine abgeschickte
+// Anfrage lässt den Dialog beim nächsten Öffnen „Du hast bereits eine offene
+// Anfrage" zeigen statt des Formulars, und ein Test leert absichtlich einen
+// Kurspreis. Ohne Reset vor jedem Test hinge das Ergebnis an der Reihenfolge —
+// und es gibt keine Staging-Datenbank, die das abfedern würde.
 test.beforeEach(async () => {
-  await clearCustomerBookings();
+  await resetCourses();
 });
 
 test.afterAll(async () => {
@@ -337,11 +326,9 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
     await resetPricing();
   });
 
-  // BUG-2: „Jetzt buchen" schickt einen nicht eingeloggten Besucher auf die
-  // Login-Seite, der Dialog öffnet gar nicht. Der Spec verlangt in den Edge
-  // Cases, dass genau dieser Besucher die Preise sieht. Als fixme markiert,
-  // damit die Lücke im Testlauf sichtbar bleibt, ohne ihn rot zu färben.
-  test.fixme("Anonymer Besucher sieht dieselben Preise — sie sind keine persönliche Information", async ({ page }) => {
+  test("Gast ohne Konto sieht den Preis auf der Kurskarte", async ({ page }) => {
+    // Der Buchungsdialog verlangt eine Anmeldung. Wer sich erst überlegt, ob er
+    // herkommt, soll den Preis trotzdem sehen — deshalb steht er auf der Karte.
     await page.goto("/kurse");
     await page.waitForTimeout(800);
     const moreButton = page.getByRole("button", { name: /Mehr laden/ });
@@ -349,14 +336,52 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
       await moreButton.click();
       await page.waitForTimeout(400);
     }
-    await page
+    const karte = page
       .locator(".rounded-lg.border.bg-card")
-      .filter({ has: page.getByText(STANDARD_COURSE, { exact: true }) })
-      .getByRole("button", { name: "Jetzt buchen" })
+      .filter({ has: page.getByText(STANDARD_COURSE, { exact: true }) });
+    await expect(karte).toContainText("65,00");
+    await expect(karte).toContainText("/ Monat");
+    await expect(karte).toContainText("ermäßigt");
+
+    const eigen = page
+      .locator(".rounded-lg.border.bg-card")
+      .filter({ has: page.getByText(EIGEN_COURSE, { exact: true }) });
+    await expect(eigen).toContainText("80,00");
+  });
+
+  test("Gast ohne Konto sieht den Preis auch auf der Kursdetailseite", async ({ page }) => {
+    const { data: course } = await service.from("courses").select("id").eq("name", STANDARD_COURSE).single();
+    await page.goto(`/kurse/${course!.id}`);
+    await page.waitForTimeout(800);
+    await expect(page.getByText("65,00").first()).toBeVisible();
+  });
+
+  test("Preise pflegen: Studierendenpreis über dem Normalpreis wird abgelehnt", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.goto("/admin/buchungen");
+    await page.waitForTimeout(800);
+    await page.locator("#course-student-price").fill("99");
+    await page.getByRole("button", { name: "Speichern" }).click();
+    await page.waitForTimeout(1000);
+    await expect(page.getByText(/Studierendenpreis darf nicht über dem Normalpreis/)).toBeVisible();
+    await expect(page.getByText("Preise gespeichert.")).toHaveCount(0);
+
+    // Der bisherige Wert muss die Ablehnung überlebt haben.
+    const { data } = await service.from("dropin_pricing").select("course_student_price").limit(1).single();
+    expect(Number(data!.course_student_price)).toBe(45);
+  });
+
+  test("Kurs-Formular erklärt, dass ein leeres Preisfeld den Standardpreis bedeutet", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.goto("/admin/kurse");
+    await page.waitForTimeout(800);
+    await page
+      .getByRole("row", { name: new RegExp(STANDARD_COURSE) })
+      .getByRole("button", { name: "Bearbeiten" })
       .click();
-    await page.waitForTimeout(400);
-    await page.getByRole("tab", { name: "Anmeldung" }).click();
-    await page.waitForTimeout(400);
-    await expect(tile(page, "Nur diesen Kurs")).toContainText("65,00");
+    await page.waitForTimeout(600);
+    const feld = page.getByLabel(/Preis pro Monat/);
+    await expect(feld).toHaveAttribute("placeholder", "65");
+    await expect(page.getByText(/Leer lassen, damit der Standardpreis von 65 € gilt/)).toBeVisible();
   });
 });

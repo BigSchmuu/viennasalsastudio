@@ -152,6 +152,29 @@ describe("pricingSchema", () => {
     expect(pricingSchema.safeParse({ ...base, course_price: MAX_PRICE }).success).toBe(true);
   });
 
+  it("rejects a student price above the normal price — always a typo (BUG-1)", () => {
+    expect(pricingSchema.safeParse({ ...base, student_price: 50 }).success).toBe(false);
+    expect(pricingSchema.safeParse({ ...base, course_student_price: 99 }).success).toBe(false);
+    expect(pricingSchema.safeParse({ ...base, flatrate_student_price: 200 }).success).toBe(false);
+  });
+
+  it("points the error at the student field, where the correction belongs", () => {
+    const result = pricingSchema.safeParse({ ...base, course_student_price: 99 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(["course_student_price"]);
+    }
+  });
+
+  it("accepts an equal student price — a studio may simply not discount", () => {
+    expect(pricingSchema.safeParse({ ...base, course_student_price: 65 }).success).toBe(true);
+  });
+
+  it("skips the comparison when one half of a pair is missing", () => {
+    expect(pricingSchema.safeParse({ ...base, course_price: null }).success).toBe(true);
+    expect(pricingSchema.safeParse({ ...base, flatrate_student_price: null }).success).toBe(true);
+  });
+
   it("accepts a missing subscription price — empty means 'not maintained'", () => {
     const result = pricingSchema.safeParse({
       ...base,
