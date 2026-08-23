@@ -169,6 +169,42 @@ bestehende Filterleiste im Rechnungsarchiv.
 Betroffen sind drei bestehende Stellen: die Export-Route, die CSV-Hilfsfunktionen und die
 Filterleiste. Kein neuer Bildschirm, keine Datenbankänderung, keine neue Abhängigkeit.
 
+---
+
+## Implementation Notes (Frontend)
+
+**Umgesetzt am 2026-08-23.** Nur die Monatsauswahl — die Summen im CSV folgen im Backend-Schritt.
+
+### Geänderte/neue Dateien
+| Datei | Zweck |
+|-------|-------|
+| `src/lib/invoices.ts` | Neue reine Hilfsfunktionen: `monthRange`, `monthFromRange`, `monthLabel`, `recentMonths` |
+| `src/lib/invoices.test.ts` | 7 neue Tests für diese Logik |
+| `src/components/admin/invoices/invoice-list.tsx` | Monatsauswahl in der bestehenden Filterleiste |
+
+### Entscheidungen bei der Umsetzung
+- **Die gewählte Monatsangabe wird nicht gespeichert, sondern aus Von/Bis abgeleitet.** Ändert der
+  Admin ein Datum von Hand, springt die Auswahl sofort auf „Eigener Zeitraum". Ein eigener Zustand
+  hätte hier zwei Wahrheiten erzeugt, die auseinanderlaufen — genau die Falle, die in diesem Projekt
+  schon zweimal zugeschlagen hat (Geburtsdatumsfeld, Benachrichtigungs-Editor).
+- **Die Monatsliste wird einmal beim Öffnen der Seite berechnet**, nicht bei jedem Tastendruck. Sonst
+  könnte sie sich unter dem Nutzer verschieben, während das Auswahlfeld offen ist.
+- **24 Monate** — deckt „Zahlen vom Vorjahr" ab, ohne die Liste zur Scroll-Strecke zu machen.
+- **Keine neue Abhängigkeit**, kein neues Bedienelement: Es ist das bereits vorhandene
+  shadcn-Auswahlfeld, wie überall sonst in der Verwaltung.
+- **Datumsangaben werden aus lokalen Kalenderteilen gebaut**, nie über `toISOString()` — das rechnet
+  in UTC um und verschiebt östlich von Greenwich den Tag, was hier die Monatsgrenze verfehlen würde.
+
+### Verifiziert
+- Auswahl „Juli 2026" setzt Von auf `2026-07-01` und Bis auf `2026-07-31`
+- Ein von Hand geändertes Bis-Datum lässt die Auswahl korrekt auf „Eigener Zeitraum" zurückfallen
+- Die freien Datumsfelder funktionieren unverändert
+- Schaltjahr und Jahreswechsel per Unit-Test abgedeckt (Februar 2028 → 29 Tage; Januar 2026 → zurück nach Dezember 2025)
+
+### Noch offen (Backend-Schritt)
+Summenzeilen, getrennte Rücklastschriften, Reichweiten-Hinweis, österreichisches Zahlenformat und
+der Dateiname nach Zeitraum.
+
 ## QA Test Results
 _To be added by /qa_
 

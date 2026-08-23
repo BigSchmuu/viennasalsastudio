@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeInvoiceAmounts, toCsvField, toCsvRow } from "./invoices";
+import { computeInvoiceAmounts, toCsvField, toCsvRow, monthRange, monthFromRange, monthLabel, recentMonths } from "./invoices";
 
 describe("computeInvoiceAmounts", () => {
   it("splits a gross amount into net + VAT at 20%", () => {
@@ -60,5 +60,50 @@ describe("toCsvField", () => {
 describe("toCsvRow", () => {
   it("joins fields with commas, quoting where necessary", () => {
     expect(toCsvRow(["2026-0001", "Muster, Anna", 45.0])).toBe('2026-0001,"Muster, Anna",45');
+  });
+});
+
+describe("Monatsauswahl für den Export (PROJ-36)", () => {
+  it("spannt einen Monat vom ersten bis zum letzten Tag auf", () => {
+    expect(monthRange("2026-08")).toEqual({ from: "2026-08-01", to: "2026-08-31" });
+    expect(monthRange("2026-04")).toEqual({ from: "2026-04-01", to: "2026-04-30" });
+  });
+
+  // Februar ist der Fall, den man von Hand falsch macht.
+  it("kennt die Länge des Februars, auch im Schaltjahr", () => {
+    expect(monthRange("2026-02")?.to).toBe("2026-02-28");
+    expect(monthRange("2028-02")?.to).toBe("2028-02-29");
+  });
+
+  it("weist unsinnige Eingaben ab, statt ein falsches Datum zu erfinden", () => {
+    expect(monthRange("2026-13")).toBeNull();
+    expect(monthRange("2026-00")).toBeNull();
+    expect(monthRange("August 2026")).toBeNull();
+    expect(monthRange("")).toBeNull();
+  });
+
+  it("erkennt einen vollständigen Monat in einem Von/Bis-Paar wieder", () => {
+    expect(monthFromRange("2026-08-01", "2026-08-31")).toBe("2026-08");
+    expect(monthFromRange("2028-02-01", "2028-02-29")).toBe("2028-02");
+  });
+
+  // Wichtiger als der Positivfall: Ein handgesetzter Zeitraum darf nicht als
+  // Monat durchgehen, sonst behauptet die Auswahl etwas Falsches.
+  it("behandelt angebrochene oder übergreifende Zeiträume als eigenen Zeitraum", () => {
+    expect(monthFromRange("2026-08-01", "2026-08-30")).toBeNull();
+    expect(monthFromRange("2026-08-02", "2026-08-31")).toBeNull();
+    expect(monthFromRange("2026-08-01", "2026-09-30")).toBeNull();
+    expect(monthFromRange("", "")).toBeNull();
+  });
+
+  it("beschriftet Monate auf Deutsch", () => {
+    expect(monthLabel("2026-08")).toBe("August 2026");
+    expect(monthLabel("2026-03")).toBe("März 2026");
+  });
+
+  it("listet den aktuellen Monat zuerst und zählt rückwärts über den Jahreswechsel", () => {
+    const months = recentMonths(3, new Date(2026, 0, 15)); // Januar 2026
+    expect(months.map((m) => m.value)).toEqual(["2026-01", "2025-12", "2025-11"]);
+    expect(months[0].label).toBe("Januar 2026");
   });
 });

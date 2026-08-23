@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { SortableHeader } from "@/components/admin/sortable-header";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CUSTOM_RANGE, monthRange, monthFromRange, recentMonths } from "@/lib/invoices";
 
 export type InvoiceRow = {
   id: string;
@@ -45,6 +47,27 @@ export function InvoiceList({
   const [query, setQuery] = useState(initialQuery);
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
+
+  // Two years back covers "last year's figures" without turning the list into a
+  // scroll marathon. Computed once per mount — the option list must not shift
+  // under the user while the page is open.
+  const [months] = useState(() => recentMonths(24));
+
+  // Derived, not stored: editing Von/Bis by hand immediately falls back to
+  // "Eigener Zeitraum" instead of leaving a month label that no longer matches.
+  const selectedMonth = monthFromRange(from, to) ?? CUSTOM_RANGE;
+
+  function pickMonth(value: string) {
+    if (value === CUSTOM_RANGE) {
+      setFrom("");
+      setTo("");
+      return;
+    }
+    const range = monthRange(value);
+    if (!range) return;
+    setFrom(range.from);
+    setTo(range.to);
+  }
 
   function applyFilters() {
     // Preserve any active sort — filtering shouldn't reset it.
@@ -87,6 +110,22 @@ export function InvoiceList({
             onChange={(e) => setQuery(e.target.value)}
             className="w-48"
           />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="invoice-month">Monat</Label>
+          <Select value={selectedMonth} onValueChange={pickMonth}>
+            <SelectTrigger id="invoice-month" className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={CUSTOM_RANGE}>Eigener Zeitraum</SelectItem>
+              {months.map((m) => (
+                <SelectItem key={m.value} value={m.value}>
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
           <Label htmlFor="invoice-from">Von</Label>
