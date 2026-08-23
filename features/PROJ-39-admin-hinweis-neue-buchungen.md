@@ -348,11 +348,18 @@ in eine eigene Test-Hygiene-Runde** — es blockiert PROJ-39 nicht.
 Aufgefallen ist das erst jetzt, weil die letzten Durchgänge gezielt einzelne Dateien geprüft haben
 statt der vollständigen Suite.
 
+### Nachgeholt am 2026-08-23: Mobile Safari
+Beim QA-Lauf war der WebKit-Browser nicht installierbar, die Suite blieb dort ungeprüft.
+**Inzwischen nachgeholt: 9/9 grün auf Mobile Safari (iPhone 13)**, einschließlich der
+375px-Darstellung des Zählers.
+
+Ursache der damals gescheiterten Installation war ein hängender Playwright-Installer, nicht das
+Netz: Das 80-MB-Archiv war vollständig heruntergeladen und lag im Temp-Verzeichnis, aber das
+Entpacken blockierte reproduzierbar nach der ersten Datei (16 MB von 286 MB). Der Prozess hatte
+weder eine Netzwerkverbindung noch CPU-Last. Manuelles Entpacken des bereits geladenen Archivs
+löste es.
+
 ### Nicht abgedeckt
-- **Mobile Safari / WebKit:** Der Browser war zum Testzeitpunkt noch nicht installiert (Download lief).
-  Der Zähler ist reines CSS ohne browser-spezifische Eigenschaften, das Risiko ist gering — geprüft
-  ist es dennoch nicht. Die Darstellung bei 375px wurde auf Chromium verifiziert (kein horizontales
-  Scrollen der Seite)
 - **Antippen der Push auf einem echten Gerät** (siehe oben)
 
 ### Aufräumen
