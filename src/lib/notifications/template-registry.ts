@@ -11,7 +11,8 @@ export type TemplateKey =
   | "event_abgesagt"
   | "probestunde_nachfassung_abend"
   | "probestunde_nachfassung_naechster_termin"
-  | "zahlungserinnerung";
+  | "zahlungserinnerung"
+  | "kursausfall";
 
 export type TemplateFields = {
   emailSubject: string;
@@ -225,6 +226,21 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
         "die Lastschrift für Rechnung {rechnungsnummer} über {betrag} wurde von deiner Bank zurückgebucht. Dafür ist uns eine Rücklastschrift-Gebühr von {gebuehr} entstanden. Offen sind damit {gesamt}. Bitte überweise den Betrag oder melde dich bei uns, wenn etwas nicht stimmt.",
       pushTitle: "Offene Zahlung: {gesamt}",
       pushBody: "Rechnung {rechnungsnummer} wurde zurückgebucht.",
+    },
+  },
+  {
+    key: "kursausfall",
+    eventGroupLabel: "Kursausfall",
+    variantLabel: "Termin fällt aus",
+    placeholders: ["kurs", "datum"],
+    boldPlaceholder: "datum",
+    samples: { kurs: "Salsa Beginner 1", datum: "01.12.2026" },
+    defaults: {
+      emailSubject: "{kurs} fällt am {datum} aus",
+      emailBody:
+        "der Termin von {kurs} am {datum} muss leider entfallen. Alle weiteren Termine finden wie geplant statt. Wir freuen uns, dich beim nächsten Mal wiederzusehen!",
+      pushTitle: "{kurs} fällt aus",
+      pushBody: "Der Termin am {datum} entfällt.",
     },
   },
 ];

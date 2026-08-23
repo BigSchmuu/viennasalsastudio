@@ -99,6 +99,8 @@ export type KursstartErinnerungDetails = { courseName: string; chosenDate: strin
 export type SepaAnkuendigungDetails = { amount: number; dueDate: string };
 /** PROJ-37: invoice amount and bank fee stay separate so the customer can see
  *  why more is owed than the invoice says. */
+/** PROJ-38: which course, and which date fell through. */
+export type KursausfallDetails = { courseName: string; pauseDate: string };
 export type ZahlungserinnerungDetails = { invoiceNumber: string; grossAmount: number; bounceFee: number };
 export type EventTicketDetails =
   | { subType: "purchased"; eventName: string; startsAt: string; ticketStatus: "confirmed" | "reserved" }
@@ -118,7 +120,7 @@ export type NeueBuchungDetails = { customerName: string; courseName: string; boo
  *  "newsletter", which has its own admin-authored text (PROJ-28), not a
  *  registry template. */
 export function resolveTemplateKey(
-  eventType: NotificationEventGroup | "sepa_ankuendigung" | "zahlungserinnerung",
+  eventType: NotificationEventGroup | "sepa_ankuendigung" | "zahlungserinnerung" | "kursausfall",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
@@ -126,6 +128,7 @@ export function resolveTemplateKey(
     | KursstartErinnerungDetails
     | SepaAnkuendigungDetails
     | ZahlungserinnerungDetails
+    | KursausfallDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
     | NewsletterDetails
@@ -145,6 +148,8 @@ export function resolveTemplateKey(
       return "sepa_ankuendigung";
     case "zahlungserinnerung":
       return "zahlungserinnerung";
+    case "kursausfall":
+      return "kursausfall";
     case "event_tickets": {
       const d = details as EventTicketDetails;
       if (d.subType === "event_cancelled") return "event_abgesagt";
@@ -163,7 +168,12 @@ export function resolveTemplateKey(
  *  will actually render — the caller resolves which `TemplateKey` applies
  *  (e.g. confirmed vs. rejected) and passes the matching row, if any. */
 export function buildNotificationContent(
-  eventType: NotificationEventGroup | "sepa_ankuendigung" | "neue_buchung" | "zahlungserinnerung",
+  eventType:
+    | NotificationEventGroup
+    | "sepa_ankuendigung"
+    | "neue_buchung"
+    | "zahlungserinnerung"
+    | "kursausfall",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
@@ -171,6 +181,7 @@ export function buildNotificationContent(
     | KursstartErinnerungDetails
     | SepaAnkuendigungDetails
     | ZahlungserinnerungDetails
+    | KursausfallDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
     | NewsletterDetails
@@ -219,6 +230,13 @@ export function buildNotificationContent(
         url: "/rechnungen",
       };
     }
+    case "kursausfall": {
+      const d = details as KursausfallDetails;
+      return {
+        ...renderTemplate("kursausfall", { kurs: d.courseName, datum: formatDate(d.pauseDate) }, override),
+        url: "/stundenplan",
+      };
+    }
     case "zahlungserinnerung": {
       const d = details as ZahlungserinnerungDetails;
       const euro = (n: number) => n.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
@@ -234,6 +252,13 @@ export function buildNotificationContent(
           override
         ),
         url: "/rechnungen",
+      };
+    }
+    case "kursausfall": {
+      const d = details as KursausfallDetails;
+      return {
+        ...renderTemplate("kursausfall", { kurs: d.courseName, datum: formatDate(d.pauseDate) }, override),
+        url: "/stundenplan",
       };
     }
     case "zahlungserinnerung": {
@@ -358,6 +383,12 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
       );
     case "sepa_ankuendigung":
       return buildNotificationContent("sepa_ankuendigung", { amount: 40, dueDate: "2026-09-15" }, fields);
+    case "kursausfall":
+      return buildNotificationContent(
+        "kursausfall",
+        { courseName: "Salsa Beginner 1", pauseDate: "2026-12-01" },
+        fields
+      );
     case "zahlungserinnerung":
       return buildNotificationContent(
         "zahlungserinnerung",

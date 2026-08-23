@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { countAffectedCustomers } from "@/lib/actions/admin/course-cancellation";
+import { countAffectedCustomers, notifyCourseCancellation } from "@/lib/actions/admin/course-cancellation";
 
 /** Überall sonst in der Verwaltung stehen Datumsangaben deutsch; die
  *  Pausen-Liste zeigte bisher als einzige die technische Schreibweise. */
@@ -79,6 +79,35 @@ export function CourseScheduleSection({
   const [notifyPause, setNotifyPause] = useState<PauseData | null>(null);
   const [affected, setAffected] = useState<number | null>(null);
   const [countingError, setCountingError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<string | null>(null);
+
+  async function handleNotify() {
+    if (!notifyPause) return;
+    setSending(true);
+    setCountingError(null);
+    try {
+      const result = await notifyCourseCancellation(notifyPause.id);
+      if ("error" in result) {
+        setCountingError(result.error);
+        return;
+      }
+      // Der Zeitstempel muss sofort in der Liste stehen — das Formular liegt in
+      // einem Dialog, dessen Daten sich nach router.refresh() nicht neu
+      // einlesen (siehe Kommentar oben zu den lokalen Zuständen).
+      setPauses((prev) =>
+        prev.map((p) => (p.id === notifyPause.id ? { ...p, notifiedAt: new Date().toISOString() } : p))
+      );
+      setNotifyResult(
+        result.failed > 0
+          ? `${result.sent} benachrichtigt, ${result.failed} nicht zustellbar.`
+          : `${result.sent} ${result.sent === 1 ? "Person" : "Personen"} benachrichtigt.`
+      );
+      setNotifyPause(null);
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function openNotifyDialog(pause: PauseData) {
     setNotifyPause(pause);
@@ -220,6 +249,11 @@ export function CourseScheduleSection({
       {schedule && (
         <div className="space-y-2 pt-2 border-t">
           <p className="text-sm font-medium">Pausierte Wochen</p>
+          {notifyResult && (
+            <Alert>
+              <AlertDescription>{notifyResult}</AlertDescription>
+            </Alert>
+          )}
           {pauses.length === 0 ? (
             <p className="text-sm text-muted-foreground">Keine pausierten Wochen.</p>
           ) : (
@@ -290,9 +324,17 @@ export function CourseScheduleSection({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction disabled={affected === null || affected === 0 || countingError !== null}>
-              Benachrichtigung senden
+            <AlertDialogCancel disabled={sending}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={affected === null || affected === 0 || countingError !== null || sending}
+              onClick={(e) => {
+                // Der Dialog soll erst schließen, wenn der Versand durch ist —
+                // sonst verschwindet eine Fehlermeldung ungesehen.
+                e.preventDefault();
+                void handleNotify();
+              }}
+            >
+              {sending ? "Wird gesendet…" : "Benachrichtigung senden"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

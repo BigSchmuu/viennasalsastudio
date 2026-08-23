@@ -180,6 +180,18 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         bookingType: data.type === "dropin" ? "dropin" : "regular",
       });
     }
+    case "kursausfall": {
+      const { data } = await service
+        .from("course_schedule_pauses")
+        .select("pause_date, course_schedule(courses(name))")
+        .eq("id", payload.pause_id as string)
+        .maybeSingle();
+      if (!data?.course_schedule?.courses?.name) return null;
+      return buildNotificationContent("kursausfall", {
+        courseName: data.course_schedule.courses.name,
+        pauseDate: data.pause_date,
+      });
+    }
     case "zahlungserinnerung": {
       const { data } = await service
         .from("invoices")
@@ -249,6 +261,18 @@ export async function processQueueRow(service: ServiceClient, row: QueueRow): Pr
       const emailResult = await trySendEmail(service, row.customer_id, content);
       emailStatus = emailResult.status;
       if (emailResult.error) errors.push(`E-Mail: ${emailResult.error}`);
+    } else if (row.event_type === "kursausfall") {
+      // PROJ-38: operationally necessary — someone who switched notifications
+      // off would otherwise turn up to a locked door. Same reasoning as
+      // sepa_ankuendigung and zahlungserinnerung.
+      const emailResult = await trySendEmail(service, row.customer_id, content);
+      emailStatus = emailResult.status;
+      if (emailResult.error) errors.push(`E-Mail: ${emailResult.error}`);
+      pushStatus = await sendPushToCustomer(service, row.customer_id, {
+        title: content.pushTitle,
+        body: content.pushBody,
+        url: content.url,
+      });
     } else if (row.event_type === "zahlungserinnerung") {
       // PROJ-37: a demand for money the customer already owes. Like
       // sepa_ankuendigung it deliberately bypasses the notification

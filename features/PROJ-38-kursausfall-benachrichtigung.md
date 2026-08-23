@@ -204,6 +204,54 @@ Einzahl und Mehrzahl werden korrekt unterschieden. Testdaten anschließend entfe
 Der eigentliche Versand, die Textvorlage über PROJ-34, der neue Benachrichtigungs-Anlass und das
 Setzen des Zeitpunkts nach erfolgreichem Versand.
 
+---
+
+## Implementation Notes (Backend)
+
+**Umgesetzt am 2026-08-23.** Versand, Textvorlage und neuer Benachrichtigungs-Anlass.
+
+### Geänderte/neue Dateien
+| Datei | Zweck |
+|-------|-------|
+| `supabase/migrations/…_proj38_kursausfall_event_type.sql` | Neuer Anlass in der Warteschlange |
+| `src/lib/actions/admin/course-cancellation.ts` | Versand an alle Betroffenen |
+| `src/lib/notifications/template-registry.ts` | Vorlage „Kursausfall" — über PROJ-34 anpassbar |
+| `src/lib/notifications/templates.ts` | Inhalt (Kursname, Datum) |
+| `src/lib/notifications/dispatch.ts` | Zustellweg, an den Kunden-Einstellungen vorbei |
+| `src/components/admin/courses/course-schedule-section.tsx` | Dialog verkabelt, Rückmeldung |
+
+### Ein Denkfehler, der beim Testen auffiel
+Der erste Entwurf zählte einen Empfänger nur dann als erreicht, wenn die **E-Mail** zugestellt
+wurde. Wer ausschließlich Push nutzt, wäre damit als „nicht erreicht" gezählt worden — obwohl er die
+Nachricht bekommen hat. Wären *alle* Empfänger push-only, hätte die App gemeldet, es sei niemand
+erreicht worden, und der Zeitstempel wäre ausgeblieben. Der Admin hätte erneut gesendet und alle
+doppelt benachrichtigt.
+
+**Behoben:** Beide Kanäle zählen. Erreicht ist, wer per E-Mail **oder** per Push erreicht wurde.
+
+### Weitere Entscheidungen
+- **Der Zeitstempel wird gesetzt, sobald mindestens eine Nachricht rausging** — nicht erst, wenn
+  alle zugestellt wurden. Sonst würde eine einzige veraltete Adresse verbergen, dass dreißig andere
+  informiert sind, und zu einem doppelten Versand führen.
+- **Die Rückmeldung nennt beide Zahlen**, wenn etwas schiefging: „12 benachrichtigt, 1 nicht
+  zustellbar." Eine Sammelmeldung „erfolgreich" wäre in dem Fall unehrlich.
+- **Der Dialog schließt erst nach dem Versand.** Sonst verschwände eine Fehlermeldung ungesehen.
+- **Kein Dublettenschutz**, der Schlüssel trägt einen Zeitstempel — wiederholtes Senden ist
+  ausdrücklich erlaubt (falscher Klick, jemand ist neu dazugekommen).
+
+### Verifiziert
+Pause an einem Kurs mit aktivem Abo angelegt und über die Oberfläche versendet:
+- Warteschlangen-Eintrag entsteht mit dem richtigen Kurs und Datum
+- Zustellung an die `.test`-Adresse scheitert erwartungsgemäß
+- **`notified_at` bleibt daraufhin leer** und der Dialog meldet „Keine der Benachrichtigungen konnte
+  zugestellt werden." — kein falscher „erledigt"-Eindruck
+- Testdaten anschließend entfernt
+
+### Nicht abgedeckt
+Ein **erfolgreicher** Versand. Alle Fixture-Kunden haben `.test`-Adressen und keine Push-Geräte;
+der Erfolgspfad ist damit nur bis zur Übergabe an den Versand geprüft. Der Fehlerpfad — der
+wichtigere, weil er einen falschen „benachrichtigt"-Vermerk verhindert — ist real durchgespielt.
+
 ## QA Test Results
 _To be added by /qa_
 
