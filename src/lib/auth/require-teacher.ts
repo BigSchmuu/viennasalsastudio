@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isTeachingUser } from "@/lib/auth/teaches-courses";
 
 export async function requireTeacher() {
   const supabase = await createClient();
@@ -13,7 +14,9 @@ export async function requireTeacher() {
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
 
-  if (profile?.role !== "teacher") {
+  // PROJ-40: ein Admin, der einem Kurs zugewiesen ist, nutzt diese Seite wie
+  // ein Lehrer. Ein Admin ohne Zuweisung sähe hier nur eine leere Liste.
+  if (!(await isTeachingUser(supabase, user.id, profile?.role))) {
     redirect("/");
   }
 

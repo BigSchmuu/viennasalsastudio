@@ -40,7 +40,10 @@ export default async function CoursesPage({
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
     supabase.from("locations").select("id, name").order("name", { ascending: true }),
     supabase.from("rooms").select("id, name, location_id").order("name", { ascending: true }),
-    supabase.from("profiles").select("id, full_name").eq("role", "teacher"),
+    // PROJ-40: Admins stehen hier mit zur Auswahl — ein Betreiber, der selbst
+    // unterrichtet, soll dafür kein zweites Konto brauchen. Kunden bleiben
+    // ausgeschlossen; für sie gibt es weiterhin den Rollenwechsel aus PROJ-22.
+    supabase.from("profiles").select("id, full_name").in("role", ["teacher", "admin"]),
     supabase.from("video_sets").select("id, name, level").order("name", { ascending: true }),
     supabase.from("subscriptions").select("course_id, course_bookings(dance_role)").eq("status", "active"),
     supabase

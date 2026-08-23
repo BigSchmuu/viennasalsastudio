@@ -176,6 +176,54 @@ Betroffen sind drei Stellen: die öffentliche Lehrer-Liste, die Auswahl im Kursf
 Bedingung für den Menüpunkt „Meine Kurse". Kein neuer Bildschirm, keine neue Tabelle, keine neue
 Abhängigkeit.
 
+---
+
+## Implementation Notes (Frontend)
+
+**Umgesetzt am 2026-08-23.** Vier Stellen statt der im Entwurf angenommenen drei — `requireTeacher`
+lehnte Admins bislang ausdrücklich ab und musste ebenfalls angepasst werden.
+
+### Geänderte/neue Dateien
+| Datei | Zweck |
+|-------|-------|
+| `supabase/migrations/…_proj40_teacher_directory_by_assignment.sql` | Öffentliche Liste folgt der Zuweisung statt der Rolle |
+| `src/app/admin/kurse/page.tsx` | Lehrer-Auswahl enthält Lehrer **und** Admins |
+| `src/lib/auth/teaches-courses.ts` (neu) | Gemeinsame Antwort auf „unterrichtet diese Person?" |
+| `src/app/(site)/layout.tsx` | Menüpunkt „Meine Kurse" für unterrichtende Admins |
+| `src/lib/auth/require-teacher.ts` | Zugriff auf `/lehrer` für zugewiesene Admins |
+
+### Entscheidungen bei der Umsetzung
+- **Die Bedingung liegt an einer Stelle** (`isTeachingUser`). Navigation und Zugriffsschutz stellen
+  dieselbe Frage; zwei Kopien wären irgendwann auseinandergelaufen und hätten einen Menüpunkt
+  gezeigt, der ins Leere führt.
+- **Ein Lehrer gilt immer als unterrichtend, auch ohne Kurs.** Ein frisch angelegter Lehrer soll
+  „Meine Kurse" vorfinden, statt erst auf eine Zuweisung warten zu müssen. Für Admins gilt das
+  bewusst nicht — ihnen einen Menüpunkt auf eine leere Seite zu geben, wäre kein Angebot.
+- **Die Rollenprüfung bleibt in der öffentlichen Liste erhalten**, obwohl die Zuweisung allein
+  ausreichen würde. Falls je eine versehentliche Zuweisung auf ein Kundenkonto zeigt, wird dessen
+  Name dadurch nicht öffentlich.
+
+### Verifiziert (Admin-Konto testweise einem Kurs zugewiesen)
+| Prüfung | ohne Zuweisung | mit Zuweisung |
+|---------|----------------|---------------|
+| Menüpunkt „Meine Kurse" | nein | **ja** |
+| `/lehrer` erreichbar | nein (Weiterleitung) | **ja** |
+| Sieht seinen Kurs | — | **ja** |
+| Öffentlich sichtbar | nein | **ja** |
+| Rolle nach der Zuweisung | — | **unverändert `admin`** |
+
+Lehrer-Auswahl im Kursformular: 23 Personen, davon 11 Admins — Admins sind also wählbar.
+
+### Beobachtung für die QA
+Die Lehrer-Auswahl zeigt jetzt **alle** Admin-Konten, einschließlich der elf technischen Konten aus
+der Entwicklung. Das ist kein Fehler dieses Features, sondern vorhandene Datenhygiene, die hier
+erstmals sichtbar wird. Die Auswahl hat ein Suchfeld; ob die Altkonten aufgeräumt werden sollten,
+ist eine eigene Entscheidung.
+
+### Backend
+Kein separater Backend-Schritt nötig: Es ändern sich ausschließlich Abfragen und eine
+Datenbank-Sicht. Es gibt keine neuen Aktionen, keine neue Tabelle und keine neue Route.
+
 ## QA Test Results
 _To be added by /qa_
 
