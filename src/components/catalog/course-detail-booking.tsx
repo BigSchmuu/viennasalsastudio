@@ -4,12 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookingDialog } from "@/components/booking/booking-dialog";
 import { Button } from "@/components/ui/button";
+import type { StudioPricing } from "@/lib/pricing";
 
 export type CourseDetailData = {
   id: string;
   name: string;
   entryDates: string[];
   nextOccurrenceDates: string[];
+  /** Eigener Kurspreis; `null` = Standardpreis (PROJ-41). */
+  price: number | null;
   hasOpenRegularBooking: boolean;
   hasActiveSubscription: boolean;
   isFull: boolean;
@@ -23,13 +26,13 @@ export function CourseDetailBooking({
   isLoggedIn,
   hasMandate,
   hasReferralSource,
-  dropinPricing,
+  pricing,
 }: {
   course: CourseDetailData;
   isLoggedIn: boolean;
   hasMandate: boolean;
   hasReferralSource: boolean;
-  dropinPricing: { normal: number; student: number };
+  pricing: StudioPricing;
 }) {
   const router = useRouter();
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -53,7 +56,7 @@ export function CourseDetailBooking({
           course={course}
           hasMandate={hasMandate}
           hasReferralSource={hasReferralSource}
-          dropinPricing={dropinPricing}
+          pricing={pricing}
         />
       )}
     </>

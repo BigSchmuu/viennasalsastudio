@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SelfCheckinButton } from "@/components/schedule/self-checkin-button";
 import { ScheduleBookingButton } from "@/components/schedule/schedule-booking-button";
+import type { StudioPricing } from "@/lib/pricing";
 
 export type ScheduleEntry = {
   courseId: string;
@@ -30,6 +31,8 @@ export type ScheduleEntry = {
   booking?: {
     entryDates: string[];
     nextOccurrenceDates: string[];
+    /** Eigener Kurspreis; `null` = Standardpreis (PROJ-41). */
+    price: number | null;
     hasOpenRegularBooking: boolean;
     hasActiveSubscription: boolean;
     isFull: boolean;
@@ -37,7 +40,7 @@ export type ScheduleEntry = {
     isLoggedIn: boolean;
     hasMandate: boolean;
     hasReferralSource: boolean;
-    dropinPricing: { normal: number; student: number };
+    pricing: StudioPricing;
     roleQueryEnabled: boolean;
   };
 };
@@ -112,6 +115,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
               name: entry.courseName,
               entryDates: entry.booking.entryDates,
               nextOccurrenceDates: entry.booking.nextOccurrenceDates,
+              price: entry.booking.price,
               hasOpenRegularBooking: entry.booking.hasOpenRegularBooking,
               hasActiveSubscription: entry.booking.hasActiveSubscription,
               isFull: entry.booking.isFull,
@@ -122,7 +126,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
             isLoggedIn={entry.booking.isLoggedIn}
             hasMandate={entry.booking.hasMandate}
             hasReferralSource={entry.booking.hasReferralSource}
-            dropinPricing={entry.booking.dropinPricing}
+            pricing={entry.booking.pricing}
           />
         )}
       </CardContent>

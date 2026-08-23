@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { CourseCatalog, type CatalogCourseRow, type SimpleOption } from "@/components/catalog/course-catalog";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
+import { readStudioPricing } from "@/lib/pricing";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -15,13 +16,13 @@ export default async function KurskatalogPage() {
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, prerequisite_note, role_query_enabled"
+        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled"
       )
       .order("created_at", { ascending: true }),
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
     supabase.from("locations").select("id, name").order("name", { ascending: true }),
     supabase.from("teacher_directory").select("id, full_name"),
-    supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
+    supabase.from("dropin_pricing").select("*").limit(1).single(),
     // subscriptions/course_bookings are RLS-scoped to "own row or admin", so a
     // plain query here would only ever see the viewer's own occupancy — this
     // SECURITY DEFINER function returns aggregate counts only (no customer
@@ -93,6 +94,7 @@ export default async function KurskatalogPage() {
         .filter((name): name is string => Boolean(name)),
       nextOccurrenceDates: nextDates,
       entryDates: (c.course_entry_dates ?? []).map((d) => d.entry_date).sort(),
+      price: c.price,
       hasOpenRegularBooking: openRegularCourseIds.has(c.id),
       hasActiveSubscription: enrolledCourseIds.has(c.id),
       isFull: c.max_participants !== null && (occupiedByCourse.get(c.id) ?? 0) >= c.max_participants,
@@ -115,10 +117,7 @@ export default async function KurskatalogPage() {
         isLoggedIn={!!user}
         hasMandate={hasMandate}
         hasReferralSource={hasReferralSource}
-        dropinPricing={{
-          normal: pricingRes.data?.normal_price ?? 20,
-          student: pricingRes.data?.student_price ?? 15,
-        }}
+        pricing={readStudioPricing(pricingRes.data)}
       />
     </div>
   );

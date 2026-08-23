@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingSchema, courseEntryDateSchema, dropinPricingSchema } from "./booking";
+import { bookingSchema, courseEntryDateSchema, pricingSchema, MAX_PRICE } from "./booking";
 
 const validCourseId = "3b11eea8-cab5-46b0-9a2f-ad35bc99115f";
 
@@ -126,14 +126,44 @@ describe("courseEntryDateSchema", () => {
   });
 });
 
-describe("dropinPricingSchema", () => {
-  it("accepts positive prices", () => {
-    const result = dropinPricingSchema.safeParse({ normal_price: 20, student_price: 15 });
-    expect(result.success).toBe(true);
+describe("pricingSchema", () => {
+  const base = {
+    normal_price: 20,
+    student_price: 15,
+    course_price: 65,
+    course_student_price: 45,
+    flatrate_price: 145,
+    flatrate_student_price: 100,
+  };
+
+  it("accepts the full price list", () => {
+    expect(pricingSchema.safeParse(base).success).toBe(true);
   });
 
   it("rejects zero or negative prices", () => {
-    expect(dropinPricingSchema.safeParse({ normal_price: 0, student_price: 15 }).success).toBe(false);
-    expect(dropinPricingSchema.safeParse({ normal_price: 20, student_price: -5 }).success).toBe(false);
+    expect(pricingSchema.safeParse({ ...base, normal_price: 0 }).success).toBe(false);
+    expect(pricingSchema.safeParse({ ...base, student_price: -5 }).success).toBe(false);
+    expect(pricingSchema.safeParse({ ...base, course_price: -1 }).success).toBe(false);
+  });
+
+  it("rejects unrealistically high prices — a typo must not become an offer", () => {
+    expect(pricingSchema.safeParse({ ...base, course_price: MAX_PRICE + 1 }).success).toBe(false);
+    expect(pricingSchema.safeParse({ ...base, flatrate_price: 65000 }).success).toBe(false);
+    expect(pricingSchema.safeParse({ ...base, course_price: MAX_PRICE }).success).toBe(true);
+  });
+
+  it("accepts a missing subscription price — empty means 'not maintained'", () => {
+    const result = pricingSchema.safeParse({
+      ...base,
+      course_price: null,
+      course_student_price: null,
+      flatrate_price: null,
+      flatrate_student_price: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("still requires the drop-in prices", () => {
+    expect(pricingSchema.safeParse({ ...base, normal_price: null }).success).toBe(false);
   });
 });

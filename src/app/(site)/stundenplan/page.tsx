@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
 import { jsDayToWeekday, formatDateLocal, selfCheckinWindow, upcomingOccurrences } from "@/lib/scheduling/dates";
+import { readStudioPricing } from "@/lib/pricing";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -29,7 +30,7 @@ export default async function StundenplanPage() {
       supabase
         .from("courses")
         .select(
-          "id, name, level, dance_styles(name), rooms(id, name, locations(name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, prerequisite_note, role_query_enabled"
+          "id, name, level, dance_styles(name), rooms(id, name, locations(name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled"
         ),
       supabase.from("teacher_directory").select("id, full_name"),
       // PROJ-25: own active course-bound subscriptions determine self-check-in eligibility.
@@ -39,7 +40,7 @@ export default async function StundenplanPage() {
       user ? supabase.rpc("get_my_todays_attendance") : Promise.resolve({ data: null }),
       // PROJ-26: occupancy is public/aggregate (same RPC /kurse already uses), needed regardless of login state.
       supabase.rpc("get_course_occupancy"),
-      supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
+      supabase.from("dropin_pricing").select("*").limit(1).single(),
       user
         ? supabase.from("sepa_mandates").select("id").eq("customer_id", user.id).is("revoked_at", null).maybeSingle()
         : Promise.resolve({ data: null }),
@@ -66,10 +67,7 @@ export default async function StundenplanPage() {
 
   // PROJ-26: booking-eligibility data, gathered once for all courses shown this week.
   const occupiedByCourse = new Map((occupancyRes.data ?? []).map((o) => [o.course_id, o.occupied_count]));
-  const dropinPricing = {
-    normal: dropinPricingRes.data?.normal_price ?? 20,
-    student: dropinPricingRes.data?.student_price ?? 15,
-  };
+  const pricing = readStudioPricing(dropinPricingRes.data);
   const hasMandate = !!mandateRes.data;
   const hasReferralSource = !!profileRes.data?.referral_source;
   const myOpenRegularCourseIds = new Set((myOpenBookingsRes.data ?? []).map((b) => b.course_id));
@@ -117,6 +115,7 @@ export default async function StundenplanPage() {
       // have an active subscription for this course (self-check-in shows instead).
       entry.booking = {
         entryDates: (course.course_entry_dates ?? []).map((d) => d.entry_date).sort(),
+        price: course.price,
         nextOccurrenceDates: upcomingOccurrences(schedule.weekday, {
           count: UPCOMING_OCCURRENCES_WINDOW,
           pauseDates: schedule.course_schedule_pauses.map((p) => p.pause_date),
@@ -130,7 +129,7 @@ export default async function StundenplanPage() {
         isLoggedIn: !!user,
         hasMandate,
         hasReferralSource,
-        dropinPricing,
+        pricing,
         roleQueryEnabled: course.role_query_enabled,
       };
     }

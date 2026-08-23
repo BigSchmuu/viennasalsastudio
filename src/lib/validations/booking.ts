@@ -32,9 +32,28 @@ export const courseEntryDateSchema = z.object({
 
 export type CourseEntryDateInput = z.infer<typeof courseEntryDateSchema>;
 
-export const dropinPricingSchema = z.object({
-  normal_price: z.number().positive("Normalpreis muss größer als 0 sein"),
-  student_price: z.number().positive("Studierendenpreis muss größer als 0 sein"),
+/**
+ * Obergrenze für alle gepflegten Preise (PROJ-41). Ein Zahlendreher — 650 statt
+ * 65 — darf nicht stillschweigend zu einem Vertragsangebot werden.
+ */
+export const MAX_PRICE = 1000;
+
+const requiredPrice = (label: string) =>
+  z
+    .number()
+    .positive(`${label} muss größer als 0 sein`)
+    .max(MAX_PRICE, `${label} darf höchstens ${MAX_PRICE} € betragen`);
+
+/** Abo- und Flatrate-Preise dürfen fehlen: `null` heißt „noch nicht gepflegt". */
+const optionalPrice = (label: string) => requiredPrice(label).nullable();
+
+export const pricingSchema = z.object({
+  normal_price: requiredPrice("Drop-in-Normalpreis"),
+  student_price: requiredPrice("Drop-in-Studierendenpreis"),
+  course_price: optionalPrice("Kursabo-Normalpreis"),
+  course_student_price: optionalPrice("Kursabo-Studierendenpreis"),
+  flatrate_price: optionalPrice("Flatrate-Normalpreis"),
+  flatrate_student_price: optionalPrice("Flatrate-Studierendenpreis"),
 });
 
-export type DropinPricingInput = z.infer<typeof dropinPricingSchema>;
+export type PricingInput = z.infer<typeof pricingSchema>;

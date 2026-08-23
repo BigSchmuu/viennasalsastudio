@@ -8,6 +8,7 @@ import { levelOptions, levelLabel, levelColor, levelBadgeStyle } from "@/lib/con
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import type { StudioPricing } from "@/lib/pricing";
 import {
   Select,
   SelectContent,
@@ -38,6 +39,8 @@ export type CatalogCourseRow = {
   teacherNames: string[];
   nextOccurrenceDates: string[];
   entryDates: string[];
+  /** Eigener Kurspreis; `null` = Standardpreis (PROJ-41). */
+  price: number | null;
   hasOpenRegularBooking: boolean;
   hasActiveSubscription: boolean;
   isFull: boolean;
@@ -55,7 +58,7 @@ export function CourseCatalog({
   isLoggedIn,
   hasMandate,
   hasReferralSource,
-  dropinPricing,
+  pricing,
 }: {
   courses: CatalogCourseRow[];
   danceStyles: SimpleOption[];
@@ -63,7 +66,7 @@ export function CourseCatalog({
   isLoggedIn: boolean;
   hasMandate: boolean;
   hasReferralSource: boolean;
-  dropinPricing: { normal: number; student: number };
+  pricing: StudioPricing;
 }) {
   const router = useRouter();
   const [danceStyleId, setDanceStyleId] = useState(ALL);
@@ -251,7 +254,7 @@ export function CourseCatalog({
           course={bookingCourse}
           hasMandate={hasMandate}
           hasReferralSource={hasReferralSource}
-          dropinPricing={dropinPricing}
+          pricing={pricing}
         />
       )}
     </div>

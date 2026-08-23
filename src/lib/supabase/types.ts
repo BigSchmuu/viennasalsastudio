@@ -577,18 +577,30 @@ export type Database = {
       }
       dropin_pricing: {
         Row: {
+          course_price: number | null
+          course_student_price: number | null
+          flatrate_price: number | null
+          flatrate_student_price: number | null
           id: string
           normal_price: number
           student_price: number
           updated_at: string
         }
         Insert: {
+          course_price?: number | null
+          course_student_price?: number | null
+          flatrate_price?: number | null
+          flatrate_student_price?: number | null
           id?: string
           normal_price: number
           student_price: number
           updated_at?: string
         }
         Update: {
+          course_price?: number | null
+          course_student_price?: number | null
+          flatrate_price?: number | null
+          flatrate_student_price?: number | null
           id?: string
           normal_price?: number
           student_price?: number

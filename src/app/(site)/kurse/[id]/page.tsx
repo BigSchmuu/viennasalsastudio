@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CourseDetailBooking, type CourseDetailData } from "@/components/catalog/course-detail-booking";
 import { YoutubeEmbed } from "@/components/video/youtube-embed";
+import { readStudioPricing } from "@/lib/pricing";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -18,15 +19,15 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: course }, { data: pricing }, occupancyRes] = await Promise.all([
+  const [{ data: course }, { data: pricingRow }, occupancyRes] = await Promise.all([
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, prerequisite_note, role_query_enabled"
+        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled"
       )
       .eq("id", id)
       .single(),
-    supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
+    supabase.from("dropin_pricing").select("*").limit(1).single(),
     // subscriptions/course_bookings are RLS-scoped to "own row or admin" — see
     // src/app/(site)/kurse/page.tsx for why this needs the aggregate RPC.
     supabase.rpc("get_course_occupancy"),
@@ -113,6 +114,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     name: course.name,
     entryDates: (course.course_entry_dates ?? []).map((d) => d.entry_date).sort(),
     nextOccurrenceDates,
+    price: course.price,
     hasOpenRegularBooking,
     hasActiveSubscription,
     isFull,
@@ -155,10 +157,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
         isLoggedIn={!!user}
         hasMandate={hasMandate}
         hasReferralSource={hasReferralSource}
-        dropinPricing={{
-          normal: pricing?.normal_price ?? 20,
-          student: pricing?.student_price ?? 15,
-        }}
+        pricing={readStudioPricing(pricingRow)}
       />
 
       {lessons.length > 0 && (

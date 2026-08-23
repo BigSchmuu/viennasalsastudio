@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { BookingManager, type AdminBookingRow } from "@/components/admin/bookings/booking-manager";
-import { DropinPricingForm } from "@/components/admin/bookings/dropin-pricing-form";
+import { PricingForm } from "@/components/admin/bookings/pricing-form";
+import { readStudioPricing } from "@/lib/pricing";
 import { bookingTypeValues } from "@/lib/constants/booking";
 
 const SORTABLE_COLUMNS = ["customer_name", "course_name", "chosen_date"] as const;
@@ -37,7 +38,7 @@ export default async function BuchungenPage({
 
   const [bookingsRes, pricingRes] = await Promise.all([
     query,
-    supabase.from("dropin_pricing").select("normal_price, student_price").limit(1).single(),
+    supabase.from("dropin_pricing").select("*").limit(1).single(),
   ]);
 
   // PROJ-15: recomputed on every page load rather than trusted from the
@@ -81,10 +82,7 @@ export default async function BuchungenPage({
         <h2 className="font-heading text-xl font-bold">Buchungen</h2>
         <p className="text-sm text-muted-foreground">Buchungsanfragen, Probestunden und Drop-ins verwalten</p>
       </div>
-      <DropinPricingForm
-        normalPrice={pricingRes.data?.normal_price ?? 20}
-        studentPrice={pricingRes.data?.student_price ?? 15}
-      />
+      <PricingForm pricing={readStudioPricing(pricingRes.data)} />
       <BookingManager bookings={bookings} initialType={isValidType ? params.type! : ""} />
     </div>
   );

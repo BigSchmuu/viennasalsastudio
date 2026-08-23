@@ -8,7 +8,6 @@ import { createBooking } from "@/lib/actions/booking";
 import { checkCouponCode, type CouponCheckResult } from "@/lib/actions/coupons";
 import { joinWaitlist } from "@/lib/actions/waitlist";
 import {
-  desiredPlanOptions,
   referralSourceOptions,
   danceRoleOptions,
   type DesiredPlan,
@@ -22,6 +21,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { PlanPriceTiles } from "@/components/booking/plan-price-tiles";
+import { formatPrice, type StudioPricing } from "@/lib/pricing";
 import {
   Dialog,
   DialogContent,
@@ -37,10 +38,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-function formatPrice(price: number): string {
-  return price.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
-}
-
 function formatDate(date: string): string {
   return new Date(date).toLocaleDateString("de-AT", { weekday: "short", day: "2-digit", month: "2-digit" });
 }
@@ -53,6 +50,8 @@ export type BookingDialogCourse = {
   hasOpenRegularBooking: boolean;
   /** Fix zu PROJ-8: schon eingeschrieben — eine zweite Anmeldung hieße doppelter Einzug. */
   hasActiveSubscription: boolean;
+  /** Eigener Preis dieses Kurses; `null` heißt „Standardpreis gilt" (PROJ-41). */
+  price: number | null;
   isFull: boolean;
   isOnWaitlist: boolean;
   prerequisiteNote: string | null;
@@ -65,14 +64,14 @@ export function BookingDialog({
   course,
   hasMandate,
   hasReferralSource,
-  dropinPricing,
+  pricing,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   course: BookingDialogCourse;
   hasMandate: boolean;
   hasReferralSource: boolean;
-  dropinPricing: { normal: number; student: number };
+  pricing: StudioPricing;
 }) {
   const router = useRouter();
   const defaultTab =
@@ -118,7 +117,7 @@ export function BookingDialog({
     };
   }, [couponCode]);
 
-  const dropinPrice = wantsStudentPrice ? dropinPricing.student : dropinPricing.normal;
+  const dropinPrice = wantsStudentPrice ? pricing.dropin.student : pricing.dropin.normal;
 
   const showWaitlistForm =
     tab === "regular" &&
@@ -181,6 +180,7 @@ export function BookingDialog({
         formData.set("note", note);
         formData.set("dance_role", danceRole);
         formData.set("coupon_code", couponCode.trim());
+        formData.set("wants_student_price", String(wantsStudentPrice));
       } else if (tab === "trial") {
         formData.set("chosen_date", trialDate);
       } else {
@@ -306,16 +306,23 @@ export function BookingDialog({
                 </div>
                 <div className="space-y-2">
                   <Label>Abo-Art</Label>
-                  <RadioGroup value={desiredPlan} onValueChange={(v) => setDesiredPlan(v as DesiredPlan)}>
-                    {desiredPlanOptions.map((option) => (
-                      <div key={option.value} className="flex items-center gap-2">
-                        <RadioGroupItem value={option.value} id={`plan-${option.value}`} />
-                        <Label htmlFor={`plan-${option.value}`} className="font-normal">
-                          {option.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
+                  <PlanPriceTiles
+                    pricing={pricing}
+                    coursePrice={course.price}
+                    student={wantsStudentPrice}
+                    value={desiredPlan}
+                    onChange={setDesiredPlan}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="wants-student-price-regular"
+                      checked={wantsStudentPrice}
+                      onCheckedChange={(checked) => setWantsStudentPrice(checked === true)}
+                    />
+                    <Label htmlFor="wants-student-price-regular" className="font-normal">
+                      Ich bin Student(in)
+                    </Label>
+                  </div>
                 </div>
                 {course.roleQueryEnabled && (
                   <div className="space-y-2">
