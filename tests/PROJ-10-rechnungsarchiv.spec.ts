@@ -202,8 +202,12 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
     const path = await download.path();
     const fs = await import("fs");
     const content = fs.readFileSync(path!, "utf-8");
-    expect(content.split("\n")[0]).toBe(
-      "Rechnungsnummer,Datum,Kunde,Netto,USt-Satz,USt-Betrag,Brutto,Status"
+    // Seit PROJ-36 trennt die Datei mit Semikolon und beginnt mit einer
+    // Kodierungs-Kennung (BOM) — beides nötig, damit österreichisches Excel
+    // Zahlen als Zahlen und Umlaute korrekt liest.
+    expect(content.charCodeAt(0)).toBe(0xfeff);
+    expect(content.split("\n")[0].slice(1)).toBe(
+      "Rechnungsnummer;Datum;Kunde;Netto;USt-Satz;USt-Betrag;Brutto;Status"
     );
     expect(content).toContain("E2E8 Kunde");
   });

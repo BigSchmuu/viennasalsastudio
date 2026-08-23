@@ -259,7 +259,101 @@ Dateiname: `rechnungsjournal-2028-01.csv`. GESAMT enthält korrekt nur die eine 
 die beiden zurückgebuchten (40,00 + 30,00 = 70,00) stehen getrennt darunter.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-08-23
+**Umgebung:** http://localhost:3000 gegen die Produktiv-Datenbank (es gibt keine Staging-DB)
+**Tester:** QA Engineer (AI)
+
+### Akzeptanzkriterien
+
+#### Summen im CSV — 5/5 bestanden
+- [x] GESAMT-Zeile mit Netto, USt-Betrag und Brutto unter den Einzelzeilen
+- [x] Zwischensumme je USt-Satz
+- [x] Zwischensumme erscheint auch bei einheitlichem Satz (einheitliches Format)
+- [x] Rücklastschriften getrennt ausgewiesen und **nicht** in GESAMT eingerechnet
+- [x] Leerer Zeitraum → Kopfzeile und Nullsummen, HTTP 200, kein Fehler
+
+#### Monats-Export — 3/3 bestanden
+- [x] Monatsauswahl setzt Von/Bis auf Monatsanfang und -ende
+- [x] Dateiname nennt den Zeitraum (`rechnungsjournal-2028-01.csv`)
+- [x] Freie Datumsfelder filtern unverändert
+
+#### Verständlichkeit für den Steuerberater — 2/2 bestanden
+- [x] Beträge im österreichischen Format (`25,00`, nirgends `25.00`), Umlaute intakt, BOM vorhanden (Codepoint 65279)
+- [x] Summenzeilen tragen keine Rechnungsnummer und sind an ihrer Beschriftung erkennbar
+
+### Edge Cases
+- [x] Rücklastschriften zählen weder in GESAMT noch in die Zwischensummen
+- [x] Gruppierung nach dem auf der Rechnung gespeicherten USt-Satz (Unit-Test)
+- [x] Summe der bereits gerundeten Einzelbeträge — die Spalte ist von Hand nachrechenbar (Unit-Test)
+- [x] Kundenname mit Sonderzeichen bricht die Datei nicht (siehe Sicherheitsprüfung)
+- [x] Monat ohne Rechnungen → Nullsummen
+- [x] Schaltjahr (Februar 2028 → 29 Tage) und Jahreswechsel (Januar 2026 → Dezember 2025)
+
+### Sicherheitsprüfung (Red Team)
+- [x] **Unangemeldeter Zugriff:** liefert die Login-Seite als HTML, keine CSV-Kopfzeile, keine Rechnungsnummer
+- [x] **Kunde:** kein Zugriff auf fremde Buchhaltungsdaten
+- [x] **Lehrer:** ebenfalls kein Zugriff
+- [x] **CSV-Formel-Einschleusung über den Kundennamen — real durchgespielt:** Ein Kunde wurde
+      testweise auf `=HYPERLINK("http://boese.example","Klick");Spalte;Verschoben` umbenannt.
+      Ergebnis in der Datei:
+      `"'=HYPERLINK(""http://boese.example"",""Klick"");Spalte;Verschoben"` — die Formel ist mit
+      einem Apostroph entschärft (Excel liest sie als Text) und das eingefasste Feld verhindert,
+      dass die eingebauten Semikolons die Spalten verschieben. **Beide Angriffe abgewehrt.**
+      Der Fixture-Name wurde anschließend wiederhergestellt.
+
+### Gefundene Fehler
+
+#### BUG-1: Monatsauswahl bleibt leer bei Monaten außerhalb der angebotenen Liste
+- **Schweregrad:** Low
+- **Reproduktion:**
+  1. `/admin/rechnungen?from=2020-03-01&to=2020-03-31` aufrufen (oder die Datumsfelder von Hand setzen)
+  2. Erwartet: Die Auswahl zeigt „März 2020" oder „Eigener Zeitraum"
+  3. Tatsächlich: Die Auswahl ist **leer**
+- **Nachgewiesen:**
+
+  | Eingegebener Zeitraum | Auswahl zeigt |
+  |---|---|
+  | Juli 2026 (in der Liste) | „Juli 2026" ✓ |
+  | Januar 2028 (Zukunft) | leer |
+  | März 2020 (älter als 24 Monate) | leer |
+
+- **Ursache:** Die Liste bietet 24 Monate rückwärts. Ein erkannter Monat außerhalb davon hat keinen
+  passenden Eintrag, und das Auswahlfeld stellt dann nichts dar.
+- **Auswirkung:** Rein optisch. Filter, Summen und Export arbeiten korrekt, die Daten stehen sichtbar
+  in den Von-/Bis-Feldern. Realistischer Auslöser: ein Monat, der länger als zwei Jahre zurückliegt —
+  etwa bei einer Betriebsprüfung.
+- **Priorität:** Nice to have. Blockiert nichts.
+
+### Automatisierte Tests
+- **Unit:** 21 neue Tests in `src/lib/invoices.test.ts`, 3 bestehende an das neue Format angepasst —
+  Gesamtsuite **265/265 grün**. Abgedeckt: Summenbildung, Ausschluss der Rücklastschriften,
+  Gruppierung nach Steuersatz, Rundung, Dateinamen, österreichisches Zahlenformat, Formelschutz.
+- **E2E:** 11 neue Tests in `tests/PROJ-36-buchhaltungs-export-mit-summen.spec.ts` —
+  **11/11 grün auf Chromium und auf Mobile Safari.**
+- **Methodik:** Die Zusicherungen prüfen den Zeitraum Januar 2028, den ausschließlich die
+  PROJ-10-Fixtures belegen. Ein von anderen Suiten berührter Zeitraum hätte die Zahlen von der
+  Laufreihenfolge abhängig gemacht.
+
+### Regression
+- PROJ-10 (Rechnungsarchiv): **12/12 grün.** Eine Zusicherung dort prüfte die alte Kopfzeile mit
+  Kommas und wurde an das freigegebene neue Format angepasst — keine Fehlfunktion, sondern eine
+  veraltete Erwartung.
+- PROJ-33 (Sortieren/Filtern in Admin-Listen): **9/9 grün**, die erweiterte Filterleiste stört nicht.
+
+### Nicht abgedeckt
+- **Öffnen der Datei in echtem Excel.** Format, Trennzeichen und BOM sind maschinell geprüft; wie
+  Excel auf dem Rechner des Steuerberaters die Datei tatsächlich darstellt, lässt sich hier nicht
+  nachstellen. Ein Probe-Download durch den Betreiber ist der letzte sinnvolle Schritt.
+
+### Zusammenfassung
+- **Akzeptanzkriterien:** 10/10 bestanden
+- **Fehler:** 1 (0 kritisch, 0 hoch, 0 mittel, **1 niedrig**)
+- **Sicherheit:** Bestanden. Der ernsteste denkbare Angriff — eine Tabellenformel über den
+  Kundennamen — ist real durchgespielt und abgewehrt
+- **Produktionsreif:** **JA**
+- **Empfehlung:** Deployment möglich. BUG-1 ist kosmetisch und kann jederzeit nachgezogen werden
+
 
 ## Deployment
 _To be added by /deploy_
