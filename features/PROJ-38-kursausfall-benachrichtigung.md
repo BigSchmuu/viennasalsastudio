@@ -162,6 +162,48 @@ Neu: eine Aktion in der bestehenden Pausen-Liste, eine Textvorlage, ein neuer
 Benachrichtigungs-Anlass. Erweitert: die Pause um eine Angabe. Keine neue Seite, keine neue Tabelle,
 keine neue Abhängigkeit.
 
+---
+
+## Implementation Notes (Frontend)
+
+**Umgesetzt am 2026-08-23.** Knopf, Bestätigungsdialog und Empfängerzahl stehen; der **Versand**
+folgt im Backend-Schritt.
+
+### Geänderte/neue Dateien
+| Datei | Zweck |
+|-------|-------|
+| `supabase/migrations/…_proj38_pause_notified_at.sql` | Eine Angabe an der Pause: zuletzt benachrichtigt |
+| `src/lib/actions/admin/course-cancellation.ts` (neu) | Ermittelt die Empfängerzahl |
+| `src/components/admin/courses/course-schedule-section.tsx` | Knopf, Dialog, „benachrichtigt am" |
+| `src/app/admin/kurse/page.tsx` | Reicht den Zeitpunkt durch |
+| `src/lib/actions/admin/course-schedule.ts` | Neue Pause startet mit „nie benachrichtigt" |
+
+### Entscheidungen bei der Umsetzung
+- **Die Empfängerzahl wird beim Öffnen des Dialogs geholt, nicht beim Seitenaufruf.** Der Admin
+  schickt gleich etwas Unwiderrufliches; eine Zahl von vor zehn Minuten könnte in beide Richtungen
+  falsch sein.
+- **Doppelte Empfänger werden einmal gezählt.** Wer ein Abo *und* ein Drop-in für denselben Tag hat,
+  ist eine Person — die Zahl im Dialog muss der Zahl der Nachrichten entsprechen.
+- **Bei null Betroffenen ist der Senden-Knopf gesperrt** und der Dialog sagt es ausdrücklich, statt
+  einen Versand ins Leere zu erlauben.
+- **Der Knopf heißt „Erneut benachrichtigen"**, sobald schon einmal gesendet wurde — zusammen mit
+  dem Datum daneben sieht der Admin auf einen Blick, woran er ist.
+
+### Nebenbei korrigiert
+Die Pausen-Liste zeigte Datumsangaben als `2026-12-01`, während die Verwaltung sonst durchgängig
+`01.12.2026` schreibt. Angeglichen — in der Liste und im Dialog.
+
+### Verifiziert
+Pause für einen Kurs mit einem aktiven Abo angelegt, Dialog geöffnet:
+
+> „1 Person wird über den Ausfall am 01.12.2026 informiert. Das lässt sich nicht zurücknehmen."
+
+Einzahl und Mehrzahl werden korrekt unterschieden. Testdaten anschließend entfernt.
+
+### Noch offen (Backend-Schritt)
+Der eigentliche Versand, die Textvorlage über PROJ-34, der neue Benachrichtigungs-Anlass und das
+Setzen des Zeitpunkts nach erfolgreichem Versand.
+
 ## QA Test Results
 _To be added by /qa_
 

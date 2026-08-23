@@ -8,7 +8,12 @@ type ScheduleResult =
   | { error: string }
   | { success: true; schedule: { id: string; weekday: number; startTime: string; endTime: string } };
 
-type PauseResult = { error: string } | { success: true; pause: { id: string; pauseDate: string } };
+// PROJ-38: notifiedAt kommt mit, damit die frisch angelegte Pause in der Liste
+// denselben Zustand hat wie eine neu geladene — sie ist naturgemäß noch nicht
+// benachrichtigt, denn das Eintragen verschickt bewusst nichts.
+type PauseResult =
+  | { error: string }
+  | { success: true; pause: { id: string; pauseDate: string; notifiedAt: string | null } };
 type SimpleResult = { error: string } | { success: true };
 
 export async function upsertCourseSchedule(courseId: string, formData: FormData): Promise<ScheduleResult> {
@@ -88,7 +93,7 @@ export async function addSchedulePause(scheduleId: string, formData: FormData): 
 
   revalidatePath("/admin/kurse");
   revalidatePath("/stundenplan");
-  return { success: true, pause: { id: data.id, pauseDate: data.pause_date } };
+  return { success: true, pause: { id: data.id, pauseDate: data.pause_date, notifiedAt: null } };
 }
 
 export async function deleteSchedulePause(pauseId: string): Promise<SimpleResult> {

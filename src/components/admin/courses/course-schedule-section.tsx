@@ -19,6 +19,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { countAffectedCustomers } from "@/lib/actions/admin/course-cancellation";
+
+/** Überall sonst in der Verwaltung stehen Datumsangaben deutsch; die
+ *  Pausen-Liste zeigte bisher als einzige die technische Schreibweise. */
+function formatPauseDate(value: string): string {
+  return new Date(value).toLocaleDateString("de-AT", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
 
 export type ScheduleData = {
   id: string;
@@ -30,6 +47,7 @@ export type ScheduleData = {
 export type PauseData = {
   id: string;
   pauseDate: string;
+  notifiedAt: string | null;
 };
 
 export function CourseScheduleSection({
@@ -55,6 +73,24 @@ export function CourseScheduleSection({
   const [pauseDate, setPauseDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // PROJ-38: Die Empfängerzahl wird erst beim Öffnen des Dialogs geholt — der
+  // Admin schickt gleich eine Nachricht, die sich nicht zurückholen lässt, und
+  // eine Zahl vom Seitenaufruf könnte längst falsch sein.
+  const [notifyPause, setNotifyPause] = useState<PauseData | null>(null);
+  const [affected, setAffected] = useState<number | null>(null);
+  const [countingError, setCountingError] = useState<string | null>(null);
+
+  async function openNotifyDialog(pause: PauseData) {
+    setNotifyPause(pause);
+    setAffected(null);
+    setCountingError(null);
+    const result = await countAffectedCustomers(pause.id);
+    if ("error" in result) {
+      setCountingError(result.error);
+      return;
+    }
+    setAffected(result.count);
+  }
 
   async function handleSave() {
     setLoading(true);
@@ -191,17 +227,33 @@ export function CourseScheduleSection({
               {pauses.map((pause) => (
                 <li key={pause.id} className="flex items-center justify-between text-sm">
                   <span>
-                    {weekdayLabel(schedule.weekday)}, {pause.pauseDate}
+                    {weekdayLabel(schedule.weekday)}, {formatPauseDate(pause.pauseDate)}
                   </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={loading}
-                    onClick={() => handleDeletePause(pause.id)}
-                  >
-                    Entfernen
-                  </Button>
+                  <span className="flex items-center gap-2">
+                    {pause.notifiedAt && (
+                      <span className="text-xs text-muted-foreground">
+                        benachrichtigt am {new Date(pause.notifiedAt).toLocaleDateString("de-AT")}
+                      </span>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={loading}
+                      onClick={() => openNotifyDialog(pause)}
+                    >
+                      {pause.notifiedAt ? "Erneut benachrichtigen" : "Kunden benachrichtigen"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={loading}
+                      onClick={() => handleDeletePause(pause.id)}
+                    >
+                      Entfernen
+                    </Button>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -222,6 +274,29 @@ export function CourseScheduleSection({
           </div>
         </div>
       )}
-    </div>
+    
+      <AlertDialog open={notifyPause !== null} onOpenChange={(open) => !open && setNotifyPause(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kunden über den Ausfall benachrichtigen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {countingError
+                ? countingError
+                : affected === null
+                  ? "Empfänger werden ermittelt…"
+                  : affected === 0
+                    ? `Für den ${notifyPause ? formatPauseDate(notifyPause.pauseDate) : ""} ist niemand betroffen — es wird nichts versendet.`
+                    : `${affected} ${affected === 1 ? "Person wird" : "Personen werden"} über den Ausfall am ${notifyPause ? formatPauseDate(notifyPause.pauseDate) : ""} informiert. Das lässt sich nicht zurücknehmen.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction disabled={affected === null || affected === 0 || countingError !== null}>
+              Benachrichtigung senden
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+</div>
   );
 }

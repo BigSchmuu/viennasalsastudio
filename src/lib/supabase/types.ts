@@ -376,18 +376,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          notified_at: string | null
           pause_date: string
           schedule_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          notified_at?: string | null
           pause_date: string
           schedule_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          notified_at?: string | null
           pause_date?: string
           schedule_id?: string
         }
