@@ -74,11 +74,93 @@
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Der Empfängerkreis wird beim Senden ermittelt, nicht gespeichert | Eine gespeicherte Liste veraltet, sobald jemand kündigt oder dazukommt — sie würde Nachrichten an Falsche schicken oder Richtige übergehen | 2026-08-23 |
+| Eine einzige neue Angabe an der Pause („zuletzt benachrichtigt am") | Mehr braucht es nicht: Sie beantwortet „habe ich schon?" und ermöglicht wiederholtes Senden ohne Ratespiel | 2026-08-23 |
+| Eintragen und Benachrichtigen bleiben getrennt | Ferien werden Monate im Voraus eingetragen; ein automatischer Versand dabei wäre eine Zumutung für die Kunden und für den Betreiber nicht steuerbar | 2026-08-23 |
+| Bestätigungsdialog mit Empfängerzahl vor dem Versand | Eine Nachricht an alle Kursteilnehmer lässt sich nicht zurückholen. Die Zahl ist die letzte Gelegenheit, einen falsch gewählten Termin zu bemerken | 2026-08-23 |
+| Drop-in und Probestunde nur beim eigenen Termin, Abos immer | Wer für einen anderen Tag gebucht hat, ist nicht betroffen; Abo-Kunden könnten dagegen jede Woche kommen | 2026-08-23 |
+| Versand an den Kunden-Einstellungen vorbei | Wie SEPA-Ankündigung und Zahlungserinnerung betrieblich notwendig: Wer nichts erfährt, steht vor verschlossener Tür | 2026-08-23 |
+| Wiederholtes Senden erlaubt, kein Dublettenschutz | Ein zu früher Klick oder ein neu dazugekommener Teilnehmer muss korrigierbar sein — dieselbe Begründung wie bei der Zahlungserinnerung aus PROJ-37 | 2026-08-23 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Verwaltung → Kurse → Kurs bearbeiten → Pausen (bestehend)
+└── Liste der eingetragenen Pausen
+    ├── 15.09.2026                          [Entfernen]   (bestehend)
+    └── NEU pro Zeile:
+        ├── „Kunden benachrichtigen"  → Bestätigungsdialog
+        │      „12 Personen werden informiert. Senden?"
+        └── „zuletzt benachrichtigt am 01.09."  (sobald verschickt)
+
+Verwaltung → Benachrichtigungen (bestehend)
+└── NEU: Vorlage „Kursausfall" — Text selbst anpassbar
+```
+
+Es entsteht **keine neue Seite**. Die Pausen-Liste, die es seit PROJ-6 gibt, bekommt pro Eintrag
+eine Aktion.
+
+### B) Data Model (plain language)
+
+```
+Zur bereits vorhandenen Pause kommt eine einzige Angabe hinzu:
+- Zuletzt benachrichtigt am   (leer = noch nie)
+
+Sonst wird nichts gespeichert. Wer benachrichtigt wird, ergibt sich
+im Moment des Versands aus den vorhandenen Daten:
+
+  Kunden mit AKTIVEM Abo für diesen Kurs
+  + Personen mit bestätigter Probestunde oder Drop-in GENAU an diesem Termin
+```
+
+**Der Empfängerkreis wird nicht gespeichert.** Er wird beim Senden ermittelt. Eine gespeicherte
+Empfängerliste würde veralten, sobald jemand kündigt oder dazukommt — und dann Nachrichten an
+Falsche schicken oder Richtige übergehen.
+
+### C) Tech Decisions (justified for PM)
+
+- **Eintragen und Benachrichtigen sind getrennt.** Das ist die wichtigste Entscheidung. Du trägst
+  die Sommerferien im Mai ein — es wäre absurd, wenn dann sofort Nachrichten rausgingen. Die Pause
+  wirkt sofort im Stundenplan, die Benachrichtigung löst du bewusst aus, wenn der Zeitpunkt passt.
+
+- **Vor dem Senden steht die Zahl.** Du siehst „12 Personen werden informiert" und bestätigst.
+  Eine Nachricht an alle Kursteilnehmer lässt sich nicht zurückholen; die Zahl ist die letzte
+  Gelegenheit zu merken, dass man den falschen Termin erwischt hat.
+
+- **Drop-in- und Probestunden-Gäste bekommen die Nachricht nur für ihren eigenen Termin.** Wer für
+  den 22. gebucht hat, interessiert der Ausfall am 15. nicht. Abo-Kunden erhalten sie dagegen immer,
+  weil sie grundsätzlich jede Woche kommen könnten.
+
+- **Pausierte und gekündigte Abos bleiben außen vor.** Sie kommen ohnehin nicht.
+
+- **Die Nachricht geht an den Kunden-Benachrichtigungseinstellungen vorbei** — wie die
+  SEPA-Ankündigung und die Zahlungserinnerung. Ein ausgefallener Termin ist betrieblich notwendig:
+  Wer davon nichts erfährt, steht vor verschlossener Tür.
+
+- **Der Text ist über „Benachrichtigungs-Texte" anpassbar.** Ob „muss leider entfallen" oder „fällt
+  aus" — das ist dein Ton, nicht meiner.
+
+- **Wiederholtes Senden ist erlaubt.** Wenn du merkst, dass du zu früh geklickt hast oder jemand
+  neu dazugekommen ist, sendest du erneut. Der Zeitpunkt des letzten Versands steht daneben, damit
+  du nicht raten musst.
+
+- **Kein automatischer Versand.** Auch nicht „X Tage vorher". Eine Absage ist immer eine bewusste
+  Entscheidung.
+
+### D) Dependencies (packages to install)
+
+Keine. Das Feature nutzt die Pausen aus PROJ-6, die Benachrichtigungs-Infrastruktur aus PROJ-16 und
+die Textverwaltung aus PROJ-34.
+
+### Umfang
+
+Neu: eine Aktion in der bestehenden Pausen-Liste, eine Textvorlage, ein neuer
+Benachrichtigungs-Anlass. Erweitert: die Pause um eine Angabe. Keine neue Seite, keine neue Tabelle,
+keine neue Abhängigkeit.
 
 ## QA Test Results
 _To be added by /qa_
