@@ -109,6 +109,24 @@ test.beforeAll(async () => {
     chosen_date: CHOSEN_DATE,
   });
   if (waitlistError) throw new Error(`Could not seed PROJ-12 waitlist entry: ${waitlistError.message}`);
+
+  // AC9 needs a customer who is already enrolled in "E2E12 Kurs". The cleanup
+  // above wipes every subscription for these courses, so it has to be put back
+  // here — otherwise AC9 asserts a rejection that can never happen, which is
+  // exactly how it started failing.
+  const holderId = idFor("e2e12-holder@viennasalsastudio.test");
+  if (!holderId) throw new Error("PROJ-12 fixture customer 'holder' not found");
+  const { error: subscriptionError } = await service.from("subscriptions").insert({
+    customer_id: holderId,
+    course_id: kurs.id,
+    name: "E2E12 Holder Abo",
+    status: "active",
+    price: 45,
+    cycle_anchor_date: CHOSEN_DATE,
+  });
+  if (subscriptionError) {
+    throw new Error(`Could not seed PROJ-12 holder subscription: ${subscriptionError.message}`);
+  }
 });
 
 test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {

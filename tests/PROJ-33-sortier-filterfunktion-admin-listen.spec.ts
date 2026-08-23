@@ -107,6 +107,14 @@ test.describe("PROJ-33: Sortier- und Filterfunktion für Admin-Listen", () => {
   test("AC7: Lastschriftlauf-Liste — Status-Filter zeigt nur passenden Status, Spalte ist sortierbar", async ({ page }) => {
     await login(page, ADMIN);
     await page.goto("/admin/lastschriften");
+
+    // Sort first, filter second. The other way round the filter can legitimately
+    // yield zero rows — PROJ-7/9/10 delete and recreate their debit runs, so how
+    // many exist depends on run order — and an empty result renders the empty
+    // state instead of the table, leaving no column header to click.
+    await page.getByRole("button", { name: /Gesamtbetrag/ }).click();
+    await expect(page).toHaveURL(/sort=total/);
+
     await page.getByLabel("Status").click();
     await page.getByRole("option", { name: "Vollständig eingezogen", exact: true }).click();
     await expect(page).toHaveURL(/status=complete/);
@@ -117,8 +125,6 @@ test.describe("PROJ-33: Sortier- und Filterfunktion für Admin-Listen", () => {
         await expect(rows.nth(i)).toContainText("Vollständig eingezogen");
       }
     }
-    await page.getByRole("button", { name: /Gesamtbetrag/ }).click();
-    await expect(page).toHaveURL(/sort=total/);
   });
 
   test("AC8: Ein Filter ohne Treffer zeigt einen Leerzustand statt einer leeren Tabelle", async ({ page }) => {
