@@ -14,7 +14,9 @@
 - Als Betreiber möchte ich, dass mein Steuerberater eine Datei bekommt, die ohne Rückfragen verständlich ist.
 
 ## Out of Scope
-- **Bar- und Vor-Ort-Zahlungen.** Der Export enthält ausschließlich Rechnungen, und Rechnungen entstehen aktuell **nur** aus SEPA-Lastschriftläufen. Drop-in-Stunden und vor Ort bezahlte Event-Tickets erzeugen keine Rechnung und tauchen deshalb **nicht** im Export auf. Das ist eine bekannte Lücke (siehe Decision Log) — sie zu schließen wäre ein eigenes Feature ("Kassenbuch"), das bewusst zurückgestellt wurde.
+- **Bar- und Vor-Ort-Zahlungen.** Der Export enthält ausschließlich Rechnungen, und Rechnungen entstehen **nur** aus SEPA-Lastschriftläufen. Drop-in-Stunden und vor Ort bezahlte Event-Tickets tauchen deshalb **nicht** auf.
+  **Das ist kein Mangel, sondern gewollt:** Vor-Ort-Rechnungen erstellt der Betreiber in einem anderen System (bestätigt am 2026-08-23). Der Export ist die SEPA-Seite der Buchhaltung, nicht die Gesamtsicht. Ein "Kassenbuch"-Feature ist damit gegenstandslos.
+  **Folge für die Umsetzung:** Die Datei muss unübersehbar ausweisen, dass sie nur Lastschrift-Einnahmen enthält — sonst wirkt eine Jahressumme wie der Gesamtumsatz und wird beim Zusammenführen mit dem anderen System doppelt oder falsch verrechnet.
 - **Monatssperre / Festschreibung.** Ein exportierter Monat wird nicht gegen spätere Änderungen gesperrt.
 - **DATEV- oder sonstiges Steuerberater-Spezialformat.** Es bleibt bei CSV.
 - **Automatischer Versand an den Steuerberater** (z.B. monatliche E-Mail) — Datei wird manuell heruntergeladen.
@@ -63,7 +65,9 @@
 | Rücklastschriften separat ausweisen, nicht in GESAMT einrechnen | Zurückgebuchtes Geld ist nicht eingegangen — sonst wäre die Gesamtsumme schlicht falsch | 2026-08-22 |
 | Keine Monatssperre/Festschreibung | Deutlich einfacher, und da Rechnungen ausschließlich automatisch aus SEPA-Läufen entstehen, verändern sich abgeschlossene Monate praktisch nicht nachträglich | 2026-08-22 |
 | Kein DATEV-Format, weiterhin CSV | Kein bekannter Bedarf; CSV ist von jedem Steuerberater verarbeitbar. Kann nachgezogen werden, falls der Steuerberater es verlangt | 2026-08-22 |
-| Bar-/Vor-Ort-Zahlungen bleiben außen vor | Sie werden im System nirgends erfasst — das zu ändern ist ein eigenes Feature. **Wichtig:** Der Export ist dadurch bewusst unvollständig und bildet nur den SEPA-Umsatz ab | 2026-08-22 |
+| Bar-/Vor-Ort-Zahlungen bleiben außen vor | Sie werden im System nirgends erfasst — das zu ändern wäre ein eigenes Feature | 2026-08-22 |
+| Kein "Kassenbuch"-Nachzug nötig; der Export bleibt dauerhaft SEPA-only | Vor-Ort-Rechnungen laufen über ein separates System des Betreibers. Die Lücke ist damit keine Lücke, sondern eine Zuständigkeitsgrenze — die offene Frage von 2026-08-22 ist beantwortet | 2026-08-23 |
+| Die Datei muss ihre eigene Reichweite ausweisen | Zwei Systeme führen zusammen die Buchhaltung. Eine Summe ohne Kennzeichnung liest sich wie der Gesamtumsatz und wird beim Zusammenführen doppelt oder falsch verrechnet — der teuerste denkbare Fehler in einem Buchhaltungs-Export | 2026-08-23 |
 
 ### Technical Decisions
 | Decision | Rationale | Date |
