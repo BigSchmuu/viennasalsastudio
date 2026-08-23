@@ -51,7 +51,7 @@
 | PROJ-34 | Benachrichtigungs-Texte verwalten | Deployed | [PROJ-34](../features/PROJ-34-benachrichtigungs-texte-verwalten.md) | 2026-08-22 |
 | PROJ-35 | Pagination für Admin-Listen (DB-seitig filtern/sortieren) | Roadmap | — | 2026-08-22 |
 | PROJ-36 | Buchhaltungs-Export mit Summen | Deployed | [PROJ-36](../features/PROJ-36-buchhaltungs-export-mit-summen.md) | 2026-08-22 |
-| PROJ-37 | Offene Posten (Rücklastschriften-Übersicht) | Planned | [PROJ-37](../features/PROJ-37-offene-posten.md) | 2026-08-22 |
+| PROJ-37 | Offene Posten (Rücklastschriften-Übersicht) | Architected | [PROJ-37](../features/PROJ-37-offene-posten.md) | 2026-08-22 |
 | PROJ-38 | Kursausfall-Benachrichtigung | Planned | [PROJ-38](../features/PROJ-38-kursausfall-benachrichtigung.md) | 2026-08-22 |
 | PROJ-39 | Admin-Hinweis auf neue Buchungen | Deployed | [PROJ-39](../features/PROJ-39-admin-hinweis-neue-buchungen.md) | 2026-08-22 |
 | PROJ-40 | Admin auch als Lehrer eintragbar | Planned | [PROJ-40](../features/PROJ-40-admin-als-lehrer-eintragbar.md) | 2026-08-22 |

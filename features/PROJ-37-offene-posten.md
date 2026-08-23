@@ -66,7 +66,7 @@
 - Die Erinnerungs-E-Mail läuft über die bestehende Benachrichtigungs-Infrastruktur (PROJ-16), damit Zustellung und Protokollierung einheitlich bleiben.
 
 ## Open Questions
-- [ ] Soll die Erinnerungs-E-Mail über PROJ-34 (Benachrichtigungs-Texte) frei anpassbar sein? → Naheliegend, aber erst in `/architecture` entscheiden.
+- [x] Soll die Erinnerungs-E-Mail über PROJ-34 frei anpassbar sein? → Ja. Es ist eine Zahlungsaufforderung; der Ton entscheidet, ob ein Kunde bleibt oder sich ärgert, und der Mechanismus existiert bereits (2026-08-23)
 - [x] Sollen Verzugszinsen berechnet werden? → Nein. 4 % p.a. ergeben bei diesen Beträgen Centbeträge; zurückgestellt zugunsten der Bankgebühr, die real anfällt (2026-08-23)
 - [x] Wie wird die Gebühr erfasst? → Standardwert in den Rechnungseinstellungen, pro Posten überschreibbar (2026-08-23)
 - [x] Zählt die Gebühr in die offene Summe? → Ja, Rechnungsbetrag und Gebühr werden getrennt ausgewiesen und gemeinsam summiert (2026-08-23)
@@ -89,11 +89,99 @@
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Ein offener Posten ist eine zurückgebuchte Rechnung, kein eigener Datenbestand | Eine zweite Liste müsste gepflegt werden und könnte von den Rechnungen abweichen — dann zeigt die App eine Forderung, die es nicht mehr gibt | 2026-08-23 |
+| Gebühr getrennt von der Rechnung speichern, nicht aufaddieren | Der ursprüngliche Rechnungsbetrag muss unangetastet bleiben (eine Rechnung nachträglich zu erhöhen wäre buchhalterisch falsch), und nur getrennt kann die E-Mail dem Kunden die Differenz erklären | 2026-08-23 |
+| Standardwert wird beim Entstehen einmal übernommen, nicht dauerhaft verknüpft | Sonst änderten sich Beträge rückwirkend, die dem Kunden schon genannt wurden | 2026-08-23 |
+| Erinnerungstext über PROJ-34 anpassbar | Eine Zahlungsaufforderung ist Tonfall-kritisch; der Betreiber muss sie selbst formulieren können, ohne dass jemand Code ändert. Der Mechanismus existiert bereits | 2026-08-23 |
+| Versand über die bestehende Benachrichtigungs-Infrastruktur (PROJ-16) | Zustellung und Protokollierung bleiben einheitlich mit allen anderen Nachrichten | 2026-08-23 |
+| Gebühr 0,00 € ist zulässig, keine Pflichteingabe | Wer keinen Standardwert hinterlegt, soll nicht bei jedem Posten zu einer Eingabe gezwungen werden | 2026-08-23 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Verwaltung → NEU: "Offene Posten"
+├── Kachel: Anzahl + Gesamtsumme
+│      Rechnungsbeträge + Gebühren zusammen — das ist, was real fehlt
+├── Tabelle
+│   ├── Kunde | Rechnung | Rückgebucht am | seit X Tagen
+│   ├── Rechnungsbetrag | Gebühr (änderbar) | Summe
+│   ├── zuletzt erinnert am
+│   └── Aktionen: "Erinnerung senden" · "Erledigt"
+├── Umschalter: "auch erledigte anzeigen"
+└── Leerzustand: "Keine offenen Posten"
+
+Verwaltung → Rechnungen → Einstellungen (bestehende Seite)
+└── NEU: Feld "Rücklastschrift-Gebühr (Standard)"
+
+Admin-Navigation (bestehend)
+└── NEU: Menüpunkt "Offene Posten"
+```
+
+### B) Data Model (plain language)
+
+Ein offener Posten **ist** eine zurückgebuchte Rechnung — es entsteht keine zweite Liste, die
+auseinanderlaufen könnte. Die bestehende Rechnung bekommt drei Angaben dazu:
+
+```
+Zur bereits vorhandenen Rechnung kommt hinzu:
+- Rücklastschrift-Gebühr   (Betrag, standardmäßig aus den Einstellungen)
+- Erledigt am              (leer = noch offen)
+- Zuletzt erinnert am      (leer = noch nie erinnert)
+
+In den Rechnungseinstellungen kommt hinzu:
+- Standard-Rücklastschriftgebühr
+```
+
+**Was ein offener Posten ist:** eine Rechnung, die zurückgebucht wurde und noch nicht als erledigt
+markiert ist. Mehr braucht es nicht — die Liste ist eine Frage an die vorhandenen Daten, kein
+eigener Bestand.
+
+**Der Standardwert wird beim Entstehen des Postens einmal übernommen, nicht dauerhaft verknüpft.**
+Änderst du ihn später, bleiben bestehende Posten unberührt. Sonst würden sich Beträge rückwirkend
+ändern, die einem Kunden womöglich schon genannt wurden.
+
+### C) Tech Decisions (justified for PM)
+
+- **Kein zweiter Datenbestand.** Die naheliegende Lösung wäre eine eigene Liste „offene Forderungen".
+  Die müsste aber gepflegt werden und könnte von den Rechnungen abweichen — dann zeigt die App eine
+  Forderung, die es nicht mehr gibt. Ein Posten ist deshalb schlicht eine zurückgebuchte Rechnung
+  ohne Erledigt-Haken.
+
+- **Rechnungsbetrag und Gebühr bleiben getrennt gespeichert**, nicht zu einer Summe verschmolzen.
+  Nur so kann die E-Mail dem Kunden erklären, warum mehr gefordert wird als auf seiner Rechnung
+  steht — und nur so bleibt der ursprüngliche Rechnungsbetrag unangetastet. Eine Rechnung
+  nachträglich zu erhöhen wäre buchhalterisch falsch.
+
+- **Die Erinnerung läuft über die vorhandene Benachrichtigungs-Infrastruktur** (PROJ-16), damit
+  Zustellung und Protokollierung dieselben sind wie bei allen anderen Nachrichten.
+
+- **Der Text der Erinnerung wird über PROJ-34 anpassbar** (offene Frage aus dem Spec, hier
+  entschieden). Begründung: Es ist eine Zahlungsaufforderung — der Ton entscheidet, ob ein Kunde
+  bleibt oder sich ärgert. Diesen Text solltest du selbst formulieren können, ohne dass jemand
+  Code ändert. Der Mechanismus existiert bereits; es kommt eine weitere Textvorlage hinzu.
+
+- **„Erledigt" ist rücknehmbar und blendet nur aus.** Ein unwiderruflicher Haken auf einer
+  Geldforderung wäre riskant — Fehlklicks passieren.
+
+- **Gebühr 0,00 € ist erlaubt.** Wer keinen Standardwert hinterlegt, bekommt keine Pflichteingabe
+  vorgesetzt; die Summe entspricht dann dem reinen Rechnungsbetrag.
+
+- **Kein Zugriff für Kunden und Lehrer.** Die Seite liegt unter der Verwaltung und nutzt dieselbe
+  Absicherung wie alle Admin-Bereiche.
+
+### D) Dependencies (packages to install)
+
+Keine. Das Feature nutzt die vorhandene Rechnungs- und Benachrichtigungs-Infrastruktur sowie die
+bestehende Admin-Navigation.
+
+### Umfang
+
+Neu: eine Verwaltungsseite und ein Menüpunkt. Erweitert: die Rechnungstabelle um drei Angaben, die
+Rechnungseinstellungen um ein Feld, die Textvorlagen um eine Erinnerung.
 
 ## QA Test Results
 _To be added by /qa_
