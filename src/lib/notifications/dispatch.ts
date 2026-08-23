@@ -180,6 +180,19 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         bookingType: data.type === "dropin" ? "dropin" : "regular",
       });
     }
+    case "zahlungserinnerung": {
+      const { data } = await service
+        .from("invoices")
+        .select("invoice_number, gross_amount, bounce_fee")
+        .eq("id", payload.invoice_id as string)
+        .maybeSingle();
+      if (!data) return null;
+      return buildNotificationContent("zahlungserinnerung", {
+        invoiceNumber: data.invoice_number,
+        grossAmount: Number(data.gross_amount),
+        bounceFee: Number(data.bounce_fee ?? 0),
+      });
+    }
     case "newsletter": {
       const { data } = await service
         .from("newsletter_sends")
@@ -236,6 +249,19 @@ export async function processQueueRow(service: ServiceClient, row: QueueRow): Pr
       const emailResult = await trySendEmail(service, row.customer_id, content);
       emailStatus = emailResult.status;
       if (emailResult.error) errors.push(`E-Mail: ${emailResult.error}`);
+    } else if (row.event_type === "zahlungserinnerung") {
+      // PROJ-37: a demand for money the customer already owes. Like
+      // sepa_ankuendigung it deliberately bypasses the notification
+      // preferences — a customer must not be able to switch off being told
+      // that a payment failed.
+      const emailResult = await trySendEmail(service, row.customer_id, content);
+      emailStatus = emailResult.status;
+      if (emailResult.error) errors.push(`E-Mail: ${emailResult.error}`);
+      pushStatus = await sendPushToCustomer(service, row.customer_id, {
+        title: content.pushTitle,
+        body: content.pushBody,
+        url: content.url,
+      });
     } else if (row.event_type === "neue_buchung") {
       // PROJ-39: internal admin alert — push only, and deliberately outside
       // the customer notification preferences (same reasoning as

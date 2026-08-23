@@ -97,6 +97,9 @@ export type AboKuendigungDetails = {
 };
 export type KursstartErinnerungDetails = { courseName: string; chosenDate: string; type: "trial" | "dropin" };
 export type SepaAnkuendigungDetails = { amount: number; dueDate: string };
+/** PROJ-37: invoice amount and bank fee stay separate so the customer can see
+ *  why more is owed than the invoice says. */
+export type ZahlungserinnerungDetails = { invoiceNumber: string; grossAmount: number; bounceFee: number };
 export type EventTicketDetails =
   | { subType: "purchased"; eventName: string; startsAt: string; ticketStatus: "confirmed" | "reserved" }
   | { subType: "event_cancelled"; eventName: string; startsAt: string };
@@ -115,13 +118,14 @@ export type NeueBuchungDetails = { customerName: string; courseName: string; boo
  *  "newsletter", which has its own admin-authored text (PROJ-28), not a
  *  registry template. */
 export function resolveTemplateKey(
-  eventType: NotificationEventGroup | "sepa_ankuendigung",
+  eventType: NotificationEventGroup | "sepa_ankuendigung" | "zahlungserinnerung",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
     | AboKuendigungDetails
     | KursstartErinnerungDetails
     | SepaAnkuendigungDetails
+    | ZahlungserinnerungDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
     | NewsletterDetails
@@ -139,6 +143,8 @@ export function resolveTemplateKey(
       return "kursstart_erinnerung";
     case "sepa_ankuendigung":
       return "sepa_ankuendigung";
+    case "zahlungserinnerung":
+      return "zahlungserinnerung";
     case "event_tickets": {
       const d = details as EventTicketDetails;
       if (d.subType === "event_cancelled") return "event_abgesagt";
@@ -157,13 +163,14 @@ export function resolveTemplateKey(
  *  will actually render — the caller resolves which `TemplateKey` applies
  *  (e.g. confirmed vs. rejected) and passes the matching row, if any. */
 export function buildNotificationContent(
-  eventType: NotificationEventGroup | "sepa_ankuendigung" | "neue_buchung",
+  eventType: NotificationEventGroup | "sepa_ankuendigung" | "neue_buchung" | "zahlungserinnerung",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
     | AboKuendigungDetails
     | KursstartErinnerungDetails
     | SepaAnkuendigungDetails
+    | ZahlungserinnerungDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
     | NewsletterDetails
@@ -209,6 +216,40 @@ export function buildNotificationContent(
       const amountText = d.amount.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
       return {
         ...renderTemplate("sepa_ankuendigung", { betrag: amountText, datum: formatDate(d.dueDate) }, override),
+        url: "/rechnungen",
+      };
+    }
+    case "zahlungserinnerung": {
+      const d = details as ZahlungserinnerungDetails;
+      const euro = (n: number) => n.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
+      return {
+        ...renderTemplate(
+          "zahlungserinnerung",
+          {
+            rechnungsnummer: d.invoiceNumber,
+            betrag: euro(d.grossAmount),
+            gebuehr: euro(d.bounceFee),
+            gesamt: euro(d.grossAmount + d.bounceFee),
+          },
+          override
+        ),
+        url: "/rechnungen",
+      };
+    }
+    case "zahlungserinnerung": {
+      const d = details as ZahlungserinnerungDetails;
+      const euro = (n: number) => n.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
+      return {
+        ...renderTemplate(
+          "zahlungserinnerung",
+          {
+            rechnungsnummer: d.invoiceNumber,
+            betrag: euro(d.grossAmount),
+            gebuehr: euro(d.bounceFee),
+            gesamt: euro(d.grossAmount + d.bounceFee),
+          },
+          override
+        ),
         url: "/rechnungen",
       };
     }
@@ -317,6 +358,12 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
       );
     case "sepa_ankuendigung":
       return buildNotificationContent("sepa_ankuendigung", { amount: 40, dueDate: "2026-09-15" }, fields);
+    case "zahlungserinnerung":
+      return buildNotificationContent(
+        "zahlungserinnerung",
+        { invoiceNumber: "2026-0042", grossAmount: 40, bounceFee: 4.5 },
+        fields
+      );
     case "event_ticket_bestaetigt":
       return buildNotificationContent(
         "event_tickets",

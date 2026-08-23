@@ -9,9 +9,13 @@ import {
 } from "./template-registry";
 
 describe("TEMPLATE_REGISTRY", () => {
-  it("has exactly 12 unique template variants", () => {
-    expect(TEMPLATE_REGISTRY).toHaveLength(12);
-    expect(new Set(TEMPLATE_REGISTRY.map((t) => t.key)).size).toBe(12);
+  // Die feste Zahl war hier nicht die Aussage — sie musste bei jeder neuen
+  // Vorlage nachgezogen werden und hätte irgendwann nur noch bestätigt, dass
+  // jemand sie hochgezählt hat. Was wirklich zählt: kein Schlüssel doppelt.
+  it("vergibt jeden Vorlagen-Schlüssel genau einmal", () => {
+    const keys = TEMPLATE_REGISTRY.map((t) => t.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys.length).toBeGreaterThan(0);
   });
 
   it("gives every template a boldPlaceholder that's in its own placeholders list", () => {

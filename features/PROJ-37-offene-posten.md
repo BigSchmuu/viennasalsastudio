@@ -234,6 +234,62 @@ Die eigentlichen Aktionen bleiben unangetastet.
 Erinnerung senden (inkl. Textvorlage über PROJ-34), Erledigt markieren und zurücknehmen, Gebühr pro
 Posten speichern, Absicherung gegen Nicht-Admins.
 
+---
+
+## Implementation Notes (Backend)
+
+**Umgesetzt am 2026-08-23.** Drei Aktionen, eine Textvorlage, ein neuer Benachrichtigungs-Anlass.
+
+### Geänderte/neue Dateien
+| Datei | Zweck |
+|-------|-------|
+| `src/lib/actions/admin/open-items.ts` (neu) | Gebühr speichern, Erledigt setzen/zurücknehmen, Erinnerung senden |
+| `src/lib/notifications/template-registry.ts` | Vorlage „Zahlungserinnerung" — über PROJ-34 bearbeitbar |
+| `src/lib/notifications/templates.ts` | Inhalt der Erinnerung (Rechnungsnummer, Betrag, Gebühr, Summe) |
+| `src/lib/notifications/dispatch.ts` | Zustellweg, bewusst an den Kunden-Einstellungen vorbei |
+| `src/components/admin/open-items/open-items-list.tsx` | Knöpfe und Eingabefeld verkabelt |
+| `supabase/migrations/…_proj37_zahlungserinnerung_event_type.sql` | Neuer Anlass in der Warteschlange |
+
+### Ein Fehler, der beim Prüfen auffiel — und ein Akzeptanzkriterium verletzte
+Der erste Entwurf setzte den „erinnert am"-Vermerk, sobald die Nachricht **eingereiht** war.
+`enqueueAndDispatch` wirft bei Zustellfehlern aber nicht, sondern protokolliert sie nur — der
+Vermerk stand also auch dann, wenn die E-Mail nachweislich fehlschlug.
+
+Das verletzt wörtlich ein Akzeptanzkriterium („bei fehlgeschlagenem Versand wird der Posten **nicht**
+als erinnert markiert") und wäre im Betrieb teuer: Der Betreiber sieht „erinnert am 23.08.", hört
+nichts vom Kunden und hakt nicht nach — bei einem Kunden, der nie eine Nachricht bekommen hat.
+
+**Behoben:** Nach dem Versand wird das Ergebnis aus der Warteschlange zurückgelesen. Nur bei
+`sent` wird der Vermerk gesetzt; andernfalls erscheint eine Fehlermeldung.
+
+**Verifiziert:** Zustellstatus `failed` → `reminded_at` bleibt leer, Meldung „Die Erinnerung konnte
+nicht zugestellt werden. Bitte prüfe die E-Mail-Adresse des Kunden."
+
+### Weitere Entscheidungen
+- **Die Erinnerung läuft an den Kunden-Benachrichtigungseinstellungen vorbei** — wie die
+  SEPA-Ankündigung. Eine Zahlungsaufforderung darf der Schuldner nicht abschalten können.
+- **Kein Dublettenschutz beim Erinnern.** Der Schlüssel enthält einen Zeitstempel, weil
+  wiederholtes Erinnern ausdrücklich erlaubt ist und jede Erinnerung tatsächlich rausgehen soll.
+- **Die Gebühr wird beim Verlassen des Feldes gespeichert**, nicht bei jedem Tastendruck — sonst
+  ein Schreibvorgang pro Zeichen und eine flackernde Liste.
+- **Nur zurückgebuchte Rechnungen sind änderbar.** Alle drei Aktionen filtern zusätzlich auf
+  „zurückgebucht"; eine gültige Rechnungs-ID allein reicht nicht, um etwas zu verändern.
+- **Erledigte Posten lassen sich nicht mehr erinnern oder in der Gebühr ändern** — dafür jederzeit
+  wieder öffnen.
+
+### Verifiziert
+- Gebühr 4,50 € gesetzt → in der Datenbank angekommen
+- „Erledigt" → Posten verschwindet aus der Liste, Datenbank vermerkt den Zeitpunkt
+- „Wieder öffnen" → Posten zurück in der Liste, **die Gebühr bleibt erhalten**
+- Erinnerung → Warteschlangen-Eintrag entsteht, Zustellversuch protokolliert
+- 275 Unit-Tests grün, `tsc` und Lint sauber
+- Testspuren entfernt, Fixtures zurückgesetzt
+
+### Nebenbei
+Ein Test hielt „genau 12 Vorlagen" fest. Die feste Zahl war nie die eigentliche Aussage — sie hätte
+bei jeder neuen Vorlage nur bestätigt, dass jemand sie hochgezählt hat. Der Test prüft jetzt, was
+zählt: dass kein Vorlagen-Schlüssel doppelt vergeben ist.
+
 ## QA Test Results
 _To be added by /qa_
 

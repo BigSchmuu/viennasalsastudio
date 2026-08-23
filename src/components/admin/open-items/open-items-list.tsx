@@ -1,6 +1,10 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { setBounceFee, setSettled, sendPaymentReminder } from "@/lib/actions/admin/open-items";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +39,32 @@ function daysOpen(bouncedAt: string): number {
 }
 
 export function OpenItemsList({ items, showSettled }: { items: OpenItemRow[]; showSettled: boolean }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  function run(id: string, action: () => Promise<{ error?: string } | { success: true }>) {
+    setError(null);
+    setBusyId(id);
+    startTransition(async () => {
+      const result = await action();
+      setBusyId(null);
+      if ("error" in result && result.error) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  async function saveFee(id: string, value: string) {
+    const formData = new FormData();
+    formData.set("invoice_id", id);
+    formData.set("bounce_fee", value);
+    return setBounceFee(formData);
+  }
+
   const open = items.filter((i) => !i.settledAt);
   // The tile answers "how much is missing" — the fee was really paid to the
   // bank, so leaving it out would understate the gap.
@@ -42,6 +72,11 @@ export function OpenItemsList({ items, showSettled }: { items: OpenItemRow[]; sh
 
   return (
     <div className="space-y-6">
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
       <div className="rounded-lg border bg-card p-4">
         <p className="text-sm text-muted-foreground">Offene Posten</p>
         <p className="text-3xl font-bold tabular-nums">{formatEUR(totalOwed)}</p>
@@ -107,7 +142,15 @@ export function OpenItemsList({ items, showSettled }: { items: OpenItemRow[]; sh
                     step="0.01"
                     min="0"
                     defaultValue={item.bounceFee.toFixed(2)}
-                    disabled
+                    disabled={pending || Boolean(item.settledAt)}
+                    // Saved on blur rather than on every keystroke: the admin
+                    // types a few characters, and one write per character would
+                    // be pointless traffic and a flickering list.
+                    onBlur={(e) => {
+                      const next = e.target.value;
+                      if (Number(next) === item.bounceFee) return;
+                      run(item.id, () => saveFee(item.id, next));
+                    }}
                     className="w-24 text-right tabular-nums ml-auto"
                   />
                 </TableCell>
@@ -121,12 +164,18 @@ export function OpenItemsList({ items, showSettled }: { items: OpenItemRow[]; sh
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled
+                    disabled={pending || !item.hasEmail || Boolean(item.settledAt)}
                     title={item.hasEmail ? undefined : "Kunde hat keine E-Mail-Adresse hinterlegt"}
+                    onClick={() => run(item.id, () => sendPaymentReminder(item.id))}
                   >
-                    Erinnerung senden
+                    {busyId === item.id && pending ? "Wird gesendet…" : "Erinnerung senden"}
                   </Button>
-                  <Button size="sm" variant="ghost" disabled>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() => run(item.id, () => setSettled(item.id, !item.settledAt))}
+                  >
                     {item.settledAt ? "Wieder öffnen" : "Erledigt"}
                   </Button>
                 </TableCell>

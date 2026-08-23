@@ -10,7 +10,8 @@ export type TemplateKey =
   | "event_ticket_reserviert"
   | "event_abgesagt"
   | "probestunde_nachfassung_abend"
-  | "probestunde_nachfassung_naechster_termin";
+  | "probestunde_nachfassung_naechster_termin"
+  | "zahlungserinnerung";
 
 export type TemplateFields = {
   emailSubject: string;
@@ -204,6 +205,26 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       emailBody: "Der nächste Termin von {kurs} steht bald an — noch nicht zu spät, um dabei zu sein!",
       pushTitle: "Der nächste Termin von {kurs} steht bevor",
       pushBody: "Nächster Termin von {kurs} steht bevor.",
+    },
+  },
+  {
+    key: "zahlungserinnerung",
+    eventGroupLabel: "Zahlungserinnerung",
+    variantLabel: "Rücklastschrift",
+    placeholders: ["rechnungsnummer", "betrag", "gebuehr", "gesamt"],
+    boldPlaceholder: "gesamt",
+    samples: {
+      rechnungsnummer: "2026-0042",
+      betrag: "40,00 €",
+      gebuehr: "4,50 €",
+      gesamt: "44,50 €",
+    },
+    defaults: {
+      emailSubject: "Offene Zahlung: Rechnung {rechnungsnummer}",
+      emailBody:
+        "die Lastschrift für Rechnung {rechnungsnummer} über {betrag} wurde von deiner Bank zurückgebucht. Dafür ist uns eine Rücklastschrift-Gebühr von {gebuehr} entstanden. Offen sind damit {gesamt}. Bitte überweise den Betrag oder melde dich bei uns, wenn etwas nicht stimmt.",
+      pushTitle: "Offene Zahlung: {gesamt}",
+      pushBody: "Rechnung {rechnungsnummer} wurde zurückgebucht.",
     },
   },
 ];
