@@ -1,6 +1,6 @@
 # PROJ-38: Kursausfall-Benachrichtigung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -337,4 +337,29 @@ desselben Kunden für denselben Kurs überhaupt möglich sein sollten, wäre ein
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Live seit:** 2026-08-23
+**Produktions-URL:** https://viennasalsastudio.vercel.app
+**Git-Tag:** `v1.0.0-PROJ-38`
+
+### Vorab-Prüfungen
+- [x] `npm run build` erfolgreich, `npm run lint` sauber, 280 Unit-Tests grün
+- [x] QA abgeschlossen, keine offenen Fehler
+- [x] Keine `.env`-Datei versioniert
+- [x] Beide Migrationen angewendet und im Repo versioniert
+
+### Verifikation in der Produktion
+Pause auf der Live-Seite angelegt und den Dialog geöffnet:
+
+> „1 Person wird über den Ausfall am 17.12.2026 informiert. Das lässt sich nicht zurücknehmen."
+
+- [x] Knopf in der Pausen-Liste vorhanden
+- [x] Empfängerzahl wird ermittelt, Datum deutsch formatiert
+- [x] Vorlage „Kursausfall" unter Benachrichtigungs-Texte vorhanden und anpassbar
+- [x] Testdaten anschließend entfernt
+
+### Offen
+- **Ein Probe-Versand an eine echte Adresse** steht noch aus — alle Fixture-Kunden haben
+  `.test`-Adressen. Der Fehlerpfad ist real geprüft, der Erfolgspfad nur bis zur Übergabe an den
+  Versand
+

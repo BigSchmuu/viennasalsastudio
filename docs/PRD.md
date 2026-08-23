@@ -41,7 +41,7 @@ Vienna Salsa Studio App ist eine Kunden-Self-Service-Plattform für die Tanzschu
 | P1 | Benachrichtigungs-Texte verwalten | Deployed |
 | P1 | Buchhaltungs-Export mit Summen | Deployed |
 | P1 | Offene Posten (Rücklastschriften-Übersicht) | Deployed |
-| P1 | Kursausfall-Benachrichtigung | Planned |
+| P1 | Kursausfall-Benachrichtigung | Deployed |
 | P1 | Admin-Hinweis auf neue Buchungen | Deployed |
 | P1 | Admin auch als Lehrer eintragbar | Deployed |
 | P2 | Online-Kurs-Plattform (Kapitel, Fortschritt, Quiz, Offline) | Roadmap |
