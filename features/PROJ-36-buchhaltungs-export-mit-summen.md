@@ -54,7 +54,7 @@
 - Die Summen müssen serverseitig aus denselben Daten berechnet werden wie die Einzelzeilen — keine getrennte zweite Abfrage, die abweichen könnte.
 
 ## Open Questions
-- [ ] Erwartet der Steuerberater ein bestimmtes Trennzeichen (Semikolon vs. Komma) oder eine bestimmte Zeichenkodierung? → Bei Bedarf nachfragen; Standard bleibt vorerst wie im bestehenden Export.
+- [x] Erwartet der Steuerberater ein bestimmtes Trennzeichen oder eine bestimmte Zeichenkodierung? → Nicht abgewartet: Die Datei wird auf das österreichische Standardformat umgestellt (Semikolon, Komma-Dezimalzeichen, Kodierungs-Kennung), weil sie sonst in Excel als eine einzige Textspalte landet und ihren Zweck verfehlt. Falls der Steuerberater etwas anderes verlangt, ist es eine Einstellung an einer Stelle (2026-08-23)
 
 ## Decision Log
 
@@ -72,11 +72,102 @@
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Summen werden beim Export berechnet, nicht gespeichert | Ein gespeicherter Wert wäre ein zweiter Stand, der von den Rechnungen abweichen kann. So liefert derselbe Zeitraum immer dasselbe Ergebnis | 2026-08-23 |
+| Gruppierung nach dem auf der Rechnung gespeicherten USt-Satz | Ändert sich der Satz später, bleiben alte Exporte korrekt — sonst würde eine Änderung rückwirkend die Vergangenheit verfälschen | 2026-08-23 |
+| Umstellung auf Semikolon-Trennung und Komma-Dezimalzeichen, plus Kodierungs-Kennung | Österreichisches Excel liest die bisherige Datei sonst als eine einzige Textspalte; Umlaute zerfallen ohne die Kennung. Format-Änderung gegenüber bisherigen Dateien ist bewusst in Kauf genommen (entschieden 2026-08-23) | 2026-08-23 |
+| Reichweiten-Hinweis in der Datei statt in einer Begleitmail | Die Datei wird weitergereicht, die Mail nicht. Ohne Kennzeichnung liest sich die Summe wie der Gesamtumsatz, obwohl Vor-Ort-Rechnungen aus einem anderen System stammen | 2026-08-23 |
+| Summe der bereits gerundeten Einzelbeträge statt exakter Gesamtsumme | Der Steuerberater muss die Spalte von Hand nachrechnen können; eine rechnerisch exaktere Summe würde dabei um Cent abweichen und Rückfragen auslösen | 2026-08-23 |
+| Keine Summenanzeige in der Weboberfläche | Zweite Stelle mit derselben Aussage, die irgendwann abweicht. Die Zahlen entstehen dort, wo sie gebraucht werden — in der Datei | 2026-08-23 |
+| Monatsauswahl ergänzt die freien Datumsfelder, ersetzt sie nicht | Der häufige Fall wird ein Klick, ungewöhnliche Zeiträume bleiben möglich — kein Funktionsverlust | 2026-08-23 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Verwaltung → Rechnungen  (bestehende Seite)
+└── Filterleiste (bestehend: Kundenname, Von-Datum, Bis-Datum)
+    ├── NEU: Monatsauswahl ("August 2026", "Juli 2026", …)
+    │        setzt Von/Bis automatisch — die freien Datumsfelder bleiben nutzbar
+    └── Knopf "CSV exportieren" (bestehend)
+             └── Dateiname trägt jetzt den Zeitraum
+
+Die erzeugte Datei (bisher nur Einzelzeilen):
+┌────────────────────────────────────────────┐
+│ Kopfzeile                                  │
+│ Rechnung … Rechnung … Rechnung …           │  ← unverändert
+│                                            │
+│ NEU:  Zwischensumme 20 %                   │
+│ NEU:  Zwischensumme 10 %   (je Steuersatz) │
+│ NEU:  GESAMT                               │
+│ NEU:  davon Rücklastschriften              │
+│ NEU:  Hinweiszeile zur Reichweite          │
+└────────────────────────────────────────────┘
+```
+
+Es entsteht **keine neue Seite und kein neuer Bildschirm**. Ergänzt werden eine Monatsauswahl in
+der bestehenden Filterleiste und zusätzliche Zeilen am Ende der bereits existierenden Datei.
+
+### B) Data Model (plain language)
+
+**Es wird nichts Neues gespeichert.** Keine Tabelle, keine Spalte, keine Einstellung.
+
+```
+Die Summen sind kein gespeicherter Wert, sondern eine Rechnung im Moment des Exports:
+"Nimm die Rechnungen des gewählten Zeitraums und addiere sie."
+
+Gruppiert wird nach dem Steuersatz, der AUF DER RECHNUNG steht — nicht nach dem
+heute eingestellten. Ändert sich der Satz später, bleiben alte Exporte richtig.
+
+Rücklastschriften werden getrennt gezählt und NICHT in GESAMT eingerechnet:
+zurückgebuchtes Geld ist nicht eingegangen.
+```
+
+Folge: Ein Export von heute und einer in einem Jahr über denselben Monat liefern dieselben Zahlen,
+solange die Rechnungen unverändert sind. Es gibt keinen zweiten Stand, der veralten könnte.
+
+### C) Tech Decisions (justified for PM)
+
+- **Die Datei sagt selbst, was sie enthält.** Deine Buchhaltung läuft über zwei Systeme: Vor-Ort-
+  Rechnungen erstellst du woanders, hier landen nur die Lastschrift-Einnahmen. Eine Zeile
+  „GESAMT 12.480,00" ohne Kontext liest sich wie der Jahresumsatz. Beim Zusammenführen wäre das
+  der teuerste denkbare Fehler — deshalb bekommt die Datei eine ausdrückliche Kennzeichnung ihrer
+  Reichweite. Das ist die einzige Stelle, an der wir dem Steuerberater etwas erklären müssen, und
+  sie steht in der Datei selbst, nicht in einer Begleitmail, die verloren geht.
+
+- **Österreichisches Zahlenformat.** Bisher trennt die Datei Spalten mit Komma und schreibt
+  Beträge als `45.00`. Österreichisches Excel erwartet Semikolon und `45,00` — sonst landet alles
+  als Text in einer Spalte und der Steuerberater kann nicht rechnen. Wir stellen um. Dazu kommt
+  eine unsichtbare Kennung am Dateianfang, damit Umlaute in Excel nicht zerfallen (das häufigste
+  Ärgernis bei CSV aus Web-Anwendungen). **Das ändert das Format gegenüber bisherigen Dateien** —
+  bewusst, weil die Datei sonst ihren Zweck verfehlt.
+
+- **Summen im Export, nicht auf dem Bildschirm.** Die Zahlen entstehen dort, wo sie gebraucht
+  werden. Eine zusätzliche Summenanzeige in der Weboberfläche wäre eine zweite Stelle, die dasselbe
+  behauptet — und die irgendwann abweicht.
+
+- **Monatsauswahl ergänzt die Datumsfelder, ersetzt sie nicht.** Der häufige Fall („voriger Monat")
+  geht mit einem Klick; ungewöhnliche Zeiträume bleiben genauso möglich wie bisher.
+
+- **Summenzeilen sind als solche erkennbar.** Sie tragen ihre Beschriftung dort, wo sonst der
+  Kundenname steht, und haben keine Rechnungsnummer. Wer die Tabelle sortiert, erkennt sie
+  weiterhin — und verwechselt sie nicht mit einer echten Rechnung.
+
+- **Rundung wird sichtbar nachvollziehbar gehalten.** Summiert werden die bereits gerundeten
+  Einzelbeträge. Der Steuerberater kann die Spalte von Hand nachrechnen und kommt auf dasselbe
+  Ergebnis — auch wenn das rechnerisch minimal von der „exakten" Summe abweichen kann.
+
+### D) Dependencies (packages to install)
+
+Keine. Das Feature erweitert den vorhandenen Export (`/api/admin/rechnungen/export`) und die
+bestehende Filterleiste im Rechnungsarchiv.
+
+### Umfang
+
+Betroffen sind drei bestehende Stellen: die Export-Route, die CSV-Hilfsfunktionen und die
+Filterleiste. Kein neuer Bildschirm, keine Datenbankänderung, keine neue Abhängigkeit.
 
 ## QA Test Results
 _To be added by /qa_
