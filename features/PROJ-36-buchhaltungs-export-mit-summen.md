@@ -422,9 +422,15 @@ Rechnungsnummer;Datum;Kunde;Netto;USt-Satz;USt-Betrag;Brutto;Status
 - [x] GESAMT enthält **nur** die bezahlte Rechnung; die beiden zurückgebuchten (70,00) stehen getrennt
 - [x] Monatsauswahl in der Produktion: „Juli 2026" setzt Von `2026-07-01`, Bis `2026-07-31`
 
+### Nachtrag live seit 2026-08-23 (Jahresauswahl + BUG-1)
+In der Produktion verifiziert:
+- Auswahl bietet „Eigener Zeitraum | Jahr 2026 | Jahr 2025 | Jahr 2024 | August 2026 | …"
+- „Jahr 2026" setzt `2026-01-01` bis `2026-12-31`
+- Jahres-Export heißt `rechnungsjournal-2028.csv`
+- **BUG-1 behoben:** `?from=2019-03-01&to=2019-03-31` zeigt „März 2019",
+  `?from=2019-01-01&to=2019-12-31` zeigt „Jahr 2019" — vorher blieb das Feld leer
+
 ### Offen
-- **BUG-1 (Low)** aus der QA bleibt bestehen: Die Monatsauswahl zeigt nichts an, wenn der
-  eingegebene Zeitraum ein Monat außerhalb der angebotenen 24 ist. Rein optisch.
 - **Ein Probe-Download durch den Betreiber in echtem Excel** steht noch aus — das ist der einzige
   Test, den diese Umgebung nicht leisten kann.
 
