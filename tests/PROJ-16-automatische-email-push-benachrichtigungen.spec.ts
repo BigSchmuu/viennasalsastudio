@@ -40,7 +40,17 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
     await page.getByRole("button", { name: "Benachrichtigungen" }).click();
     await page.waitForTimeout(400);
 
-    await expect(page.getByRole("button", { name: "Push-Benachrichtigungen aktivieren" })).toBeVisible();
+    // Not every browser offers the Push API — Playwright's WebKit does not.
+    // The app handles that with its own state ("wird von diesem Browser nicht
+    // unterstützt"), so asserting the activate button unconditionally would
+    // fail on correct behaviour. Either way the push switch must stay locked
+    // and e-mail must remain usable, which is what this criterion is about.
+    const unsupported = page.getByText("Push-Benachrichtigungen werden von diesem Browser nicht unterstützt");
+    if (await unsupported.isVisible().catch(() => false)) {
+      await expect(page.getByRole("button", { name: "Push-Benachrichtigungen aktivieren" })).toHaveCount(0);
+    } else {
+      await expect(page.getByRole("button", { name: "Push-Benachrichtigungen aktivieren" })).toBeVisible();
+    }
 
     const pushSwitch = page.getByRole("switch", { name: "Buchungsstatus per Push" });
     await expect(pushSwitch).toBeDisabled();
@@ -58,8 +68,17 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
 
     const emailSwitch = page.getByRole("switch", { name: "Warteliste rückt nach per E-Mail" });
     await expect(emailSwitch).toHaveAttribute("data-state", "checked");
+    // The switch updates optimistically, so asserting its state says nothing
+    // about whether the save landed. Reloading right away cancels the request
+    // on a slower engine, and the setting then legitimately comes back
+    // unchanged — the test would blame persistence for a race it caused
+    // itself. (Verified separately: the write does reach the database on
+    // WebKit.) So wait for the server action's response, not for a vague
+    // network idle.
+    const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.status() < 400);
     await emailSwitch.click();
     await expect(emailSwitch).toHaveAttribute("data-state", "unchecked");
+    await saved;
 
     await page.reload();
     // /profil's sections live behind a collapsed Accordion (Radix unmounts

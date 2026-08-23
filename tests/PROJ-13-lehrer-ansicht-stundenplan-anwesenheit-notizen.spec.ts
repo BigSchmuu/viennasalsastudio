@@ -35,7 +35,25 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
   // Admin lands on /admin after login, every other role on /profil.
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+  // 20s rather than 10s: WebKit is noticeably slower than Chromium here and
+  // the shorter budget made this flaky on the Mobile Safari project.
+  await page.waitForURL(/\/(profil|admin)$/, { timeout: 20000 });
+}
+
+/**
+ * Below the md breakpoint (768px) the header folds its links into a sheet
+ * behind "Menü öffnen" — correct responsive behaviour, but the links are then
+ * one tap away instead of on screen. Returns whichever container actually
+ * holds them.
+ */
+async function navContainer(page: Page) {
+  const burger = page.getByRole("banner").getByRole("button", { name: "Menü öffnen" });
+  if (await burger.isVisible().catch(() => false)) {
+    await burger.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    return page.getByRole("dialog");
+  }
+  return page.getByRole("banner");
 }
 
 function rowFor(page: Page, name: string) {
@@ -71,7 +89,8 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
 
   test("AC1: Eingeloggter Lehrer sieht 'Meine Kurse' in der globalen Navigation", async ({ page }) => {
     await login(page, LEHRER_A);
-    await expect(page.getByRole("link", { name: "Meine Kurse" })).toBeVisible();
+    const nav = await navContainer(page);
+    await expect(nav.getByRole("link", { name: "Meine Kurse" })).toBeVisible();
   });
 
   test("AC2: Lehrer ohne zugewiesene Kurse sieht Hinweistext statt leerer Liste", async ({ page }) => {

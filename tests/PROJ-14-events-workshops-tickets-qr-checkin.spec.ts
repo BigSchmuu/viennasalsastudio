@@ -98,7 +98,10 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForTimeout(1500);
+  // Wait for the redirect to actually land instead of guessing 1.5s. On WebKit
+  // it regularly arrived later, and the next page.goto() of the calling test
+  // was then aborted with "interrupted by another navigation".
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 
 // shadcn Card root: "rounded-lg border bg-card text-card-foreground shadow-sm"
@@ -189,6 +192,12 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await row.getByRole("button", { name: "Ticket stornieren" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Stornieren" }).click();
     await expect(page.getByText("Ticket storniert.")).toBeVisible();
+
+    // Cancelling refreshes /profil in the background. Navigating away while
+    // that is still in flight aborts it ("interrupted by another navigation"),
+    // so wait until the row has actually left the reserved state — that is the
+    // visible proof the refresh landed.
+    await expect(row.getByText("Reserviert")).toHaveCount(0);
 
     await page.goto("/events");
     const afterCancel = await card.getByText(/Noch \d+ Plätze frei/).innerText();
