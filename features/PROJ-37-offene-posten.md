@@ -13,13 +13,14 @@
 - Als Betreiber möchte ich die Gesamthöhe der offenen Beträge kennen, um einschätzen zu können, wie viel Geld tatsächlich fehlt.
 - Als Betreiber möchte ich einen betroffenen Kunden mit einem Klick per E-Mail an die offene Zahlung erinnern können.
 - Als Betreiber möchte ich einen Posten als erledigt markieren können, wenn der Kunde anders bezahlt hat (z.B. bar oder per Überweisung).
+- Als Betreiber möchte ich die Rücklastschrift-Gebühr meiner Bank beim Posten erfassen, damit ich sehe, was mich die Rückbuchung tatsächlich gekostet hat — und sie dem Kunden weiterverrechnen kann.
 
 ## Out of Scope
 - **Unbezahlte Vor-Ort-Zahlungen.** Drop-ins und reservierte Event-Tickets werden nirgends als "bezahlt/unbezahlt" erfasst — es gibt schlicht keine Datenbasis dafür. Bewusste Entscheidung (siehe Decision Log); nur Rücklastschriften gelten als offener Posten.
 - **Automatisches Mahnwesen** (Mahnstufen, Fristen, Mahngebühren, automatischer Versand nach X Tagen). Erinnerungen werden manuell ausgelöst.
 - **Erneuter Lastschrifteinzug** eines zurückgebuchten Betrags aus der App heraus.
 - **Verbuchung von Zahlungseingängen.** "Erledigt" ist ein Haken, keine Buchung — die App führt kein Konto.
-- **Rücklastschrift-Gebühren** weiterberechnen.
+- **Verzugszinsen.** Der gesetzliche Zinssatz für Privatkunden beträgt 4 % pro Jahr (§ 1000 ABGB). Tagesgenau gerechnet ergibt das bei den hier üblichen Beträgen Centbeträge — bei 40 € und 30 Tagen rund 0,13 €. Der Aufwand steht in keinem Verhältnis; die Bankgebühr ist praktisch immer der größere Posten. Bewusst zurückgestellt und jederzeit nachrüstbar (entschieden 2026-08-23).
 
 ## Acceptance Criteria
 
@@ -32,8 +33,16 @@
 - [ ] Angenommen ein Posten ist bereits als erledigt markiert, wenn die Seite geladen wird, dann erscheint er **nicht** mehr in der Liste der offenen Posten.
 - [ ] Angenommen ein nicht-Admin ruft die Seite direkt per URL auf, dann wird der Zugriff verweigert.
 
+### Rücklastschrift-Gebühr
+- [ ] Angenommen der Admin hat in den Rechnungseinstellungen einen Standardbetrag hinterlegt, wenn ein neuer offener Posten entsteht, dann ist die Gebühr mit diesem Betrag vorbelegt.
+- [ ] Angenommen die Bank hat ausnahmsweise anders abgerechnet, wenn der Admin die Gebühr bei diesem Posten überschreibt, dann gilt der geänderte Betrag nur für diesen Posten und der Standardwert bleibt unberührt.
+- [ ] Angenommen ein Posten hat eine Gebühr, wenn die Liste angezeigt wird, dann sind Rechnungsbetrag und Gebühr **getrennt** ausgewiesen und zusätzlich die Summe beider.
+- [ ] Angenommen es gibt offene Posten mit Gebühren, wenn die Kachel die Gesamtsumme bildet, dann enthält sie Rechnungsbeträge **und** Gebühren.
+- [ ] Angenommen kein Standardbetrag ist hinterlegt, wenn ein Posten entsteht, dann ist die Gebühr 0,00 € und die Summe entspricht dem reinen Rechnungsbetrag — kein Fehler, keine Pflichteingabe.
+
 ### Erinnerung senden
 - [ ] Angenommen ein offener Posten ist gelistet, wenn der Admin auf "Erinnerung senden" klickt und bestätigt, dann erhält der Kunde eine E-Mail mit Rechnungsnummer, Betrag und dem Hinweis, dass die Lastschrift zurückgebucht wurde.
+- [ ] Angenommen der Posten hat eine Rücklastschrift-Gebühr, wenn die Erinnerung verschickt wird, dann nennt die E-Mail Rechnungsbetrag und Gebühr **getrennt** sowie den Gesamtbetrag — damit der Kunde nachvollziehen kann, warum mehr gefordert wird als auf der Rechnung stand.
 - [ ] Angenommen eine Erinnerung wurde bereits verschickt, wenn der Admin die Liste ansieht, dann sieht er, wann zuletzt erinnert wurde.
 - [ ] Angenommen der Admin klickt erneut auf "Erinnerung senden", dann ist das möglich (kein Limit), der Zeitstempel wird aktualisiert.
 - [ ] Angenommen der E-Mail-Versand schlägt fehl, wenn der Admin auf "Erinnerung senden" klickt, dann erscheint eine Fehlermeldung und der Posten wird **nicht** als erinnert markiert.
@@ -48,6 +57,9 @@
 - Was passiert, wenn der Kunde keine E-Mail-Adresse hat? → "Erinnerung senden" ist deaktiviert mit erklärendem Hinweis.
 - Was passiert, wenn ein Admin einen Posten erledigt markiert, während ein anderer gerade eine Erinnerung sendet? → Letzter Schreibvorgang gewinnt; kein Sperrmechanismus (kleines Team, gleiche Begründung wie bei den übrigen Admin-Bereichen).
 - Wie wird "wie lange offen" berechnet? → Ab dem Datum der Rückbuchung, nicht ab Rechnungsdatum.
+- Was passiert mit der Gebühr, wenn der Posten als erledigt markiert wird? → Sie verschwindet mit dem Posten aus der offenen Summe. Es wird nicht getrennt festgehalten, ob der Kunde die Gebühr tatsächlich mitbezahlt hat — die App führt kein Konto.
+- Was passiert, wenn der Admin den Standardbetrag später ändert? → Nur neue Posten übernehmen ihn. Bereits erfasste behalten ihren Betrag, sonst würde eine Änderung rückwirkend Beträge verfälschen, die dem Kunden vielleicht schon genannt wurden.
+- Was, wenn eine Rechnung mehrfach zurückgebucht wird und jedes Mal eine Gebühr anfällt? → Es bleibt ein Posten pro Rechnung; der Admin kann die Gebühr entsprechend erhöhen. Eine Gebührenhistorie wird nicht geführt.
 
 ## Technical Requirements (optional)
 - Security: Nur Admins (`requireAdmin`), wie alle `/admin`-Bereiche.
@@ -55,6 +67,9 @@
 
 ## Open Questions
 - [ ] Soll die Erinnerungs-E-Mail über PROJ-34 (Benachrichtigungs-Texte) frei anpassbar sein? → Naheliegend, aber erst in `/architecture` entscheiden.
+- [x] Sollen Verzugszinsen berechnet werden? → Nein. 4 % p.a. ergeben bei diesen Beträgen Centbeträge; zurückgestellt zugunsten der Bankgebühr, die real anfällt (2026-08-23)
+- [x] Wie wird die Gebühr erfasst? → Standardwert in den Rechnungseinstellungen, pro Posten überschreibbar (2026-08-23)
+- [x] Zählt die Gebühr in die offene Summe? → Ja, Rechnungsbetrag und Gebühr werden getrennt ausgewiesen und gemeinsam summiert (2026-08-23)
 
 ## Decision Log
 
@@ -65,6 +80,11 @@
 | Erinnerung manuell auslösen, kein automatisches Mahnwesen | Bei der Größe des Studios ist der persönliche Weg üblich; automatische Mahnstufen wären unangemessen und aufwendig | 2026-08-22 |
 | "Erledigt" ist eine reine Markierung, keine Buchung | Die App ist kein Buchhaltungssystem; der Haken dokumentiert nur, dass der Fall für den Betreiber abgeschlossen ist | 2026-08-22 |
 | Erledigte Posten bleiben einsehbar und rücknehmbar | Fehlklicks passieren; ein unwiderruflicher Haken auf einer Geldforderung wäre riskant | 2026-08-22 |
+| Rücklastschrift-Gebühr wird erfasst und dem Kunden weiterverrechnet | Sie fällt real an und ist vom Kunden verursacht. Ohne sie zeigt die Kachel weniger, als tatsächlich fehlt | 2026-08-23 |
+| Standardwert in den Einstellungen, pro Posten überschreibbar | Der Betrag ist meist gleich, aber nicht immer — ein fester Wert wäre falsch, sobald die Bank einmal anders abrechnet, und jedes Mal tippen wäre unnötige Arbeit | 2026-08-23 |
+| Rechnungsbetrag und Gebühr getrennt ausweisen, nicht verschmelzen | Der Kunde muss nachvollziehen können, warum mehr gefordert wird als auf seiner Rechnung stand — eine unerklärte Summe erzeugt genau die Rückfrage, die man sparen will | 2026-08-23 |
+| Eine Änderung des Standardwerts wirkt nur auf neue Posten | Sonst würden sich Beträge rückwirkend ändern, die dem Kunden möglicherweise schon genannt wurden | 2026-08-23 |
+| Keine Verzugszinsen | 4 % p.a. nach § 1000 ABGB ergeben bei diesen Beträgen Centbeträge (40 €, 30 Tage → 0,13 €). Der Aufwand steht in keinem Verhältnis; nachrüstbar, falls sich das ändert | 2026-08-23 |
 
 ### Technical Decisions
 | Decision | Rationale | Date |
