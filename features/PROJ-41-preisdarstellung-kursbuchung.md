@@ -88,6 +88,10 @@
 | Der Abo-Preis wird beim Abschluss ins Abo geschrieben und danach nicht mehr angefasst | Nur so bleibt ein laufender Vertrag von Preisänderungen unberührt | 2026-08-23 |
 | Fehlender Standardpreis zeigt einen Hinweis statt „0,00 €" | Eine Null wäre eine Preisaussage, die niemand getroffen hat | 2026-08-23 |
 | Obergrenze und Vorzeichenprüfung wie bei den bestehenden Preisfeldern | Ein Zahlendreher (650 statt 65) darf nicht stillschweigend zu einem Vertragsangebot werden | 2026-08-23 |
+| Der gezeigte Preis wird auf der Anfrage eingefroren, nicht beim Bestätigen neu gerechnet | Schützt vor einem untergeschobenen Betrag und hält die Zusage stabil, wenn sich der Standardpreis dazwischen ändert | 2026-08-23 |
+| Gutschein-Rabatt gilt jetzt auch für die Flatrate | Der Grund für die Einschränkung aus PROJ-15 (die Flatrate hatte keinen Preis) ist mit diesem Feature weggefallen — vom Betreiber entschieden | 2026-08-23 |
+| Preis beim Nachrücken von der Warteliste, nicht beim Eintragen | Der Wartelisten-Eintrag hält keinen Studierendenwunsch fest, und zwischen Eintrag und Nachrücken können Monate liegen | 2026-08-23 |
+| Alte RPC-Signatur per `drop function` entfernt statt nur ersetzt | `create or replace` mit zusätzlichem Parameter legt eine Überladung an — PostgREST wüsste dann nicht, welche gemeint ist (Lehre aus PROJ-15) | 2026-08-23 |
 
 ---
 
@@ -184,6 +188,76 @@ andere Darstellung.
 Erweitert: die Preisliste um vier Beträge, das Preis-Formular in der Verwaltung, die
 Preisermittlung an einer Stelle, die Abo-Auswahl im Buchungsdialog. Keine neue Seite, keine neue
 Tabelle, keine neue Abhängigkeit.
+
+---
+
+## Implementation Notes (Backend)
+
+**Stand:** Backend umgesetzt am 2026-08-23.
+
+### Serverseitige Preisermittlung
+`resolve_plan_price(course_id, desired_plan, wants_student_price)` spiegelt `planPrice()`
+aus `src/lib/pricing.ts` in SQL. Die Kachel im Browser ist eine Behauptung des Clients;
+in die Buchung gelangt nur, was der Server selbst ermittelt hat. Beide Definitionen
+verweisen im Kommentar aufeinander, damit eine Änderung nicht einseitig bleibt.
+
+Nachgerechnet: Server und Browser liefern für dieselben Eingaben dieselben Beträge
+(65/45/145/100 beim Standard, 60 bei „Salsa Beginner 1" mit eigenem Preis).
+
+### Der gezeigte Preis wird festgehalten
+`create_regular_course_booking` speichert jetzt `price` und `wants_student_price` auf der
+Anfrage. Zwei Gründe, ihn bei der Anfrage einzufrieren statt beim Bestätigen neu zu
+rechnen: der Client könnte einen anderen Betrag unterschieben, und ändert der Betreiber
+den Standardpreis zwischen Anfrage und Bestätigung, soll trotzdem der Betrag
+vorgeschlagen werden, den der Kunde gesehen hat.
+
+**Nachgewiesen:** Standardpreis von 45 auf 55 geändert — die offene Anfrage behielt 45,
+`resolve_plan_price` lieferte 55. Danach zurückgesetzt.
+
+Die Signatur wuchs um einen Parameter, daher wurde die alte ausdrücklich per
+`drop function` entfernt: `create or replace` hätte eine Überladung angelegt statt zu
+ersetzen (Lehre aus PROJ-15). Verifiziert: `count(*) from pg_proc` = 1.
+
+### Wartelisten-Nachrückung
+`promote_waitlist_for_course` stempelt den Preis beim Nachrücken. Sonst stünde der
+Betreiber vor einem leeren Preisfeld, nur weil der Kunde über die Warteliste kam. Der
+Preis entsteht beim Nachrücken, nicht beim Eintragen — der Wartelisten-Eintrag hält
+keinen Studierendenwunsch fest, und dazwischen können Monate liegen.
+
+### Bestätigungsdialog
+Der Vorschlag kommt jetzt aus `booking.price` (dem gezeigten Preis) statt aus
+`courses.price`. `coursePrice` bleibt Rückfall für Anfragen von vor dieser Änderung.
+Der Betreiber sieht in der Liste zusätzlich „(Studierendenpreis)", damit nachvollziehbar
+ist, warum 45 statt 65 steht.
+
+**Nachgewiesen:** Kunde bucht mit Studierendenwunsch, sieht „€ 45,00" → Datenbank
+speichert 45 → Bestätigungsdialog schlägt 45 vor.
+
+### Gutschein auch bei der Flatrate
+Bis PROJ-41 konnte ein Rabatt nur bei „Nur diesen Kurs" vorgeschlagen werden — die
+Flatrate hatte keinen Preis, von dem sich rabattieren ließe (PROJ-15 Tech Design). Jetzt
+hat sie einen, also gilt ein Gutschein für beide Abo-Arten. Vom Betreiber entschieden.
+
+### Obergrenze beim Bestätigen
+`confirmRegularBooking` prüft jetzt ebenfalls gegen `MAX_PRICE` — es ist die zweite
+Stelle, an der ein Preis von Hand entsteht, und ein Zahlendreher darf auch dort nicht zu
+einem monatlichen Einzug in dieser Höhe führen.
+
+### Laufende Abos
+Bestätigt: `confirmRegularBooking` schreibt den Betrag in `subscriptions.price`. Ein Abo
+trägt seinen Preis damit selbst — spätere Änderungen an der Preisliste fassen ihn nicht an.
+
+### Migrationen
+| Datei | Inhalt |
+|---|---|
+| `20260823195748_proj41_subscription_and_flatrate_prices.sql` | vier Spalten + Startwerte |
+| `20260823200841_proj41_server_side_plan_price.sql` | `resolve_plan_price` |
+| `20260823200911_proj41_store_price_on_regular_booking.sql` | Preis auf der Anfrage |
+| `20260823200932_proj41_price_on_waitlist_promotion.sql` | Preis beim Nachrücken |
+
+Alle angewendet und exportiert. Die Funktionskörper der Exportdateien wurden per
+MD5-Vergleich gegen `pg_proc.prosrc` geprüft — sie stimmen bit-genau mit der Datenbank
+überein.
 
 ---
 

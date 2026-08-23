@@ -122,6 +122,8 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       p_prerequisite_confirmed: parsed.data.prerequisite_confirmed ?? false,
       p_dance_role: parsed.data.dance_role ?? "",
       p_coupon_code: parsed.data.coupon_code ?? "",
+      // PROJ-41: nur der Wunsch — den Preis dazu ermittelt die Funktion selbst.
+      p_wants_student_price: parsed.data.wants_student_price ?? false,
     });
 
     if (error) {

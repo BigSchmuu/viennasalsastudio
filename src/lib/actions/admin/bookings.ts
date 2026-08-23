@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 import type { ActionResult } from "@/lib/actions/types";
+import { MAX_PRICE } from "@/lib/validations/booking";
 
 export async function confirmRegularBooking(
   bookingId: string,
@@ -18,6 +19,11 @@ export async function confirmRegularBooking(
   }
   if (Number.isNaN(price) || price < 0) {
     return { error: "Bitte einen gültigen Preis eingeben" };
+  }
+  // PROJ-41: dieselbe Obergrenze wie in der Preisliste — ein Zahlendreher darf
+  // auch hier nicht zu einem monatlichen Einzug in dieser Höhe führen.
+  if (price > MAX_PRICE) {
+    return { error: `Der Preis darf höchstens ${MAX_PRICE} € betragen` };
   }
 
   const { supabase } = await requireAdmin();

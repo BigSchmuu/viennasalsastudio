@@ -26,15 +26,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { formatPrice } from "@/lib/pricing";
 
 const ALL_TYPES = "__all__";
 
 function formatDate(date: string): string {
   return new Date(date).toLocaleDateString("de-AT");
-}
-
-function formatPrice(price: number): string {
-  return price.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
 }
 
 export type AdminBookingRow = {
@@ -49,6 +46,8 @@ export type AdminBookingRow = {
   note: string | null;
   price: number | null;
   coursePrice: number | null;
+  /** PROJ-41: erklärt dem Betreiber, warum der Preis der ermäßigte ist. */
+  wantsStudentPrice: boolean;
   coupon: { code: string; discountType: "percent" | "fixed"; discountAmount: number } | null;
 };
 
@@ -56,10 +55,12 @@ function formatDiscount(coupon: NonNullable<AdminBookingRow["coupon"]>): string 
   return coupon.discountType === "percent" ? `${coupon.discountAmount}%` : formatPrice(coupon.discountAmount);
 }
 
-/** Suggests the discounted price for the confirm dialog. Only possible for
- *  single-course plans, which are the only ones with a course list price to
- *  discount from — flatrate requests have no base price, so the admin still
- *  enters it freely (PROJ-15 Tech Design). */
+/** Suggests the discounted price for the confirm dialog.
+ *
+ *  Bis PROJ-41 ging das nur bei „Nur diesen Kurs": die Flatrate hatte keinen
+ *  Preis, von dem sich rabattieren liesse. Jetzt hat sie einen, also gilt ein
+ *  Gutschein fuer beide Abo-Arten. Ueberschreiben kann der Betreiber weiterhin
+ *  jederzeit. */
 function discountedPrice(basePrice: number, coupon: NonNullable<AdminBookingRow["coupon"]>): number {
   const result =
     coupon.discountType === "percent"
@@ -218,6 +219,7 @@ export function BookingManager({
               <TableCell className="text-sm text-muted-foreground">
                 {booking.desiredPlan && desiredPlanLabel(booking.desiredPlan)}
                 {booking.price !== null && ` ${formatPrice(booking.price)}`}
+                {booking.wantsStudentPrice && " (Studierendenpreis)"}
                 {booking.note && ` — ${booking.note}`}
               </TableCell>
               <TableCell>
@@ -239,11 +241,14 @@ export function BookingManager({
                           // Prefill with the discounted price when a valid coupon
                           // is attached to a single-course plan; the admin can
                           // still overwrite it freely either way.
-                          const base = booking.coursePrice;
+                          // PROJ-41: der Preis, der dem Kunden bei der Anfrage
+                          // gezeigt wurde. Er steht seit der Anfrage fest — eine
+                          // spaetere Preisaenderung darf den Vorschlag nicht
+                          // verschieben. `coursePrice` bleibt als Rueckfall fuer
+                          // Anfragen von vor dieser Aenderung.
+                          const base = booking.price ?? booking.coursePrice;
                           const suggested =
-                            base != null && booking.coupon && booking.desiredPlan === "single_course"
-                              ? discountedPrice(base, booking.coupon)
-                              : base;
+                            base != null && booking.coupon ? discountedPrice(base, booking.coupon) : base;
                           setSubPrice(suggested != null ? String(suggested) : "");
                           setError(null);
                         } else {
@@ -280,8 +285,8 @@ export function BookingManager({
               <Alert>
                 <AlertDescription>
                   Gutschein <strong>{confirmTarget.coupon.code}</strong>: {formatDiscount(confirmTarget.coupon)} Rabatt
-                  {confirmTarget.desiredPlan === "single_course" && confirmTarget.coursePrice != null
-                    ? ` — Preis bereits rabattiert vorgeschlagen (regulär ${formatPrice(confirmTarget.coursePrice)}).`
+                  {(confirmTarget.price ?? confirmTarget.coursePrice) != null
+                    ? ` — Preis bereits rabattiert vorgeschlagen (regulär ${formatPrice((confirmTarget.price ?? confirmTarget.coursePrice)!)}).`
                     : " — bitte beim Preis berücksichtigen."}
                 </AlertDescription>
               </Alert>
