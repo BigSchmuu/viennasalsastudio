@@ -13,15 +13,37 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
 }
 
+/**
+ * Returns the container that actually holds the navigation links.
+ *
+ * Below the md breakpoint (768px) the header folds its links into a sheet
+ * behind "Menü öffnen" — correct responsive behaviour, but it means the links
+ * live somewhere else than on a desktop viewport. These tests were written
+ * against the desktop layout only and therefore failed wholesale on the
+ * Mobile Safari project, looking for links that were one tap away.
+ *
+ * Both layouts mark the active link with `text-primary`, so assertions on the
+ * highlight work through this helper unchanged.
+ */
+async function navContainer(page: Page) {
+  const burger = page.getByRole("banner").getByRole("button", { name: "Menü öffnen" });
+  if (await burger.isVisible().catch(() => false)) {
+    await burger.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    return page.getByRole("dialog");
+  }
+  return page.getByRole("banner");
+}
+
 test.describe("PROJ-24: Globale Navigation & Login-Status", () => {
   test("Ausgeloggter Besucher sieht Kurse/Stundenplan/Login auf allen öffentlichen Seiten", async ({ page }) => {
     for (const path of ["/", "/kurse", "/stundenplan", "/login", "/registrieren"]) {
       await page.goto(path);
       await page.waitForTimeout(300);
-      const banner = page.getByRole("banner");
-      await expect(banner.getByRole("link", { name: "Kurse", exact: true })).toBeVisible();
-      await expect(banner.getByRole("link", { name: "Stundenplan" })).toBeVisible();
-      await expect(banner.getByRole("link", { name: "Login" })).toBeVisible();
+      const nav = await navContainer(page);
+      await expect(nav.getByRole("link", { name: "Kurse", exact: true })).toBeVisible();
+      await expect(nav.getByRole("link", { name: "Stundenplan" })).toBeVisible();
+      await expect(nav.getByRole("link", { name: "Login" })).toBeVisible();
     }
   });
 
@@ -35,10 +57,10 @@ test.describe("PROJ-24: Globale Navigation & Login-Status", () => {
     await login(page, CUSTOMER);
     await page.goto("/kurse");
     await page.waitForTimeout(300);
-    const banner = page.getByRole("banner");
-    await expect(banner.getByRole("link", { name: "Mein Profil" })).toBeVisible();
-    await expect(banner.getByRole("button", { name: "Logout" })).toBeVisible();
-    await expect(banner.getByRole("link", { name: "Login" })).not.toBeVisible();
+    const nav = await navContainer(page);
+    await expect(nav.getByRole("link", { name: "Mein Profil" })).toBeVisible();
+    await expect(nav.getByRole("button", { name: "Logout" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Login" })).toHaveCount(0);
     const html = await page.content();
     expect(html.includes('href="/admin"')).toBe(false);
   });
@@ -47,24 +69,29 @@ test.describe("PROJ-24: Globale Navigation & Login-Status", () => {
     await login(page, ADMIN);
     await page.goto("/kurse");
     await page.waitForTimeout(300);
-    await expect(page.getByRole("banner").getByRole("link", { name: "Admin", exact: true })).toBeVisible();
+    const nav = await navContainer(page);
+    await expect(nav.getByRole("link", { name: "Admin", exact: true })).toBeVisible();
   });
 
   test("Logout über die Nav-Leiste zeigt danach wieder den ausgeloggten Zustand", async ({ page }) => {
     await login(page, CUSTOMER);
     await page.goto("/profil");
     await page.waitForTimeout(300);
-    await page.getByRole("banner").getByRole("button", { name: "Logout" }).click();
+    const nav = await navContainer(page);
+    await nav.getByRole("button", { name: "Logout" }).click();
     await page.waitForTimeout(1200);
-    await expect(page.getByRole("banner").getByRole("link", { name: "Login" })).toBeVisible();
+    // The sheet closes with the navigation, so it has to be reopened to check
+    // the logged-out state on a mobile viewport.
+    const navAfter = await navContainer(page);
+    await expect(navAfter.getByRole("link", { name: "Login" })).toBeVisible();
   });
 
   test("Aktuelle Seite ist in der Nav optisch hervorgehoben", async ({ page }) => {
     await page.goto("/stundenplan");
     await page.waitForTimeout(300);
-    const banner = page.getByRole("banner");
-    await expect(banner.getByRole("link", { name: "Stundenplan" })).toHaveClass(/text-primary/);
-    await expect(banner.getByRole("link", { name: "Kurse", exact: true })).not.toHaveClass(/text-primary/);
+    const nav = await navContainer(page);
+    await expect(nav.getByRole("link", { name: "Stundenplan" })).toHaveClass(/text-primary/);
+    await expect(nav.getByRole("link", { name: "Kurse", exact: true })).not.toHaveClass(/text-primary/);
   });
 
   test("/admin zeigt weiterhin nur die bestehende AdminNav, keine globale Nav-Leiste", async ({ page }) => {
