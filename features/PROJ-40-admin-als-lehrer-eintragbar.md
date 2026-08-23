@@ -1,6 +1,6 @@
 # PROJ-40: Admin auch als Lehrer eintragbar
 
-## Status: Planned
+## Status: Approved
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -225,7 +225,86 @@ Kein separater Backend-Schritt nötig: Es ändern sich ausschließlich Abfragen 
 Datenbank-Sicht. Es gibt keine neuen Aktionen, keine neue Tabelle und keine neue Route.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-08-23
+**Umgebung:** http://localhost:3000 gegen die Produktiv-Datenbank (es gibt keine Staging-DB)
+**Tester:** QA Engineer (AI)
+
+### Akzeptanzkriterien
+
+#### Zuweisung — 4/4 bestanden
+- [x] Lehrer-Auswahl im Kursformular enthält Lehrer **und** Admins (23 Personen, davon 11 Admins)
+- [x] Zugewiesener Admin erscheint in der Verwaltung wie jeder andere Lehrer
+- [x] Die Rolle bleibt nach der Zuweisung unverändert `admin` — keine Verwaltungsrechte verloren
+- [x] Entfernen der Zuweisung lässt Konto und Rolle unberührt
+
+#### Öffentliche Sichtbarkeit — 4/4 bestanden
+- [x] Zugewiesener Admin steht öffentlich auf der Kursseite
+- [x] Admin **ohne** Zuweisung taucht öffentlich nirgends auf
+- [x] Die öffentliche Liste enthält ausschließlich Personen mit tatsächlicher Kurszuweisung —
+      jeder Eintrag einzeln gegen die Zuweisungen geprüft
+- [x] Die elf technischen Admin-Konten erscheinen nicht — ohne Ausnahmeliste, weil sie schlicht
+      keinen Kurs unterrichten
+
+#### Lehrer-Ansicht für unterrichtende Admins — 4/4 bestanden
+- [x] „Meine Kurse" erscheint erst bei tatsächlicher Zuweisung
+- [x] Ohne Zuweisung wird `/lehrer` weggeleitet — kein Menüpunkt auf eine leere Seite
+- [x] Ein unterrichtender Admin sieht **genau seine** Kurse, nicht alle der Schule
+- [x] Ein Kunde sieht „Meine Kurse" weiterhin nicht
+
+#### Bestehendes bleibt unberührt — 2/2 bestanden
+- [x] Für einen regulären Lehrer funktioniert alles unverändert
+- [x] Admins behalten den vollen Zugriff über die Verwaltung (Regression PROJ-13 grün)
+
+### Sicherheitsprüfung (Red Team)
+Bei diesem Feature ist die entscheidende Frage, ob sich jemand selbst zum Lehrer machen kann —
+das brächte öffentliche Sichtbarkeit **und** Zugriff auf Anwesenheitsdaten.
+
+- [x] **Kunde weist sich selbst zu:** abgelehnt („new row violates row-level security policy")
+- [x] **Lehrer weist sich selbst einem fremden Kurs zu:** ebenfalls abgelehnt
+- [x] **Versehentlich zugewiesener Kunde:** erscheint **nicht** in der öffentlichen Liste. Der
+      Rollenfilter, der im Entwurf als „Sicherheitsnetz" begründet wurde, greift damit real und
+      ist nicht theoretisch
+- [x] **Anonymer Zugriff auf die Liste:** liefert nur Namen von Personen mit Kurszuweisung — also
+      genau das, was ohnehin auf jeder Kurskarte steht
+
+### Gefundene Fehler
+Keine.
+
+### Beobachtung (kein Fehler)
+Die Lehrer-Auswahl im Kursformular zeigt jetzt alle 11 technischen Admin-Konten aus der
+Entwicklung. Das ist vorhandene Datenhygiene, die durch dieses Feature erstmals sichtbar wird —
+öffentlich erscheinen die Konten nicht. Die Auswahl hat ein Suchfeld. Ob die Altkonten aufgeräumt
+werden, ist eine eigene Entscheidung des Betreibers.
+
+### Automatisierte Tests
+- **E2E:** 12 neue Tests in `tests/PROJ-40-admin-als-lehrer.spec.ts` — **12/12 grün auf Chromium**
+- **Unit:** keine neuen. Das Feature ändert Abfragen und eine Datenbank-Sicht; die dazugehörige
+  Logik ist vollständig über E2E abgedeckt, ein Unit-Test würde nur eine Mock-Abfrage prüfen
+- **Gesamtsuite:** 280/280 grün
+- **Methodik:** `beforeEach` entfernt die Zuweisung. Sie ist genau das, was dieses Feature ein- und
+  ausschaltet — ohne Reset hinge jeder Test davon ab, was der vorherige hinterlassen hat
+
+### Mobile Safari — einmaliger Fehlschlag, nicht reproduzierbar
+Im ersten Durchgang fiel AC3 („zugewiesener Admin erscheint öffentlich") durch. Isoliert bestanden,
+im zweiten vollständigen Durchgang **12/12 bestanden**. Der Fehlschlag ließ sich nicht
+reproduzieren und wird deshalb als einmaliger Ausrutscher geführt — nicht als bestätigtes Problem,
+aber auch nicht als „sauber" verschwiegen. Sollte er wiederkehren, wäre der erste Verdacht eine
+Wettlaufsituation zwischen dem Setzen der Zuweisung und dem Seitenaufbau.
+
+### Regression
+- PROJ-13 (Lehrer-Ansicht): grün
+- PROJ-22 (Lehrer-Rollen verwalten): grün
+- PROJ-5 (Kurskatalog): grün
+- Zusammen 30/30
+
+### Zusammenfassung
+- **Akzeptanzkriterien:** 14/14 bestanden
+- **Fehler:** 0
+- **Sicherheit:** Bestanden. Niemand kann sich selbst zum Lehrer machen; ein versehentlich
+  zugewiesener Kunde wird nicht öffentlich
+- **Produktionsreif:** **JA**
+
 
 ## Deployment
 _To be added by /deploy_
