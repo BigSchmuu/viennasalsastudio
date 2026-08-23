@@ -1,6 +1,6 @@
 # PROJ-37: Offene Posten (Rücklastschriften-Übersicht)
 
-## Status: Planned
+## Status: Approved
 **Created:** 2026-08-22
 **Last Updated:** 2026-08-22
 
@@ -291,7 +291,81 @@ bei jeder neuen Vorlage nur bestätigt, dass jemand sie hochgezählt hat. Der Te
 zählt: dass kein Vorlagen-Schlüssel doppelt vergeben ist.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-08-23
+**Umgebung:** http://localhost:3000 gegen die Produktiv-Datenbank (es gibt keine Staging-DB)
+**Tester:** QA Engineer (AI)
+
+### Akzeptanzkriterien
+
+#### Übersicht — 5/5 bestanden
+- [x] Liste zeigt zurückgebuchte Rechnungen mit Kunde, Nummer, Datum und Standzeit („seit X Tagen")
+- [x] Kachel nennt Anzahl und Gesamtsumme
+- [x] Leerzustand statt leerer Tabelle, wenn nichts offen ist
+- [x] Erledigte Posten verschwinden aus der Liste
+- [x] Nicht-Admins wird der Zugriff verweigert
+
+#### Rücklastschrift-Gebühr — 5/5 bestanden
+- [x] Standardwert aus den Rechnungseinstellungen vorbelegt
+- [x] Pro Posten überschreibbar, der Standardwert bleibt unberührt
+- [x] Rechnungsbetrag und Gebühr getrennt ausgewiesen, Summe zusätzlich
+- [x] Gebühren fließen in die Gesamtsumme der Kachel ein
+- [x] 0,00 € zulässig, keine Pflichteingabe
+
+#### Erinnerung — 3/3 bestanden
+- [x] Erinnerung erzeugt einen Zustellversuch mit Rechnungsnummer, Betrag, Gebühr und Summe
+- [x] Zeitpunkt der letzten Erinnerung ist in der Liste sichtbar
+- [x] **Fehlgeschlagene Zustellung wird nicht als erinnert vermerkt** und meldet einen Fehler
+
+#### Erledigt markieren — 2/2 bestanden
+- [x] Posten verschwindet, Gesamtsumme sinkt
+- [x] Über „auch erledigte anzeigen" wieder zu öffnen — **die Gebühr bleibt dabei erhalten**
+
+### Sicherheitsprüfung (Red Team)
+- [x] **Unangemeldet:** Weiterleitung auf `/login`, kein Inhalt
+- [x] **Als Kunde:** Weiterleitung weg von der Seite, kein Zugriff auf die Übersicht
+- [x] **Datenbank direkt, als Kunde angemeldet:** Der Versuch, die *eigene* zurückgebuchte Rechnung
+      zu ändern (Gebühr setzen, auf erledigt markieren), betraf **0 Zeilen** — RLS erlaubt Kunden
+      nur Lesen. Ein Schuldner kann seine Forderung also nicht selbst wegklicken
+- [x] **Serverseitige Validierung:** Negative Beträge und unrealistisch hohe Werte werden abgelehnt,
+      unabhängig davon, was das Eingabefeld im Browser zulässt
+- [x] **Alle drei Aktionen filtern zusätzlich auf „zurückgebucht"** — eine gültige Rechnungs-ID
+      allein genügt nicht, um etwas zu verändern
+- [x] **Die Erinnerung ist vom Kunden nicht abschaltbar** (bewusst, wie die SEPA-Ankündigung)
+
+### Gefundene Fehler
+Keine. Der eine Fehler dieser Runde — der „erinnert am"-Vermerk bei fehlgeschlagener Zustellung —
+fiel bereits im Backend-Schritt auf und ist dort behoben und dokumentiert. Die QA hat ihn
+gegengeprüft: Bei Zustellstatus `failed` bleibt der Vermerk leer und es erscheint eine Meldung.
+
+### Automatisierte Tests
+- **Unit:** 5 neue Tests für die Gebühren-Validierung — Gesamtsuite **280/280 grün**
+- **E2E:** 9 neue Tests in `tests/PROJ-37-offene-posten.spec.ts` — **9/9 grün auf Chromium und
+  Mobile Safari**
+- **Methodik:** Die Suite setzt in `beforeEach` Gebühr, Erledigt-Status und Erinnerungszeitpunkt
+  zurück. Ohne das liefe sie einmal grün und danach nie wieder — genau das Muster, das dieses
+  Projekt zuvor eine ganze Aufräumrunde über neun Suiten gekostet hat.
+
+### Regression
+- PROJ-10 (Rechnungsarchiv): 12/12 grün
+- PROJ-36 (Buchhaltungs-Export): 14/14 grün
+- PROJ-34 (Benachrichtigungs-Texte): 9/9 grün — eine Zusicherung dort verlangte „genau 12 Vorlagen".
+  Die Zahl war nie die eigentliche Aussage; der Test prüft jetzt gegen die Registry selbst und
+  bricht damit nicht mehr bei jeder neuen Vorlage
+
+### Nicht abgedeckt
+- **Eine erfolgreich zugestellte Erinnerung.** Alle Fixture-Kunden haben `.test`-Adressen, an die
+  kein Mailserver zustellen kann. Der Fehlerpfad ist damit real geprüft, der Erfolgspfad nur bis zur
+  Übergabe an den Versand. Ein Probe-Versand an eine echte Adresse durch den Betreiber wäre der
+  letzte Schritt
+
+### Zusammenfassung
+- **Akzeptanzkriterien:** 15/15 bestanden
+- **Fehler:** 0 offen (1 im Backend-Schritt gefunden und behoben)
+- **Sicherheit:** Bestanden. Entscheidend: Ein Kunde kann seine eigene Forderung weder ändern noch
+  als erledigt markieren
+- **Produktionsreif:** **JA**
+
 
 ## Deployment
 _To be added by /deploy_

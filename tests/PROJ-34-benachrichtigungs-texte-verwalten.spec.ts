@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { TEMPLATE_REGISTRY } from "../src/lib/notifications/template-registry";
 import { createClient } from "@supabase/supabase-js";
 
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
@@ -38,7 +39,7 @@ test.afterAll(async () => {
 });
 
 test.describe("PROJ-34: Benachrichtigungs-Texte verwalten", () => {
-  test("Übersicht listet alle 12 Vorlagen gruppiert, standardmäßig als 'Standard' markiert", async ({ page }) => {
+  test("Übersicht listet alle Vorlagen gruppiert, standardmäßig als 'Standard' markiert", async ({ page }) => {
     await login(page, ADMIN);
     await page.goto("/admin/benachrichtigungen");
     await page.waitForTimeout(600);
@@ -52,10 +53,14 @@ test.describe("PROJ-34: Benachrichtigungs-Texte verwalten", () => {
       "SEPA-Ankündigung",
       "Event-Tickets",
       "Probestunden-Follow-up",
+      "Zahlungserinnerung",
     ]) {
       await expect(page.getByText(group, { exact: true })).toBeVisible();
     }
-    await expect(page.getByRole("link", { name: "Bearbeiten" })).toHaveCount(12);
+    // Keine feste Zahl: Sie müsste bei jeder neuen Vorlage nachgezogen werden
+    // und bestätigte am Ende nur, dass jemand sie hochgezählt hat. Die Aussage
+    // ist "jede Vorlage ist bearbeitbar" — also so viele Links wie Vorlagen.
+    await expect(page.getByRole("link", { name: "Bearbeiten" })).toHaveCount(TEMPLATE_REGISTRY.length);
     // Scoped to the "Buchungsstatus" group — "Bestätigt" is also a variant
     // label under "Event-Tickets", so an unscoped match would be ambiguous.
     const buchungsstatusGroup = page.locator("div.rounded-md.border", {

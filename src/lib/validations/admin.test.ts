@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { subscriptionSchema, teacherInviteSchema, lessonSchema, courseSchema } from "./admin";
+import { subscriptionSchema, teacherInviteSchema, lessonSchema, courseSchema, invoiceSettingsSchema } from "./admin";
 
 const validCourseId = "3b11eea8-cab5-46b0-9a2f-ad35bc99115f";
 const validVideoSetId = "ad07a4ed-ce9c-4d37-ae79-a549513ef839";
@@ -220,5 +220,41 @@ describe("lessonSchema", () => {
       customer_video_url: "",
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("Rücklastschrift-Gebühr in den Rechnungseinstellungen (PROJ-37)", () => {
+  const gueltig = {
+    company_name: "Vienna Salsa Studio",
+    address: "Teststraße 1",
+    uid_number: "ATU12345678",
+    vat_rate: 20,
+  };
+
+  it("nimmt einen üblichen Betrag an", () => {
+    expect(invoiceSettingsSchema.safeParse({ ...gueltig, bounce_fee_default: 4.5 }).success).toBe(true);
+  });
+
+  it("erlaubt 0,00 € — wer nichts weiterverrechnet, soll nicht zur Eingabe gezwungen werden", () => {
+    expect(invoiceSettingsSchema.safeParse({ ...gueltig, bounce_fee_default: 0 }).success).toBe(true);
+  });
+
+  it("weist negative Beträge ab", () => {
+    const result = invoiceSettingsSchema.safeParse({ ...gueltig, bounce_fee_default: -5 });
+    expect(result.success).toBe(false);
+  });
+
+  // Der eigentliche Zweck der Obergrenze: Ein Tippfehler wie 4500 statt 45,00
+  // soll nicht stillschweigend als Forderung an einen Kunden landen.
+  it("weist unrealistisch hohe Beträge ab", () => {
+    const result = invoiceSettingsSchema.safeParse({ ...gueltig, bounce_fee_default: 4500 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain("unrealistisch");
+    }
+  });
+
+  it("verlangt eine Zahl, keinen Text", () => {
+    expect(invoiceSettingsSchema.safeParse({ ...gueltig, bounce_fee_default: NaN }).success).toBe(false);
   });
 });
