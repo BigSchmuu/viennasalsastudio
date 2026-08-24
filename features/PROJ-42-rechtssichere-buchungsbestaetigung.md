@@ -496,4 +496,29 @@ MD5 gegen `pg_proc.prosrc` verglichen — vier von vier identisch.
 ---
 
 ## Deployment
-_To be added by /deploy_
+
+**Ausgerollt:** 2026-08-24 · **URL:** https://viennasalsastudio.vercel.app · **Tag:** `v1.42.0-PROJ-42`
+
+Vercel-Build in 53 s, neun Commits (`96ab4d6`…`3eeb759`).
+
+### Zwischenzeitlich war die Produktion kaputt
+
+Entwicklung und Produktion teilen sich dieselbe Supabase-Datenbank. Die
+Zustimmungspflicht war damit **ab dem Moment der Migration scharf** — die ausgerollte App
+schickte sie aber noch nicht mit. Zwischen Migration (ca. 02:00) und diesem Deploy hätte
+jede echte Buchung mit „Buchung konnte nicht gespeichert werden" geendet.
+
+Vor dem Deploy nachgestellt und bestätigt: der Aufruf, wie ihn die damals ausgerollte App
+machte, lieferte `terms not accepted`.
+
+**Lehre für künftige Features:** Eine Migration, die etwas **erzwingt**, gehört nicht vor
+den zugehörigen Anwendungscode. Entweder beides zusammen ausrollen, oder die Erzwingung
+zunächst nur protokollieren und erst nach dem Deploy scharf schalten. Bei Migrationen, die
+nur Spalten hinzufügen (wie PROJ-41), besteht das Problem nicht.
+
+### In der Produktion nachgeprüft
+- Häkchen nicht vorausgefüllt, Knopf gesperrt — **keine Konsolenfehler**
+- Mit Häkchen: Buchung geht durch, Meldung „Deine Buchung ist eingegangen"
+- Datenbank hält Zeitpunkt und Stand `2026-08`
+- Gegenprobe an einem **echten** Kurs (Bodymovement): erfolgreich, Preis 65 €
+- Testbuchungen danach entfernt
