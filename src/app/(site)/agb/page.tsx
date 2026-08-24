@@ -1,3 +1,5 @@
+import { formatAgbVersion } from "@/lib/legal";
+
 export const metadata = {
   title: "AGB",
 };
@@ -7,7 +9,7 @@ export default function AgbPage() {
     <div className="max-w-3xl mx-auto px-4 py-10 space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="font-heading text-3xl font-bold mb-2">Allgemeine Geschäftsbedingungen</h1>
-        <p className="text-muted-foreground">Stand: August 2026</p>
+        <p className="text-muted-foreground">Stand: {formatAgbVersion()}</p>
       </div>
 
       <section className="space-y-2">

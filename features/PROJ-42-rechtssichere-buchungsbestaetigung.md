@@ -183,8 +183,45 @@ Der Wortlaut der AGB. Der Hinweisblock über dem Knopf, die Rücktrittsbelehrung
 Umbenennung auf „zahlungspflichtig buchen" — alle drei am 2026-08-24 zurückgestellt und in
 Out of Scope festgehalten, damit später nachvollziehbar bleibt, dass sie bewusst fehlen.
 
-## Implementation Notes
-_To be added by /frontend and /backend_
+## Implementation Notes (Frontend)
+
+**Stand:** Frontend umgesetzt am 2026-08-24.
+
+### Was gebaut wurde
+- `src/lib/legal.ts` — `AGB_VERSION = "2026-08"` und `formatAgbVersion()`. Die **eine**
+  Stelle, aus der sowohl die Überschrift „Stand: August 2026" auf der AGB-Seite als auch
+  der später gespeicherte Nachweis stammen. Bei einer inhaltlichen AGB-Änderung ist hier
+  hochzuzählen; der Kommentar sagt das ausdrücklich.
+- `src/components/booking/terms-consent.tsx` — das Häkchen mit AGB-Link. Nie vorausgewählt,
+  Link mit `target="_blank"`, `stopPropagation` auf dem Link, weil er im Label sitzt und
+  sonst beim Nachlesen das Häkchen umschalten würde.
+- Buchungsdialog: Häkchen über dem Knopf, `canSubmit` beginnt jetzt mit `!termsAccepted`.
+- Ticketkauf-Dialog: dasselbe Häkchen, Knopf gesperrt bis gesetzt.
+- AGB-Seite bezieht ihren Stand aus der Konstante statt aus fest getipptem Text.
+
+### Ein Fehler, der beim Bauen auffiel
+Der Ticketkauf-Dialog bleibt **gemountet**, wenn er geschlossen wird — anders als der
+Buchungsdialog, der in allen drei Aufrufern bedingt gemountet ist. Ohne Gegenmaßnahme wäre
+das Häkchen beim zweiten Ticketkauf noch gesetzt gewesen, und eine vorausgehakte Zustimmung
+ist keine. Ein `useEffect` setzt es beim Öffnen zurück. Im Browser beide Richtungen geprüft.
+
+### Geprüft
+- `npm test` 303 grün (4 neue für `formatAgbVersion`), `npm run lint` und `npm run build` sauber.
+- Im Browser: Häkchen unvorausgewählt, „Absenden" gesperrt ohne / frei mit Häkchen,
+  AGB-Link zeigt auf `/agb` mit `target="_blank"`, Ticket-Häkchen beim zweiten Öffnen
+  wieder leer, AGB-Seite zeigt „Stand: August 2026".
+
+### Offen für /backend
+- Spalten für Zeitpunkt und AGB-Stand auf `course_bookings`, `waitlist_entries`, `tickets`.
+- **Serverseitige Ablehnung** einer Buchung ohne Zustimmung — heute sperrt nur die
+  Oberfläche, und die ist eine Behauptung des Browsers.
+- Der Buchungsdialog schickt `terms_accepted` und `terms_version` bereits mit; sie werden
+  noch nirgends gelesen. Der Ticketkauf übergibt noch nichts, weil `purchaseTicket`
+  Positionsargumente nimmt — der Parameter gehört zur Server-Seite.
+- Nachweis-Anzeige in der Verwaltung, mit „—" für Vorgänge von vor der Einführung.
+
+---
+
 
 ---
 

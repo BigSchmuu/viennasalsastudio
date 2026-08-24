@@ -23,6 +23,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PlanPriceTiles } from "@/components/booking/plan-price-tiles";
 import { formatPrice, type StudioPricing } from "@/lib/pricing";
+import { TermsConsent } from "@/components/booking/terms-consent";
+import { AGB_VERSION } from "@/lib/legal";
 import {
   Dialog,
   DialogContent,
@@ -85,6 +87,7 @@ export function BookingDialog({
   const [wantsStudentPrice, setWantsStudentPrice] = useState(false);
   const [referralSource, setReferralSource] = useState("");
   const [prerequisiteConfirmed, setPrerequisiteConfirmed] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [danceRole, setDanceRole] = useState<DanceRole | "">("");
   const [roleImbalance, setRoleImbalance] = useState(false);
   const [couponCode, setCouponCode] = useState("");
@@ -128,7 +131,9 @@ export function BookingDialog({
     hasMandate;
 
   const canSubmit =
-    (!!course.prerequisiteNote && !prerequisiteConfirmed) || (!hasReferralSource && !referralSource)
+    !termsAccepted ||
+    (!!course.prerequisiteNote && !prerequisiteConfirmed) ||
+    (!hasReferralSource && !referralSource)
       ? false
       : tab === "regular"
         ? hasMandate &&
@@ -151,6 +156,8 @@ export function BookingDialog({
         formData.set("chosen_date", regularDate);
         formData.set("desired_plan", desiredPlan);
         formData.set("dance_role", danceRole);
+        formData.set("terms_accepted", String(termsAccepted));
+        formData.set("terms_version", AGB_VERSION);
 
         const result = await joinWaitlist(formData);
         if ("error" in result) {
@@ -173,6 +180,8 @@ export function BookingDialog({
       formData.set("type", tab);
       formData.set("referral_source", referralSource);
       formData.set("prerequisite_confirmed", String(prerequisiteConfirmed));
+      formData.set("terms_accepted", String(termsAccepted));
+      formData.set("terms_version", AGB_VERSION);
 
       if (tab === "regular") {
         formData.set("chosen_date", regularDate);
@@ -483,6 +492,8 @@ export function BookingDialog({
             </Select>
           </div>
         )}
+
+        <TermsConsent checked={termsAccepted} onCheckedChange={setTermsAccepted} id="terms-accepted-booking" />
 
         <DialogFooter>
           <Button disabled={loading || !canSubmit} onClick={handleSubmit}>

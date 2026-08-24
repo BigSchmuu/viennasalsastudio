@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { purchaseTicket } from "@/lib/actions/events";
 import { ticketPaymentMethodLabel, type TicketPaymentMethod } from "@/lib/constants/events";
 import { Button } from "@/components/ui/button";
+import { TermsConsent } from "@/components/booking/terms-consent";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -42,6 +43,16 @@ export function TicketPurchaseDialog({
   const [loading, setLoading] = useState(false);
 
   const price = wantsStudentPrice ? event.priceStudent : event.priceNormal;
+
+  // PROJ-42: Ein Ticketkauf ist ein Vertragsschluss wie eine Kursbuchung.
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // Dieser Dialog bleibt gemountet, wenn er geschlossen wird — anders als der
+  // Buchungsdialog. Ohne dieses Zurücksetzen wäre das Häkchen beim zweiten
+  // Ticketkauf noch gesetzt, und eine vorausgehakte Zustimmung ist keine.
+  useEffect(() => {
+    if (open) setTermsAccepted(false);
+  }, [open]);
 
   async function handleSubmit() {
     setLoading(true);
@@ -134,8 +145,10 @@ export function TicketPurchaseDialog({
           </div>
         </div>
 
+        <TermsConsent checked={termsAccepted} onCheckedChange={setTermsAccepted} id="terms-accepted-ticket" />
+
         <DialogFooter>
-          <Button disabled={loading} onClick={handleSubmit}>
+          <Button disabled={loading || !termsAccepted} onClick={handleSubmit}>
             {loading ? "Wird gebucht…" : "Ticket kaufen"}
           </Button>
         </DialogFooter>
