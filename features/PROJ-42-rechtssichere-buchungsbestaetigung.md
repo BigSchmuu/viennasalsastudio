@@ -76,6 +76,7 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 
 ## Open Questions
 - [ ] Reichen die vorgesehenen Maßnahmen juristisch aus? → **Weiterhin offen.** Der Betreiber hat entschieden, zunächst nur das Verfahren zu bauen (Häkchen, Zeitstempel, AGB-Stand, Beschriftung) und die Texte unverändert aus den bestehenden AGB zu übernehmen. Eine juristische Prüfung steht aus; sie wäre danach reine Textarbeit (2026-08-24)
+- [ ] BUG-1: Soll der AGB-Stand in der Datenbankfunktion auf Format und Länge geprüft werden, oder ganz serverseitig bestimmt statt übergeben? (QA 2026-08-24)
 - [ ] Wie wird mit Bestandskunden umgegangen, die nie zugestimmt haben? → Offen; hängt von der juristischen Einschätzung ab.
 - [ ] Greift die FAGG-Ausnahme auch für die Flatrate? Sie ist an keinen bestimmten Termin gebunden, worauf sich § 4 der AGB aber stützt. (Architektur 2026-08-24)
 - [ ] Braucht es eine versionierte AGB (z.B. „Stand 08/2026"), oder genügt ein Zeitstempel? → In `/architecture` entscheiden, sobald die juristische Rückmeldung vorliegt.
@@ -326,7 +327,112 @@ Jede Funktion hat genau eine Signatur; die alten wurden per `drop function` entf
 ---
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet am:** 2026-08-24 · **Umgebung:** lokal gegen die Produktionsdatenbank (kein Staging)
+
+### Akzeptanzkriterien: 12 von 12 erfüllt
+
+| Bereich | Kriterium | Ergebnis |
+|---|---|---|
+| Beschriftung | Knopf nennt die Verbindlichkeit statt „Absenden" | ✅ |
+| Beschriftung | Wartelisten-Knopf bleibt neutral | ✅ |
+| Zustimmung | Absenden erst nach Bestätigung möglich | ✅ |
+| Zustimmung | Ohne Häkchen ist der Knopf gesperrt | ✅ |
+| Zustimmung | AGB nachlesen ohne Eingabeverlust | ✅ |
+| Zustimmung | Häkchen nicht vorausgefüllt | ✅ |
+| Zustimmung | Ticketkauf verlangt dasselbe | ✅ |
+| Zustimmung | Server lehnt manipulierte Buchung ab | ✅ |
+| Nachweis | Zeitpunkt und Stand werden festgehalten | ✅ |
+| Nachweis | Betreiber erkennt, ob und wann zugestimmt wurde | ✅ |
+| Nachweis | Älterer Stand bleibt an der Buchung erkennbar | ✅ |
+| Nachweis | Vorgang von vor der Einführung zeigt „—" | ✅ |
+
+Zum AGB-Link: geprüft wurde nicht nur, dass er einen neuen Tab öffnet, sondern auch, dass
+der Klick die Zustimmung **nicht** mitschaltet. Er sitzt im Label — ohne Gegenmaßnahme
+hätte das Nachlesen zugestimmt.
+
+Zum Zeitpunkt: er stammt vom Server, nicht vom Browser. Der Test prüft, dass er weder in
+der Zukunft liegt noch älter als fünf Minuten ist.
+
+### Gefundener Fehler
+
+**BUG-1 — Der AGB-Stand lässt sich frei setzen (Medium)**
+Der Stand ist ein Parameter der Datenbankfunktion. Die Server Action setzt ihn korrekt aus
+`AGB_VERSION`, aber die Funktion ist über PostgREST auch direkt erreichbar. Ein
+eingeloggter Kunde kann damit einen beliebigen Wert an seine eigene Buchung schreiben:
+
+- `p_terms_version: "1999-01"` → **durchgekommen**, gespeichert als `1999-01`
+- `p_terms_version: "<script>…</script>" + 5000 Zeichen` → **durchgekommen**, 5025 Zeichen gespeichert
+
+*Folge:* Der Nachweis ist manipulierbar — die Buchung behauptet dann, der Kunde habe einem
+anderen Stand zugestimmt als dem angezeigten. Genau die Frage, die dieses Feature
+beantworten soll, wird damit angreifbar. Der überlange Wert zerlegt außerdem die
+Tabellendarstellung in der Verwaltung; ein Skript wird dort **nicht** ausgeführt, React
+maskiert den Text.
+
+*Einordnung:* Medium, nicht High — der Angreifer verfälscht nur seinen **eigenen** Datensatz,
+umgeht die Zustimmungspflicht nicht und erlangt keinen Zugriff. Der Zeitstempel bleibt echt.
+
+*Naheliegende Behebung:* Format und Länge in der Funktion prüfen (`^\d{4}-\d{2}$`), oder den
+Stand ganz serverseitig bestimmen statt ihn zu übergeben.
+
+### Was der Prüfung standgehalten hat
+
+| Angriff | Ergebnis |
+|---|---|
+| Buchung ohne `p_terms_accepted` | ✅ abgewehrt |
+| Buchung mit `p_terms_accepted: false` | ✅ abgewehrt |
+| Zugestimmt, aber Stand leer/nur Leerzeichen | ✅ abgewehrt |
+| Probestunde, Drop-in, Warteliste, Ticketkauf ohne Zustimmung | ✅ alle abgewehrt |
+| Direkter Insert an der Funktion vorbei | ✅ abgewehrt (RLS) |
+| Umbuch-Hintertür `p_carry_terms_from` | ✅ Parameter existiert nicht mehr |
+| Eigene Zustimmung nachträglich ändern | ✅ abgewehrt (RLS) |
+| Eigene Zustimmung nachträglich löschen | ✅ abgewehrt (RLS) |
+| Halber Nachweis (Zeitpunkt ohne Fassung) | ✅ abgewehrt (CHECK, selbst mit Service-Rolle) |
+| Fremde Buchungen einsehen | ✅ nicht sichtbar |
+
+### Regression
+
+**Von PROJ-42 verursacht und behoben (Testebene):**
+- Die Umbenennung des Knopfes und die neue Sperre trafen sieben Suiten; 24 Stellen wurden
+  bereits beim Bauen nachgezogen.
+- Übersehen worden war der **Umbuchen-Dialog**: PROJ-8s Umbuch-Test lief in einen
+  gesperrten Knopf. Ergänzt.
+- Ebenfalls übersehen: PROJ-8 ruft die Buchungsfunktion direkt auf, um die
+  Doppelanmeldungs-Sperre zu prüfen. Weil die Zustimmung **vor** allen anderen Prüfungen
+  steht, kam „terms not accepted" statt „already enrolled". Zustimmung mitgeschickt.
+- **Ein eigener Fehlgriff:** Meine Massenanpassung hatte auch PROJ-9 ein
+  Zustimmungs-Häkchen untergeschoben. Dort wird aber ein **Abo** auf einen anderen Kurs
+  umgebucht — ein anderer Dialog, ohne Zustimmung, weil dort keine neue Buchung entsteht,
+  sondern ein laufender Vertrag geändert wird. Zurückgenommen.
+
+**Nicht von PROJ-42 — identische Signatur wie der in PROJ-41 nachgewiesene Fall:**
+PROJ-15 „Kunde mit bestehendem Abo bekommt keinen Gutschein mehr angerechnet" scheitert am
+fehlenden Einstiegstermin-Feld, weil der Dialog einem eingeschriebenen Kunden den Hinweis
+statt des Formulars zeigt. Ursache ist die Doppelanmeldungs-Sperre aus PROJ-8; bei PROJ-41
+auf Commit `078b9f3` (vor jeder Zeile PROJ-41/42-Code) reproduziert.
+
+**Grün:** PROJ-8 (14), PROJ-9 (10), PROJ-12 (8), PROJ-14, PROJ-26, PROJ-27, PROJ-30,
+PROJ-41 (17) — zusammen **59 von 60**.
+
+### Automatisierte Tests
+- `npm test`: **303 grün** (26 Dateien), darunter 4 für `formatAgbVersion`.
+- `tests/PROJ-42-rechtssichere-buchungsbestaetigung.spec.ts`: **15 grün.** Zweimal
+  hintereinander gelaufen; die Suite räumt vor **jedem** Test auf, weil eine abgeschickte
+  Buchung den Dialog beim nächsten Öffnen sonst blockiert.
+
+### Darstellung
+375 px, 768 px und 1440 px geprüft: Häkchen und Knopf sichtbar, **kein** horizontaler
+Überlauf im Dialog (gemessen, nicht geschätzt).
+
+Mobile Safari scheitert weiterhin suitenübergreifend am Login — bekanntes WebKit-Problem,
+siehe `docs/troubleshooting-tests.md`, unabhängig von diesem Feature.
+
+### Produktionsreife: **JA**
+
+Keine kritischen oder hohen Fehler. Die Zustimmungspflicht selbst ist nicht umgehbar; der
+gefundene Fehler betrifft die Genauigkeit des Nachweises, nicht seine Existenz.
+
 
 ---
 

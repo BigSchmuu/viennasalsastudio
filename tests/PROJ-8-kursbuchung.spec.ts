@@ -279,6 +279,9 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.getByRole("dialog").getByRole("combobox").click();
     await page.waitForTimeout(300);
     await page.getByRole("option").nth(1).click();
+    // PROJ-42: Auch das Umbuchen legt eine neue Buchung an — sie trägt
+    // ihre eigene Zustimmung, ohne Sonderweg.
+    await page.locator("#terms-accepted-rebook").check();
     await page.getByRole("button", { name: "Umbuchen bestätigen" }).click();
     await page.waitForTimeout(800);
 
@@ -408,6 +411,11 @@ test.describe("PROJ-8: Kursbuchung", () => {
         p_prerequisite_confirmed: true,
         p_dance_role: "",
         p_coupon_code: "",
+        // PROJ-42: Die Zustimmung wird vor allen anderen Prüfungen abgefragt.
+        // Hier wird die Doppelanmeldungs-Sperre geprüft, nicht die Zustimmung —
+        // also mitschicken, wie es die Server Action auch tut.
+        p_terms_accepted: true,
+        p_terms_version: "2026-08",
       });
       if (neueBuchung) await service.from("course_bookings").delete().eq("id", neueBuchung.id);
       expect(error?.message, "Die Datenbank muss die zweite Einschreibung ablehnen").toContain("already enrolled");
