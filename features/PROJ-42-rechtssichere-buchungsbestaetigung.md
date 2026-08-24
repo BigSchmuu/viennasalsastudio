@@ -33,37 +33,38 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 - **Rückwirkende Zustimmung bestehender Kunden.** Wie mit Altbestand umgegangen wird, ist eine Entscheidung außerhalb der App (siehe Open Questions).
 - **Automatisierte Widerrufsabwicklung.** Ein Widerruf wird wie heute persönlich abgewickelt.
 - **Rechnungs- oder Vertragsdokument als PDF** zum Zeitpunkt der Buchung.
+- **Hinweisblock über dem Absende-Knopf** (Preis, Abrechnungsrhythmus, Kündigung). Zurückgestellt am 2026-08-24 auf Wunsch des Betreibers: Der Preis steht seit PROJ-41 ohnehin in der Kachel, die übrigen Angaben stehen in den AGB, die per Häkchen bestätigt werden.
+- **Rücktrittsbelehrung im Buchungsvorgang.** Zurückgestellt am 2026-08-24. Es wird kein Rücktrittsrecht eingeräumt; was gilt, steht in § 4 der AGB.
+- **Umbenennung des Absende-Knopfes** auf „zahlungspflichtig buchen". Zurückgestellt am 2026-08-24 — eine Wortänderung, jederzeit nachholbar.
 
 ## Acceptance Criteria
 
 **Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
 
+> **Umfang auf Wunsch des Betreibers reduziert (2026-08-24):** Es geht ausschließlich um die
+> Zustimmung zu den AGB. Hinweisblock über dem Knopf, Rücktrittsbelehrung und die Umbenennung
+> auf „zahlungspflichtig buchen" sind zurückgestellt — siehe Out of Scope.
+
 ### Zustimmung
-- [ ] Angenommen ein Kunde füllt den Buchungsdialog aus, wenn er absenden will, dann muss er zuvor aktiv bestätigt haben, dass er AGB und Widerrufsbelehrung zur Kenntnis genommen hat.
+- [ ] Angenommen ein Kunde füllt den Buchungsdialog aus, wenn er absenden will, dann muss er zuvor bestätigt haben, dass er die AGB gelesen und akzeptiert hat.
 - [ ] Angenommen der Kunde hat nicht bestätigt, wenn er auf den Absende-Knopf schaut, dann ist dieser gesperrt.
-- [ ] Angenommen der Kunde klickt im Dialog auf „AGB", dann öffnen sie sich, ohne dass seine bisherigen Eingaben verloren gehen.
-- [ ] Angenommen ein Häkchen ist bereits vorausgefüllt, dann ist das **nicht** zulässig — die Zustimmung muss vom Kunden selbst gesetzt werden.
+- [ ] Angenommen der Kunde öffnet die AGB aus dem Dialog heraus, dann gehen seine bisherigen Eingaben nicht verloren.
+- [ ] Angenommen der Dialog wird geöffnet, dann ist das Häkchen **nicht** vorausgefüllt.
+- [ ] Angenommen ein Kunde kauft ein Event-Ticket, dann gilt dieselbe Zustimmung.
+- [ ] Angenommen ein manipulierter Browser schickt eine Buchung ohne Zustimmung, dann lehnt der Server sie ab.
 
 ### Nachweisbarkeit
 - [ ] Angenommen ein Kunde hat zugestimmt, wenn die Buchung gespeichert wird, dann wird festgehalten, **wann** und **welcher Stand** der AGB galt.
 - [ ] Angenommen der Betreiber sieht sich eine Buchung in der Verwaltung an, dann erkennt er, ob und wann zugestimmt wurde.
 - [ ] Angenommen die AGB werden später geändert, wenn eine alte Buchung angesehen wird, dann bleibt erkennbar, welchem Stand der Kunde damals zugestimmt hat.
-
-### Eindeutige Beschriftung
-- [ ] Angenommen eine Buchung ist zahlungspflichtig, wenn der Kunde den Absende-Knopf sieht, dann trägt dieser eine eindeutige Beschriftung im Sinne von „zahlungspflichtig buchen" statt „Absenden".
-- [ ] Angenommen eine Buchung ist kostenlos (Probestunde), dann bleibt die Beschriftung neutral — eine Zahlungspflicht darf nicht behauptet werden, wo keine besteht.
-- [ ] Angenommen ein Kunde kauft ein Event-Ticket, dann gilt dieselbe Regel.
-
-### Information vor dem Abschluss
-- [ ] Angenommen der Kunde steht kurz vor dem Absenden, dann sieht er in unmittelbarer Nähe des Knopfes: Preis, Abrechnungsrhythmus und wie gekündigt werden kann.
-- [ ] Angenommen der Kunde bucht ein Abo, dann wird er über sein Rücktrittsrecht **so informiert, wie es die AGB festlegen** — derzeit § 4: bei Kursen mit festem Wochentermin besteht kein 14-tägiges Rücktrittsrecht (§ 18 Abs. 1 Z 10 FAGG), das Abo ist aber jederzeit pausier- und kündbar.
+- [ ] Angenommen eine Buchung stammt von vor der Einführung, dann steht dort „—" statt eines erfundenen Zeitpunkts.
 
 ## Edge Cases
 - Was passiert mit Kunden, die vor der Einführung gebucht haben? → Für sie existiert keine Zustimmung. Ob und wie sie nachgeholt wird, ist eine Entscheidung außerhalb der App (siehe Open Questions).
 - Was, wenn ein Kunde zustimmt, die Buchung aber fehlschlägt? → Es wird nichts festgehalten; die Zustimmung gehört zur Buchung, nicht zum Klick.
 - Was, wenn die AGB geändert werden, während ein Kunde den Dialog offen hat? → Festgehalten wird der Stand, der beim Speichern gilt. Eine Abweichung von Sekunden ist praktisch bedeutungslos, ein falscher Nachweis wäre schlimmer als keiner.
 - Was, wenn ein Kunde mehrfach bucht? → Jede Buchung trägt ihre eigene Zustimmung; eine einmalige Zustimmung „für immer" wäre schwächer nachweisbar.
-- Gilt das auch für Probestunde und Drop-in? → Die Zustimmung ja, die Zahlungspflicht-Beschriftung nur, wo tatsächlich gezahlt wird.
+- Gilt das auch für Probestunde und Drop-in? → Ja, dieselbe Zustimmung. Der Vorgang ist derselbe, unabhängig davon, ob gezahlt wird.
 
 ## Technical Requirements (optional)
 - Security: Die Zustimmung muss serverseitig geprüft werden — ein manipulierter Browser darf sie nicht umgehen können.
@@ -72,6 +73,7 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 ## Open Questions
 - [ ] Reichen die vorgesehenen Maßnahmen juristisch aus? → **Weiterhin offen.** Der Betreiber hat entschieden, zunächst nur das Verfahren zu bauen (Häkchen, Zeitstempel, AGB-Stand, Beschriftung) und die Texte unverändert aus den bestehenden AGB zu übernehmen. Eine juristische Prüfung steht aus; sie wäre danach reine Textarbeit (2026-08-24)
 - [ ] Wie wird mit Bestandskunden umgegangen, die nie zugestimmt haben? → Offen; hängt von der juristischen Einschätzung ab.
+- [ ] Greift die FAGG-Ausnahme auch für die Flatrate? Sie ist an keinen bestimmten Termin gebunden, worauf sich § 4 der AGB aber stützt. (Architektur 2026-08-24)
 - [ ] Braucht es eine versionierte AGB (z.B. „Stand 08/2026"), oder genügt ein Zeitstempel? → In `/architecture` entscheiden, sobald die juristische Rückmeldung vorliegt.
 - [x] Gilt das Widerrufsrecht auch, wenn der Kurs innerhalb der 14 Tage beginnt? → Die bestehenden AGB (§ 4) verneinen es für Kurse mit festem Wochentermin und berufen sich auf § 18 Abs. 1 Z 10 FAGG. Der Hinweis im Buchungsvorgang gibt diese Position wieder; die App behauptet nichts, was die AGB nicht hergeben (2026-08-24)
 
@@ -84,6 +86,7 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 | Zustimmung pro Buchung, nicht einmalig beim Konto | Eine einmalige Zustimmung „für immer" wäre bei geänderten AGB schwer nachweisbar; pro Buchung ist eindeutig, was galt | 2026-08-23 |
 | Häkchen nicht vorausgefüllt | Eine vorausgewählte Zustimmung ist keine; das ist einer der häufigsten Fehler bei Online-Bestellungen | 2026-08-23 |
 | Zahlungspflicht-Beschriftung nur, wo bezahlt wird | Bei einer kostenlosen Probestunde eine Zahlungspflicht zu behaupten, wäre falsch und würde Kunden abschrecken | 2026-08-23 |
+| Kein Rücktrittsrecht einräumen; keine Rücktrittsbelehrung im Buchungsvorgang | Vom Betreiber entschieden. Hinweis des Architekten: Ob ein Rücktrittsrecht besteht, folgt aus § 18 Abs. 1 Z 10 FAGG und nicht aus einer Entscheidung des Anbieters — bei der Flatrate, die an keinen bestimmten Termin gebunden ist, ist die Ausnahme weniger eindeutig als bei einem Kurs mit festem Wochentermin. Ungeprüft | 2026-08-24 |
 | Inhalt der AGB bleibt außen vor | Die App kann dafür sorgen, dass zugestimmt wird — was zugestimmt wird, muss ein Jurist verantworten | 2026-08-23 |
 
 ### Technical Decisions
@@ -94,90 +97,76 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 | Zustimmung wird serverseitig erzwungen | Ein Häkchen im Browser ist eine Behauptung des Browsers, wie der Preis in PROJ-41 | 2026-08-24 |
 | Zwei Felder auf Buchung, Ticket und Wartelisten-Eintrag statt einer eigenen Tabelle | Die Zustimmung gehört zum Vorgang und wird immer mit ihm gelesen; eine Nebentabelle wäre ein Join ohne Nutzen | 2026-08-24 |
 | Altbestand bleibt leer und wird als „—" angezeigt | Ein erfundener Zeitpunkt wäre ein falscher Nachweis — schlechter als gar keiner | 2026-08-24 |
-| Rücktritts-Hinweis gibt § 4 der AGB wieder | Ein Hinweis, der großzügiger klingt als die AGB, wirkt im Streitfall gegen den Betreiber. Vom Betreiber entschieden | 2026-08-24 |
+| Umfang auf die AGB-Zustimmung reduziert; Hinweisblock, Rücktrittsbelehrung und Knopf-Umbenennung zurückgestellt | Vom Betreiber entschieden. In Out of Scope festgehalten, damit später erkennbar bleibt, dass sie bewusst fehlen und nicht vergessen wurden | 2026-08-24 |
+| Zeitpunkt und AGB-Stand werden trotz „nur eine Checkbox" gespeichert | Ein Häkchen, das nirgends ankommt, ist Dekoration — für den Kunden unsichtbar und ohne zusätzliche Bedienung | 2026-08-24 |
 | Keine Zustimmung bei der Registrierung | Dort entsteht keine Zahlungspflicht; die Zustimmung sitzt, wo eine Verpflichtung entsteht | 2026-08-24 |
 
 ---
 
 ## Tech Design (Solution Architect)
 
-> Entworfen wird das **Verfahren**, nicht der Rechtstext. Alle Texte stammen unverändert aus
-> den bestehenden AGB. Eine juristische Prüfung steht aus; sie wäre danach reine Textarbeit,
-> weil kein Rechtsinhalt in der Mechanik steckt.
+> Entworfen wird das **Verfahren**, nicht der Rechtstext. Umfang am 2026-08-24 auf Wunsch des
+> Betreibers auf die AGB-Zustimmung reduziert. Eine juristische Prüfung steht aus.
 
 ### A) Component Structure (Visual Tree)
 
 ```
 Buchungsdialog (bestehend)
-└── unterhalb des Formulars, direkt über dem Knopf: NEU „Bevor du buchst"
-    ├── Was es kostet        65,00 € pro Monat
-    ├── Wie abgerechnet wird alle 4 Wochen per SEPA-Lastschrift
-    ├── Wie du rauskommst    jederzeit im Profil kündbar, wirksam zum Zyklusende
-    ├── Rücktritt            bei festem Wochentermin kein 14-Tage-Rücktritt (§ 4 AGB)
-    └── ☐ Ich habe die AGB gelesen und stimme ihnen zu.   [AGB öffnen]
-            └── nicht vorausgewählt · Link öffnet in neuem Tab
-
-    Knopf darunter — Beschriftung richtet sich nach der Zahlungspflicht:
-      Abo / Drop-in / Ticket mit Preis  →  „Zahlungspflichtig buchen"
-      Probestunde, kostenloses Event    →  „Probestunde buchen" (neutral)
-      Warteliste                        →  „Auf Warteliste eintragen" (neutral)
+└── direkt über dem Absende-Knopf: NEU
+    ☐ Ich habe die AGB gelesen und akzeptiere sie.        [AGB]
+        └── nicht vorausgewählt · Link öffnet einen neuen Tab
+    Absende-Knopf bleibt gesperrt, solange das Häkchen fehlt
 
 Ticketkauf-Dialog (bestehend)
-└── dieselbe Zustimmung, derselbe Knopf-Regelsatz
+└── dasselbe Häkchen, dieselbe Sperre
 
 Verwaltung → Buchungen (bestehend)
-└── pro Zeile NEU: „AGB zugestimmt am 24.08.2026 (Stand 2026-08)"
-       fehlt die Zustimmung (Buchung von vor der Einführung): „—"
+└── pro Zeile NEU: „AGB 24.08.2026 (Stand 2026-08)"   ·   ohne Zustimmung: „—"
 ```
 
-Es entsteht **keine neue Seite**. Zwei bestehende Dialoge bekommen einen Abschnitt, ein
-bestehender Knopf eine genauere Beschriftung, eine bestehende Liste eine Spalte.
+Keine neue Seite. Zwei bestehende Dialoge bekommen eine Zeile, eine bestehende Liste
+eine Angabe.
 
 ### B) Data Model (plain language)
 
 ```
 Jede Buchung und jedes Ticket hält künftig zusätzlich fest:
-- Wann zugestimmt wurde        (Zeitpunkt)
-- Welchem Stand zugestimmt wurde ("2026-08")
+- Wann zugestimmt wurde           (Zeitpunkt)
+- Welchem Stand zugestimmt wurde  ("2026-08")
 
-Beides darf leer sein: Buchungen von vor der Einführung haben keine Zustimmung,
-und das soll auch so aussehen — eine nachträglich erfundene wäre wertlos.
-
-Der Wartelisten-Eintrag hält dasselbe fest und gibt es beim Nachrücken an die
-entstehende Anfrage weiter.
+Beides darf leer sein: Vorgänge von vor der Einführung haben keine Zustimmung,
+und das soll auch so aussehen.
 ```
 
-**Der AGB-Stand steht an genau einer Stelle im Code** und wird von dort aus zweifach benutzt:
+**Der AGB-Stand steht an genau einer Stelle im Code** und wird von dort zweifach benutzt:
 für die Überschrift „Stand: …" auf der AGB-Seite und für das, was bei der Zustimmung
-gespeichert wird. So kann die angezeigte Fassung nicht von der gespeicherten abweichen.
+gespeichert wird. So können angezeigte und gespeicherte Fassung nicht auseinanderlaufen.
 
 ### C) Tech Decisions (justified for PM)
 
-- **Zustimmung gehört zur Buchung, nicht zum Konto.** Ein Kunde, der vor einem Jahr einmal
-  zugestimmt hat, hat einem anderen Text zugestimmt. Pro Buchung ist eindeutig, was galt.
+- **Zeitpunkt und Stand werden mitgespeichert, obwohl der Betreiber „nur eine Checkbox"
+  wollte.** Das ist kein zusätzliches Feature, sondern das, was die Checkbox überhaupt
+  wertvoll macht: Ein Häkchen, das nirgends ankommt, ist Dekoration. Beides ist für den
+  Kunden unsichtbar und kostet keine zusätzliche Bedienung.
 
-- **Ein gepflegter Stand statt einer automatischen Prüfsumme.** Eine Prüfsumme über den
-  Text wäre bequem, würde sich aber schon bei einem korrigierten Komma ändern und dann
-  einen Rechtsstand vortäuschen, der sich nie geändert hat. Der Stand wird bewusst gesetzt,
-  wenn sich inhaltlich etwas ändert — so bedeutet er auch etwas.
+- **Zustimmung gehört zur Buchung, nicht zum Konto.** Wer vor einem Jahr einmal zugestimmt
+  hat, hat einem anderen Text zugestimmt. Pro Vorgang ist eindeutig, was galt.
+
+- **Ein gepflegter Stand statt einer automatischen Prüfsumme über den Text.** Eine Prüfsumme
+  änderte sich schon bei einem korrigierten Komma und täuschte damit eine Änderung des
+  Rechtsstands vor, die nie stattgefunden hat.
 
 - **Der Server lässt eine Buchung ohne Zustimmung nicht durch.** Ein Häkchen im Browser ist
-  eine Behauptung des Browsers. Genau wie beim Preis in PROJ-41 entscheidet die Datenbank.
-
-- **Die Beschriftung folgt der tatsächlichen Zahlungspflicht.** „Zahlungspflichtig buchen"
-  bei einer kostenlosen Probestunde wäre schlicht falsch — und würde Interessenten
-  abschrecken, die genau über diese Probestunde kommen sollen.
-
-- **Der Rücktritts-Hinweis gibt die AGB wieder, statt ein Recht zu behaupten.** § 4 der AGB
-  schließt das 14-Tage-Recht für Kurse mit festem Wochentermin aus. Ein Hinweis, der
-  großzügiger klingt als die AGB, wäre ein Versprechen, das im Streitfall gegen den
-  Betreiber wirkt.
+  eine Behauptung des Browsers — wie der Preis in PROJ-41 entscheidet die Datenbank.
 
 - **Der AGB-Link öffnet einen neuen Tab.** Eine Zustimmung ist nur dann eine, wenn man den
-  Text lesen konnte, ohne dafür sein halb ausgefülltes Formular zu verlieren.
+  Text lesen konnte, ohne sein halb ausgefülltes Formular zu verlieren.
 
-- **Altbestand bleibt sichtbar leer.** Buchungen von vor der Einführung zeigen „—" statt
-  eines erfundenen Zeitpunkts. Ein falscher Nachweis ist schlechter als gar keiner.
+- **Altbestand bleibt sichtbar leer.** „—" statt eines erfundenen Zeitpunkts: ein falscher
+  Nachweis ist schlechter als gar keiner.
+
+- **Keine Zustimmung bei der Registrierung.** Dort entsteht keine Verpflichtung; die
+  Zustimmung sitzt, wo eine entsteht.
 
 ### D) Dependencies (packages to install)
 
@@ -185,19 +174,14 @@ Keine.
 
 ### Umfang
 
-Erweitert: Buchungs-, Ticket- und Wartelisten-Datensätze um zwei Felder; zwei Dialoge um
-einen Hinweisabschnitt mit Häkchen; die Knopfbeschriftungen; die Verwaltungsansicht um die
-Nachweis-Anzeige; die serverseitige Prüfung. Keine neue Seite, keine neue Tabelle, keine
-neue Abhängigkeit.
+Erweitert: Buchungs-, Wartelisten- und Ticket-Datensätze um zwei Felder; zwei Dialoge um
+eine Zeile; die serverseitige Prüfung; die Verwaltungsansicht um die Nachweis-Anzeige.
 
 ### Ausdrücklich nicht Teil dieses Entwurfs
 
-Der Wortlaut von AGB, Datenschutzerklärung und Rücktrittsbelehrung. Die Registrierung
-bekommt **keine** Zustimmung — sie schließt keinen entgeltlichen Vertrag; die Zustimmung
-sitzt dort, wo eine Verpflichtung entsteht.
-
-
----
+Der Wortlaut der AGB. Der Hinweisblock über dem Knopf, die Rücktrittsbelehrung und die
+Umbenennung auf „zahlungspflichtig buchen" — alle drei am 2026-08-24 zurückgestellt und in
+Out of Scope festgehalten, damit später nachvollziehbar bleibt, dass sie bewusst fehlen.
 
 ## Implementation Notes
 _To be added by /frontend and /backend_
