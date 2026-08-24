@@ -469,4 +469,23 @@ Text auf Verwaltung → Buchungen hin.
 ---
 
 ## Deployment
-_To be added by /deploy_
+
+**Ausgerollt:** 2026-08-24 · **URL:** https://viennasalsastudio.vercel.app · **Tag:** `v1.41.0-PROJ-41`
+
+Vercel-Build in 56 s durchgelaufen, sechs Commits (`4f419ab`…`8c326e9`).
+
+Die Datenbankänderungen waren bereits vorher produktiv — Entwicklung und Produktion teilen
+sich dasselbe Supabase-Projekt. Mit diesem Deploy kam der Anwendungscode nach.
+
+### In der Produktion nachgeprüft
+- Gast ohne Konto sieht den Preis auf der Kurskarte — **keine Konsolenfehler**
+- Kunde sieht die Kacheln (65 / 145), Studierendenangabe schaltet auf 45
+- Buchung abgeschickt → Betreiber sieht „(Studierendenpreis)" in der Liste und bekommt
+  **45** im Bestätigungsdialog vorgeschlagen
+- BUG-1 greift live: Studierendenpreis 99 über Normalpreis 65 wird mit Meldung abgelehnt
+- Testbuchung danach entfernt, Preisliste auf 20/15/65/45/145/100
+
+### Offen, nicht durch dieses Feature verursacht
+In der Datenbank stehen **29 Testkurse gegenüber 14 echten** — sie erscheinen alle im
+öffentlichen Katalog. Seit diesem Feature tragen sie dort auch einen Preis, was sie einem
+Besucher stärker auffallen lässt. Bestand aus früheren Features; eigene Aufräumaufgabe.

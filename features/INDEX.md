@@ -56,7 +56,7 @@
 | PROJ-39 | Admin-Hinweis auf neue Buchungen | Deployed | [PROJ-39](../features/PROJ-39-admin-hinweis-neue-buchungen.md) | 2026-08-22 |
 | PROJ-40 | Admin auch als Lehrer eintragbar | Deployed | [PROJ-40](../features/PROJ-40-admin-als-lehrer-eintragbar.md) | 2026-08-22 |
 
-| PROJ-41 | Preise bei der Kursbuchung | Approved | [PROJ-41](../features/PROJ-41-preisdarstellung-kursbuchung.md) | 2026-08-23 |
+| PROJ-41 | Preise bei der Kursbuchung | Deployed | [PROJ-41](../features/PROJ-41-preisdarstellung-kursbuchung.md) | 2026-08-23 |
 | PROJ-42 | Rechtssichere Buchungsbestätigung | Planned | [PROJ-42](../features/PROJ-42-rechtssichere-buchungsbestaetigung.md) | 2026-08-23 |
 
 <!-- Add features above this line -->
