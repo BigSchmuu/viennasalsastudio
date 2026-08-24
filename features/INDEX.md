@@ -57,7 +57,7 @@
 | PROJ-40 | Admin auch als Lehrer eintragbar | Deployed | [PROJ-40](../features/PROJ-40-admin-als-lehrer-eintragbar.md) | 2026-08-22 |
 
 | PROJ-41 | Preise bei der Kursbuchung | Deployed | [PROJ-41](../features/PROJ-41-preisdarstellung-kursbuchung.md) | 2026-08-23 |
-| PROJ-42 | Rechtssichere Buchungsbestätigung | In Review | [PROJ-42](../features/PROJ-42-rechtssichere-buchungsbestaetigung.md) | 2026-08-23 |
+| PROJ-42 | Rechtssichere Buchungsbestätigung | Approved | [PROJ-42](../features/PROJ-42-rechtssichere-buchungsbestaetigung.md) | 2026-08-23 |
 
 <!-- Add features above this line -->
 

@@ -390,6 +390,76 @@ test.describe("PROJ-42: Rechtssichere Buchungsbestätigung", () => {
     expect(count).toBe(0);
   });
 
+  test("Nachweis: ein erfundener AGB-Stand wird abgelehnt (BUG-1)", async () => {
+    // Der Stand ist ein Parameter, und die Funktion ist über PostgREST direkt
+    // erreichbar. Ohne Prüfung könnte ein Kunde behaupten, er habe einer ganz
+    // anderen Fassung zugestimmt — genau die Frage, die dieses Feature
+    // beantworten soll.
+    const id = await courseId(COURSE);
+    const anon = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false } }
+    );
+    await anon.auth.signInWithPassword(CUSTOMER);
+    const { data: dates } = await anon.from("course_entry_dates").select("entry_date").eq("course_id", id).limit(1);
+
+    const buche = (version: string) =>
+      anon.rpc("create_regular_course_booking", {
+        p_course_id: id,
+        p_desired_plan: "single_course",
+        p_chosen_date: dates![0].entry_date,
+        p_note: "",
+        p_prerequisite_confirmed: true,
+        p_dance_role: "",
+        p_coupon_code: "",
+        p_terms_accepted: true,
+        p_terms_version: version,
+      });
+
+    const abzulehnen = [
+      "1999-01", // erfundene Vergangenheit, vor der App
+      "2030-01", // Zukunft — es gibt sie noch nicht
+      "2026-99", // kein echter Monat
+      "august 2026", // falsche Form
+      "<script>alert(1)</script>" + "X".repeat(5000), // Müll und Überlänge
+    ];
+    for (const version of abzulehnen) {
+      const { error } = await buche(version);
+      expect(error?.message ?? "", `abzulehnen: ${version.slice(0, 20)}`).toMatch(/terms version/);
+    }
+
+    const { count } = await service
+      .from("course_bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("course_id", id);
+    expect(count, "keiner der Versuche darf eine Buchung hinterlassen").toBe(0);
+
+    // Gegenprobe: der echte Stand geht durch.
+    const { data, error } = await buche(AGB_VERSION);
+    expect(error).toBeNull();
+    expect(data!.terms_version).toBe(AGB_VERSION);
+  });
+
+  test("Nachweis: die Tabelle selbst lässt keinen unsinnigen AGB-Stand zu", async () => {
+    // Zweite Verteidigungslinie: auch ein künftiger Schreibweg, der an der
+    // Funktion vorbeiginge, kann keinen Müll ablegen.
+    const id = await courseId(COURSE);
+    const { data: dates } = await service.from("course_entry_dates").select("entry_date").eq("course_id", id).limit(1);
+    const { data: kunde } = await service.from("profiles").select("id").limit(1).single();
+    const { error } = await service.from("course_bookings").insert({
+      customer_id: kunde!.id,
+      course_id: id,
+      type: "regular",
+      status: "open",
+      desired_plan: "single_course",
+      chosen_date: dates![0].entry_date,
+      terms_accepted_at: new Date().toISOString(),
+      terms_version: "Unsinn",
+    });
+    expect(error?.message ?? "").toContain("terms_version_format");
+  });
+
   test("Nachweis: ein halber Nachweis wird von der Datenbank abgelehnt", async () => {
     const id = await courseId(COURSE);
     const { data: dates } = await service.from("course_entry_dates").select("entry_date").eq("course_id", id).limit(1);

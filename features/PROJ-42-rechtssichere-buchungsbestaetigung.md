@@ -76,7 +76,7 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 
 ## Open Questions
 - [ ] Reichen die vorgesehenen Maßnahmen juristisch aus? → **Weiterhin offen.** Der Betreiber hat entschieden, zunächst nur das Verfahren zu bauen (Häkchen, Zeitstempel, AGB-Stand, Beschriftung) und die Texte unverändert aus den bestehenden AGB zu übernehmen. Eine juristische Prüfung steht aus; sie wäre danach reine Textarbeit (2026-08-24)
-- [ ] BUG-1: Soll der AGB-Stand in der Datenbankfunktion auf Format und Länge geprüft werden, oder ganz serverseitig bestimmt statt übergeben? (QA 2026-08-24)
+- [x] BUG-1: Soll der AGB-Stand in der Datenbankfunktion geprüft werden? → Ja, umgesetzt: Form, echter Monat und plausibler Zeitraum. Eine Liste gültiger Stände in der Datenbank wurde verworfen, sie wäre ein zweiter Ort zum Auseinanderlaufen (2026-08-24)
 - [ ] Wie wird mit Bestandskunden umgegangen, die nie zugestimmt haben? → Offen; hängt von der juristischen Einschätzung ab.
 - [ ] Greift die FAGG-Ausnahme auch für die Flatrate? Sie ist an keinen bestimmten Termin gebunden, worauf sich § 4 der AGB aber stützt. (Architektur 2026-08-24)
 - [ ] Braucht es eine versionierte AGB (z.B. „Stand 08/2026"), oder genügt ein Zeitstempel? → In `/architecture` entscheiden, sobald die juristische Rückmeldung vorliegt.
@@ -433,6 +433,65 @@ siehe `docs/troubleshooting-tests.md`, unabhängig von diesem Feature.
 Keine kritischen oder hohen Fehler. Die Zustimmungspflicht selbst ist nicht umgehbar; der
 gefundene Fehler betrifft die Genauigkeit des Nachweises, nicht seine Existenz.
 
+
+---
+
+## Bugfix nach QA (2026-08-24)
+
+**BUG-1 — Der AGB-Stand lässt sich frei setzen**
+
+Neue Datenbankfunktion `assert_valid_terms_version`, aufgerufen von allen vier
+Buchungsfunktionen. Drei Bedingungen, alle aus dem, was die Datenbank ohnehin weiß:
+
+1. **Form `JJJJ-MM` mit echtem Monat** — kappt Müll, Überlänge und „2026-99".
+2. **Nicht in der Zukunft** — niemand stimmt einer Fassung zu, die es noch nicht gibt.
+3. **Nicht vor 2026-01** — die App gibt es nicht länger; alles davor ist erfunden.
+
+Dazu ein CHECK auf allen drei Tabellen, der die **Form** verankert. Zweite
+Verteidigungslinie: auch ein künftiger Schreibweg an der Funktion vorbei kann keinen Müll
+ablegen. Bewusst ohne Zeitbezug — ein CHECK muss unveränderlich sein, `current_date` ist es
+nicht.
+
+**Verworfen:** eine Liste gültiger Stände in der Datenbank. Sie würde auch den letzten Rest
+schließen, wäre aber ein zweiter Ort neben `AGB_VERSION` — und zwei Orte laufen auseinander.
+
+**Was bleibt (bewusst):** Ein Kunde kann einen *plausiblen* vergangenen Monat wählen, etwa
+„2026-01" statt „2026-08". Der Zeitstempel kommt weiterhin vom Server und hält den wahren
+Moment fest, sodass eine solche Abweichung im Nachhinein sichtbar wäre.
+
+### Nachgewiesen
+| Eingabe | Ergebnis |
+|---|---|
+| `1999-01` (erfundene Vergangenheit) | ✅ abgewiesen |
+| `2030-01` (Zukunft) | ✅ abgewiesen |
+| `2026-99` (kein echter Monat) | ✅ abgewiesen |
+| `august 2026` (falsche Form) | ✅ abgewiesen |
+| Skript-Tag + 5000 Zeichen | ✅ abgewiesen |
+| Direkter Insert mit `Unsinn` | ✅ abgewiesen (CHECK) |
+| `2026-08` (echter Stand) | ✅ angelegt |
+
+Keiner der Versuche hinterließ eine Buchung.
+
+### Migrationen
+| Datei | Inhalt |
+|---|---|
+| `20260824024523_proj42_validate_terms_version.sql` | Prüffunktion + CHECK auf drei Tabellen |
+| `20260824024554_proj42_use_terms_version_validator.sql` | die vier Funktionen rufen sie auf |
+
+Die zweite Migration tauscht den Zweizeiler **am Quelltext der bestehenden Funktionen** aus,
+statt sie erneut vollständig hinzuschreiben — so kann sich beim Umstellen kein anderer Teil
+unbemerkt ändern. Der Block ist wiederholbar.
+
+**Geprüft, dass ein Neuaufbau aus den Dateien den Live-Stand ergibt:** Für alle vier
+Funktionen wurde der Austausch auf die exportierten Dateien angewandt und das Ergebnis per
+MD5 gegen `pg_proc.prosrc` verglichen — vier von vier identisch.
+
+### Testabdeckung danach
+- `tests/PROJ-42-…`: **17 grün** (zwei neue für BUG-1), zweimal hintereinander gelaufen.
+- `npm test` 303 grün, Lint und Build sauber.
+- Regression PROJ-8, PROJ-12, PROJ-14 → **39 von 39**.
+
+### Produktionsreife: **JA** — keine offenen Befunde
 
 ---
 
