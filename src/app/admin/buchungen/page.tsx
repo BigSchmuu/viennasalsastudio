@@ -22,7 +22,7 @@ export default async function BuchungenPage({
   let query = supabase
     .from("course_bookings")
     .select(
-      "id, customer_id, type, status, chosen_date, desired_plan, note, price, wants_student_price, courses(name, price), profiles(full_name), coupons(code, discount_type, discount_amount, max_redemptions, redemption_count, expires_at, active)"
+      "id, customer_id, type, status, chosen_date, desired_plan, note, price, wants_student_price, terms_accepted_at, terms_version, courses(name, price), profiles(full_name), coupons(code, discount_type, discount_amount, max_redemptions, redemption_count, expires_at, active)"
     );
 
   if (sortKey === "customer_name") {
@@ -67,6 +67,8 @@ export default async function BuchungenPage({
       price: b.price,
       coursePrice: b.courses?.price ?? null,
       wantsStudentPrice: b.wants_student_price ?? false,
+      termsAcceptedAt: b.terms_accepted_at,
+      termsVersion: b.terms_version,
       coupon: couponStillValid
         ? {
             code: coupon.code,

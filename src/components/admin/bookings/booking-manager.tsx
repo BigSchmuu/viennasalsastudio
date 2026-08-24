@@ -48,6 +48,9 @@ export type AdminBookingRow = {
   coursePrice: number | null;
   /** PROJ-41: erklärt dem Betreiber, warum der Preis der ermäßigte ist. */
   wantsStudentPrice: boolean;
+  /** PROJ-42: `null` bei Buchungen von vor der Einführung der Zustimmung. */
+  termsAcceptedAt: string | null;
+  termsVersion: string | null;
   coupon: { code: string; discountType: "percent" | "fixed"; discountAmount: number } | null;
 };
 
@@ -201,6 +204,7 @@ export function BookingManager({
             <TableHead>Art</TableHead>
             <SortableHeader label="Termin" sortKey="chosen_date" />
             <TableHead>Details</TableHead>
+            <TableHead>AGB</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Aktionen</TableHead>
           </TableRow>
@@ -221,6 +225,13 @@ export function BookingManager({
                 {booking.price !== null && ` ${formatPrice(booking.price)}`}
                 {booking.wantsStudentPrice && " (Studierendenpreis)"}
                 {booking.note && ` — ${booking.note}`}
+              </TableCell>
+              <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                {/* PROJ-42: „—" statt eines erfundenen Zeitpunkts. Ein falscher
+                    Nachweis wäre schlechter als gar keiner. */}
+                {booking.termsAcceptedAt
+                  ? `${formatDate(booking.termsAcceptedAt)} (Stand ${booking.termsVersion})`
+                  : "—"}
               </TableCell>
               <TableCell>
                 <Badge style={{ backgroundColor: bookingStatusColor(booking.status), color: "white" }}>

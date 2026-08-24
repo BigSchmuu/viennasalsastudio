@@ -6,6 +6,7 @@ import { bookingTypeLabel, bookingStatusLabel, bookingStatusColor, desiredPlanLa
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TermsConsent } from "@/components/booking/terms-consent";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [rebookTarget, setRebookTarget] = useState<MyBookingRow | null>(null);
   const [newDate, setNewDate] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   async function handleCancel(bookingId: string) {
     setLoadingId(bookingId);
@@ -69,7 +71,7 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
     setLoadingId(rebookTarget.id);
     setError(null);
     try {
-      const result = await rebookBooking(rebookTarget.id, newDate);
+      const result = await rebookBooking(rebookTarget.id, newDate, termsAccepted);
       if ("error" in result) {
         setError(result.error);
         return;
@@ -142,6 +144,9 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
                     onClick={() => {
                       setRebookTarget(booking);
                       setNewDate("");
+                      // Dieser Dialog bleibt gemountet — ohne Zuruecksetzen
+                      // waere das Haekchen beim naechsten Umbuchen noch gesetzt.
+                      setTermsAccepted(false);
                       setError(null);
                     }}
                   >
@@ -173,8 +178,11 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
               </SelectContent>
             </Select>
           </div>
+          {/* PROJ-42: Auch das Umbuchen legt eine neue Buchung an — sie trägt
+              ihre eigene Zustimmung, ohne Sonderweg. */}
+          <TermsConsent checked={termsAccepted} onCheckedChange={setTermsAccepted} id="terms-accepted-rebook" />
           <DialogFooter>
-            <Button disabled={!newDate || loadingId === rebookTarget?.id} onClick={handleRebook}>
+            <Button disabled={!newDate || !termsAccepted || loadingId === rebookTarget?.id} onClick={handleRebook}>
               Umbuchen bestätigen
             </Button>
           </DialogFooter>

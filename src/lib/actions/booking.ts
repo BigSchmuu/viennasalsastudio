@@ -7,6 +7,7 @@ import { bookingSchema } from "@/lib/validations/booking";
 import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
 import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
 import { notifyAdminsOfNewBooking } from "@/lib/notifications/admin-alerts";
+import { AGB_VERSION } from "@/lib/legal";
 import type { ActionResult } from "@/lib/actions/types";
 
 type BookingRow = {
@@ -54,6 +55,9 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     desired_plan: formData.get("desired_plan") ?? "",
     note: formData.get("note") ?? "",
     wants_student_price: formData.get("wants_student_price") === "true",
+    // PROJ-42: Nur ob zugestimmt wurde, kommt vom Browser — das ist die
+    // Handlung des Kunden. Welcher Stand galt, setzt der Server unten selbst.
+    terms_accepted: formData.get("terms_accepted") === "true",
     referral_source: formData.get("referral_source") ?? "",
     prerequisite_confirmed: formData.get("prerequisite_confirmed") === "true",
     dance_role: formData.get("dance_role") ?? "",
@@ -124,9 +128,14 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       p_coupon_code: parsed.data.coupon_code ?? "",
       // PROJ-41: nur der Wunsch — den Preis dazu ermittelt die Funktion selbst.
       p_wants_student_price: parsed.data.wants_student_price ?? false,
+      p_terms_accepted: parsed.data.terms_accepted ?? false,
+      p_terms_version: AGB_VERSION,
     });
 
     if (error) {
+      if (error.message.includes("terms not accepted")) {
+        return { error: "Bitte bestätige zuerst die AGB." };
+      }
       if (error.message.includes("already enrolled")) {
         return { error: "Du bist für diesen Kurs bereits angemeldet." };
       }
@@ -190,12 +199,17 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     p_chosen_date: parsed.data.chosen_date,
     p_wants_student_price: parsed.data.type === "dropin" ? parsed.data.wants_student_price ?? false : false,
     p_prerequisite_confirmed: parsed.data.prerequisite_confirmed ?? false,
+    p_terms_accepted: parsed.data.terms_accepted ?? false,
+    p_terms_version: AGB_VERSION,
   });
 
   if (error) {
     // PROJ-39 BUG-1: the guards live in the RPC because the abuse path bypasses
     // this action entirely — but a customer who simply double-clicked deserves
     // a real explanation rather than "could not be saved".
+    if (error.message.includes("terms not accepted")) {
+      return { error: "Bitte bestätige zuerst die AGB." };
+    }
     if (error.message.includes("already booked")) {
       return { error: "Du hast diesen Termin bereits gebucht." };
     }
@@ -280,13 +294,24 @@ export async function cancelBooking(bookingId: string): Promise<ActionResult> {
 
 type RebookResult = { error: string } | { success: true; booking: BookingRow };
 
-export async function rebookBooking(bookingId: string, newDate: string): Promise<RebookResult> {
+export async function rebookBooking(
+  bookingId: string,
+  newDate: string,
+  termsAccepted: boolean
+): Promise<RebookResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
     return { error: "Nicht eingeloggt" };
+  }
+  // PROJ-42: Auch beim Umbuchen entsteht ein neuer Buchungsdatensatz, und der
+  // trägt seine eigene Zustimmung. Der frühere Sonderweg, die Zustimmung der
+  // Ursprungsbuchung zu übernehmen, war eine Hintertür — siehe Migration
+  // 20260824_proj42_close_carry_terms_bypass.
+  if (!termsAccepted) {
+    return { error: "Bitte bestätige zuerst die AGB." };
   }
 
   const { data: booking } = await supabase
@@ -322,6 +347,8 @@ export async function rebookBooking(bookingId: string, newDate: string): Promise
     p_chosen_date: newDate,
     p_wants_student_price: booking.wants_student_price ?? false,
     p_prerequisite_confirmed: true,
+    p_terms_accepted: true,
+    p_terms_version: AGB_VERSION,
   });
 
   if (insertError?.message.includes("already booked")) {

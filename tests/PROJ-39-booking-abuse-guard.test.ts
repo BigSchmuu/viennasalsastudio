@@ -29,6 +29,11 @@ async function book(date: string) {
     p_chosen_date: date,
     p_wants_student_price: false,
     p_prerequisite_confirmed: true,
+    // PROJ-42: Die Funktion verlangt jetzt die AGB-Zustimmung. Hier wird der
+    // Missbrauchsschutz geprüft, nicht die Zustimmung — also mitschicken, wie
+    // es die Server Action auch tut.
+    p_terms_accepted: true,
+    p_terms_version: "2026-08",
   });
 }
 

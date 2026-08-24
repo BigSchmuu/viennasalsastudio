@@ -92,6 +92,9 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 | Zahlungspflicht-Beschriftung nur, wo bezahlt wird | Bei einer kostenlosen Probestunde eine Zahlungspflicht zu behaupten, wäre falsch und würde Kunden abschrecken | 2026-08-23 |
 | Knopf heißt „Rechtlich verbindlich buchen", einheitlich für Abo, Probestunde und Drop-in | Vom Betreiber gewählt (2026-08-24), nachdem die Umbenennung zunächst zurückgestellt war. Hinweis des Entwicklers: Bei der regulären Anmeldung ist die Absendung ein bindender Antrag, den der Betreiber erst bestätigt — die Erfolgsmeldung sagt daher weiterhin „Anfrage gesendet" | 2026-08-24 |
 | Kundenseitige Texte sprechen von einer „Buchung", nicht von einer „Anfrage" | Nach „rechtlich verbindlich buchen" liest sich „Anfrage gesendet", als hätte der Klick nichts bewirkt. Aus Sicht des Betreibers bleibt es eine Anfrage — dort ändert sich die Wortwahl nicht | 2026-08-24 |
+| Der AGB-Stand kommt aus der Server Action, nicht aus dem Browser | Der Client kennt nur seine eigene Handlung. Käme der Stand von ihm, wäre der Nachweis fälschbar | 2026-08-24 |
+| Umbuchen verlangt eine eigene Zustimmung, statt die der Ursprungsbuchung zu übernehmen | Der Übernahme-Parameter war eine Hintertür: mit einer beliebigen Kennung entstand eine Buchung ganz ohne Zustimmung. Die Ausnahme ersatzlos zu streichen ist sicherer als sie zu flicken | 2026-08-24 |
+| Entweder Zeitpunkt und Fassung oder keins von beiden (CHECK) | Ein halber Nachweis beantwortet keine der beiden Fragen, die er beantworten soll | 2026-08-24 |
 | Wartelisten-Knopf bleibt neutral | Ein Wartelisten-Eintrag begründet keine Verpflichtung; „verbindlich buchen" wäre dort schlicht falsch | 2026-08-24 |
 | Kein Rücktrittsrecht einräumen; keine Rücktrittsbelehrung im Buchungsvorgang | Vom Betreiber entschieden. Hinweis des Architekten: Ob ein Rücktrittsrecht besteht, folgt aus § 18 Abs. 1 Z 10 FAGG und nicht aus einer Entscheidung des Anbieters — bei der Flatrate, die an keinen bestimmten Termin gebunden ist, ist die Ausnahme weniger eindeutig als bei einem Kurs mit festem Wochentermin. Ungeprüft | 2026-08-24 |
 | Inhalt der AGB bleibt außen vor | Die App kann dafür sorgen, dass zugestimmt wird — was zugestimmt wird, muss ein Jurist verantworten | 2026-08-23 |
@@ -249,6 +252,76 @@ nachgewiesene, von der Doppelanmeldungs-Sperre aus PROJ-8 verursachte.
 
 ---
 
+
+---
+
+## Implementation Notes (Backend)
+
+**Stand:** Backend umgesetzt am 2026-08-24.
+
+### Serverseitige Durchsetzung
+Vier Funktionen lehnen jetzt ab, was ohne Zustimmung hereinkommt:
+`create_regular_course_booking`, `create_self_service_booking`, `join_waitlist`,
+`purchase_event_ticket`. Die Prüfung steht **vor** allen anderen — ohne Zustimmung ist die
+Frage nach Kapazität oder Rollenverhältnis gegenstandslos.
+
+**Der AGB-Stand kommt nicht vom Browser.** Der Client schickt nur, *ob* zugestimmt wurde —
+das ist seine Handlung. *Welcher Stand* galt, setzt die Server Action aus `AGB_VERSION`
+(`src/lib/legal.ts`) ein. Käme er aus dem Browser, wäre der Nachweis fälschbar; läge er in
+einer eigenen Tabelle, gäbe es zwei Orte, die auseinanderlaufen können.
+
+### Sicherheitsbefund während der Umsetzung
+Die erste Fassung hatte einen Parameter `p_carry_terms_from` für das Umbuchen: dort
+entsteht keine neue Verpflichtung, also sollte die Zustimmung der Ursprungsbuchung
+mitwandern. Der Angriffstest zeigte, dass er eine **Hintertür** war: zeigte er auf eine
+fremde oder erfundene Buchung, lieferte das SELECT keine Zeile, die Variablen blieben
+leer — und die Buchung entstand ganz ohne Zustimmung. Der Aufruf stand jedem eingeloggten
+Kunden offen.
+
+Die fremde Kennung allein zu prüfen hätte nicht gereicht: Wer eine eigene Buchung von vor
+der Einführung besitzt, hätte damit beliebig viele weitere ohne Zustimmung erzeugen können.
+In einem Feature, dessen einziger Zweck die Nachweisbarkeit ist, ist eine schmale Lücke
+immer noch eine Lücke. Der Sonderweg wurde deshalb **ganz entfernt**: Auch beim Umbuchen
+wird zugestimmt. Das kostet ein Häkchen in einem selten benutzten Dialog und macht die
+Regel ausnahmslos.
+
+### Wartelisten-Nachrückung
+Die Zustimmung wandert vom Wartelisten-Eintrag auf die entstehende Anfrage. Sie dort neu zu
+stempeln wäre falsch: zugestimmt hat der Kunde beim Eintragen, und „jetzt" wäre der
+Zeitpunkt, zu dem der Betreiber geklickt hat.
+
+### Datenmodell
+Zwei Spalten auf `course_bookings`, `waitlist_entries` und `tickets`, dazu je eine
+Bedingung: **entweder beides oder nichts**. Ein Zeitpunkt ohne Fassung sagt nicht, wozu
+zugestimmt wurde; eine Fassung ohne Zeitpunkt nicht, ob überhaupt.
+
+### Verwaltung
+Neue Spalte „AGB" in der Buchungsliste: „24.8.2026 (Stand 2026-08)", bei Vorgängen von vor
+der Einführung „—".
+
+### Migrationen
+| Datei | Inhalt |
+|---|---|
+| `20260824015757_proj42_terms_consent_columns.sql` | Spalten + Bedingungen |
+| `20260824015822_proj42_enforce_terms_on_self_service_booking.sql` | Probestunde/Drop-in (erste Fassung) |
+| `20260824015847_proj42_enforce_terms_on_regular_booking.sql` | reguläre Anmeldung |
+| `20260824015915_proj42_enforce_terms_on_waitlist_and_tickets.sql` | Warteliste + Ticketkauf |
+| `20260824015933_proj42_carry_terms_on_waitlist_promotion.sql` | Zustimmung beim Nachrücken |
+| `20260824020414_proj42_close_carry_terms_bypass.sql` | **Sicherheitsfix**: Sonderweg entfernt |
+
+Alle angewendet und exportiert. Jede Funktion wurde per MD5-Vergleich gegen
+`pg_proc.prosrc` geprüft — die Exportdateien stimmen bit-genau mit der Datenbank überein.
+Jede Funktion hat genau eine Signatur; die alten wurden per `drop function` entfernt.
+
+### Geprüft
+- Angriffstest: ohne Zustimmung, mit `false`, mit leerem Stand, per direktem Insert an der
+  Funktion vorbei, über die Umbuch-Hintertür — **alle abgewiesen**. Gegenprobe mit
+  Zustimmung legt an und trägt Zeitpunkt und Stand.
+- Durchgehender Weg im Browser: buchen mit Häkchen → Datenbank hält Zeitpunkt und
+  „2026-08" → Verwaltung zeigt „24.8.2026 (Stand 2026-08)".
+- `npm test` 303 grün, `npm run lint` und `npm run build` sauber.
+- PROJ-39s Vitest-Tests rufen die Funktion direkt auf und mussten die Zustimmung
+  mitschicken — dort wird der Missbrauchsschutz geprüft, nicht die Zustimmung.
 
 ---
 

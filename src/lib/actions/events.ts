@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { TicketPaymentMethod } from "@/lib/constants/events";
 import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 import type { ActionResult } from "@/lib/actions/types";
+import { AGB_VERSION } from "@/lib/legal";
 
 type TicketRow = {
   id: string;
@@ -24,7 +25,10 @@ type PurchaseTicketResult =
 export async function purchaseTicket(
   eventId: string,
   paymentMethod: TicketPaymentMethod,
-  wantsStudentPrice: boolean
+  wantsStudentPrice: boolean,
+  // PROJ-42: Ob zugestimmt wurde, kommt vom Browser. Welcher Stand galt, setzt
+  // der Server selbst — sonst waere der Nachweis faelschbar.
+  termsAccepted: boolean
 ): Promise<PurchaseTicketResult> {
   const supabase = await createClient();
   const {
@@ -34,10 +38,16 @@ export async function purchaseTicket(
     return { error: "Nicht eingeloggt" };
   }
 
+  if (!termsAccepted) {
+    return { error: "Bitte bestätige zuerst die AGB." };
+  }
+
   const { data, error } = await supabase.rpc("purchase_event_ticket", {
     p_event_id: eventId,
     p_payment_method: paymentMethod,
     p_wants_student_price: wantsStudentPrice,
+    p_terms_accepted: termsAccepted,
+    p_terms_version: AGB_VERSION,
   });
 
   if (error) {

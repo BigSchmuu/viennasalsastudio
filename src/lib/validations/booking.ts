@@ -9,6 +9,7 @@ export const bookingSchema = z
     desired_plan: z.enum(desiredPlanValues).optional().or(z.literal("")),
     note: z.string().trim().max(500, "Notiz ist zu lang").optional().or(z.literal("")),
     wants_student_price: z.boolean().optional(),
+    terms_accepted: z.boolean().optional(),
     referral_source: z.enum(referralSourceValues).optional().or(z.literal("")),
     prerequisite_confirmed: z.boolean().optional(),
     dance_role: z.enum(danceRoleValues).optional().or(z.literal("")),

@@ -235,6 +235,8 @@ export type Database = {
           price: number | null
           status: string
           subscription_id: string | null
+          terms_accepted_at: string | null
+          terms_version: string | null
           type: string
           wants_student_price: boolean | null
         }
@@ -251,6 +253,8 @@ export type Database = {
           price?: number | null
           status?: string
           subscription_id?: string | null
+          terms_accepted_at?: string | null
+          terms_version?: string | null
           type: string
           wants_student_price?: boolean | null
         }
@@ -267,6 +271,8 @@ export type Database = {
           price?: number | null
           status?: string
           subscription_id?: string | null
+          terms_accepted_at?: string | null
+          terms_version?: string | null
           type?: string
           wants_student_price?: boolean | null
         }
@@ -1249,6 +1255,8 @@ export type Database = {
           payment_method: string
           price: number
           status: string
+          terms_accepted_at: string | null
+          terms_version: string | null
           wants_student_price: boolean
         }
         Insert: {
@@ -1261,6 +1269,8 @@ export type Database = {
           payment_method: string
           price: number
           status?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
           wants_student_price?: boolean
         }
         Update: {
@@ -1273,6 +1283,8 @@ export type Database = {
           payment_method?: string
           price?: number
           status?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
           wants_student_price?: boolean
         }
         Relationships: [
@@ -1434,6 +1446,8 @@ export type Database = {
           dance_role: string | null
           desired_plan: string
           id: string
+          terms_accepted_at: string | null
+          terms_version: string | null
         }
         Insert: {
           chosen_date: string
@@ -1443,6 +1457,8 @@ export type Database = {
           dance_role?: string | null
           desired_plan: string
           id?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
         }
         Update: {
           chosen_date?: string
@@ -1452,6 +1468,8 @@ export type Database = {
           dance_role?: string | null
           desired_plan?: string
           id?: string
+          terms_accepted_at?: string | null
+          terms_version?: string | null
         }
         Relationships: [
           {
@@ -1515,6 +1533,8 @@ export type Database = {
           payment_method: string
           price: number
           status: string
+          terms_accepted_at: string | null
+          terms_version: string | null
           wants_student_price: boolean
         }
         SetofOptions: {
@@ -1545,6 +1565,8 @@ export type Database = {
           payment_method: string
           price: number
           status: string
+          terms_accepted_at: string | null
+          terms_version: string | null
           wants_student_price: boolean
         }
         SetofOptions: {
@@ -1567,6 +1589,9 @@ export type Database = {
           p_desired_plan: string
           p_note: string
           p_prerequisite_confirmed?: boolean
+          p_terms_accepted?: boolean
+          p_terms_version?: string
+          p_wants_student_price?: boolean
         }
         Returns: {
           chosen_date: string
@@ -1581,6 +1606,8 @@ export type Database = {
           price: number | null
           status: string
           subscription_id: string | null
+          terms_accepted_at: string | null
+          terms_version: string | null
           type: string
           wants_student_price: boolean | null
         }
@@ -1593,9 +1620,12 @@ export type Database = {
       }
       create_self_service_booking: {
         Args: {
+          p_carry_terms_from?: string
           p_chosen_date: string
           p_course_id: string
           p_prerequisite_confirmed?: boolean
+          p_terms_accepted?: boolean
+          p_terms_version?: string
           p_type: string
           p_wants_student_price?: boolean
         }
@@ -1612,6 +1642,8 @@ export type Database = {
           price: number | null
           status: string
           subscription_id: string | null
+          terms_accepted_at: string | null
+          terms_version: string | null
           type: string
           wants_student_price: boolean | null
         }
@@ -1674,6 +1706,8 @@ export type Database = {
           p_course_id: string
           p_dance_role?: string
           p_desired_plan: string
+          p_terms_accepted?: boolean
+          p_terms_version?: string
         }
         Returns: {
           chosen_date: string
@@ -1683,6 +1717,8 @@ export type Database = {
           dance_role: string | null
           desired_plan: string
           id: string
+          terms_accepted_at: string | null
+          terms_version: string | null
         }
         SetofOptions: {
           from: "*"
@@ -1727,6 +1763,8 @@ export type Database = {
         Args: {
           p_event_id: string
           p_payment_method: string
+          p_terms_accepted?: boolean
+          p_terms_version?: string
           p_wants_student_price: boolean
         }
         Returns: {
@@ -1739,6 +1777,8 @@ export type Database = {
           payment_method: string
           price: number
           status: string
+          terms_accepted_at: string | null
+          terms_version: string | null
           wants_student_price: boolean
         }
         SetofOptions: {
@@ -1754,6 +1794,14 @@ export type Database = {
           discount_amount: number
           discount_type: string
         }[]
+      }
+      resolve_plan_price: {
+        Args: {
+          p_course_id: string
+          p_desired_plan: string
+          p_wants_student_price?: boolean
+        }
+        Returns: number
       }
       self_reactivate_subscription: {
         Args: { p_subscription_id: string }

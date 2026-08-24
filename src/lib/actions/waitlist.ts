@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { joinWaitlistSchema } from "@/lib/validations/waitlist";
 import type { ActionResult } from "@/lib/actions/types";
+import { AGB_VERSION } from "@/lib/legal";
 
 type JoinWaitlistResult = { error: string } | { needsMandate: true } | { success: true };
 
@@ -13,6 +14,7 @@ export async function joinWaitlist(formData: FormData): Promise<JoinWaitlistResu
     desired_plan: formData.get("desired_plan"),
     chosen_date: formData.get("chosen_date"),
     dance_role: formData.get("dance_role") ?? "",
+    terms_accepted: formData.get("terms_accepted") === "true",
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
@@ -50,12 +52,17 @@ export async function joinWaitlist(formData: FormData): Promise<JoinWaitlistResu
     p_desired_plan: parsed.data.desired_plan,
     p_chosen_date: parsed.data.chosen_date,
     p_dance_role: parsed.data.dance_role ?? "",
+    p_terms_accepted: parsed.data.terms_accepted ?? false,
+    p_terms_version: AGB_VERSION,
   });
 
   if (error) {
     // join_waitlist re-checks the mandate itself (defense in depth) — map
     // that specific case back to the same needsMandate UI as the pre-check
     // above, in case the two ever disagree (e.g. mandate revoked mid-request).
+    if (error.message.includes("terms not accepted")) {
+      return { error: "Bitte bestätige zuerst die AGB." };
+    }
     if (error.message.includes("mandate required")) {
       return { needsMandate: true };
     }

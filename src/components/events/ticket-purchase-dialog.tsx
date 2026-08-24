@@ -58,7 +58,7 @@ export function TicketPurchaseDialog({
     setLoading(true);
     setError(null);
     try {
-      const result = await purchaseTicket(event.id, paymentMethod, wantsStudentPrice);
+      const result = await purchaseTicket(event.id, paymentMethod, wantsStudentPrice, termsAccepted);
 
       if ("error" in result) {
         setError(result.error);
