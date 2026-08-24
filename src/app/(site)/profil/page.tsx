@@ -235,7 +235,7 @@ export default async function ProfilePage() {
                 <div className="text-left">
                   <p className="font-heading font-semibold">Meine Buchungen</p>
                   <p className="text-sm font-normal text-muted-foreground">
-                    Anfragen, Probestunden und Drop-ins
+                    Buchungen, Probestunden und Drop-ins
                   </p>
                 </div>
               </AccordionTrigger>

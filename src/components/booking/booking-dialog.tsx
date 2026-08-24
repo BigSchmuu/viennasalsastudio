@@ -221,7 +221,9 @@ export function BookingDialog({
       }
 
       toast.success(
-        result.booking.status === "confirmed" ? "Buchung bestätigt!" : "Anfrage gesendet — wir melden uns bald."
+        result.booking.status === "confirmed"
+          ? "Buchung bestätigt!"
+          : "Deine Buchung ist eingegangen — wir bestätigen sie in Kürze."
       );
       onOpenChange(false);
       router.refresh();
@@ -266,7 +268,7 @@ export function BookingDialog({
               </Alert>
             ) : course.hasOpenRegularBooking ? (
               <Alert>
-                <AlertDescription>Du hast bereits eine offene Anfrage für diesen Kurs.</AlertDescription>
+                <AlertDescription>Du hast diesen Kurs bereits gebucht — die Bestätigung steht noch aus.</AlertDescription>
               </Alert>
             ) : course.isOnWaitlist ? (
               <Alert>

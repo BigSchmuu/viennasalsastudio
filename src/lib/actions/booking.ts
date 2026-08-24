@@ -131,7 +131,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
         return { error: "Du bist für diesen Kurs bereits angemeldet." };
       }
       if (error.message.includes("already requested")) {
-        return { error: "Du hast bereits eine offene Anfrage für diesen Kurs." };
+        return { error: "Du hast diesen Kurs bereits gebucht — die Bestätigung steht noch aus." };
       }
       if (error.message.includes("course is full")) {
         return { full: true };

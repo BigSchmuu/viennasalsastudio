@@ -91,6 +91,7 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 | Häkchen nicht vorausgefüllt | Eine vorausgewählte Zustimmung ist keine; das ist einer der häufigsten Fehler bei Online-Bestellungen | 2026-08-23 |
 | Zahlungspflicht-Beschriftung nur, wo bezahlt wird | Bei einer kostenlosen Probestunde eine Zahlungspflicht zu behaupten, wäre falsch und würde Kunden abschrecken | 2026-08-23 |
 | Knopf heißt „Rechtlich verbindlich buchen", einheitlich für Abo, Probestunde und Drop-in | Vom Betreiber gewählt (2026-08-24), nachdem die Umbenennung zunächst zurückgestellt war. Hinweis des Entwicklers: Bei der regulären Anmeldung ist die Absendung ein bindender Antrag, den der Betreiber erst bestätigt — die Erfolgsmeldung sagt daher weiterhin „Anfrage gesendet" | 2026-08-24 |
+| Kundenseitige Texte sprechen von einer „Buchung", nicht von einer „Anfrage" | Nach „rechtlich verbindlich buchen" liest sich „Anfrage gesendet", als hätte der Klick nichts bewirkt. Aus Sicht des Betreibers bleibt es eine Anfrage — dort ändert sich die Wortwahl nicht | 2026-08-24 |
 | Wartelisten-Knopf bleibt neutral | Ein Wartelisten-Eintrag begründet keine Verpflichtung; „verbindlich buchen" wäre dort schlicht falsch | 2026-08-24 |
 | Kein Rücktrittsrecht einräumen; keine Rücktrittsbelehrung im Buchungsvorgang | Vom Betreiber entschieden. Hinweis des Architekten: Ob ein Rücktrittsrecht besteht, folgt aus § 18 Abs. 1 Z 10 FAGG und nicht aus einer Entscheidung des Anbieters — bei der Flatrate, die an keinen bestimmten Termin gebunden ist, ist die Ausnahme weniger eindeutig als bei einem Kurs mit festem Wochentermin. Ungeprüft | 2026-08-24 |
 | Inhalt der AGB bleibt außen vor | Die App kann dafür sorgen, dass zugestimmt wird — was zugestimmt wird, muss ein Jurist verantworten | 2026-08-23 |
@@ -241,9 +242,10 @@ nachgewiesene, von der Doppelanmeldungs-Sperre aus PROJ-8 verursachte.
   noch nirgends gelesen. Der Ticketkauf übergibt noch nichts, weil `purchaseTicket`
   Positionsargumente nimmt — der Parameter gehört zur Server-Seite.
 - Nachweis-Anzeige in der Verwaltung, mit „—" für Vorgänge von vor der Einführung.
-- **Zu klären:** Der Knopf sagt „Rechtlich verbindlich buchen", die Erfolgsmeldung danach
-  „Anfrage gesendet — wir melden uns bald." Beides stimmt (der Kunde ist an seinen Antrag
-  gebunden, der Vertrag entsteht erst mit der Bestätigung), liest sich aber widersprüchlich.
+- [erledigt 2026-08-24] Der Knopf sagte „Rechtlich verbindlich buchen", die Erfolgsmeldung danach
+  „Anfrage gesendet" — beides für sich richtig, zusammen widersprüchlich. Die kundenseitigen
+  Texte sprechen jetzt einheitlich von einer Buchung; die Verwaltung und die Benachrichtigung
+  an den Betreiber sagen weiterhin „Buchungsanfrage", weil es aus seiner Sicht genau das ist.
 
 ---
 

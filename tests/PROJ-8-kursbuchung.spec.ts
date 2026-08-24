@@ -184,7 +184,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await openBookingDialog(page, "E2E8 Kurs");
     await page.getByRole("tab", { name: "Anmeldung" }).click();
     await page.waitForTimeout(300);
-    await expect(page.getByText("Du hast bereits eine offene Anfrage für diesen Kurs.")).toBeVisible();
+    await expect(page.getByText("Du hast diesen Kurs bereits gebucht — die Bestätigung steht noch aus.")).toBeVisible();
   });
 
   test("Probestunde wird sofort automatisch bestätigt, ohne Mandat", async ({ page }) => {
