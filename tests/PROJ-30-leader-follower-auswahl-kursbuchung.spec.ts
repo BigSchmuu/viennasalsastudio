@@ -105,7 +105,9 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
     // Field is optional: filling only the required fields (no role) must
     // still allow submitting.
     await fillEntryDateAndPlan(dialog, page);
-    await expect(dialog.getByRole("button", { name: "Absenden" })).toBeEnabled();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog.locator("#terms-accepted-booking").check();
+    await expect(dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" })).toBeEnabled();
   });
 
   test("Kunde A bucht als Leader (1L/0F, erlaubte Differenz=1) — Buchung erfolgreich", async ({ page }) => {
@@ -113,7 +115,9 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
     const dialog = await openBooking(page, ROLLEN_KURS_ID);
     await fillEntryDateAndPlan(dialog, page);
     await dialog.getByLabel("Leader", { exact: true }).click();
-    await dialog.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog.locator("#terms-accepted-booking").check();
+    await dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(1500);
     await expect(page.getByText("Diese Rolle ist für diesen Kurs aktuell nicht verfügbar")).not.toBeVisible();
   });
@@ -123,7 +127,9 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
     const dialog = await openBooking(page, ROLLEN_KURS_ID);
     await fillEntryDateAndPlan(dialog, page);
     await dialog.getByLabel("Beide", { exact: true }).click();
-    await dialog.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog.locator("#terms-accepted-booking").check();
+    await dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(1500);
     await expect(page.getByText("Diese Rolle ist für diesen Kurs aktuell nicht verfügbar")).not.toBeVisible();
   });
@@ -133,10 +139,14 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
     const dialog = await openBooking(page, ROLLEN_KURS_ID);
     await fillEntryDateAndPlan(dialog, page);
     await dialog.getByLabel("Leader", { exact: true }).click();
-    await dialog.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog.locator("#terms-accepted-booking").check();
+    await dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(1500);
 
     await expect(dialog.getByText("Diese Rolle ist für diesen Kurs aktuell nicht verfügbar")).toBeVisible();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog.locator("#terms-accepted-booking").check();
     const waitlistButton = dialog.getByRole("button", { name: "Auf Warteliste eintragen" });
     await expect(waitlistButton).toBeVisible();
     await waitlistButton.click();
@@ -149,7 +159,9 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
     const dialog = await openBooking(page, ROLLEN_KURS_ID);
     await fillEntryDateAndPlan(dialog, page);
     await dialog.getByLabel("Follower", { exact: true }).click();
-    await dialog.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog.locator("#terms-accepted-booking").check();
+    await dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(1500);
     await expect(page.getByText("Diese Rolle ist für diesen Kurs aktuell nicht verfügbar")).not.toBeVisible();
   });
@@ -229,7 +241,9 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
     await expect(dialog1.getByText("Ich tanze als (optional)")).toBeVisible();
     await fillEntryDateAndPlan(dialog1, page);
     await dialog1.getByLabel("Leader", { exact: true }).click();
-    await dialog1.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog1.locator("#terms-accepted-booking").check();
+    await dialog1.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(1500);
     await expect(page.getByText("Diese Rolle ist für diesen Kurs aktuell nicht verfügbar")).not.toBeVisible();
 
@@ -237,7 +251,9 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
     const dialog2 = await openBooking(page, KEIN_ROLLEN_KURS_ID);
     await fillEntryDateAndPlan(dialog2, page);
     await dialog2.getByLabel("Leader", { exact: true }).click();
-    await dialog2.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog2.locator("#terms-accepted-booking").check();
+    await dialog2.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(1500);
     // A second Leader with no configured max difference must succeed too —
     // no balance restriction applies without an explicit value.

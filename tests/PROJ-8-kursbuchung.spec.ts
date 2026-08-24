@@ -155,7 +155,9 @@ test.describe("PROJ-8: Kursbuchung", () => {
     // abgefangen — also die Kachel selbst anklicken, wie ein Nutzer auch.
     await page.getByText("Nur diesen Kurs").click();
 
-    const submit = page.getByRole("button", { name: "Absenden" });
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    const submit = page.getByRole("button", { name: "Rechtlich verbindlich buchen" });
     await expect(submit).toBeDisabled();
 
     await page.getByRole("dialog").getByRole("combobox").last().click();
@@ -193,7 +195,9 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.getByRole("dialog").getByRole("combobox").first().click();
     await page.waitForTimeout(300);
     await page.getByRole("option").first().click();
-    await page.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(800);
 
     await page.goto("/profil");
@@ -213,7 +217,9 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.getByLabel("Ich bin Student(in)").check();
     await page.waitForTimeout(200);
     await expect(page.getByText("15,00")).toBeVisible();
-    await page.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(800);
 
     await page.goto("/profil");
@@ -376,7 +382,9 @@ test.describe("PROJ-8: Kursbuchung", () => {
       await expect(dialog).toBeVisible();
 
       await expect(dialog.getByText("bereits angemeldet")).toBeVisible();
-      await expect(dialog.getByRole("button", { name: "Absenden" })).toBeDisabled();
+      // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+      await dialog.locator("#terms-accepted-booking").check();
+      await expect(dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" })).toBeDisabled();
 
       // Der wichtigere Teil: Auch am Formular vorbei, direkt gegen die
       // Datenbank, darf keine zweite Einschreibung entstehen.

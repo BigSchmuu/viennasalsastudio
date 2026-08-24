@@ -174,7 +174,9 @@ test.describe("PROJ-15: Gutscheine & Rabattcodes", () => {
     await page.locator("#booking-coupon").fill("GIBT-ES-NICHT");
     await page.waitForTimeout(1500);
     await expect(page.getByText(/Dieser Code ist nicht gültig/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Absenden" })).toBeEnabled();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await expect(page.getByRole("button", { name: "Rechtlich verbindlich buchen" })).toBeEnabled();
   });
 
   test("Kunde: abgelaufener Code wird als ungültig gemeldet", async ({ page }) => {
@@ -206,7 +208,9 @@ test.describe("PROJ-15: Gutscheine & Rabattcodes", () => {
     await page.locator("#booking-coupon").fill(VALID_CODE);
     await page.waitForTimeout(1500);
     await expect(page.getByText(/Gutschein gültig: 20% Rabatt/)).toBeVisible();
-    await page.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(2000);
 
     await login(page, ADMIN);
@@ -263,7 +267,9 @@ test.describe("PROJ-15: Gutscheine & Rabattcodes", () => {
     }
     await expect(page.getByText(/Zu viele Code-Versuche/)).toBeVisible();
     // Booking must still be possible even while throttled (spec: a coupon never blocks).
-    await expect(page.getByRole("button", { name: "Absenden" })).toBeEnabled();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await expect(page.getByRole("button", { name: "Rechtlich verbindlich buchen" })).toBeEnabled();
 
     await service.from("coupon_check_attempts").delete().eq("customer_id", customerId);
   });

@@ -137,7 +137,9 @@ test.describe("PROJ-26: Kursbuchung direkt von /stundenplan aus", () => {
 
     await page.getByRole("combobox").first().click();
     await page.getByRole("option").first().click();
-    await page.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(1000);
 
     await page.goto("/profil");

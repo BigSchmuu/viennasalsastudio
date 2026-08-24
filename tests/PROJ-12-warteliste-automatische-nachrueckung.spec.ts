@@ -173,6 +173,8 @@ test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
     await page.getByRole("combobox").first().click();
     await page.getByRole("option").first().click();
     await page.getByText("Nur diesen Kurs").click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
     await page.getByRole("button", { name: "Auf Warteliste eintragen" }).click();
     await page.waitForTimeout(800);
 

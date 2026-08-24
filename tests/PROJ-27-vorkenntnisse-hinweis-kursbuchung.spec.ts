@@ -155,7 +155,9 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     await trialSelect.click();
     await page.locator('[role="option"]').first().click();
 
-    const submitButton = dialog.getByRole("button", { name: "Absenden" });
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog.locator("#terms-accepted-booking").check();
+    const submitButton = dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" });
     await expect(submitButton).toBeDisabled();
   });
 
@@ -185,7 +187,9 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     }
 
     await dialog.getByLabel(CONFIRM_LABEL).click();
-    const submitButton = dialog.getByRole("button", { name: "Absenden" });
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog.locator("#terms-accepted-booking").check();
+    const submitButton = dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" });
     await expect(submitButton).toBeEnabled();
     await submitButton.click();
     await page.waitForTimeout(1500);

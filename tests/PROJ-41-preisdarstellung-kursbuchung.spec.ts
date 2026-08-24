@@ -222,7 +222,9 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
     await expect(page.locator("#plan-flatrate")).toHaveAttribute("data-state", "checked");
     await expect(page.locator("#plan-single_course")).toHaveAttribute("data-state", "unchecked");
 
-    await page.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(3000);
 
     const { data: course } = await service.from("courses").select("id").eq("name", STANDARD_COURSE).single();
@@ -252,7 +254,9 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
     await page.getByRole("combobox").first().click();
     await page.getByRole("option").first().click();
     await page.waitForTimeout(300);
-    await expect(page.getByRole("button", { name: "Absenden" })).toBeDisabled();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await expect(page.getByRole("button", { name: "Rechtlich verbindlich buchen" })).toBeDisabled();
   });
 
   test("Verlässlichkeit: der Betreiber bekommt genau den Preis vorgeschlagen, den der Kunde sah", async ({
@@ -266,7 +270,9 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
     await page.waitForTimeout(300);
     await expect(tile(page, "Nur diesen Kurs")).toContainText("45,00");
     await tile(page, "Nur diesen Kurs").click();
-    await page.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(3000);
 
     await login(page, ADMIN);
@@ -284,7 +290,9 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
     await page.getByRole("combobox").first().click();
     await page.getByRole("option").first().click();
     await tile(page, "Nur diesen Kurs").click();
-    await page.getByRole("button", { name: "Absenden" }).click();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(3000);
 
     // Der Betreiber ändert danach den Standardpreis.
@@ -321,7 +329,9 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
     await page.getByRole("option").first().click();
     await tile(page, "Nur diesen Kurs").click();
     await page.waitForTimeout(300);
-    await expect(page.getByRole("button", { name: "Absenden" })).toBeEnabled();
+    // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await page.locator("#terms-accepted-booking").check();
+    await expect(page.getByRole("button", { name: "Rechtlich verbindlich buchen" })).toBeEnabled();
 
     await resetPricing();
   });

@@ -497,7 +497,13 @@ export function BookingDialog({
 
         <DialogFooter>
           <Button disabled={loading || !canSubmit} onClick={handleSubmit}>
-            {loading ? "Wird gesendet…" : showWaitlistForm ? "Auf Warteliste eintragen" : "Absenden"}
+            {loading
+              ? "Wird gesendet…"
+              : showWaitlistForm
+                ? // Ein Wartelisten-Eintrag verpflichtet zu nichts — hier waere
+                  // "verbindlich buchen" schlicht falsch.
+                  "Auf Warteliste eintragen"
+                : "Rechtlich verbindlich buchen"}
           </Button>
         </DialogFooter>
       </DialogContent>
