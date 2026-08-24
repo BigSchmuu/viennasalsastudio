@@ -35,15 +35,19 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 - **Rechnungs- oder Vertragsdokument als PDF** zum Zeitpunkt der Buchung.
 - **Hinweisblock über dem Absende-Knopf** (Preis, Abrechnungsrhythmus, Kündigung). Zurückgestellt am 2026-08-24 auf Wunsch des Betreibers: Der Preis steht seit PROJ-41 ohnehin in der Kachel, die übrigen Angaben stehen in den AGB, die per Häkchen bestätigt werden.
 - **Rücktrittsbelehrung im Buchungsvorgang.** Zurückgestellt am 2026-08-24. Es wird kein Rücktrittsrecht eingeräumt; was gilt, steht in § 4 der AGB.
-- **Umbenennung des Absende-Knopfes** auf „zahlungspflichtig buchen". Zurückgestellt am 2026-08-24 — eine Wortänderung, jederzeit nachholbar.
+- **Die Formulierung „zahlungspflichtig buchen"** und die Unterscheidung nach tatsächlicher Zahlungspflicht (neutrale Beschriftung bei kostenloser Probestunde). Der Knopf heißt seit 2026-08-24 einheitlich „Rechtlich verbindlich buchen" — vom Betreiber so gewählt.
 
 ## Acceptance Criteria
 
 **Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
 
 > **Umfang auf Wunsch des Betreibers reduziert (2026-08-24):** Es geht ausschließlich um die
-> Zustimmung zu den AGB. Hinweisblock über dem Knopf, Rücktrittsbelehrung und die Umbenennung
-> auf „zahlungspflichtig buchen" sind zurückgestellt — siehe Out of Scope.
+> Zustimmung zu den AGB und die Beschriftung des Absende-Knopfes. Hinweisblock über dem Knopf
+> und Rücktrittsbelehrung sind zurückgestellt — siehe Out of Scope.
+
+### Beschriftung
+- [ ] Angenommen ein Kunde steht vor dem Absenden einer Buchung, dann heißt der Knopf „Rechtlich verbindlich buchen" statt „Absenden".
+- [ ] Angenommen ein Kunde trägt sich auf die Warteliste ein, dann bleibt die Beschriftung „Auf Warteliste eintragen" — ein Wartelisten-Eintrag verpflichtet zu nichts.
 
 ### Zustimmung
 - [ ] Angenommen ein Kunde füllt den Buchungsdialog aus, wenn er absenden will, dann muss er zuvor bestätigt haben, dass er die AGB gelesen und akzeptiert hat.
@@ -86,6 +90,8 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 | Zustimmung pro Buchung, nicht einmalig beim Konto | Eine einmalige Zustimmung „für immer" wäre bei geänderten AGB schwer nachweisbar; pro Buchung ist eindeutig, was galt | 2026-08-23 |
 | Häkchen nicht vorausgefüllt | Eine vorausgewählte Zustimmung ist keine; das ist einer der häufigsten Fehler bei Online-Bestellungen | 2026-08-23 |
 | Zahlungspflicht-Beschriftung nur, wo bezahlt wird | Bei einer kostenlosen Probestunde eine Zahlungspflicht zu behaupten, wäre falsch und würde Kunden abschrecken | 2026-08-23 |
+| Knopf heißt „Rechtlich verbindlich buchen", einheitlich für Abo, Probestunde und Drop-in | Vom Betreiber gewählt (2026-08-24), nachdem die Umbenennung zunächst zurückgestellt war. Hinweis des Entwicklers: Bei der regulären Anmeldung ist die Absendung ein bindender Antrag, den der Betreiber erst bestätigt — die Erfolgsmeldung sagt daher weiterhin „Anfrage gesendet" | 2026-08-24 |
+| Wartelisten-Knopf bleibt neutral | Ein Wartelisten-Eintrag begründet keine Verpflichtung; „verbindlich buchen" wäre dort schlicht falsch | 2026-08-24 |
 | Kein Rücktrittsrecht einräumen; keine Rücktrittsbelehrung im Buchungsvorgang | Vom Betreiber entschieden. Hinweis des Architekten: Ob ein Rücktrittsrecht besteht, folgt aus § 18 Abs. 1 Z 10 FAGG und nicht aus einer Entscheidung des Anbieters — bei der Flatrate, die an keinen bestimmten Termin gebunden ist, ist die Ausnahme weniger eindeutig als bei einem Kurs mit festem Wochentermin. Ungeprüft | 2026-08-24 |
 | Inhalt der AGB bleibt außen vor | Die App kann dafür sorgen, dass zugestimmt wird — was zugestimmt wird, muss ein Jurist verantworten | 2026-08-23 |
 
@@ -97,7 +103,7 @@ keine Widerrufsbelehrung im Buchungsvorgang, und der Absende-Knopf heißt schlic
 | Zustimmung wird serverseitig erzwungen | Ein Häkchen im Browser ist eine Behauptung des Browsers, wie der Preis in PROJ-41 | 2026-08-24 |
 | Zwei Felder auf Buchung, Ticket und Wartelisten-Eintrag statt einer eigenen Tabelle | Die Zustimmung gehört zum Vorgang und wird immer mit ihm gelesen; eine Nebentabelle wäre ein Join ohne Nutzen | 2026-08-24 |
 | Altbestand bleibt leer und wird als „—" angezeigt | Ein erfundener Zeitpunkt wäre ein falscher Nachweis — schlechter als gar keiner | 2026-08-24 |
-| Umfang auf die AGB-Zustimmung reduziert; Hinweisblock, Rücktrittsbelehrung und Knopf-Umbenennung zurückgestellt | Vom Betreiber entschieden. In Out of Scope festgehalten, damit später erkennbar bleibt, dass sie bewusst fehlen und nicht vergessen wurden | 2026-08-24 |
+| Umfang auf die AGB-Zustimmung reduziert; Hinweisblock und Rücktrittsbelehrung zurückgestellt | Vom Betreiber entschieden. In Out of Scope festgehalten, damit später erkennbar bleibt, dass sie bewusst fehlen und nicht vergessen wurden | 2026-08-24 |
 | Zeitpunkt und AGB-Stand werden trotz „nur eine Checkbox" gespeichert | Ein Häkchen, das nirgends ankommt, ist Dekoration — für den Kunden unsichtbar und ohne zusätzliche Bedienung | 2026-08-24 |
 | Keine Zustimmung bei der Registrierung | Dort entsteht keine Zahlungspflicht; die Zustimmung sitzt, wo eine Verpflichtung entsteht | 2026-08-24 |
 
@@ -180,7 +186,7 @@ eine Zeile; die serverseitige Prüfung; die Verwaltungsansicht um die Nachweis-A
 ### Ausdrücklich nicht Teil dieses Entwurfs
 
 Der Wortlaut der AGB. Der Hinweisblock über dem Knopf, die Rücktrittsbelehrung und die
-Umbenennung auf „zahlungspflichtig buchen" — alle drei am 2026-08-24 zurückgestellt und in
+Formulierung „zahlungspflichtig buchen" — am 2026-08-24 zurückgestellt und in
 Out of Scope festgehalten, damit später nachvollziehbar bleibt, dass sie bewusst fehlen.
 
 ## Implementation Notes (Frontend)
@@ -211,6 +217,22 @@ ist keine. Ein `useEffect` setzt es beim Öffnen zurück. Im Browser beide Richt
   AGB-Link zeigt auf `/agb` mit `target="_blank"`, Ticket-Häkchen beim zweiten Öffnen
   wieder leer, AGB-Seite zeigt „Stand: August 2026".
 
+### Knopfbeschriftung (nachgereicht am 2026-08-24)
+„Absenden" heißt jetzt **„Rechtlich verbindlich buchen"**. Der Wartelisten-Zweig behält
+„Auf Warteliste eintragen": ein Eintrag dort begründet keine Verpflichtung.
+
+Die Umbenennung brach die Selektoren in **sieben** bestehenden Suiten, dazu kam die neue
+Zustimmungs-Sperre. Beides in einem Zug nachgezogen: 24 Stellen setzen jetzt vor dem
+Absenden ein `check()` auf das Häkchen — `check()` und nicht `click()`, weil ein zweiter
+Klick die Zustimmung wieder abwählen würde. Wo ein Test die Sperre selbst prüft (fehlende
+Angabe zur Herkunft, fehlende Vorkenntnis-Bestätigung, fehlende Abo-Art), wird die
+Zustimmung **vor** der Prüfung gesetzt, damit die Behauptung des Tests weiterhin die
+Ursache trifft, die sie benennt.
+
+Ergebnis: PROJ-8, PROJ-12, PROJ-26, PROJ-27, PROJ-30 zusammen **45 grün**; PROJ-41
+**17 grün**; PROJ-15 11 von 12 — der eine Fehlschlag ist der in PROJ-41 bereits
+nachgewiesene, von der Doppelanmeldungs-Sperre aus PROJ-8 verursachte.
+
 ### Offen für /backend
 - Spalten für Zeitpunkt und AGB-Stand auf `course_bookings`, `waitlist_entries`, `tickets`.
 - **Serverseitige Ablehnung** einer Buchung ohne Zustimmung — heute sperrt nur die
@@ -219,6 +241,9 @@ ist keine. Ein `useEffect` setzt es beim Öffnen zurück. Im Browser beide Richt
   noch nirgends gelesen. Der Ticketkauf übergibt noch nichts, weil `purchaseTicket`
   Positionsargumente nimmt — der Parameter gehört zur Server-Seite.
 - Nachweis-Anzeige in der Verwaltung, mit „—" für Vorgänge von vor der Einführung.
+- **Zu klären:** Der Knopf sagt „Rechtlich verbindlich buchen", die Erfolgsmeldung danach
+  „Anfrage gesendet — wir melden uns bald." Beides stimmt (der Kunde ist an seinen Antrag
+  gebunden, der Vertrag entsteht erst mit der Bestätigung), liest sich aber widersprüchlich.
 
 ---
 
