@@ -3,6 +3,7 @@ import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/we
 import { jsDayToWeekday, formatDateLocal, selfCheckinWindow, upcomingOccurrences } from "@/lib/scheduling/dates";
 import { readStudioPricing } from "@/lib/pricing";
 import { getTranslations } from "next-intl/server";
+import { getViewer } from "@/lib/auth/viewer";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -22,9 +23,9 @@ function currentWeekDates(): string[] {
 export default async function StundenplanPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Der Rahmen hat das schon ermittelt — getViewer() gibt innerhalb einer
+  // Anfrage dieselbe Antwort zurück, ohne erneut zu fragen.
+  const user = await getViewer();
 
   const [coursesRes, teachersRes, mySubsRes, myAttendanceRes, occupancyRes, dropinPricingRes, mandateRes, profileRes, myOpenBookingsRes, myWaitlistRes] =
     await Promise.all([

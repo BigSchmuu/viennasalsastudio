@@ -17,6 +17,7 @@ import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
 import { TICKET_CANCELLATION_LEAD_DAYS } from "@/lib/constants/events";
 import type { ProfileInput } from "@/lib/validations/auth";
 import { getTranslations } from "next-intl/server";
+import { getViewer } from "@/lib/auth/viewer";
 
 // Code-split out of the main /profil bundle: each pulls in real extra weight
 // (react-hook-form+zod, the QR-code generator, the push-notification hook)
@@ -35,9 +36,9 @@ const NotificationSettingsSection = dynamic(() =>
 
 export default async function ProfilePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Der Rahmen hat das schon ermittelt — getViewer() gibt innerhalb einer
+  // Anfrage dieselbe Antwort zurück, ohne erneut zu fragen.
+  const user = await getViewer();
 
   if (!user) {
     redirect("/login?redirect=/profil");

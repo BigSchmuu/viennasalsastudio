@@ -9,6 +9,7 @@ import { CourseDetailBooking, type CourseDetailData } from "@/components/catalog
 import { YoutubeEmbed } from "@/components/video/youtube-embed";
 import { readStudioPricing } from "@/lib/pricing";
 import { CoursePriceLine } from "@/components/catalog/course-price-line";
+import { getViewer } from "@/lib/auth/viewer";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -16,9 +17,9 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Der Rahmen hat das schon ermittelt — getViewer() gibt innerhalb einer
+  // Anfrage dieselbe Antwort zurück, ohne erneut zu fragen.
+  const user = await getViewer();
 
   const [{ data: course }, { data: pricingRow }, occupancyRes] = await Promise.all([
     supabase

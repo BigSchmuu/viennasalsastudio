@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { computeInvoiceAmounts } from "@/lib/invoices";
 import { Badge } from "@/components/ui/badge";
 import { PrintButton } from "@/components/invoices/print-button";
+import { getViewer } from "@/lib/auth/viewer";
 
 function formatEUR(amount: number): string {
   return amount.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
@@ -16,9 +17,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Der Rahmen hat das schon ermittelt — getViewer() gibt innerhalb einer
+  // Anfrage dieselbe Antwort zurück, ohne erneut zu fragen.
+  const user = await getViewer();
 
   if (!user) {
     redirect(`/login?redirect=/rechnungen/${id}`);

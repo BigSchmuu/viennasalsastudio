@@ -1,12 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { EventCard, type PublicEventRow } from "@/components/events/event-card";
 import { getTranslations } from "next-intl/server";
+import { getViewer } from "@/lib/auth/viewer";
 
 export default async function EventsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Der Rahmen hat das schon ermittelt — getViewer() gibt innerhalb einer
+  // Anfrage dieselbe Antwort zurück, ohne erneut zu fragen.
+  const user = await getViewer();
 
   const [eventsRes, occupancyRes, mandateRes] = await Promise.all([
     supabase

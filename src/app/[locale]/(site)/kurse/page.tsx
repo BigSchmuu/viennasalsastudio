@@ -3,15 +3,16 @@ import { CourseCatalog, type CatalogCourseRow, type SimpleOption } from "@/compo
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { readStudioPricing } from "@/lib/pricing";
 import { getTranslations } from "next-intl/server";
+import { getViewer } from "@/lib/auth/viewer";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
 export default async function KurskatalogPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Der Rahmen hat das schon ermittelt — getViewer() gibt innerhalb einer
+  // Anfrage dieselbe Antwort zurück, ohne erneut zu fragen.
+  const user = await getViewer();
 
   const [coursesRes, danceStylesRes, locationsRes, teachersRes, pricingRes, occupancyRes] = await Promise.all([
     supabase
