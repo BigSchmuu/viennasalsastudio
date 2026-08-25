@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -559,6 +559,75 @@ export type Database = {
             columns: ["video_set_id"]
             isOneToOne: false
             referencedRelation: "video_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_credits: {
+        Row: {
+          amount: number
+          collection_item_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          id: string
+          origin: string
+          reason: string | null
+        }
+        Insert: {
+          amount: number
+          collection_item_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          id?: string
+          origin: string
+          reason?: string | null
+        }
+        Update: {
+          amount?: number
+          collection_item_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          id?: string
+          origin?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_credits_collection_item_id_fkey"
+            columns: ["collection_item_id"]
+            isOneToOne: false
+            referencedRelation: "sepa_collection_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credits_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credits_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credits_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credits_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -1664,6 +1733,10 @@ export type Database = {
         }
       }
       current_role: { Args: never; Returns: string }
+      customer_credit_balance: {
+        Args: { p_customer_id: string }
+        Returns: number
+      }
       enqueue_notification: {
         Args: {
           p_customer_id: string
@@ -1707,6 +1780,25 @@ export type Database = {
           course_id: string
           status: string
         }[]
+      }
+      grant_customer_credit: {
+        Args: { p_amount: number; p_customer_id: string; p_reason: string }
+        Returns: {
+          amount: number
+          collection_item_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          id: string
+          origin: string
+          reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "customer_credits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       is_course_teacher: { Args: { p_course_id: string }; Returns: boolean }
       join_waitlist: {
@@ -1803,6 +1895,18 @@ export type Database = {
           discount_amount: number
           discount_type: string
         }[]
+      }
+      redeem_customer_credit: {
+        Args: {
+          p_collection_item_id: string
+          p_customer_id: string
+          p_max_amount: number
+        }
+        Returns: number
+      }
+      require_dance_role: {
+        Args: { p_course_id: string; p_dance_role: string }
+        Returns: undefined
       }
       resolve_plan_price: {
         Args: {

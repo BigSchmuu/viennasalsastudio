@@ -103,12 +103,37 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     return { error: "Lastschriftlauf konnte nicht erstellt werden." };
   }
 
-  const { error: itemsError } = await supabase
+  const { data: angelegtePositionen, error: itemsError } = await supabase
     .from("sepa_collection_items")
-    .insert(items.map((item) => ({ ...item, run_id: run.id })));
+    .insert(items.map((item) => ({ ...item, run_id: run.id })))
+    .select("id, customer_id, subscription_id, amount");
 
   if (itemsError) {
     return { error: "Lastschriftpositionen konnten nicht gespeichert werden." };
+  }
+
+  // PROJ-44: Guthaben mindert den Abzubuchenden Betrag — es entsteht keine
+  // zweite Buchung, denn eine negative Lastschrift gibt es nicht.
+  //
+  // Erst nach dem Anlegen, weil die Verrechnung an der Position festgehalten
+  // wird: Nur so kann ein wiederholter Lauf dasselbe Guthaben nicht zweimal
+  // verbrauchen.
+  //
+  // Nur Abo-Positionen. Tickets werden nicht regelmäßig eingezogen; dort hätte
+  // eine Verrechnung keinen natürlichen Zeitpunkt.
+  for (const position of angelegtePositionen ?? []) {
+    if (!position.subscription_id || position.amount <= 0) continue;
+    const { data: verrechnet } = await supabase.rpc("redeem_customer_credit", {
+      p_customer_id: position.customer_id,
+      p_collection_item_id: position.id,
+      p_max_amount: position.amount,
+    });
+    if (verrechnet && verrechnet > 0) {
+      await supabase
+        .from("sepa_collection_items")
+        .update({ amount: position.amount - verrechnet })
+        .eq("id", position.id);
+    }
   }
 
   const { error: invoiceError } = await supabase.rpc("create_invoices_for_collection_run", {
