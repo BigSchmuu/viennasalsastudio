@@ -84,6 +84,7 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 - Die Sprachwahl eines Gastes muss ohne Konto überdauern.
 
 ## Open Questions
+- [ ] Sollen die drei Rechtsseiten unter `/en` überhaupt erreichbar sein, oder soll der Link dorthin direkt auf die deutsche Adresse zeigen? (Architektur 2026-08-24)
 - [ ] Gibt es für die Marketing-Website bereits englische Formulierungen (Kursbezeichnungen, Tonfall), an denen sich die Übersetzung ausrichten soll?
 - [ ] Soll der Umschalter auch in der Verwaltung erscheinen, damit der Betreiber die englische Fassung prüfen kann, ohne den Browser umzustellen?
 - [ ] Wie wird mit Bestandskunden umgegangen, von denen bekannt ist, dass sie kein Deutsch sprechen — einmalig anschreiben oder abwarten, bis sie selbst umschalten?
@@ -107,11 +108,129 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| next-intl statt Eigenbau | Adressen, Serverseiten, Formate und Rückfallregeln sind mehr Arbeit, als es aussieht; die Bibliothek unterstützt die eingesetzte Next.js-Version und Deutsch ohne Präfix | 2026-08-24 |
+| Übersetzungen liegen in Dateien, nicht in der Datenbank | Sie ändern sich mit dem Code. In der Datenbank wären sie eine weitere Pflegestelle und eine zusätzliche Abfrage je Seitenaufruf | 2026-08-24 |
+| Lehreransicht und Einlass werden aus dem Kundenbereich herausgelöst | Sonst wären sie als /en/lehrer erreichbar und würden dort deutschen Text zeigen. Die Adressen bleiben unverändert | 2026-08-24 |
+| Die Vorlagen-Anpassungen werden je Vorlage **und** Sprache abgelegt | Sonst könnte der Betreiber nur eine der beiden Fassungen anpassen. Aktuell null angepasste Vorlagen, die Umstellung kostet also nichts | 2026-08-24 |
+| Die Empfängersprache wird beim Versand aus dem Profil gelesen, nicht aus einem Sitzungszustand | Der Versand läuft im Hintergrund; eine „aktuelle Sprache" gibt es dort nicht | 2026-08-24 |
+| Zahlen und Daten sprachabhängig, Währung fest in Euro | Das Studio rechnet in Euro, unabhängig davon, wer liest | 2026-08-24 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Adressen — Deutsch bleibt wie es ist, Englisch bekommt ein Präfix
+├── /kurse            /profil        /events        …   (Deutsch, unverändert)
+└── /en/kurse         /en/profil     /en/events     …   (Englisch)
+
+Kundenbereich (wandert unter die Sprachebene)
+├── Startseite · Kurse · Kursdetail · Stundenplan · Events
+├── Profil (Abos, Buchungen, Warteliste, Mandat, Benachrichtigungen)
+├── Rechnungsübersicht  ─ Beleg selbst bleibt deutsch
+├── Login · Registrierung · Passwort vergessen/zurücksetzen
+└── AGB · Datenschutz · Impressum
+       └── in der englischen Fassung mit einem Hinweis darüber:
+           die deutsche Fassung ist die verbindliche
+
+Mitarbeiterbereich (bleibt außerhalb der Sprachebene, bleibt deutsch)
+├── Verwaltung  /admin/…
+├── Lehreransicht  /lehrer/…      ← muss aus dem Kundenbereich herausgelöst werden
+└── Einlass  /checkin             ← ebenfalls
+
+Kopfzeile (bestehend)
+└── NEU: Sprachumschalter  DE | EN
+       Gast: Wahl bleibt im Browser gespeichert
+       Eingeloggt: Wahl wird ans Konto geschrieben
+
+Verwaltung → Benachrichtigungs-Texte (bestehend, PROJ-34)
+└── NEU: Umschalter Deutsch / Englisch über der Vorlage
+       sichtbar, welche Fassung gerade bearbeitet wird
+```
+
+**Ein Umbau, der vorher passieren muss:** Lehreransicht und Einlass liegen heute im selben
+Bereich wie die Kundenseiten. Bliebe das so, wären sie als `/en/lehrer` erreichbar und
+würden dort deutschen Text zeigen. Sie werden vorher herausgelöst — für den Benutzer ändert
+sich dabei nichts, die Adressen bleiben gleich.
+
+### B) Data Model (plain language)
+
+```
+Am Kundenkonto kommt hinzu:
+- Sprache        "de" oder "en", leer erlaubt (= Deutsch, wie bisher)
+
+Bei den Benachrichtigungs-Vorlagen:
+- bisher: eine angepasste Fassung je Vorlage
+- künftig: eine angepasste Fassung je Vorlage UND Sprache
+
+Die Oberflächentexte liegen nicht in der Datenbank, sondern in zwei Dateien
+im Projekt — eine deutsche, eine englische, mit denselben Einträgen.
+```
+
+**Gast ohne Konto:** die Sprachwahl bleibt im Browser gespeichert und überdauert den Besuch.
+Ein Konto ist dafür nicht nötig — sonst sähe genau die Gruppe, die gewonnen werden soll, die
+falsche Sprache.
+
+### C) Tech Decisions (justified for PM)
+
+- **Eine etablierte Übersetzungsbibliothek statt Eigenbau.** Sprachumschaltung sieht
+  einfach aus und ist es nicht: Adressen, Serverseiten, Zahlen- und Datumsformate,
+  Rückfallregeln. Das selbst zu bauen hieße, dieselben Fehler noch einmal zu machen, die
+  andere schon behoben haben.
+
+- **Deutsch behält seine Adressen, Englisch bekommt `/en`.** Jedes gespeicherte Lesezeichen
+  und jeder bereits verschickte Link zeigt weiterhin auf eine gültige Seite. Ein Präfix
+  auch für Deutsch wäre sauberer im Schema — und würde am ersten Tag alle bestehenden Links
+  brechen.
+
+- **Die Sprache steht am Konto, nicht nur im Browser.** Eine E-Mail entsteht, wenn niemand
+  vor dem Bildschirm sitzt — beim nächtlichen Versand, beim Bestätigen durch den Betreiber.
+  In dem Moment gibt es keine „gerade eingestellte Sprache". Nur was am Empfänger steht, ist
+  dann noch da.
+
+- **Texte in Dateien, nicht in der Datenbank.** Sie ändern sich mit dem Code und gehören zu
+  ihm. In der Datenbank wären sie ohne Not eine weitere Stelle zum Pflegen — und bei jedem
+  Seitenaufruf eine zusätzliche Abfrage.
+
+- **Fehlt eine Übersetzung, erscheint der deutsche Text.** Eine Sprachmischung ist unschön;
+  eine leere Stelle oder ein sichtbarer Platzhalter wäre ein Fehler, den der Kunde sieht.
+
+- **Zahlen und Datumsangaben folgen der Sprache, die Währung nicht.** „So., 06.09." wird zu
+  „Sun, 6 Sep", „€ 65,00" zu „€65.00". Der Betrag bleibt in Euro — das Studio rechnet
+  in Euro, unabhängig davon, wer liest.
+
+- **Die Verwaltung bleibt deutsch und außerhalb.** Sie wird von deutschsprachigem Personal
+  bedient. Sie mitzuübersetzen hieße, den Aufwand ungefähr zu verdoppeln, ohne dass jemand
+  etwas davon hat.
+
+### D) Dependencies (packages to install)
+
+- **next-intl** — Übersetzungen, Sprache in der Adresse, sprachabhängige Zahlen- und
+  Datumsformate. Unterstützt die eingesetzte Next.js-Version und die Variante
+  „Standardsprache ohne Präfix".
+
+Sonst keine.
+
+### Umfang
+
+Neu: zwei Übersetzungsdateien, ein Sprachumschalter, eine Spalte am Kundenkonto, eine
+zweite Fassung der vierzehn Benachrichtigungs-Vorlagen, ein Sprachwahl-Schalter im
+Vorlagen-Editor.
+
+Angefasst: **jede Seite und jede Komponente des Kundenbereichs** — rund 200 Textstellen.
+Breit, aber flach: pro Stelle wird ein fester Text durch einen Verweis ersetzt.
+
+Verschoben: Lehreransicht und Einlass aus dem Kundenbereich heraus, ohne dass sich ihre
+Adressen ändern.
+
+### Was dieser Entwurf nicht löst
+
+Inhalte aus der Datenbank — Kursnamen, Tanzstile, Standorte, Event-Beschreibungen —
+erscheinen weiter so, wie sie eingetragen sind. Das ist eine bewusste Grenze, keine
+Auslassung: sie zweisprachig zu machen hieße, jedes neue Event doppelt zu tippen.
+
 
 ---
 
