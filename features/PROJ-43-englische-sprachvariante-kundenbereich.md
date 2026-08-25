@@ -79,6 +79,7 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 - Was passiert bei einer Sprache, die weder Deutsch noch Englisch ist (z.B. Browser auf Spanisch)? → Englisch. Wer nicht Deutsch eingestellt hat, versteht es wahrscheinlich auch nicht.
 - Was passiert mit den 52 Bestandskunden, die keine Sprache gespeichert haben? → Deutsch, wie bisher. Niemand wird ungefragt umgestellt.
 - Was, wenn ein Kunde auf `/en/kurse` geht, aber an seinem Konto Deutsch gespeichert ist? → Die Adresse gewinnt für diesen Besuch; das Konto wird dabei **nicht** stillschweigend geändert. Wer dauerhaft umstellen will, nutzt den Umschalter.
+- Und umgekehrt: Was zeigt `/kurse` einem Kunden, der Englisch gewählt hat? → Englisch. Die Adresse ohne Präfix nennt keine Sprache, also gilt die Wahl des Lesers. Nur eine Adresse **mit** `/en` ist eine ausdrückliche Ansage und schlägt die Wahl. Wer nie umgeschaltet hat, sieht weiterhin Deutsch.
 - Was, wenn eine Übersetzung nachträglich fehlt, weil ein neuer Text nur deutsch ergänzt wurde? → Der deutsche Text erscheint. Eine leere Stelle oder ein Schlüssel wie `booking.submit` wäre schlimmer als eine Sprachmischung.
 - Was passiert mit bereits verschickten Benachrichtigungen in der Warteschlange, wenn ein Kunde die Sprache wechselt? → Sie gehen in der Sprache raus, die beim Einstellen galt. Nachträglich umzuschreiben wäre mehr Aufwand als Nutzen.
 - Was sieht ein Kunde auf `/en/rechnungen/123`? → Die Übersicht auf Englisch, den Beleg selbst auf Deutsch.

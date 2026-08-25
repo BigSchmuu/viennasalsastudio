@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CourseCatalog, type CatalogCourseRow, type SimpleOption } from "@/components/catalog/course-catalog";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { readStudioPricing } from "@/lib/pricing";
+import { getTranslations } from "next-intl/server";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -104,11 +105,13 @@ export default async function KurskatalogPage() {
     };
   });
 
+  const t = await getTranslations("courses");
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
       <div>
-        <h1 className="font-heading text-3xl font-bold">Kurse</h1>
-        <p className="text-muted-foreground">Entdecke unser Kursangebot.</p>
+        <h1 className="font-heading text-3xl font-bold">{t("heading")}</h1>
+        <p className="text-muted-foreground">{t("subheading")}</p>
       </div>
       <CourseCatalog
         courses={courses}

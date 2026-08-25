@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { desiredPlanOptions, type DesiredPlan } from "@/lib/constants/booking";
@@ -34,6 +35,8 @@ export function PlanPriceTiles({
   value: DesiredPlan | "";
   onChange: (plan: DesiredPlan) => void;
 }) {
+  const locale = useLocale();
+
   return (
     <RadioGroup
       value={value}
@@ -62,7 +65,7 @@ export function PlanPriceTiles({
               <span className="text-sm text-muted-foreground">Preis auf Anfrage</span>
             ) : (
               <span className="text-lg font-semibold tabular-nums">
-                {formatPrice(price)}
+                {formatPrice(price, locale)}
                 <span className="text-sm font-normal text-muted-foreground"> / Monat</span>
               </span>
             )}

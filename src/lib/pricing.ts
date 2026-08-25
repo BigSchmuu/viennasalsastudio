@@ -85,7 +85,25 @@ export function planPrice(
   return options.coursePrice ?? pricing.course.normal;
 }
 
-/** Einheitliche Preisdarstellung (de-AT, z. B. "65,00 €"). */
-export function formatPrice(price: number): string {
-  return price.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
+/**
+ * Sprachabhängige Schreibweise der BCP-47-Kennung.
+ *
+ * Für Englisch bewusst `en-IE`: englische Zahlenschreibweise, aber ein Land
+ * mit Euro — daraus wird "€65.00" statt "€65.00" mit fremder Währungsstellung.
+ */
+const priceLocales: Record<string, string> = { de: "de-AT", en: "en-IE" };
+
+/**
+ * Einheitliche Preisdarstellung (PROJ-41, sprachabhängig seit PROJ-43).
+ *
+ * Ohne Angabe bleibt es bei der österreichischen Schreibweise — so bleibt die
+ * Verwaltung unverändert, die durchgehend deutsch ist. Der Kundenbereich reicht
+ * die aktive Sprache durch: "€ 65,00" auf Deutsch, "€65.00" auf Englisch. Der
+ * Betrag bleibt in Euro, unabhängig davon, wer liest.
+ */
+export function formatPrice(price: number, locale: string = "de"): string {
+  return price.toLocaleString(priceLocales[locale] ?? priceLocales.de, {
+    style: "currency",
+    currency: "EUR",
+  });
 }

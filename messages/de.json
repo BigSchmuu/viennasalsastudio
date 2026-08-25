@@ -24,5 +24,24 @@
     "viewCourses": "Kurse ansehen",
     "viewSchedule": "Stundenplan ansehen",
     "login": "Login"
+  },
+  "courses": {
+    "heading": "Kurse",
+    "subheading": "Entdecke unser Kursangebot.",
+    "danceStyle": "Tanzstil",
+    "allDanceStyles": "Alle Tanzstile",
+    "level": "Level",
+    "allLevels": "Alle Levels",
+    "location": "Standort",
+    "allLocations": "Alle Standorte",
+    "soldOut": "Ausgebucht",
+    "teacherTba": "Lehrer wird noch bekanntgegeben",
+    "book": "Jetzt buchen",
+    "loadMore": "Mehr laden ({count} weitere)",
+    "emptyAll": "Noch keine Kurse vorhanden. Schau bald wieder vorbei!",
+    "emptyFiltered": "Keine Kurse gefunden. Passe deine Filter an oder",
+    "resetFilters": "setze sie zurück",
+    "perMonth": "/ Monat",
+    "reducedPrice": "ermäßigt {price}"
   }
 }

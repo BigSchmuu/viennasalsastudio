@@ -24,5 +24,24 @@
     "viewCourses": "Browse classes",
     "viewSchedule": "View schedule",
     "login": "Log in"
+  },
+  "courses": {
+    "heading": "Classes",
+    "subheading": "Browse what we offer.",
+    "danceStyle": "Dance style",
+    "allDanceStyles": "All dance styles",
+    "level": "Level",
+    "allLevels": "All levels",
+    "location": "Location",
+    "allLocations": "All locations",
+    "soldOut": "Sold out",
+    "teacherTba": "Teacher to be announced",
+    "book": "Book now",
+    "loadMore": "Load more ({count} remaining)",
+    "emptyAll": "No classes yet. Check back soon!",
+    "emptyFiltered": "No classes match your filters. Adjust them or",
+    "resetFilters": "reset them",
+    "perMonth": "/ month",
+    "reducedPrice": "reduced {price}"
   }
 }

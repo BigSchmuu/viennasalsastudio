@@ -8,6 +8,7 @@ import { levelOptions, levelLabel, levelColor, levelBadgeStyle } from "@/lib/con
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { useTranslations } from "next-intl";
 import type { StudioPricing } from "@/lib/pricing";
 import { CoursePriceLine } from "@/components/catalog/course-price-line";
 import {
@@ -69,6 +70,7 @@ export function CourseCatalog({
   hasReferralSource: boolean;
   pricing: StudioPricing;
 }) {
+  const t = useTranslations("courses");
   const router = useRouter();
   const [danceStyleId, setDanceStyleId] = useState(ALL);
   const [level, setLevel] = useState(ALL);
@@ -109,7 +111,7 @@ export function CourseCatalog({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
-          <label className="text-sm font-medium">Tanzstil</label>
+          <label className="text-sm font-medium">{t("danceStyle")}</label>
           <Select
             value={danceStyleId}
             onValueChange={(value) => {
@@ -121,7 +123,7 @@ export function CourseCatalog({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Alle Tanzstile</SelectItem>
+              <SelectItem value={ALL}>{t("allDanceStyles")}</SelectItem>
               {danceStyles.map((style) => (
                 <SelectItem key={style.id} value={style.id}>
                   {style.name}
@@ -132,7 +134,7 @@ export function CourseCatalog({
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium">Level</label>
+          <label className="text-sm font-medium">{t("level")}</label>
           <Select
             value={level}
             onValueChange={(value) => {
@@ -144,7 +146,7 @@ export function CourseCatalog({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Alle Levels</SelectItem>
+              <SelectItem value={ALL}>{t("allLevels")}</SelectItem>
               {levelOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
@@ -155,7 +157,7 @@ export function CourseCatalog({
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium">Standort</label>
+          <label className="text-sm font-medium">{t("location")}</label>
           <Select
             value={locationId}
             onValueChange={(value) => {
@@ -167,7 +169,7 @@ export function CourseCatalog({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Alle Standorte</SelectItem>
+              <SelectItem value={ALL}>{t("allLocations")}</SelectItem>
               {locations.map((location) => (
                 <SelectItem key={location.id} value={location.id}>
                   {location.name}
@@ -186,13 +188,13 @@ export function CourseCatalog({
 
       {courses.length === 0 ? (
         <p className="text-sm text-muted-foreground py-16 text-center">
-          Noch keine Kurse vorhanden. Schau bald wieder vorbei!
+          {t("emptyAll")}
         </p>
       ) : filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground py-16 text-center">
-          Keine Kurse gefunden. Passe deine Filter an oder{" "}
+          {t("emptyFiltered")}{" "}
           <button onClick={resetFilters} className="underline hover:text-foreground">
-            setze sie zurück
+            {t("resetFilters")}
           </button>
           .
         </p>
@@ -215,7 +217,7 @@ export function CourseCatalog({
                       <Badge variant="outline" style={levelBadgeStyle(course.level)}>
                         {levelLabel(course.level)}
                       </Badge>
-                      {course.isFull && <Badge variant="destructive">Ausgebucht</Badge>}
+                      {course.isFull && <Badge variant="destructive">{t("soldOut")}</Badge>}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {course.roomName ? `${course.locationName} · ${course.roomName}` : course.locationName}
@@ -223,7 +225,7 @@ export function CourseCatalog({
                     <p className="text-sm text-muted-foreground">
                       {course.teacherNames.length > 0
                         ? course.teacherNames.join(", ")
-                        : "Lehrer wird noch bekanntgegeben"}
+                        : t("teacherTba")}
                     </p>
                     <CoursePriceLine pricing={pricing} coursePrice={course.price} className="text-sm" />
                     {course.prerequisiteNote && (
@@ -233,7 +235,7 @@ export function CourseCatalog({
                 </Link>
                 <CardFooter>
                   <Button className="w-full rounded-full" onClick={() => handleBook(course)}>
-                    Jetzt buchen
+                    {t("book")}
                   </Button>
                 </CardFooter>
               </Card>
@@ -242,7 +244,7 @@ export function CourseCatalog({
           {hasMore && (
             <div className="flex justify-center">
               <Button variant="outline" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
-                Mehr laden ({filtered.length - visibleCount} weitere)
+                {t("loadMore", { count: filtered.length - visibleCount })}
               </Button>
             </div>
           )}

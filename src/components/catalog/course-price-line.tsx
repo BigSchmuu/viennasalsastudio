@@ -1,3 +1,4 @@
+import { useLocale, useTranslations } from "next-intl";
 import { planPrice, formatPrice, type StudioPricing } from "@/lib/pricing";
 
 /**
@@ -19,6 +20,8 @@ export function CoursePriceLine({
   coursePrice: number | null;
   className?: string;
 }) {
+  const t = useTranslations("courses");
+  const locale = useLocale();
   const normal = planPrice(pricing, "single_course", { coursePrice });
   if (normal === null) return null;
 
@@ -29,10 +32,10 @@ export function CoursePriceLine({
 
   return (
     <p className={className}>
-      <span className="font-semibold tabular-nums">{formatPrice(normal)}</span>
-      <span className="text-muted-foreground"> / Monat</span>
+      <span className="font-semibold tabular-nums">{formatPrice(normal, locale)}</span>
+      <span className="text-muted-foreground"> {t("perMonth")}</span>
       {showStudent && (
-        <span className="text-muted-foreground"> · ermäßigt {formatPrice(student)}</span>
+        <span className="text-muted-foreground"> · {t("reducedPrice", { price: formatPrice(student, locale) })}</span>
       )}
     </p>
   );
