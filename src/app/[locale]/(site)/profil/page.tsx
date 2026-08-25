@@ -8,6 +8,7 @@ import type { MandateData } from "@/components/payments/payment-method-section";
 import { MyBookingsSection, type MyBookingRow } from "@/components/booking/my-bookings-section";
 import { MySubscriptionsSection, type MySubscriptionRow } from "@/components/subscription/my-subscriptions-section";
 import { MyInvoicesSection, type MyInvoiceRow } from "@/components/invoices/my-invoices-section";
+import { MyCreditSection, type MyCreditEntry } from "@/components/credits/my-credit-section";
 import { MyWaitlistSection, type MyWaitlistRow } from "@/components/waitlist/my-waitlist-section";
 import type { NotificationPreferenceRow } from "@/components/notifications/notification-settings-section";
 import type { MyTicketRow } from "@/components/tickets/my-tickets-section";
@@ -54,6 +55,7 @@ export default async function ProfilePage() {
     { data: waitlistRows },
     { data: notificationPreferenceRows },
     { data: ticketRows },
+    { data: creditRows },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, birthdate, gender").eq("id", user.id).single(),
     supabase
@@ -88,6 +90,12 @@ export default async function ProfilePage() {
     supabase
       .from("tickets")
       .select("id, payment_method, status, price, events(name, starts_at)")
+      .eq("customer_id", user.id)
+      .order("created_at", { ascending: false }),
+    // PROJ-44: Guthaben-Verlauf. Der Kontostand ist die Summe daraus.
+    supabase
+      .from("customer_credits")
+      .select("id, amount, origin, reason, created_at")
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false }),
   ]);
@@ -183,6 +191,16 @@ export default async function ProfilePage() {
 
   const t = await getTranslations("profile");
 
+  const creditEntries: MyCreditEntry[] = (creditRows ?? []).map((c) => ({
+    id: c.id,
+    amount: Number(c.amount),
+    origin: c.origin as MyCreditEntry["origin"],
+    reason: c.reason,
+    createdAt: c.created_at,
+  }));
+  const creditBalance = creditEntries.reduce((summe, e) => summe + e.amount, 0);
+  const tc = await getTranslations("credit");
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
@@ -273,6 +291,18 @@ export default async function ProfilePage() {
               </AccordionTrigger>
               <AccordionContent>
                 <MyTicketsSection tickets={tickets} />
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="guthaben">
+              <AccordionTrigger>
+                <div className="text-left">
+                  <p className="font-heading font-semibold">{tc("section")}</p>
+                  <p className="text-sm font-normal text-muted-foreground">{tc("sectionHint")}</p>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <MyCreditSection balance={creditBalance} entries={creditEntries} />
               </AccordionContent>
             </AccordionItem>
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CustomerProfileForm } from "@/components/admin/customers/customer-profile-form";
 import { SubscriptionManager, type SubscriptionRow } from "@/components/admin/customers/subscription-manager";
+import { CreditManager, type CreditEntry } from "@/components/admin/customers/credit-manager";
 import type { ProfileInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +27,7 @@ export default async function CustomerDetailPage({
     notFound();
   }
 
-  const [emailsRes, subscriptionsRes, mandateRes, mandateHistoryRes, coursesRes] = await Promise.all([
+  const [emailsRes, subscriptionsRes, mandateRes, mandateHistoryRes, coursesRes, creditsRes] = await Promise.all([
     supabase.rpc("admin_list_customer_emails"),
     supabase
       .from("subscriptions")
@@ -44,6 +45,13 @@ export default async function CustomerDetailPage({
       .select("id", { count: "exact", head: true })
       .eq("customer_id", id),
     supabase.from("courses").select("id, name").order("name", { ascending: true }),
+    // PROJ-44: Kontostand und Verlauf. Der Stand ist die Summe des Verlaufs,
+    // deshalb reicht eine Abfrage.
+    supabase
+      .from("customer_credits")
+      .select("id, amount, origin, reason, created_at")
+      .eq("customer_id", id)
+      .order("created_at", { ascending: false }),
   ]);
 
   const email = (emailsRes.data ?? []).find((e) => e.id === id)?.email ?? "—";
@@ -70,6 +78,15 @@ export default async function CustomerDetailPage({
   }));
 
   const courses = coursesRes.data ?? [];
+
+  const creditEntries: CreditEntry[] = (creditsRes.data ?? []).map((c) => ({
+    id: c.id,
+    amount: Number(c.amount),
+    origin: c.origin as CreditEntry["origin"],
+    reason: c.reason,
+    createdAt: c.created_at,
+  }));
+  const creditBalance = creditEntries.reduce((summe, e) => summe + e.amount, 0);
 
   return (
     <div className="space-y-8">
@@ -100,6 +117,11 @@ export default async function CustomerDetailPage({
       <div className="space-y-3">
         <h3 className="font-heading text-lg font-semibold">Abos</h3>
         <SubscriptionManager customerId={id} subscriptions={subscriptions} courses={courses} />
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="font-heading text-lg font-semibold">Guthaben</h3>
+        <CreditManager customerId={id} balance={creditBalance} entries={creditEntries} />
       </div>
     </div>
   );

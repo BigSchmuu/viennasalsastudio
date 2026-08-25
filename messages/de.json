@@ -245,5 +245,13 @@
     "translationNotice": "Diese Seite ist die verbindliche Fassung.",
     "germanOnly": "",
     "readGerman": "Deutsche Fassung lesen"
+  },
+  "credit": {
+    "section": "Mein Guthaben",
+    "sectionHint": "Wird automatisch mit deinem nächsten Abo-Beitrag verrechnet",
+    "offsetHint": "Wird automatisch von deinem nächsten Abo-Beitrag abgezogen. Eine Auszahlung ist nicht möglich.",
+    "originRedeemed": "Mit deinem Abo-Beitrag verrechnet",
+    "originReferral": "Empfehlung",
+    "empty": "Du hast derzeit kein Guthaben."
   }
 }

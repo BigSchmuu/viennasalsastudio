@@ -245,5 +245,13 @@
     "translationNotice": "This is a translation provided for your convenience. The German version is the legally binding one.",
     "germanOnly": "This page is only available in German. The German version is the legally binding one.",
     "readGerman": "Read the German version"
+  },
+  "credit": {
+    "section": "My credit",
+    "sectionHint": "Automatically offset against your next membership payment",
+    "offsetHint": "This is deducted automatically from your next membership payment. It cannot be paid out.",
+    "originRedeemed": "Offset against your membership payment",
+    "originReferral": "Referral",
+    "empty": "You don't have any credit at the moment."
   }
 }
