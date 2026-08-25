@@ -35,6 +35,7 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 - **Lehrer als Werbende** mit abweichender Belohnungsform.
 - **Guthaben auf Drop-ins, Tickets oder Events.** Nur Abo-Beträge, weil nur dort automatisch abgerechnet wird.
 - **Staffelungen** (mehr Guthaben ab der fünften Empfehlung o. ä.).
+- **Gutschriften von Hand in großer Zahl** (Sammelaktion für alle Teilnehmer eines ausgefallenen Kurses). Von Hand heißt: ein Kunde nach dem anderen.
 - **Rückwirkende Zuordnung** bestehender Kunden zu einem Werbenden.
 
 ## Acceptance Criteria
@@ -54,6 +55,11 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 - [ ] Angenommen der Geworbene kündigt vor der ersten Abbuchung, dann entsteht kein Guthaben.
 - [ ] Angenommen ein Kunde wirbt mehrere Personen, dann gibt es keine Obergrenze.
 
+### Benachrichtigung
+- [ ] Angenommen eine Empfehlung eines Kunden hat gezählt, dann wird er darüber benachrichtigt und erfährt, wie viel Guthaben er nun hat.
+- [ ] Angenommen der Kunde hat diese Benachrichtigungsart abgeschaltet, dann bekommt er sie nicht — das Guthaben entsteht trotzdem.
+- [ ] Angenommen ein Kunde nutzt die englische Fassung, dann kommt auch diese Benachrichtigung auf Englisch.
+
 ### Die Verrechnung
 - [ ] Angenommen ein Kunde hat Guthaben, wenn der nächste SEPA-Lauf ihn erfasst, dann wird das Guthaben vom Abo-Betrag abgezogen.
 - [ ] Angenommen das Guthaben ist größer als der Abo-Betrag, dann wird nur bis auf null verrechnet und der Rest bleibt für den nächsten Lauf stehen.
@@ -64,6 +70,9 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 - [ ] Angenommen der Betreiber öffnet die Stelle, an der er die Preise pflegt, dann findet er dort die beiden Beträge (Werbender / Geworbener) und kann sie ändern.
 - [ ] Angenommen der Betreiber ändert einen Betrag, dann gilt der neue Wert für künftige Empfehlungen; bereits gutgeschriebenes Guthaben bleibt unverändert.
 - [ ] Angenommen der Betreiber sieht sich einen Kunden an, dann erkennt er dessen Guthaben und wer ihn geworben hat.
+- [ ] Angenommen der Betreiber will einem Kunden Guthaben gutschreiben, dann kann er das von Hand tun und muss dabei einen Grund angeben.
+- [ ] Angenommen der Betreiber sieht sich das Guthaben eines Kunden an, dann erkennt er zu jeder Gutschrift, **woher** sie stammt — aus einer Empfehlung oder von Hand vergeben, mit dem angegebenen Grund.
+- [ ] Angenommen der Betreiber vergibt versehentlich zu viel, dann kann er eine Gutschrift auch wieder abziehen — ebenfalls mit Grund.
 
 ## Edge Cases
 - Was, wenn der Werbende sein Abo kündigt, bevor das Guthaben aufgebraucht ist? → Es bleibt stehen. Kommt er zurück, wird es weiter verrechnet; ausgezahlt wird es nie.
@@ -72,6 +81,8 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 - Was, wenn ein Geworbener einen Gutschein **und** einen Empfehlungscode nutzen will? → Nur eines von beidem; es gibt ein Code-Feld, und der zuletzt eingegebene Code gilt.
 - Was, wenn die Beträge auf 0 gesetzt werden? → Das Programm ist damit faktisch aus. Kein Sonderfall nötig; es ist ein Weg, es abzuschalten.
 - Was, wenn ein Kunde gelöscht wird, der geworben hat? → Das Guthaben des Geworbenen bleibt; die Zuordnung wird leer.
+- Was, wenn der Betreiber einem Kunden mehr Guthaben abzieht, als er hat? → Wird abgelehnt. Ein negatives Guthaben wäre eine Forderung, und dafür gibt es die Rechnung.
+- Was, wenn die Benachrichtigung nicht zugestellt werden kann? → Das Guthaben entsteht trotzdem. Es hängt an der Abbuchung, nicht am Versand.
 
 ## Technical Requirements (optional)
 - Der Code muss nicht erratbar sein — sonst könnte jemand fremde Codes durchprobieren, um sich selbst Guthaben zu verschaffen.
@@ -79,8 +90,9 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 - Guthaben darf nie zu einem negativen Abbuchungsbetrag führen.
 
 ## Open Questions
-- [ ] Soll der Kunde eine Benachrichtigung bekommen, wenn eine Empfehlung gezählt hat? Naheliegend, aber erst nach dem ersten Praxiseindruck entscheiden.
-- [ ] Soll der Betreiber Guthaben von Hand vergeben können (etwa als Entschuldigung für einen ausgefallenen Kurs)? Wäre derselbe Mechanismus, aber ein eigener Anwendungsfall.
+- [x] Soll der Kunde eine Benachrichtigung bekommen, wenn eine Empfehlung gezählt hat? → Ja (2026-08-25)
+- [x] Soll der Betreiber Guthaben von Hand vergeben können? → Ja (2026-08-25)
+- [ ] Soll eine Gutschrift von Hand auch dann eine Benachrichtigung auslösen, oder nur die aus einer Empfehlung? Beim Entwurf entscheiden.
 
 ## Decision Log
 
@@ -95,6 +107,11 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 | Guthaben wird nie ausgezahlt, nur gegen Abo-Beträge verrechnet | Hält das Geld im Studio und vermeidet Melde- und Belegpflichten, die eine Barauszahlung an Privatpersonen mit sich brächte | 2026-08-25 |
 | Ein Code-Feld für Gutschein **und** Empfehlung | Der Kunde soll den Unterschied nicht kennen müssen. Zwei Felder wären eine Frage, die niemand stellt | 2026-08-25 |
 | Der eigene Code wird nicht anerkannt, ebenso wenig bei Bestandskunden | Sonst wäre das Programm ein Selbstbedienungsladen. Die Bestandskunden-Prüfung existiert bereits für Gutscheine (PROJ-15) | 2026-08-25 |
+| Der Werbende wird benachrichtigt, wenn eine Empfehlung zählt | Vom Betreiber gewünscht. Ohne Nachricht erfährt er es erst auf der nächsten Rechnung — und weiß dann nicht, wofür | 2026-08-25 |
+| Die Benachrichtigung bekommt eine eigene Art, die der Kunde abschalten kann | Wie alle anderen auch (PROJ-34). Wer sie nicht will, bekommt sie nicht; das Guthaben entsteht davon unabhängig | 2026-08-25 |
+| Der Betreiber kann Guthaben auch von Hand vergeben **und abziehen** | Vom Betreiber gewünscht. Das Abziehen gehört dazu: Wer vergeben kann, vertippt sich irgendwann, und ohne Gegenstück bliebe der Fehler stehen | 2026-08-25 |
+| Jede Gutschrift trägt eine Herkunft und einen Grund | Sobald Guthaben aus zwei Quellen stammen kann, ist ein bloßer Kontostand nicht mehr erklärbar. Der Betreiber muss Monate später nachvollziehen können, warum jemand 45 € hat | 2026-08-25 |
+| Ein negatives Guthaben ist ausgeschlossen | Es wäre eine Forderung an den Kunden, und dafür gibt es die Rechnung — nicht das Guthabenkonto | 2026-08-25 |
 | Kein Ablaufdatum für Codes | Eine Frist wäre eine zusätzliche Regel ohne erkennbaren Nutzen — eine Empfehlung wird nicht schlechter, weil sie später eingelöst wird | 2026-08-25 |
 
 ### Technical Decisions
