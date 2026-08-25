@@ -50,7 +50,8 @@ Vienna Salsa Studio App ist eine Kunden-Self-Service-Plattform für die Tanzschu
 | P2 | Online-Kurs-Plattform (Kapitel, Fortschritt, Quiz, Offline) | Roadmap |
 | P2 | Community/Newsfeed | Roadmap |
 | P2 | Gamification (Badges, Streaks, Level) | Roadmap |
-| P2 | Affiliate-System, granulare Rollen, Dokumente & Verträge | Roadmap |
+| P1 | Empfehlungsprogramm (Kunden werben Kunden) | Planned |
+| P2 | Granulare Rollen, Dokumente & Verträge | Roadmap |
 | P2 | Pagination für Admin-Listen (DB-seitig filtern/sortieren) | Roadmap |
 
 ## Success Metrics

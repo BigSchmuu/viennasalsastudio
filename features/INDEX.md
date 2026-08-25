@@ -35,7 +35,7 @@
 | PROJ-18 | Online-Kurs-Plattform | Roadmap | — | 2026-08-12 |
 | PROJ-19 | Community/Newsfeed | Roadmap | — | 2026-08-12 |
 | PROJ-20 | Gamification (Badges, Streaks, Level) | Roadmap | — | 2026-08-12 |
-| PROJ-21 | Affiliate-System, Rollen & Dokumente/Verträge | Roadmap | — | 2026-08-12 |
+| PROJ-21 | Granulare Rollen & Dokumente/Verträge | Roadmap | — | 2026-08-12 |
 | PROJ-22 | Admin: Lehrer-Rollen verwalten | Deployed | [PROJ-22](../features/PROJ-22-admin-lehrer-rollen-verwalten.md) | 2026-08-13 |
 | PROJ-23 | Admin: Videosätze & Lektionen verwalten (internes Lehrmaterial) | Deployed | [PROJ-23](../features/PROJ-23-admin-videosaetze-lektionen-verwalten.md) | 2026-08-13 |
 | PROJ-24 | Globale Navigation & Login-Status | Deployed | [PROJ-24](../features/PROJ-24-globale-navigation.md) | 2026-08-16 |
@@ -59,7 +59,8 @@
 | PROJ-41 | Preise bei der Kursbuchung | Deployed | [PROJ-41](../features/PROJ-41-preisdarstellung-kursbuchung.md) | 2026-08-23 |
 | PROJ-42 | Rechtssichere Buchungsbestätigung | Deployed | [PROJ-42](../features/PROJ-42-rechtssichere-buchungsbestaetigung.md) | 2026-08-23 |
 | PROJ-43 | Englische Sprachvariante für den Kundenbereich | Deployed | [PROJ-43](../features/PROJ-43-englische-sprachvariante-kundenbereich.md) | 2026-08-24 |
+| PROJ-44 | Empfehlungsprogramm (Kunden werben Kunden) | Planned | [PROJ-44](../features/PROJ-44-empfehlungsprogramm.md) | 2026-08-25 |
 
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-44
+## Next Available ID: PROJ-45
