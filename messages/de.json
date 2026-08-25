@@ -237,5 +237,12 @@
     "requestResetLink": "Reset-Link anfordern",
     "savePassword": "Passwort speichern",
     "savingPassword": "Wird gespeichert…"
+  },
+  "legal": {
+    "termsTitle": "Allgemeine Geschäftsbedingungen",
+    "asOf": "Stand: {version}",
+    "translationNotice": "Diese Seite ist die verbindliche Fassung.",
+    "germanOnly": "",
+    "readGerman": "Deutsche Fassung lesen"
   }
 }

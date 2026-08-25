@@ -119,6 +119,9 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| `AGB_TRANSLATION_VERSION` neben `AGB_VERSION`: weicht sie ab, erscheint der deutsche Text | Erzwingt, dass die Übersetzung beim Ändern der AGB nachgezogen wird. Eine veraltete Übersetzung ist ein falscher Rechtstext in der Sprache des Lesers | 2026-08-25 |
+| Der Umschalter navigiert hart statt weich | Sonst behält die Seite `lang="de"`, während sie englisch dasteht — Screenreader und Browser-Übersetzung lägen falsch | 2026-08-25 |
+| Monatsnamen aus der Laufzeitumgebung statt aus dem Katalog | Zwölf Einträge, die niemand je ändert, in zwei Sprachen zu pflegen wäre Arbeit ohne Nutzen | 2026-08-25 |
 | next-intl statt Eigenbau | Adressen, Serverseiten, Formate und Rückfallregeln sind mehr Arbeit, als es aussieht; die Bibliothek unterstützt die eingesetzte Next.js-Version und Deutsch ohne Präfix | 2026-08-24 |
 | Übersetzungen liegen in Dateien, nicht in der Datenbank | Sie ändern sich mit dem Code. In der Datenbank wären sie eine weitere Pflegestelle und eine zusätzliche Abfrage je Seitenaufruf | 2026-08-24 |
 | Lehreransicht und Einlass werden aus dem Kundenbereich herausgelöst | Sonst wären sie als /en/lehrer erreichbar und würden dort deutschen Text zeigen. Die Adressen bleiben unverändert | 2026-08-24 |
@@ -247,6 +250,86 @@ Auslassung: sie zweisprachig zu machen hieße, jedes neue Event doppelt zu tippe
 
 ## Implementation Notes
 _To be added by /frontend and /backend_
+
+---
+
+## Implementation Notes (Frontend/Backend)
+
+**Stand:** umgesetzt am 2026-08-25, in sieben Etappen.
+
+### Unterbau
+- `next-intl` mit `localePrefix: "as-needed"` — Deutsch behält jede bisherige Adresse,
+  nur Englisch bekommt `/en`. Kein Lesezeichen und kein verschickter Link bricht.
+- Lehreransicht und Einlass sind aus dem Kundenbereich herausgelöst (`(staff)`), damit sie
+  nicht als `/en/lehrer` mit deutschem Text erreichbar sind. Ihre Adressen bleiben gleich.
+- Die Middleware macht zweierlei, und die Reihenfolge ist nicht beliebig: Die Sprachweiche
+  entscheidet zuerst, weil sie umleiten kann; kommt sie ohne Umleitung zurück, schreibt die
+  Sitzungsauffrischung ihre Cookies auf **deren** Antwort. Umgekehrt ginge eines von beidem
+  verloren.
+- `/profil` ist geschützt, `/en/profil` genauso — und die Umleitung behält die Sprache.
+
+### Sprache
+- Spalte `profiles.language` (`de`/`en`, leer = Deutsch wie bisher).
+- Gäste: Sprach-Cookie, ein Jahr gültig.
+- Umschalter in der Kopfzeile, nur im Kundenbereich.
+
+### Texte
+Rund 200 Stellen in zwei Katalogdateien. Fehlt eine Übersetzung, erscheint der deutsche
+Text — eine leere Stelle oder ein sichtbarer Schlüssel wäre ein Fehler, den der Kunde sieht.
+
+Zahlen und Datumsangaben folgen der Sprache, die Währung nicht: „€ 60,00" gegen
+„€60.00". Für Englisch `en-IE` statt `en-US` — irisches Englisch schreibt den Tag vor den
+Monat und rechnet in Euro.
+
+### Benachrichtigungen
+Alle vierzehn Vorlagen haben eine englische Fassung. Welche gilt, entscheidet
+`profiles.language` — **nicht** die Browsersprache: Eine Benachrichtigung entsteht im
+Hintergrund, wenn niemand vor dem Bildschirm sitzt.
+
+Angepasste Vorlagen liegen je Vorlage **und** Sprache; der Editor bekommt eine Sprachwahl,
+die in der Adresse steht, damit sie das Speichern übersteht.
+
+### Rechtstexte
+Die AGB gibt es auf Englisch, mit Hinweis darüber. Datenschutz und Impressum bleiben
+deutsch, ebenfalls mit Hinweis.
+
+**Eine Sicherung gegen veraltete Übersetzungen:** `AGB_TRANSLATION_VERSION` in
+`src/lib/legal.ts` hält fest, welchen Stand die Übersetzung wiedergibt. Weicht sie von
+`AGB_VERSION` ab, zeigt die englische Seite den **deutschen** Text — eine veraltete
+Übersetzung wäre ein falscher Rechtstext in der Sprache des Lesers.
+
+### Befunde beim Bauen
+- **Feste Links verloren das Präfix.** Zwei `<a href="/impressum">` in AGB und Datenschutz
+  hätten einen englischen Leser auf die deutsche Seite geworfen; der Linter deckte sie auf,
+  sobald die Sprachebene stand.
+- **`<html lang>` blieb nach dem Umschalten stehen.** Der äußerste Rahmen wird bei einer
+  weichen Navigation nicht neu gerendert — Screenreader und die Browser-Übersetzung hätten
+  die falsche Sprache angenommen. Der Umschalter macht jetzt einen echten Seitenwechsel.
+- **Der Link „Read the German version" brauchte ein ausdrückliches `locale`.** Eine Adresse
+  ohne Präfix folgt der Sprachwahl des Lesers, ein englischer Kunde wäre also wieder auf der
+  englischen Seite gelandet.
+- **Ein Textfragment blieb stehen** („deaktiviert werden."), weil ich beim Ersetzen eines
+  zweizeiligen Hinweises nur die erste Zeile getroffen hatte. Erst im Sichttest aufgefallen —
+  der Typcheck kann so etwas nicht sehen.
+
+### Ein Befund, der die ganze Testsuite betraf
+Nach dem Umbau fielen **27 von 34** bestehenden Tests aus — nicht wegen des Produkts:
+Playwrights Browser meldet standardmäßig `en-US`, also griff die Spracherkennung, jeder
+Test landete auf `/en` und suchte vergeblich nach „E-Mail" statt „Email".
+
+Genau das Verhalten, das gewünscht ist — nur eben auch im Testbrowser. In
+`playwright.config.ts` steht jetzt `locale: 'de-DE'`: Die bestehenden Suiten prüfen die
+deutsche Fassung, also treten sie als deutschsprachige Besucher auf. Die Tests zur
+englischen Fassung überschreiben den Wert je Test.
+
+**Nebenbei nachgewiesen:** Ein Besucher mit englisch eingestelltem Browser sieht die App
+sofort auf Englisch, ohne etwas zu tun.
+
+### Migrationen
+| Datei | Inhalt |
+|---|---|
+| `20260825102802_proj43_customer_language.sql` | Spalte `profiles.language` |
+| `20260825123919_proj43_template_overrides_per_language.sql` | Vorlagen-Anpassungen je Sprache |
 
 ---
 

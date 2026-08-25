@@ -237,5 +237,12 @@
     "requestResetLink": "Request reset link",
     "savePassword": "Save password",
     "savingPassword": "Saving…"
+  },
+  "legal": {
+    "termsTitle": "Terms and Conditions",
+    "asOf": "As of {version}",
+    "translationNotice": "This is a translation provided for your convenience. The German version is the legally binding one.",
+    "germanOnly": "This page is only available in German. The German version is the legally binding one.",
+    "readGerman": "Read the German version"
   }
 }

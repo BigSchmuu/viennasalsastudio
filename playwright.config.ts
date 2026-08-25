@@ -13,6 +13,13 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:3000',
+    // PROJ-43: Seit die App zweisprachig ist, entscheidet die Browsersprache
+    // beim ersten Aufruf. Playwright meldet standardmaessig en-US — ohne diese
+    // Zeile landet jeder Test auf /en und sucht vergeblich nach deutschen
+    // Beschriftungen. Die bestehenden Suiten pruefen die deutsche Fassung, also
+    // treten sie als deutschsprachige Besucher auf. Die englische Fassung hat
+    // ihre eigene Suite, die den Wert je Test ueberschreibt.
+    locale: 'de-DE',
     trace: 'on-first-retry',
   },
   projects: [

@@ -1,3 +1,4 @@
+import { LegalNotice } from "@/components/legal/legal-notice";
 export const metadata = {
   title: "Impressum",
 };
@@ -5,6 +6,8 @@ export const metadata = {
 export default function ImpressumPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
+      <LegalNotice variant="germanOnly" />
+
       <h1 className="font-heading text-3xl font-bold">Impressum</h1>
 
       <section className="space-y-1 text-sm">

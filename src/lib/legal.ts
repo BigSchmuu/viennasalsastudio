@@ -11,6 +11,22 @@
  */
 export const AGB_VERSION = "2026-08";
 
+/**
+ * Der Stand, den die englische Übersetzung wiedergibt (PROJ-43).
+ *
+ * **Beim Übersetzen einer AGB-Änderung hier nachziehen.** Weichen die beiden
+ * Werte voneinander ab, zeigt die englische Seite bewusst den deutschen Text
+ * mit einem Hinweis, statt eine veraltete Übersetzung stehenzulassen: ein
+ * falscher Rechtstext in der Sprache des Lesers ist schlimmer als ein
+ * aktueller in einer Fremdsprache.
+ */
+export const AGB_TRANSLATION_VERSION = "2026-08";
+
+/** Ist die englische Fassung auf dem Stand der deutschen? */
+export function agbTranslationIsCurrent(): boolean {
+  return AGB_TRANSLATION_VERSION === AGB_VERSION;
+}
+
 const MONATE = [
   "Januar",
   "Februar",
