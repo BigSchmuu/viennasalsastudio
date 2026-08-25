@@ -22,6 +22,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PlanPriceTiles } from "@/components/booking/plan-price-tiles";
+import { useLocale, useTranslations } from "next-intl";
 import { formatPrice, type StudioPricing } from "@/lib/pricing";
 import { TermsConsent } from "@/components/booking/terms-consent";
 import {
@@ -74,6 +75,8 @@ export function BookingDialog({
   hasReferralSource: boolean;
   pricing: StudioPricing;
 }) {
+  const t = useTranslations("booking");
+  const locale = useLocale();
   const router = useRouter();
   const defaultTab =
     course.entryDates.length > 0 ? "regular" : course.nextOccurrenceDates.length > 0 ? "trial" : "dropin";
@@ -163,11 +166,11 @@ export function BookingDialog({
           return;
         }
         if ("needsMandate" in result) {
-          setError("Bitte hinterlege zuerst ein SEPA-Mandat auf deinem Profil.");
+          setError(t("errMandate"));
           return;
         }
 
-        toast.success("Du wurdest auf die Warteliste eingetragen.");
+        toast.success(t("toastWaitlist"));
         onOpenChange(false);
         router.refresh();
         return;
@@ -201,26 +204,24 @@ export function BookingDialog({
         return;
       }
       if ("needsMandate" in result) {
-        setError("Bitte hinterlege zuerst ein SEPA-Mandat auf deinem Profil.");
+        setError(t("errMandate"));
         return;
       }
       if ("full" in result) {
-        setError("Dieser Kurs ist mittlerweile voll. Bitte trage dich auf die Warteliste ein.");
+        setError(t("errFull"));
         router.refresh();
         return;
       }
       if ("roleImbalance" in result) {
         setRoleImbalance(true);
         setError(
-          "Diese Rolle ist für diesen Kurs aktuell nicht verfügbar. Bitte trage dich auf die Warteliste ein."
+          t("errRole")
         );
         return;
       }
 
       toast.success(
-        result.booking.status === "confirmed"
-          ? "Buchung bestätigt!"
-          : "Deine Buchung ist eingegangen — wir bestätigen sie in Kürze."
+        result.booking.status === "confirmed" ? t("toastConfirmed") : t("toastReceived")
       );
       onOpenChange(false);
       router.refresh();
@@ -245,13 +246,13 @@ export function BookingDialog({
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList className="w-full">
             <TabsTrigger value="regular" className="flex-1">
-              Anmeldung
+              {t("tabRegular")}
             </TabsTrigger>
             <TabsTrigger value="trial" className="flex-1">
-              Probestunde
+              {t("tabTrial")}
             </TabsTrigger>
             <TabsTrigger value="dropin" className="flex-1">
-              Drop-in
+              {t("tabDropin")}
             </TabsTrigger>
           </TabsList>
 
@@ -259,49 +260,46 @@ export function BookingDialog({
             {course.hasActiveSubscription ? (
               <Alert>
                 <AlertDescription>
-                  Du bist für diesen Kurs bereits angemeldet. Dein Abo läuft weiter — du musst dich nicht
-                  erneut anmelden.
+                  {t("alreadyEnrolled")}
                 </AlertDescription>
               </Alert>
             ) : course.hasOpenRegularBooking ? (
               <Alert>
-                <AlertDescription>Du hast diesen Kurs bereits gebucht — die Bestätigung steht noch aus.</AlertDescription>
+                <AlertDescription>{t("alreadyBooked")}</AlertDescription>
               </Alert>
             ) : course.isOnWaitlist ? (
               <Alert>
                 <AlertDescription>
-                  Du stehst bereits auf der Warteliste für diesen Kurs. Du findest deinen Platz auf der
-                  Warteliste in deinem Profil.
+                  {t("alreadyOnWaitlist")}
                 </AlertDescription>
               </Alert>
             ) : !hasMandate ? (
               <Alert>
                 <AlertDescription>
-                  Für eine Anmeldung brauchst du zuerst ein SEPA-Mandat.{" "}
+                  {t("needsMandate")}{" "}
                   <Link href="/profil" className="underline">
-                    Jetzt hinterlegen
+                    {t("addMandate")}
                   </Link>
                 </AlertDescription>
               </Alert>
             ) : course.entryDates.length === 0 ? (
               <Alert>
-                <AlertDescription>Aktuell keine Einstiegstermine verfügbar.</AlertDescription>
+                <AlertDescription>{t("noEntryDates")}</AlertDescription>
               </Alert>
             ) : (
               <>
                 {course.isFull && (
                   <Alert>
                     <AlertDescription>
-                      Dieser Kurs ist aktuell voll. Trage dich auf die Warteliste ein — du wirst automatisch
-                      benachrichtigt, sobald ein Platz frei wird.
+                      {t("courseFull")}
                     </AlertDescription>
                   </Alert>
                 )}
                 <div className="space-y-1">
-                  <Label>Einstiegstermin</Label>
+                  <Label>{t("entryDate")}</Label>
                   <Select value={regularDate} onValueChange={setRegularDate}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Bitte wählen" />
+                      <SelectValue placeholder={t("choose")} />
                     </SelectTrigger>
                     <SelectContent>
                       {course.entryDates.map((date) => (
@@ -313,7 +311,7 @@ export function BookingDialog({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Abo-Art</Label>
+                  <Label>{t("planType")}</Label>
                   <PlanPriceTiles
                     pricing={pricing}
                     coursePrice={course.price}
@@ -328,13 +326,13 @@ export function BookingDialog({
                       onCheckedChange={(checked) => setWantsStudentPrice(checked === true)}
                     />
                     <Label htmlFor="wants-student-price-regular" className="font-normal">
-                      Ich bin Student(in)
+                      {t("studentPrice")}
                     </Label>
                   </div>
                 </div>
                 {course.roleQueryEnabled && (
                   <div className="space-y-2">
-                    <Label>Ich tanze als (optional)</Label>
+                    <Label>{t("danceRole")}</Label>
                     <RadioGroup
                       value={danceRole}
                       onValueChange={(v) => {
@@ -356,19 +354,19 @@ export function BookingDialog({
                 {!course.isFull && !roleImbalance && (
                   <>
                     <div className="space-y-1">
-                      <Label htmlFor="booking-note">Notiz (optional)</Label>
+                      <Label htmlFor="booking-note">{t("note")}</Label>
                       <Textarea id="booking-note" value={note} onChange={(e) => setNote(e.target.value)} />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="booking-coupon">Gutscheincode (optional)</Label>
+                      <Label htmlFor="booking-coupon">{t("couponCode")}</Label>
                       <Input
                         id="booking-coupon"
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value)}
-                        placeholder="z.B. WILLKOMMEN20"
+                        placeholder={t("couponPlaceholder")}
                       />
                       {couponChecking ? (
-                        <p className="text-xs text-muted-foreground">Code wird geprüft…</p>
+                        <p className="text-xs text-muted-foreground">{t("couponChecking")}</p>
                       ) : couponStatus?.valid ? (
                         <p className="text-xs text-emerald-600">
                           Gutschein gültig:{" "}
@@ -396,14 +394,14 @@ export function BookingDialog({
           <TabsContent value="trial" className="space-y-3 pt-2">
             {course.nextOccurrenceDates.length === 0 ? (
               <Alert>
-                <AlertDescription>Kein Wochentermin hinterlegt.</AlertDescription>
+                <AlertDescription>{t("noWeeklySlot")}</AlertDescription>
               </Alert>
             ) : (
               <div className="space-y-1">
-                <Label>Termin</Label>
+                <Label>{t("date")}</Label>
                 <Select value={trialDate} onValueChange={setTrialDate}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Bitte wählen" />
+                    <SelectValue placeholder={t("choose")} />
                   </SelectTrigger>
                   <SelectContent>
                     {course.nextOccurrenceDates.map((date) => (
@@ -413,7 +411,7 @@ export function BookingDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Kostenlos, wird sofort bestätigt.</p>
+                <p className="text-xs text-muted-foreground">{t("trialFree")}</p>
               </div>
             )}
           </TabsContent>
@@ -421,7 +419,7 @@ export function BookingDialog({
           <TabsContent value="dropin" className="space-y-3 pt-2">
             {course.nextOccurrenceDates.length === 0 ? (
               <Alert>
-                <AlertDescription>Kein Wochentermin hinterlegt.</AlertDescription>
+                <AlertDescription>{t("noWeeklySlot")}</AlertDescription>
               </Alert>
             ) : (
               <>
@@ -429,7 +427,7 @@ export function BookingDialog({
                   <Label>Termin</Label>
                   <Select value={dropinDate} onValueChange={setDropinDate}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Bitte wählen" />
+                      <SelectValue placeholder={t("choose")} />
                     </SelectTrigger>
                     <SelectContent>
                       {course.nextOccurrenceDates.map((date) => (
@@ -447,10 +445,10 @@ export function BookingDialog({
                     onCheckedChange={(checked) => setWantsStudentPrice(checked === true)}
                   />
                   <Label htmlFor="wants-student-price" className="font-normal">
-                    Ich bin Student(in)
+                    {t("studentPrice")}
                   </Label>
                 </div>
-                <p className="text-sm font-medium">{formatPrice(dropinPrice)} — bar/SumUp vor Ort</p>
+                <p className="text-sm font-medium">{t("dropinOnSite", { price: formatPrice(dropinPrice, locale) })}</p>
               </>
             )}
           </TabsContent>
@@ -468,7 +466,7 @@ export function BookingDialog({
                 onCheckedChange={(checked) => setPrerequisiteConfirmed(checked === true)}
               />
               <Label htmlFor="prerequisite-confirmed" className="font-normal">
-                Ich bestätige, dass ich die genannte Voraussetzung erfülle.
+                {t("prerequisiteConfirm")}
               </Label>
             </div>
           </div>
@@ -476,10 +474,10 @@ export function BookingDialog({
 
         {!hasReferralSource && (
           <div className="space-y-1 pt-2 border-t">
-            <Label>Wie haben Sie von uns erfahren?</Label>
+            <Label>{t("referralQuestion")}</Label>
             <Select value={referralSource} onValueChange={setReferralSource}>
               <SelectTrigger>
-                <SelectValue placeholder="Bitte wählen" />
+                <SelectValue placeholder={t("choose")} />
               </SelectTrigger>
               <SelectContent>
                 {referralSourceOptions.map((option) => (
@@ -497,12 +495,12 @@ export function BookingDialog({
         <DialogFooter>
           <Button disabled={loading || !canSubmit} onClick={handleSubmit}>
             {loading
-              ? "Wird gesendet…"
+              ? t("submitting")
               : showWaitlistForm
-                ? // Ein Wartelisten-Eintrag verpflichtet zu nichts — hier waere
+                ? // Ein Wartelisten-Eintrag verpflichtet zu nichts — hier wäre
                   // "verbindlich buchen" schlicht falsch.
-                  "Auf Warteliste eintragen"
-                : "Rechtlich verbindlich buchen"}
+                  t("submitWaitlist")
+                : t("submit")}
           </Button>
         </DialogFooter>
       </DialogContent>

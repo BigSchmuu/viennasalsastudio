@@ -1,16 +1,11 @@
 "use client";
 
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { desiredPlanOptions, type DesiredPlan } from "@/lib/constants/booking";
 import { planPrice, formatPrice, type StudioPricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-
-const planDescriptions: Record<DesiredPlan, string> = {
-  single_course: "Dieser eine Kurs, wöchentlich",
-  flatrate: "Alle Kurse, so oft du willst",
-};
 
 /**
  * Die Abo-Auswahl im Buchungsdialog (PROJ-41).
@@ -35,6 +30,7 @@ export function PlanPriceTiles({
   value: DesiredPlan | "";
   onChange: (plan: DesiredPlan) => void;
 }) {
+  const t = useTranslations("booking");
   const locale = useLocale();
 
   return (
@@ -57,19 +53,23 @@ export function PlanPriceTiles({
             )}
           >
             <RadioGroupItem value={option.value} id={`plan-${option.value}`} className="sr-only" />
-            <span className="text-sm font-medium">{option.label}</span>
+            <span className="text-sm font-medium">
+              {option.value === "single_course" ? t("planSingleName") : t("planFlatName")}
+            </span>
             {price === null ? (
               // Eine „0,00 €"-Kachel wäre eine Preisaussage, die niemand
               // getroffen hat. Buchen bleibt möglich — den Betrag setzt der
               // Betreiber beim Bestätigen.
-              <span className="text-sm text-muted-foreground">Preis auf Anfrage</span>
+              <span className="text-sm text-muted-foreground">{t("priceOnRequest")}</span>
             ) : (
               <span className="text-lg font-semibold tabular-nums">
                 {formatPrice(price, locale)}
-                <span className="text-sm font-normal text-muted-foreground"> / Monat</span>
+                <span className="text-sm font-normal text-muted-foreground"> {t("perMonth")}</span>
               </span>
             )}
-            <span className="text-xs text-muted-foreground">{planDescriptions[option.value]}</span>
+            <span className="text-xs text-muted-foreground">
+              {option.value === "single_course" ? t("planSingleHint") : t("planFlatHint")}
+            </span>
           </Label>
         );
       })}

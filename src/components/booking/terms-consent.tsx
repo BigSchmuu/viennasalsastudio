@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
@@ -20,6 +21,9 @@ export function TermsConsent({
   /** Eigene id, wo zwei Dialoge gleichzeitig im DOM stehen könnten. */
   id?: string;
 }) {
+  const t = useTranslations("booking");
+  const locale = useLocale();
+
   return (
     <div className="flex items-start gap-2 border-t pt-3">
       <Checkbox
@@ -29,19 +33,21 @@ export function TermsConsent({
         className="mt-0.5"
       />
       <Label htmlFor={id} className="font-normal leading-snug">
-        Ich habe die{" "}
-        <a
-          href="/agb"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline underline-offset-2"
-          // Ohne das würde der Klick auf den Link auch das Häkchen umschalten,
-          // weil der Link im Label sitzt.
-          onClick={(e) => e.stopPropagation()}
-        >
-          AGB
-        </a>{" "}
-        gelesen und akzeptiere sie.
+        {t.rich("termsAccept", {
+          link: (chunks) => (
+            <a
+              href={locale === "de" ? "/agb" : `/${locale}/agb`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2"
+              // Ohne das würde der Klick auf den Link auch das Häkchen
+              // umschalten, weil der Link im Label sitzt.
+              onClick={(e) => e.stopPropagation()}
+            >
+              {chunks}
+            </a>
+          ),
+        })}
       </Label>
     </div>
   );
