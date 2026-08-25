@@ -93,6 +93,7 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 ## Open Questions
 - [x] Sollen die drei Rechtsseiten unter `/en` erreichbar sein? → Ja, alle drei. Die AGB in englischer Übersetzung, Datenschutz und Impressum als deutscher Text mit englischem Hinweis darüber (2026-08-24)
 - [ ] Wer verantwortet die Übersetzung der AGB fachlich? Sie wird als Lesehilfe erstellt, nicht als Rechtstext — ob das dem Betreiber genügt, ist seine Entscheidung. (2026-08-24)
+- [ ] BUG-1: Der Sprachumschalter gehört auch ins Mobilmenü. (QA 2026-08-25)
 - [ ] Gibt es für die Marketing-Website bereits englische Formulierungen (Kursbezeichnungen, Tonfall), an denen sich die Übersetzung ausrichten soll?
 - [ ] Soll der Umschalter auch in der Verwaltung erscheinen, damit der Betreiber die englische Fassung prüfen kann, ohne den Browser umzustellen?
 - [ ] Wie wird mit Bestandskunden umgegangen, von denen bekannt ist, dass sie kein Deutsch sprechen — einmalig anschreiben oder abwarten, bis sie selbst umschalten?
@@ -334,6 +335,104 @@ sofort auf Englisch, ohne etwas zu tun.
 ---
 
 ## QA Test Results
+
+**Getestet am:** 2026-08-25 · **Umgebung:** lokal gegen die Produktionsdatenbank (kein Staging)
+
+### Akzeptanzkriterien: 17 von 18 erfüllt
+
+| Bereich | Kriterium | Ergebnis |
+|---|---|---|
+| Sprachwahl | Englischer Browser sieht die englische Fassung | ✅ |
+| Sprachwahl | Deutscher Browser sieht die deutsche Fassung | ✅ |
+| Sprachwahl | Umschalter überdauert den Besuch und schlägt die Browsersprache | ✅ |
+| Sprachwahl | Eingeloggter Kunde: es gilt die Sprache am Konto | ✅ |
+| Sprachwahl | Umschalten schreibt die Wahl ans Konto | ✅ |
+| Adressen | Deutsche Adressen unverändert | ✅ |
+| Adressen | Englische Fassung unter `/en` | ✅ |
+| Adressen | Weitergegebener englischer Link zeigt dieselbe Sprache | ✅ |
+| Oberfläche | Kundenbereich durchgehend englisch | ✅ |
+| Oberfläche | Beträge und Daten folgen der Sprache, Währung bleibt Euro | ✅ |
+| Oberfläche | Datenbankinhalte erscheinen unverändert | ✅ |
+| Oberfläche | Fehlende Übersetzung fällt auf Deutsch zurück | ✅ |
+| Benachrichtigungen | In der Sprache des Kontos | ✅ |
+| Benachrichtigungen | Ohne Wahl bleibt es bei Deutsch | ✅ |
+| Benachrichtigungen | Betreiber pflegt beide Fassungen getrennt | ✅ |
+| Benachrichtigungen | Fehlende englische Fassung → deutsche wird verschickt | ✅ |
+| Rechtstexte | AGB auf Englisch mit Hinweis; Datenschutz/Impressum deutsch mit Hinweis | ✅ |
+| Rechtstexte | Ein AGB-Stand, unabhängig von der gelesenen Sprache | ✅ |
+| Sprachwahl | **Umschalter erreichbar** | ❌ **BUG-1** — auf dem Handy nicht |
+
+### Gefundener Fehler
+
+**BUG-1 — Der Sprachumschalter fehlt auf dem Handy (High)**
+
+Der Umschalter sitzt in der Desktop-Navigation (`hidden md:flex`) und wurde nicht ins
+Mobilmenü übernommen. Unter 768 px Breite ist er **gar nicht erreichbar**.
+
+*Folge:* Wer auf dem Handy die Sprache wechseln will, kann es nicht — weder ein deutscher
+Besucher, der lieber Englisch läse, noch ein Kunde, dessen Konto auf die andere Sprache
+steht. Der einzige Ausweg wäre, die Browsersprache umzustellen.
+
+*Warum High und nicht Medium:* Die automatische Erkennung deckt den Normalfall ab, aber
+der Umschalter ist ein eigenes Akzeptanzkriterium, und für eine Tanzschule dürfte das Handy
+der häufigste Zugang sein. Ein Kriterium, das für die Mehrheit der Besucher unerreichbar
+ist, gilt nicht als erfüllt.
+
+*Reproduzierbar:* Fenster auf 375 px, beliebige Kundenseite öffnen, Menü aufklappen — kein
+DE/EN. Bei 768 px und darüber ist er da.
+
+### Sicherheitsprüfung (Red Team)
+
+| Angriff | Ergebnis |
+|---|---|
+| Sprache eines **fremden** Kontos setzen | ✅ abgewehrt (0 Zeilen) |
+| Unsinnige Sprache am eigenen Konto (`../../etc/passwd`) | ✅ abgewehrt (CHECK) |
+| Leerer String als Sprache | ✅ abgewehrt (CHECK) |
+| Erfundene Sprache in der Adresse (`/xx`, `/de-DE`, `/en-US`) | ✅ 404 |
+| Pfad-Ausbruch über die Sprache (`/..%2f..%2fetc`) | ✅ 404 |
+| Manipuliertes Sprach-Cookie (`xx`, `../de`, `<script>`) | ✅ fällt auf Deutsch zurück, kein Einschleusen ins `lang`-Attribut |
+| `/en/lehrer`, `/en/checkin`, `/en/admin` | ✅ 404 — Mitarbeiterbereiche haben keine Sprachebene |
+
+Die eigene Sprache zu setzen ist erlaubt, wie es sein soll. `/EN/kurse` wird auf `/en/kurse`
+umgeleitet statt abgewiesen — unkritisch, Groß-/Kleinschreibung wird normalisiert.
+
+### Regression
+
+**Von PROJ-43 verursacht und behoben (Testebene):** Nach dem Umbau fielen **27 von 34**
+bestehenden Tests aus — nicht wegen des Produkts. Playwrights Browser meldet `en-US`, also
+griff die Spracherkennung und jeder Test landete auf `/en`, wo er vergeblich nach
+„E-Mail" suchte. `playwright.config.ts` steht jetzt auf `de-DE`: Die bestehenden Suiten
+prüfen die deutsche Fassung, also treten sie als deutschsprachige Besucher auf.
+
+Das war zugleich der beste Beleg, dass die Spracherkennung wirklich greift.
+
+**Grün danach:** PROJ-6, PROJ-8, PROJ-12, PROJ-14, PROJ-42 zusammen **45 von 45**;
+PROJ-41 **17 von 17**; PROJ-9, PROJ-15, PROJ-26, PROJ-27, PROJ-30 zusammen **44 von 45**.
+
+**Nicht von PROJ-43:** Der eine Fehlschlag ist PROJ-15 „Kunde mit bestehendem Abo bekommt keinen"
+„Gutschein mehr angerechnet" — derselbe, der bei PROJ-41 auf Commit `078b9f3` (vor jeder
+Zeile PROJ-41/42/43-Code) reproduziert wurde. Ursache ist die Doppelanmeldungs-Sperre aus
+PROJ-8.
+
+### Automatisierte Tests
+- `npm test`: **309 grün** (27 Dateien), darunter 6 neue in
+  `src/lib/notifications/templates.i18n.test.ts`. Einer davon vergleicht die Platzhalter
+  beider Sprachfassungen — ein vergessenes `{kurs}` wäre sonst erst beim Empfänger
+  aufgefallen.
+- `tests/PROJ-43-englische-sprachvariante.spec.ts`: **15 grün**, zweimal hintereinander
+  gelaufen. Die Suite setzt die Sprache am Konto vor jedem Test zurück.
+
+### Darstellung
+375 px, 768 px und 1440 px geprüft: **kein** horizontaler Überlauf (gemessen). Die
+englischen Texte laufen nirgends über — sie sind an mehreren Stellen kürzer als die
+deutschen.
+
+### Produktionsreife: **NEIN**
+
+BUG-1 ist hoch eingestuft: Ein Akzeptanzkriterium ist für Handy-Besucher unerreichbar.
+Alles andere ist erfüllt.
+
+
 _To be added by /qa_
 
 ---

@@ -58,7 +58,7 @@
 
 | PROJ-41 | Preise bei der Kursbuchung | Deployed | [PROJ-41](../features/PROJ-41-preisdarstellung-kursbuchung.md) | 2026-08-23 |
 | PROJ-42 | Rechtssichere Buchungsbestätigung | Deployed | [PROJ-42](../features/PROJ-42-rechtssichere-buchungsbestaetigung.md) | 2026-08-23 |
-| PROJ-43 | Englische Sprachvariante für den Kundenbereich | In Progress | [PROJ-43](../features/PROJ-43-englische-sprachvariante-kundenbereich.md) | 2026-08-24 |
+| PROJ-43 | Englische Sprachvariante für den Kundenbereich | In Review | [PROJ-43](../features/PROJ-43-englische-sprachvariante-kundenbereich.md) | 2026-08-24 |
 
 <!-- Add features above this line -->
 
