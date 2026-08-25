@@ -461,4 +461,30 @@ unsichtbare Desktop-Leiste gefunden.
 ---
 
 ## Deployment
-_To be added by /deploy_
+
+**Ausgerollt:** 2026-08-25 · **URL:** https://viennasalsastudio.vercel.app · **Tag:** `v1.43.0-PROJ-43`
+
+Vercel-Build in 59 s, dreizehn Commits (`b4db0f6`…`16b0ad3`).
+
+### Die Datenbankänderungen waren wieder vorab produktiv — diesmal unkritisch
+Entwicklung und Produktion teilen sich dieselbe Supabase-Datenbank. Anders als bei PROJ-42
+ist das hier folgenlos: Beide Migrationen sind rein **additiv** — eine neue Spalte am Konto,
+eine erweiterte Schlüsselspalte bei den Vorlagen. Die ausgerollte App kannte sie nicht und
+störte sich nicht an ihnen. Nichts wurde erzwungen, also konnte nichts brechen.
+
+### In der Produktion nachgeprüft
+- Deutsche Adressen antworten unverändert: `/`, `/kurse`, `/stundenplan`, `/events`, `/agb`,
+  `/login` mit 200, `/profil` leitet wie gehabt auf die Anmeldung
+- Ein Browser mit englischer Spracheinstellung landet von `/kurse` auf `/en/kurse`
+- `/en`, `/en/kurse`, `/en/agb`, `/en/datenschutz` antworten mit `lang="en"`
+- `/en/admin`, `/en/lehrer`, `/xx/kurse` ergeben 404 — Mitarbeiterbereiche und erfundene
+  Sprachen haben keine Sprachebene
+- Englischer Kurskatalog vollständig, **keine Konsolenfehler**
+- Englische AGB mit dem Hinweis auf die verbindliche deutsche Fassung
+- Umschalter im Mobilmenü bei 375 px erreichbar
+- Eingeloggt umgeschaltet → `profiles.language` steht auf `en`; danach zurückgesetzt
+
+### Nach dem Ausrollen
+Kein Kunde hat bisher eine Sprache gewählt (`profiles.language` überall leer) — die 52
+Bestandskunden sehen also weiterhin Deutsch, wie beabsichtigt. Wer mit englischem Browser
+kommt, sieht ab sofort Englisch.
