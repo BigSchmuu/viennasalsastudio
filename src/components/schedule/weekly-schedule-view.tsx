@@ -5,6 +5,7 @@ import { weekdayOptions } from "@/lib/constants/weekdays";
 import { levelLabel, levelColor, levelBadgeStyle } from "@/lib/constants/levels";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { useTranslations } from "next-intl";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SelfCheckinButton } from "@/components/schedule/self-checkin-button";
 import { ScheduleBookingButton } from "@/components/schedule/schedule-booking-button";
@@ -68,6 +69,7 @@ function saalNumber(roomName: string | null): number {
 }
 
 function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
+  const t = useTranslations("schedule");
   return (
     <Card
       className="border-l-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
@@ -87,7 +89,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
           <Badge variant="outline" style={levelBadgeStyle(entry.level)}>
             {levelLabel(entry.level)}
           </Badge>
-          {entry.booking?.isFull && <Badge variant="destructive">Ausgebucht</Badge>}
+          {entry.booking?.isFull && <Badge variant="destructive">{t("soldOut")}</Badge>}
         </div>
         <p className="text-sm text-muted-foreground">
           {entry.roomName ? `${entry.locationName} · ${entry.roomName}` : entry.locationName}
@@ -95,7 +97,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
         <p className="text-sm text-muted-foreground">
           {entry.teacherNames.length > 0
             ? entry.teacherNames.join(", ")
-            : "Lehrer wird noch bekanntgegeben"}
+            : t("teacherTba")}
         </p>
         {entry.prerequisiteNote && (
           <p className="text-xs bg-muted rounded-md px-2 py-1">{entry.prerequisiteNote}</p>
@@ -171,10 +173,11 @@ function ScheduleSlots({ entries }: { entries: ScheduleEntry[] }) {
  * layout. Falls back to a single stacked list when only one room is used
  * that day. */
 function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
+  const t = useTranslations("schedule");
   const rooms = new Map<string, { name: string; entries: ScheduleEntry[] }>();
   for (const entry of entries) {
     if (!rooms.has(entry.roomId)) {
-      rooms.set(entry.roomId, { name: entry.roomName ?? "Ohne Saal", entries: [] });
+      rooms.set(entry.roomId, { name: entry.roomName ?? t("noRoom"), entries: [] });
     }
     rooms.get(entry.roomId)!.entries.push(entry);
   }
@@ -227,13 +230,16 @@ export function WeeklyScheduleView({
 }) {
   const [activeDay, setActiveDay] = useState(String(todayWeekday));
 
+  const t = useTranslations("schedule");
+  const tag = useTranslations("weekdays");
+
   return (
     <Tabs value={activeDay} onValueChange={setActiveDay}>
       <div className="overflow-x-auto">
         <TabsList>
           {weekdayOptions.map((day) => (
             <TabsTrigger key={day.value} value={String(day.value)}>
-              {day.label}
+              {tag(String(day.value))}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -245,7 +251,7 @@ export function WeeklyScheduleView({
           <TabsContent key={day.value} value={String(day.value)} className="mt-4">
             {entries.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">
-                Keine Kurse an diesem Tag.
+                {t("emptyDay")}
               </p>
             ) : (
               <DaySchedule entries={entries} />

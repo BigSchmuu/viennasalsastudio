@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { EventCard, type PublicEventRow } from "@/components/events/event-card";
+import { getTranslations } from "next-intl/server";
 
 export default async function EventsPage() {
   const supabase = await createClient();
@@ -38,15 +39,17 @@ export default async function EventsPage() {
     occupied: occupiedByEvent.get(e.id) ?? 0,
   }));
 
+  const t = await getTranslations("events");
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="font-heading text-2xl font-bold">Events & Workshops</h1>
-        <p className="text-muted-foreground">Sonderveranstaltungen abseits des regulären Kursplans</p>
+        <h1 className="font-heading text-2xl font-bold">{t("heading")}</h1>
+        <p className="text-muted-foreground">{t("subheading")}</p>
       </div>
 
       {events.length === 0 ? (
-        <p className="text-muted-foreground">Aktuell sind keine Events geplant.</p>
+        <p className="text-muted-foreground">{t("empty")}</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {events.map((event) => (

@@ -4,23 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocale, useTranslations } from "next-intl";
+import { formatPrice } from "@/lib/pricing";
+import { formatDateTime } from "@/lib/formatting";
 import { Badge } from "@/components/ui/badge";
 import { TicketPurchaseDialog } from "@/components/events/ticket-purchase-dialog";
-
-function formatPrice(price: number): string {
-  return price.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("de-AT", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export type PublicEventRow = {
   id: string;
@@ -44,6 +32,8 @@ export function EventCard({
   isLoggedIn: boolean;
   hasMandate: boolean;
 }) {
+  const t = useTranslations("events");
+  const locale = useLocale();
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const isFull = event.occupied >= event.capacity;
   const remaining = event.capacity - event.occupied;
@@ -52,21 +42,21 @@ export function EventCard({
     <Card>
       <CardHeader>
         <CardTitle className="font-heading">{event.name}</CardTitle>
-        <CardDescription>{formatDateTime(event.startsAt)}</CardDescription>
+        <CardDescription>{formatDateTime(event.startsAt, locale)}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         {event.location && <p className="text-sm text-muted-foreground">📍 {event.location}</p>}
         {event.description && <p className="text-sm">{event.description}</p>}
         <p className="text-sm font-medium">
-          {formatPrice(event.priceNormal)}
+          {formatPrice(event.priceNormal, locale)}
           {event.priceStudent !== event.priceNormal && (
-            <span className="text-muted-foreground"> · Studierende {formatPrice(event.priceStudent)}</span>
+            <span className="text-muted-foreground"> · {t("studentPriceLabel", { price: formatPrice(event.priceStudent, locale) })}</span>
           )}
         </p>
         {isFull ? (
-          <Badge variant="destructive">Ausgebucht</Badge>
+          <Badge variant="destructive">{t("soldOut")}</Badge>
         ) : (
-          <p className="text-xs text-muted-foreground">Noch {remaining} Plätze frei</p>
+          <p className="text-xs text-muted-foreground">{t("spotsLeft", { count: remaining })}</p>
         )}
       </CardContent>
       <CardFooter>
@@ -80,7 +70,7 @@ export function EventCard({
           </Button>
         ) : (
           <Button className="w-full" asChild>
-            <Link href={`/login?redirect=/events`}>Zum Ticket-Kauf einloggen</Link>
+            <Link href={`/login?redirect=/events`}>{t("loginToBuy")}</Link>
           </Button>
         )}
       </CardFooter>

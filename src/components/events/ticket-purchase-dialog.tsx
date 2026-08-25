@@ -7,16 +7,14 @@ import { toast } from "sonner";
 import { purchaseTicket } from "@/lib/actions/events";
 import { ticketPaymentMethodLabel, type TicketPaymentMethod } from "@/lib/constants/events";
 import { Button } from "@/components/ui/button";
+import { formatPrice } from "@/lib/pricing";
+import { useLocale, useTranslations } from "next-intl";
 import { TermsConsent } from "@/components/booking/terms-consent";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-
-function formatPrice(price: number): string {
-  return price.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
-}
 
 export type TicketPurchaseEvent = {
   id: string;
@@ -37,6 +35,8 @@ export function TicketPurchaseDialog({
   hasMandate: boolean;
 }) {
   const router = useRouter();
+  const t = useTranslations("events");
+  const locale = useLocale();
   const [wantsStudentPrice, setWantsStudentPrice] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<TicketPaymentMethod>(hasMandate ? "sepa" : "onsite");
   const [error, setError] = useState<string | null>(null);
@@ -65,19 +65,19 @@ export function TicketPurchaseDialog({
         return;
       }
       if ("needsMandate" in result) {
-        setError("Bitte hinterlege zuerst ein SEPA-Mandat auf deinem Profil.");
+        setError(t("needsMandate"));
         return;
       }
       if ("full" in result) {
-        setError("Dieses Event ist mittlerweile ausgebucht.");
+        setError(t("full"));
         router.refresh();
         return;
       }
 
       toast.success(
         result.ticket.status === "confirmed"
-          ? "Ticket bestätigt! Du findest es mit QR-Code in deinem Profil."
-          : "Ticket reserviert! Zahlung bitte vor Ort."
+          ? t("confirmed")
+          : t("reserved")
       );
       onOpenChange(false);
       router.refresh();
@@ -107,14 +107,14 @@ export function TicketPurchaseDialog({
               onCheckedChange={(checked) => setWantsStudentPrice(checked === true)}
             />
             <Label htmlFor="ticket-student-price" className="font-normal">
-              Ich bin Student(in)
+              {t("studentPrice")}
             </Label>
           </div>
 
-          <p className="text-lg font-semibold">{formatPrice(price)}</p>
+          <p className="text-lg font-semibold">{formatPrice(price, locale)}</p>
 
           <div className="space-y-2">
-            <Label>Zahlungsart</Label>
+            <Label>{t("paymentMethod")}</Label>
             {!hasMandate && (
               <Alert>
                 <AlertDescription>
@@ -149,7 +149,7 @@ export function TicketPurchaseDialog({
 
         <DialogFooter>
           <Button disabled={loading || !termsAccepted} onClick={handleSubmit}>
-            {loading ? "Wird gebucht…" : "Ticket kaufen"}
+            {loading ? t("buying") : t("buyTicket")}
           </Button>
         </DialogFooter>
       </DialogContent>

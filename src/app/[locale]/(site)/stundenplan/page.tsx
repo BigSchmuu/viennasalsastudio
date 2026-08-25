@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
 import { jsDayToWeekday, formatDateLocal, selfCheckinWindow, upcomingOccurrences } from "@/lib/scheduling/dates";
 import { readStudioPricing } from "@/lib/pricing";
+import { getTranslations } from "next-intl/server";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -59,7 +60,7 @@ export default async function StundenplanPage() {
     ]);
 
   const teacherNameById = new Map(
-    (teachersRes.data ?? []).map((t) => [t.id, t.full_name || "Unbenannter Lehrer"])
+    (teachersRes.data ?? []).map((lehrer) => [lehrer.id, lehrer.full_name || texte("unnamedTeacher")])
   );
 
   const myActiveCourseIds = new Set((mySubsRes.data ?? []).map((s) => s.course_id).filter(Boolean));
@@ -144,11 +145,13 @@ export default async function StundenplanPage() {
 
   const todayWeekday = jsDayToWeekday(new Date().getDay());
 
+  const texte = await getTranslations("schedule");
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-6">
       <div>
-        <h1 className="font-heading text-3xl font-bold">Stundenplan</h1>
-        <p className="text-muted-foreground">Unser wöchentlicher Kursplan.</p>
+        <h1 className="font-heading text-3xl font-bold">{texte("heading")}</h1>
+        <p className="text-muted-foreground">{texte("subheading")}</p>
       </div>
       <WeeklyScheduleView entriesByWeekday={entriesByWeekday} todayWeekday={todayWeekday} />
     </div>

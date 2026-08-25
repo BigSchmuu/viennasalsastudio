@@ -43,5 +43,40 @@
     "resetFilters": "setze sie zurück",
     "perMonth": "/ Monat",
     "reducedPrice": "ermäßigt {price}"
+  },
+  "weekdays": {
+    "0": "Montag",
+    "1": "Dienstag",
+    "2": "Mittwoch",
+    "3": "Donnerstag",
+    "4": "Freitag",
+    "5": "Samstag",
+    "6": "Sonntag"
+  },
+  "schedule": {
+    "heading": "Stundenplan",
+    "subheading": "Unser wöchentlicher Kursplan.",
+    "emptyDay": "Keine Kurse an diesem Tag.",
+    "soldOut": "Ausgebucht",
+    "teacherTba": "Lehrer wird noch bekanntgegeben",
+    "noRoom": "Ohne Saal",
+    "unnamedTeacher": "Unbenannter Lehrer"
+  },
+  "events": {
+    "heading": "Events & Workshops",
+    "subheading": "Sonderveranstaltungen abseits des regulären Kursplans",
+    "empty": "Aktuell sind keine Events geplant.",
+    "soldOut": "Ausgebucht",
+    "loginToBuy": "Zum Ticket-Kauf einloggen",
+    "spotsLeft": "Noch {count} Plätze frei",
+    "paymentMethod": "Zahlungsart",
+    "studentPrice": "Ich bin Student(in)",
+    "buyTicket": "Ticket kaufen",
+    "buying": "Wird gebucht…",
+    "needsMandate": "Bitte hinterlege zuerst ein SEPA-Mandat auf deinem Profil.",
+    "full": "Dieses Event ist mittlerweile ausgebucht.",
+    "confirmed": "Ticket bestätigt! Du findest es mit QR-Code in deinem Profil.",
+    "reserved": "Ticket reserviert! Zahlung bitte vor Ort.",
+    "studentPriceLabel": "Studierende {price}"
   }
 }

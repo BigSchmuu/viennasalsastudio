@@ -43,5 +43,40 @@
     "resetFilters": "reset them",
     "perMonth": "/ month",
     "reducedPrice": "reduced {price}"
+  },
+  "weekdays": {
+    "0": "Monday",
+    "1": "Tuesday",
+    "2": "Wednesday",
+    "3": "Thursday",
+    "4": "Friday",
+    "5": "Saturday",
+    "6": "Sunday"
+  },
+  "schedule": {
+    "heading": "Schedule",
+    "subheading": "Our weekly class schedule.",
+    "emptyDay": "No classes on this day.",
+    "soldOut": "Sold out",
+    "teacherTba": "Teacher to be announced",
+    "noRoom": "No room",
+    "unnamedTeacher": "Unnamed teacher"
+  },
+  "events": {
+    "heading": "Events & workshops",
+    "subheading": "Special occasions beyond the regular schedule",
+    "empty": "No events are scheduled right now.",
+    "soldOut": "Sold out",
+    "loginToBuy": "Log in to buy a ticket",
+    "spotsLeft": "{count} spots left",
+    "paymentMethod": "Payment method",
+    "studentPrice": "I'm a student",
+    "buyTicket": "Buy ticket",
+    "buying": "Booking…",
+    "needsMandate": "Please set up a SEPA mandate in your profile first.",
+    "full": "This event has sold out in the meantime.",
+    "confirmed": "Ticket confirmed! You'll find it with its QR code in your profile.",
+    "reserved": "Ticket reserved! Please pay on site.",
+    "studentPriceLabel": "students {price}"
   }
 }
