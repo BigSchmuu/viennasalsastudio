@@ -90,6 +90,27 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     expect(data!.language).toBe("en");
   });
 
+  test("Der Umschalter ist auch auf dem Handy erreichbar und wirkt (BUG-1)", async ({ page }) => {
+    // Er stand zunächst nur in der Desktop-Leiste: unter 768 px war die
+    // Sprachwahl gar nicht zu erreichen.
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/stundenplan");
+    await page.waitForTimeout(1200);
+
+    // In der schmalen Ansicht führt der Weg über das Menü.
+    await expect(page.getByRole("group", { name: /Sprache|Language/ })).toHaveCount(0);
+    await page.getByRole("button", { name: /Menü öffnen|Open menu/ }).click();
+    await page.waitForTimeout(500);
+
+    const umschalter = page.getByRole("group", { name: /Sprache|Language/ });
+    await expect(umschalter).toBeVisible();
+    await umschalter.getByRole("button", { name: "EN" }).click();
+    await page.waitForTimeout(2500);
+
+    expect(new URL(page.url()).pathname).toBe("/en/stundenplan");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  });
+
   test("Deutsche Adressen bleiben unverändert erreichbar", async ({ page }) => {
     for (const pfad of ["/", "/kurse", "/stundenplan", "/events", "/agb", "/datenschutz", "/impressum", "/login"]) {
       const antwort = await page.goto(pfad);

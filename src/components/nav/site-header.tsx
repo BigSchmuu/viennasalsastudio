@@ -100,6 +100,15 @@ export function SiteHeader({
                   {link.label}
                 </Link>
               ))}
+              {/* PROJ-43 BUG-1: Der Umschalter stand nur in der Desktop-Leiste
+                  und war unter 768 px gar nicht erreichbar — wer auf dem Handy
+                  die Sprache wechseln wollte, konnte es nicht. Für eine
+                  Tanzschule ist das Handy der häufigste Zugang. */}
+              {showLanguageSwitcher && (
+                <div className="mt-2 border-t px-3 pt-3">
+                  <LanguageSwitcher />
+                </div>
+              )}
               {isLoggedIn && (
                 <div className="px-3 pt-2">
                   <LogoutButton />

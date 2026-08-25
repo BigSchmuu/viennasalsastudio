@@ -93,7 +93,7 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 ## Open Questions
 - [x] Sollen die drei Rechtsseiten unter `/en` erreichbar sein? → Ja, alle drei. Die AGB in englischer Übersetzung, Datenschutz und Impressum als deutscher Text mit englischem Hinweis darüber (2026-08-24)
 - [ ] Wer verantwortet die Übersetzung der AGB fachlich? Sie wird als Lesehilfe erstellt, nicht als Rechtstext — ob das dem Betreiber genügt, ist seine Entscheidung. (2026-08-24)
-- [ ] BUG-1: Der Sprachumschalter gehört auch ins Mobilmenü. (QA 2026-08-25)
+- [x] BUG-1: Der Sprachumschalter gehört auch ins Mobilmenü. → Behoben; er steht dort jetzt abgetrennt unter den Menüpunkten (2026-08-25)
 - [ ] Gibt es für die Marketing-Website bereits englische Formulierungen (Kursbezeichnungen, Tonfall), an denen sich die Übersetzung ausrichten soll?
 - [ ] Soll der Umschalter auch in der Verwaltung erscheinen, damit der Betreiber die englische Fassung prüfen kann, ohne den Browser umzustellen?
 - [ ] Wie wird mit Bestandskunden umgegangen, von denen bekannt ist, dass sie kein Deutsch sprechen — einmalig anschreiben oder abwarten, bis sie selbst umschalten?
@@ -338,7 +338,7 @@ sofort auf Englisch, ohne etwas zu tun.
 
 **Getestet am:** 2026-08-25 · **Umgebung:** lokal gegen die Produktionsdatenbank (kein Staging)
 
-### Akzeptanzkriterien: 17 von 18 erfüllt
+### Akzeptanzkriterien: 18 von 18 erfüllt
 
 | Bereich | Kriterium | Ergebnis |
 |---|---|---|
@@ -360,7 +360,7 @@ sofort auf Englisch, ohne etwas zu tun.
 | Benachrichtigungen | Fehlende englische Fassung → deutsche wird verschickt | ✅ |
 | Rechtstexte | AGB auf Englisch mit Hinweis; Datenschutz/Impressum deutsch mit Hinweis | ✅ |
 | Rechtstexte | Ein AGB-Stand, unabhängig von der gelesenen Sprache | ✅ |
-| Sprachwahl | **Umschalter erreichbar** | ❌ **BUG-1** — auf dem Handy nicht |
+| Sprachwahl | Umschalter erreichbar — auch auf dem Handy | ✅ (nach Behebung von BUG-1) |
 
 ### Gefundener Fehler
 
@@ -427,13 +427,36 @@ PROJ-8.
 englischen Texte laufen nirgends über — sie sind an mehreren Stellen kürzer als die
 deutschen.
 
-### Produktionsreife: **NEIN**
+### Produktionsreife: **NEIN** (zum Zeitpunkt der Prüfung)
 
-BUG-1 ist hoch eingestuft: Ein Akzeptanzkriterium ist für Handy-Besucher unerreichbar.
-Alles andere ist erfüllt.
+BUG-1 war hoch eingestuft: Ein Akzeptanzkriterium war für Handy-Besucher unerreichbar.
+Behoben — siehe unten.
 
 
 _To be added by /qa_
+
+---
+
+## Bugfix nach QA (2026-08-25)
+
+**BUG-1 — Der Sprachumschalter fehlt auf dem Handy**
+
+Er steht jetzt auch im Mobilmenü, durch eine Linie von den Menüpunkten abgesetzt. Der
+Klick wechselt die Sprache und lädt die Seite neu, wodurch sich das Menü von selbst
+schließt.
+
+Der neue Test geht bewusst den Weg eines Handy-Nutzers: Fenster auf 375 px, prüfen dass der
+Umschalter **außerhalb** des Menüs nicht sichtbar ist, Menü öffnen, umschalten, und dann
+Adresse und `lang`-Attribut kontrollieren. Damit fällt der Fehler auf, falls er je
+zurückkehrt — ein Test, der den Umschalter nur irgendwo auf der Seite sucht, hätte auch die
+unsichtbare Desktop-Leiste gefunden.
+
+### Danach
+- `tests/PROJ-43-…`: **16 grün**, zweimal hintereinander.
+- `npm test` 309 grün, Lint und Build sauber.
+- Regression PROJ-6 und PROJ-8 mitgelaufen: zusammen **36 von 36**.
+
+### Produktionsreife: **JA** — keine offenen Befunde
 
 ---
 
