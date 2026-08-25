@@ -71,6 +71,9 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 - [ ] Angenommen der Betreiber ändert einen Betrag, dann gilt der neue Wert für künftige Empfehlungen; bereits gutgeschriebenes Guthaben bleibt unverändert.
 - [ ] Angenommen der Betreiber sieht sich einen Kunden an, dann erkennt er dessen Guthaben und wer ihn geworben hat.
 - [ ] Angenommen der Betreiber will einem Kunden Guthaben gutschreiben, dann kann er das von Hand tun und muss dabei einen Grund angeben.
+- [ ] Angenommen der Betreiber vergibt Guthaben von Hand, dann entscheidet er dabei, ob der Kunde benachrichtigt wird; die Nachricht ist standardmäßig **aus**.
+- [ ] Angenommen der Betreiber wählt die Benachrichtigung an, dann sieht der Kunde den von ihm angegebenen Grund — nicht nur den Betrag.
+- [ ] Angenommen der Betreiber zieht Guthaben ab, dann wird der Kunde **nicht** benachrichtigt.
 - [ ] Angenommen der Betreiber sieht sich das Guthaben eines Kunden an, dann erkennt er zu jeder Gutschrift, **woher** sie stammt — aus einer Empfehlung oder von Hand vergeben, mit dem angegebenen Grund.
 - [ ] Angenommen der Betreiber vergibt versehentlich zu viel, dann kann er eine Gutschrift auch wieder abziehen — ebenfalls mit Grund.
 
@@ -92,7 +95,7 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 ## Open Questions
 - [x] Soll der Kunde eine Benachrichtigung bekommen, wenn eine Empfehlung gezählt hat? → Ja (2026-08-25)
 - [x] Soll der Betreiber Guthaben von Hand vergeben können? → Ja (2026-08-25)
-- [ ] Soll eine Gutschrift von Hand auch dann eine Benachrichtigung auslösen, oder nur die aus einer Empfehlung? Beim Entwurf entscheiden.
+- [x] Soll eine Gutschrift von Hand eine Benachrichtigung auslösen? → Der Betreiber entscheidet es je Gutschrift; die Nachricht ist standardmäßig **aus** (2026-08-25)
 
 ## Decision Log
 
@@ -109,6 +112,9 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 | Der eigene Code wird nicht anerkannt, ebenso wenig bei Bestandskunden | Sonst wäre das Programm ein Selbstbedienungsladen. Die Bestandskunden-Prüfung existiert bereits für Gutscheine (PROJ-15) | 2026-08-25 |
 | Der Werbende wird benachrichtigt, wenn eine Empfehlung zählt | Vom Betreiber gewünscht. Ohne Nachricht erfährt er es erst auf der nächsten Rechnung — und weiß dann nicht, wofür | 2026-08-25 |
 | Die Benachrichtigung bekommt eine eigene Art, die der Kunde abschalten kann | Wie alle anderen auch (PROJ-34). Wer sie nicht will, bekommt sie nicht; das Guthaben entsteht davon unabhängig | 2026-08-25 |
+| Bei einer Gutschrift von Hand entscheidet der Betreiber je Fall über die Benachrichtigung, Standard aus | Vom Betreiber gewünscht. Eine Entschuldigung für einen ausgefallenen Kurs will man ankündigen, die stille Korrektur eines eigenen Vertippers nicht. Standard aus, weil die unauffällige Korrektur der häufigere Fall sein dürfte — und eine ungewollt verschickte Nachricht lässt sich nicht zurückholen | 2026-08-25 |
+| Der angegebene Grund steht in der Nachricht | Eine Gutschrift ohne Anlass wirft mehr Fragen auf, als sie beantwortet | 2026-08-25 |
+| Ein Abzug löst nie eine Benachrichtigung aus | Er korrigiert einen Fehler des Betreibers. Den Kunden darüber zu informieren, dass ihm etwas weggenommen wurde, das er nie hätte haben sollen, schafft nur Verwirrung | 2026-08-25 |
 | Der Betreiber kann Guthaben auch von Hand vergeben **und abziehen** | Vom Betreiber gewünscht. Das Abziehen gehört dazu: Wer vergeben kann, vertippt sich irgendwann, und ohne Gegenstück bliebe der Fehler stehen | 2026-08-25 |
 | Jede Gutschrift trägt eine Herkunft und einen Grund | Sobald Guthaben aus zwei Quellen stammen kann, ist ein bloßer Kontostand nicht mehr erklärbar. Der Betreiber muss Monate später nachvollziehen können, warum jemand 45 € hat | 2026-08-25 |
 | Ein negatives Guthaben ist ausgeschlossen | Es wäre eine Forderung an den Kunden, und dafür gibt es die Rechnung — nicht das Guthabenkonto | 2026-08-25 |
