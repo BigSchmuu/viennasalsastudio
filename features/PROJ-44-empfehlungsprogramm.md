@@ -93,6 +93,7 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 - Guthaben darf nie zu einem negativen Abbuchungsbetrag führen.
 
 ## Open Questions
+- [ ] Wie erfährt der Geworbene, dass sein Rabatt kommt? Auch er wartet bis zum ersten Einzug — sieht beim Buchen aber schon, dass der Code erkannt wurde. Ob das reicht, zeigt die Praxis. (Architektur 2026-08-25)
 - [x] Soll der Kunde eine Benachrichtigung bekommen, wenn eine Empfehlung gezählt hat? → Ja (2026-08-25)
 - [x] Soll der Betreiber Guthaben von Hand vergeben können? → Ja (2026-08-25)
 - [x] Soll eine Gutschrift von Hand eine Benachrichtigung auslösen? → Der Betreiber entscheidet es je Gutschrift; die Nachricht ist standardmäßig **aus** (2026-08-25)
@@ -123,11 +124,123 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Die Belohnung wird beim **nächsten** SEPA-Lauf geprüft, nicht am Tag der Abbuchung | Ob eine Lastschrift durchgeht, weiß niemand am Einzugstag — eine Rücklastschrift meldet die Bank Tage später. Der Werbende wartet dadurch rund vier Wochen; die Alternative wäre, für Kunden zu zahlen, deren Geld nie ankam | 2026-08-25 |
+| Guthaben ist ein Verlauf, keine gespeicherte Zahl | Ein Kontostand beantwortet nicht, warum. Eine zusätzlich gepflegte Zahl könnte vom Verlauf abweichen, und dann wüsste niemand, welche stimmt | 2026-08-25 |
+| Das Guthaben mindert den Abbuchungsbetrag, statt eine zweite Buchung zu erzeugen | Eine negative Lastschrift gibt es nicht | 2026-08-25 |
+| Die Verrechnung wird im Verlauf festgehalten, mit Bezug auf die Abbuchung | Nur so kann ein wiederholter Lauf dasselbe Guthaben nicht zweimal verbrauchen | 2026-08-25 |
+| Der Code lebt am Kunden, nicht in der Gutschein-Tabelle — die Eingabe teilen sie sich | Ein Gutschein hat Auflage und Ablauf, ein Empfehlungscode gehört einer Person und gilt unbefristet. In einer Tabelle müsste man beide Begriffe verbiegen. Der Kunde tippt trotzdem in ein Feld | 2026-08-25 |
+| Der Code wird zufällig erzeugt, nicht aus dem Namen gebildet | Ein Code wie ANNA-M wäre erratbar, und wer fremde Codes durchprobiert, könnte sich Guthaben verschaffen | 2026-08-25 |
+| Die beiden Beträge stehen bei den Preisen; 0 schaltet das Programm ab | Ein zweiter Ort für Beträge wäre eine weitere Stelle zum Vergessen, und ein eigener Schalter wäre überflüssig | 2026-08-25 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Component Structure (Visual Tree)
+
+```
+Profil (bestehend)
+└── NEU: Abschnitt „Empfehlen und Guthaben"
+    ├── Dein Code:  VSS-K7M2Q          [kopieren]
+    ├── Guthaben:   30,00 €
+    └── Verlauf     2 Empfehlungen gezählt · 1× von Vienna Salsa Studio
+
+Buchungsdialog (bestehend)
+└── Feld „Gutscheincode" — nimmt jetzt auch Empfehlungscodes
+       Der Kunde muss den Unterschied nicht kennen.
+
+Verwaltung → Buchungen (bestehend)
+└── Preis-Formular: NEU zwei Beträge
+       Empfehlung: für den Werbenden / für den Geworbenen
+
+Verwaltung → Kunde (bestehend)
+├── NEU: Guthaben 30,00 €  ·  geworben von: Anna M.
+└── NEU: Verlauf jeder Gutschrift — woher, wie viel, warum, wann
+       + Guthaben gutschreiben   (Grund nötig, Benachrichtigung wählbar)
+       + Guthaben abziehen       (Grund nötig, benachrichtigt nie)
+
+Rechnung (bestehend)
+└── NEU: Zeile „Empfehlungsguthaben verrechnet: −15,00 €"
+```
+
+### B) Data Model (plain language)
+
+```
+Am Kundenkonto kommt hinzu:
+- Empfehlungscode   eindeutig, nicht erratbar
+- Geworben von      wer diesen Kunden gebracht hat (leer bei den meisten)
+
+Neu: ein Guthaben-Verlauf. Jede Zeile hält fest:
+- Wer            der Kunde
+- Wie viel       positiv = Gutschrift, negativ = verrechnet oder abgezogen
+- Woher          Empfehlung / von Hand / mit einer Abbuchung verrechnet
+- Warum          der Grund, bei Gutschriften von Hand verpflichtend
+- Wann
+
+Das Guthaben ist keine gespeicherte Zahl, sondern die Summe dieses Verlaufs.
+```
+
+**Warum ein Verlauf und keine Zahl:** Ein Kontostand von 45 € beantwortet nicht, warum. Ein
+Verlauf beantwortet es von selbst — und genau das verlangt das Spec, seit Guthaben aus zwei
+Quellen stammen kann. Eine gespeicherte Zahl müsste zusätzlich gepflegt werden und könnte
+vom Verlauf abweichen; dann wüsste niemand, welche der beiden stimmt.
+
+### C) Tech Decisions (justified for PM)
+
+- **Die Belohnung wird beim SEPA-Lauf geprüft, nicht bei der Abbuchung selbst.** Das ist die
+  wichtigste Festlegung — und sie verschiebt den Zeitpunkt. Ob eine Lastschrift wirklich
+  durchgeht, weiß niemand am Tag des Einzugs: Eine Rücklastschrift meldet die Bank Tage
+  später, und der Betreiber trägt sie dann ein. Die Belohnung entsteht deshalb beim
+  **nächsten** Lauf, wenn feststeht, dass die erste Abbuchung nicht zurückkam.
+
+  Praktisch heißt das: Der Werbende bekommt sein Guthaben rund vier Wochen nach der Buchung
+  des Geworbenen. Das ist langsamer, als es klingen mag — aber die Alternative wäre, für
+  Kunden zu zahlen, deren Geld nie ankam.
+
+- **Das Guthaben mindert den Abbuchungsbetrag, es entsteht keine zweite Buchung.** Eine
+  negative Lastschrift gibt es nicht; man kann sich kein Geld vom Kunden zurückholen lassen.
+  Der Betrag wird also vor dem Einzug gesenkt, und die Rechnung erklärt, warum.
+
+- **Die Verrechnung wird im Verlauf festgehalten, nicht nur im Betrag.** Nur so kann ein
+  wiederholter Lauf dasselbe Guthaben nicht zweimal verbrauchen — die Zeile sagt, mit welcher
+  Abbuchung es verrechnet wurde.
+
+- **Der Code lebt am Kunden, nicht in der Gutschein-Tabelle.** Ein Gutschein hat eine
+  Auflage und ein Ablaufdatum; ein Empfehlungscode gehört einer Person und gilt unbefristet.
+  In dieselbe Tabelle gepresst müsste man beide Begriffe verbiegen. **Die Eingabe teilen sie
+  sich trotzdem** — der Kunde tippt in ein Feld, und die Prüfung schaut erst bei den
+  Gutscheinen nach und dann bei den Codes.
+
+- **Der Code wird zufällig erzeugt, nicht aus dem Namen gebildet.** Ein Code wie `ANNA-M`
+  wäre erratbar, und wer fremde Codes durchprobiert, könnte sich Guthaben verschaffen.
+
+- **Die beiden Beträge stehen bei den Preisen.** Der Betreiber pflegt Beträge dort bereits;
+  ein zweiter Ort wäre eine weitere Stelle zum Vergessen. Auf 0 gesetzt ist das Programm aus
+  — dafür braucht es keinen Schalter.
+
+- **Die Benachrichtigung ist eine eigene Art.** Wie alle anderen abschaltbar, in beiden
+  Sprachen, über dieselbe Vorlagenverwaltung pflegbar.
+
+### D) Dependencies (packages to install)
+
+Keine.
+
+### Umfang
+
+Neu: zwei Felder am Kundenkonto, eine Verlaufstabelle, ein Abschnitt im Profil, zwei Felder
+im Preis-Formular, zwei Bedienelemente in der Kundenansicht, eine Benachrichtigungsvorlage
+in zwei Sprachen.
+
+Angefasst: die Code-Prüfung im Buchungsdialog, der SEPA-Lauf, die Rechnungserzeugung.
+
+**Die drei angefassten Stellen bewegen Geld.** Dort ist Sorgfalt wichtiger als Tempo: Ein
+Fehler in der Preisanzeige ist ärgerlich, ein Fehler beim Einzug ist ein Fall für die Bank.
+
+### Was dieser Entwurf bewusst nicht kann
+
+Guthaben auf Drop-ins, Tickets oder Events. Diese werden nicht regelmäßig eingezogen; die
+Verrechnung hätte dort keinen natürlichen Zeitpunkt.
+
 
 ---
 
