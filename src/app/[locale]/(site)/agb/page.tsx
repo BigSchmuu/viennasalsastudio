@@ -1,4 +1,5 @@
 import { formatAgbVersion } from "@/lib/legal";
+import { Link } from "@/i18n/navigation";
 
 export const metadata = {
   title: "AGB",
@@ -16,7 +17,7 @@ export default function AgbPage() {
         <h2 className="font-heading text-xl font-semibold">1. Geltungsbereich</h2>
         <p>
           Diese AGB gelten für alle Kursbuchungen, Abonnements und Ticketkäufe über die Vienna Salsa Studio App,
-          angeboten von Vienna Salsa Studio by Lisa &amp; Samuel OG (siehe <a href="/impressum" className="underline">Impressum</a>).
+          angeboten von Vienna Salsa Studio by Lisa &amp; Samuel OG (siehe <Link href="/impressum" className="underline">Impressum</Link>).
         </p>
       </section>
 

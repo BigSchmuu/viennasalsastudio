@@ -936,6 +936,7 @@ export type Database = {
           full_name: string | null
           gender: string | null
           id: string
+          language: string | null
           phone: string | null
           referral_source: string | null
           role: string
@@ -946,6 +947,7 @@ export type Database = {
           full_name?: string | null
           gender?: string | null
           id: string
+          language?: string | null
           phone?: string | null
           referral_source?: string | null
           role?: string
@@ -956,6 +958,7 @@ export type Database = {
           full_name?: string | null
           gender?: string | null
           id?: string
+          language?: string | null
           phone?: string | null
           referral_source?: string | null
           role?: string
@@ -1521,6 +1524,10 @@ export type Database = {
           id: string
         }[]
       }
+      assert_valid_terms_version: {
+        Args: { p_version: string }
+        Returns: string
+      }
       cancel_event_ticket: {
         Args: { p_ticket_id: string }
         Returns: {
@@ -1620,7 +1627,6 @@ export type Database = {
       }
       create_self_service_booking: {
         Args: {
-          p_carry_terms_from?: string
           p_chosen_date: string
           p_course_id: string
           p_prerequisite_confirmed?: boolean

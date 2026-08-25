@@ -7,6 +7,7 @@ import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Button } from "@/components/ui/button";
+import { LanguageSwitcher } from "@/components/nav/language-switcher";
 import {
   Sheet,
   SheetContent,
@@ -21,10 +22,13 @@ export function SiteHeader({
   isLoggedIn,
   isAdmin,
   isTeacher,
+  showLanguageSwitcher = false,
 }: {
   isLoggedIn: boolean;
   isAdmin: boolean;
   isTeacher: boolean;
+  /** PROJ-43: Im Mitarbeiterbereich gibt es nichts umzuschalten. */
+  showLanguageSwitcher?: boolean;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -65,6 +69,7 @@ export function SiteHeader({
               {link.label}
             </Link>
           ))}
+          {showLanguageSwitcher && <LanguageSwitcher className="ml-1" />}
           {isLoggedIn && <LogoutButton />}
         </nav>
 

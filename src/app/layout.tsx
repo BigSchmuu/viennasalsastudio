@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { getLocale } from "next-intl/server";
 import { Inter, Raleway } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { SentryInit } from "@/components/monitoring/sentry-init";
@@ -21,13 +22,19 @@ export const viewport: Viewport = {
   themeColor: "#0b0b0b",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // PROJ-43: Die Sprache steht in der Adresse und wird von der Middleware
+  // gesetzt. Sie hier auszulesen hält das lang-Attribut ehrlich — ein fest
+  // eingetragenes "de" würde Screenreadern und Übersetzern die falsche Sprache
+  // ansagen, sobald ein Kunde auf Englisch liest.
+  const locale = await getLocale();
+
   return (
-    <html lang="de">
+    <html lang={locale}>
       <body className={`${inter.variable} ${raleway.variable} font-sans antialiased`}>
         {/* Written by the server, read by SentryInit — see its comment for why. */}
         <script

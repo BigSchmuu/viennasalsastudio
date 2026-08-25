@@ -1,3 +1,5 @@
+import { Link } from "@/i18n/navigation";
+
 export const metadata = {
   title: "Datenschutzerklärung",
 };
@@ -18,7 +20,7 @@ export default function DatenschutzPage() {
           <a href="mailto:info@viennasalsastudio.at" className="underline">
             info@viennasalsastudio.at
           </a>
-          . Nähere Angaben siehe <a href="/impressum" className="underline">Impressum</a>.
+          . Nähere Angaben siehe <Link href="/impressum" className="underline">Impressum</Link>.
         </p>
       </section>
 
