@@ -34,7 +34,9 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 - **Übersetzung der Verwaltung, der Lehreransicht und der Einlass-Seite.** Mitarbeiterbereiche bleiben deutsch.
 - **Zweisprachige Datenbankinhalte** — Kursnamen, Tanzstile, Standorte, Raumnamen, Event-Namen und -Beschreibungen, Vorkenntnis-Hinweise. Sie erscheinen in beiden Sprachen so, wie sie eingetragen sind. Nachrüstbar, wenn es im Betrieb stört.
 - **Übersetzung des Rechnungsbelegs.** Er ist ein Buchhaltungsdokument mit festem Aufbau und geht auch an den Steuerberater; nur die Übersicht drumherum wird zweisprachig.
-- **Englische Fassung von AGB, Datenschutzerklärung und Impressum.** Siehe Product Decisions.
+- **Englische Fassung von Datenschutzerklärung und Impressum.** Beide bleiben deutsch; die englische Oberfläche verlinkt sie mit einem Hinweis.
+- **Ein eigenständiges englisches Rechtsdokument.** Die AGB bekommen eine Übersetzung als Lesehilfe, keine zweite verbindliche Fassung — siehe Product Decisions.
+- **Ein zweiter AGB-Stand für die englische Fassung.** Es bleibt bei einem Stand; die Zustimmung aus PROJ-42 ändert sich nicht.
 - **Automatische Maschinenübersetzung** zur Laufzeit. Die Texte werden einmal übersetzt und liegen im Projekt.
 
 ## Acceptance Criteria
@@ -66,9 +68,12 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 - [ ] Angenommen für eine Vorlage existiert keine englische Fassung, dann wird die deutsche verschickt statt gar keiner.
 
 ### Rechtstexte
-- [ ] Angenommen ein Kunde nutzt die englische Fassung, wenn er die AGB öffnet, dann sieht er den deutschen Text mit einem englischen Hinweis darüber, dass die deutsche Fassung die verbindliche ist.
-- [ ] Angenommen ein Kunde bucht in der englischen Fassung, dann ist die Zustimmung auf Englisch formuliert und verweist auf denselben deutschen Text.
-- [ ] Angenommen der Betreiber sieht sich die Zustimmung in der Verwaltung an, dann ändert sich am festgehaltenen Nachweis nichts — es gibt weiterhin nur einen AGB-Stand.
+- [ ] Angenommen ein Kunde nutzt die englische Fassung, wenn er die AGB öffnet, dann liest er sie auf Englisch.
+- [ ] Angenommen er liest die englischen AGB, dann steht darüber ein Hinweis, dass es sich um eine Übersetzung handelt und die deutsche Fassung die verbindliche ist — mit einem Link dorthin.
+- [ ] Angenommen ein Kunde nutzt die englische Fassung, wenn er Datenschutzerklärung oder Impressum öffnet, dann sieht er den deutschen Text mit einem englischen Hinweis darüber.
+- [ ] Angenommen ein Kunde bucht in der englischen Fassung, dann ist die Zustimmung auf Englisch formuliert und verlinkt die englischen AGB.
+- [ ] Angenommen ein Kunde stimmt zu — gleich in welcher Sprache —, dann wird derselbe eine AGB-Stand festgehalten.
+- [ ] Angenommen die deutschen AGB werden inhaltlich geändert, dann ist erkennbar, dass die Übersetzung nachgezogen werden muss.
 
 ## Edge Cases
 - Was passiert bei einer Sprache, die weder Deutsch noch Englisch ist (z.B. Browser auf Spanisch)? → Englisch. Wer nicht Deutsch eingestellt hat, versteht es wahrscheinlich auch nicht.
@@ -77,6 +82,7 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 - Was, wenn eine Übersetzung nachträglich fehlt, weil ein neuer Text nur deutsch ergänzt wurde? → Der deutsche Text erscheint. Eine leere Stelle oder ein Schlüssel wie `booking.submit` wäre schlimmer als eine Sprachmischung.
 - Was passiert mit bereits verschickten Benachrichtigungen in der Warteschlange, wenn ein Kunde die Sprache wechselt? → Sie gehen in der Sprache raus, die beim Einstellen galt. Nachträglich umzuschreiben wäre mehr Aufwand als Nutzen.
 - Was sieht ein Kunde auf `/en/rechnungen/123`? → Die Übersicht auf Englisch, den Beleg selbst auf Deutsch.
+- Was, wenn die deutschen AGB geändert werden und die Übersetzung noch fehlt? → Dann erscheint der deutsche Text mit dem Hinweis, bis die Übersetzung nachgezogen ist. Eine veraltete Übersetzung stehen zu lassen wäre schlimmer: ein falscher Rechtstext in der Sprache des Lesers.
 
 ## Technical Requirements (optional)
 - Die Struktur muss eine dritte Sprache erlauben, ohne dass jede Seite erneut angefasst werden muss.
@@ -84,7 +90,8 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 - Die Sprachwahl eines Gastes muss ohne Konto überdauern.
 
 ## Open Questions
-- [ ] Sollen die drei Rechtsseiten unter `/en` überhaupt erreichbar sein, oder soll der Link dorthin direkt auf die deutsche Adresse zeigen? (Architektur 2026-08-24)
+- [x] Sollen die drei Rechtsseiten unter `/en` erreichbar sein? → Ja, alle drei. Die AGB in englischer Übersetzung, Datenschutz und Impressum als deutscher Text mit englischem Hinweis darüber (2026-08-24)
+- [ ] Wer verantwortet die Übersetzung der AGB fachlich? Sie wird als Lesehilfe erstellt, nicht als Rechtstext — ob das dem Betreiber genügt, ist seine Entscheidung. (2026-08-24)
 - [ ] Gibt es für die Marketing-Website bereits englische Formulierungen (Kursbezeichnungen, Tonfall), an denen sich die Übersetzung ausrichten soll?
 - [ ] Soll der Umschalter auch in der Verwaltung erscheinen, damit der Betreiber die englische Fassung prüfen kann, ohne den Browser umzustellen?
 - [ ] Wie wird mit Bestandskunden umgegangen, von denen bekannt ist, dass sie kein Deutsch sprechen — einmalig anschreiben oder abwarten, bis sie selbst umschalten?
@@ -96,7 +103,10 @@ Login, Registrierung, Passwort-Zurücksetzen sowie die Rechtsseiten.
 |----------|-----------|------|
 | Nur der Kundenbereich wird zweisprachig; Verwaltung, Lehreransicht und Einlass bleiben deutsch | Vom Betreiber so gewünscht. Mitarbeiterbereiche werden von deutschsprachigem Personal bedient; sie mit zu übersetzen wäre Aufwand ohne Nutzen | 2026-08-24 |
 | Die Sprache wird am Kundenkonto gespeichert | Benachrichtigungen gehen raus, wenn niemand vor dem Bildschirm sitzt. Ohne gespeicherte Sprache bekäme ein englischer Kunde deutsche Mails — genau der Bruch, den das Feature vermeiden soll | 2026-08-24 |
-| Deutsche Rechtstexte bleiben maßgeblich, mit englischem Hinweis | Eine Übersetzung wäre ein zweites Rechtsdokument, das auseinanderlaufen kann, und müsste juristisch verantwortet werden. Der Hinweis ist ehrlicher als eine unverbindliche Übersetzung | 2026-08-24 |
+| Die AGB bekommen eine englische Übersetzung als Lesehilfe; die deutsche Fassung bleibt verbindlich | Vom Betreiber gewünscht (Korrektur der ursprünglichen Entscheidung). Ein internationaler Kunde soll lesen können, wozu er beim Buchen Ja sagt. Ein *eigenständiges* englisches Rechtsdokument wäre etwas anderes: zwei gültige Fassungen, im Zweifel gegeneinander auslegbar, und juristisch zu verantworten | 2026-08-24 |
+| Datenschutzerklärung und Impressum bleiben deutsch, mit Hinweis | Vom Betreiber so entschieden. Sie werden selten gelesen und selten geändert; eine Übersetzung wäre Pflegeaufwand ohne erkennbaren Nutzen | 2026-08-24 |
+| Es bleibt bei einem AGB-Stand, unabhängig von der gelesenen Sprache | Zwei Stände hießen zwei Nachweise, die auseinanderlaufen können — und der Nachweis aus PROJ-42 ist der Grund, warum es ihn gibt | 2026-08-24 |
+| Fehlt die Übersetzung zu einem geänderten deutschen Text, erscheint der deutsche mit Hinweis | Eine veraltete Übersetzung ist ein falscher Rechtstext in der Sprache des Lesers — schlimmer als ein aktueller in einer Fremdsprache | 2026-08-24 |
 | Browsersprache beim ersten Besuch, Umschalter überstimmt sie | Ein internationaler Interessent soll nicht erst suchen müssen. Wer die Automatik nicht mag, schaltet einmal um und wird nicht wieder gefragt | 2026-08-24 |
 | Englisch für alle Nicht-Deutsch-Browser | Zwei Sprachen, zwei Fälle. Wer den Browser auf Spanisch stehen hat, kommt mit Englisch weiter als mit Deutsch | 2026-08-24 |
 | Sprache in der Adresse, Deutsch ohne Präfix | Ein weitergegebener Link zeigt beim Empfänger dieselbe Sprache. Deutsch behält seine bisherigen Adressen, damit keine Lesezeichen und keine verschickten Links brechen | 2026-08-24 |
@@ -131,9 +141,9 @@ Kundenbereich (wandert unter die Sprachebene)
 ├── Profil (Abos, Buchungen, Warteliste, Mandat, Benachrichtigungen)
 ├── Rechnungsübersicht  ─ Beleg selbst bleibt deutsch
 ├── Login · Registrierung · Passwort vergessen/zurücksetzen
-└── AGB · Datenschutz · Impressum
-       └── in der englischen Fassung mit einem Hinweis darüber:
-           die deutsche Fassung ist die verbindliche
+├── AGB → englische Übersetzung, darüber der Hinweis:
+│          Übersetzung, die deutsche Fassung ist verbindlich (mit Link)
+└── Datenschutz · Impressum → deutscher Text, englischer Hinweis darüber
 
 Mitarbeiterbereich (bleibt außerhalb der Sprachebene, bleibt deutsch)
 ├── Verwaltung  /admin/…
