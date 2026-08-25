@@ -7,6 +7,22 @@ import { locales, defaultLocale, type Locale } from "@/i18n/routing";
 import { rememberLanguage } from "@/lib/actions/language";
 import { cn } from "@/lib/utils";
 
+/**
+ * Schreibt das Sprach-Cookie, das die Sprachweiche liest.
+ *
+ * Ohne diesen Schritt schlug die Richtung Englisch → Deutsch fehl: Die deutsche
+ * Adresse trägt kein Präfix, also entscheidet allein das Cookie — stand es noch
+ * auf "en", leitete die Sprachweiche sofort auf /en zurück, und der Kunde
+ * landete dort, wo er weg wollte. Beim Wechsel *nach* Englisch fiel das nicht
+ * auf, weil "/en" eine ausdrückliche Ansage ist und das Cookie schlägt.
+ *
+ * Bewusst außerhalb der Komponente: eine Zuweisung im Rumpf beanstandet der
+ * React-Compiler.
+ */
+function merkeSpracheImBrowser(locale: Locale) {
+  document.cookie = `NEXT_LOCALE=${locale}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+}
+
 const labels: Record<Locale, string> = { de: "DE", en: "EN" };
 const titles: Record<Locale, string> = { de: "Auf Deutsch anzeigen", en: "Show in English" };
 
@@ -36,6 +52,8 @@ export function LanguageSwitcher({ className }: { className?: string }) {
     // Erst merken, dann wechseln: ein Seitenwechsel bricht eine noch laufende
     // Server-Aktion ab, und die Sprache wäre nicht am Konto gelandet.
     await rememberLanguage(ziel);
+
+    merkeSpracheImBrowser(ziel);
     const praefix = ziel === defaultLocale ? "" : `/${ziel}`;
     // assign() statt einer Zuweisung an location.href: der React-Compiler
     // beanstandet das Beschreiben eines Werts von ausserhalb der Komponente.

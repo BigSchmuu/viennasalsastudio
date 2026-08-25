@@ -90,6 +90,31 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     expect(data!.language).toBe("en");
   });
 
+  test("Der Umschalter wirkt in beide Richtungen (BUG-3)", async ({ page }) => {
+    // Getestet wurde zunächst nur Deutsch → Englisch. Die Gegenrichtung war
+    // kaputt: Die deutsche Adresse trägt kein Präfix, also entschied allein das
+    // Sprach-Cookie — und das stand noch auf "en". Die Sprachweiche leitete
+    // sofort auf /en zurück.
+    await page.goto("/stundenplan");
+    await page.waitForTimeout(1200);
+    const umschalter = () => page.getByRole("group", { name: /Sprache|Language/ });
+
+    await umschalter().getByRole("button", { name: "EN" }).click();
+    await page.waitForTimeout(2500);
+    expect(new URL(page.url()).pathname, "DE → EN").toBe("/en/stundenplan");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+    await umschalter().getByRole("button", { name: "DE" }).click();
+    await page.waitForTimeout(2500);
+    expect(new URL(page.url()).pathname, "EN → DE").toBe("/stundenplan");
+    await expect(page.locator("html")).toHaveAttribute("lang", "de");
+
+    // Und die Rückkehr hält: ein neuer Aufruf ohne Präfix bleibt deutsch.
+    await page.goto("/kurse");
+    await page.waitForTimeout(1200);
+    expect(new URL(page.url()).pathname, "bleibt deutsch").toBe("/kurse");
+  });
+
   test("Der Umschalter ist auch auf dem Handy erreichbar und wirkt (BUG-1)", async ({ page }) => {
     // Er stand zunächst nur in der Desktop-Leiste: unter 768 px war die
     // Sprachwahl gar nicht zu erreichen.
@@ -109,6 +134,14 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
 
     expect(new URL(page.url()).pathname).toBe("/en/stundenplan");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+    // Und zurück — die Richtung, die zuerst nicht funktionierte (BUG-3).
+    await page.getByRole("button", { name: /Menü öffnen|Open menu/ }).click();
+    await page.waitForTimeout(500);
+    await page.getByRole("group", { name: /Sprache|Language/ }).getByRole("button", { name: "DE" }).click();
+    await page.waitForTimeout(2500);
+    expect(new URL(page.url()).pathname, "am Handy zurück auf Deutsch").toBe("/stundenplan");
+    await expect(page.locator("html")).toHaveAttribute("lang", "de");
   });
 
   test("Deutsche Adressen bleiben unverändert erreichbar", async ({ page }) => {
