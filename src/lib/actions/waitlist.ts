@@ -63,6 +63,9 @@ export async function joinWaitlist(formData: FormData): Promise<JoinWaitlistResu
     if (error.message.includes("terms not accepted")) {
       return { error: "Bitte bestätige zuerst die AGB." };
     }
+    if (error.message.includes("dance role required")) {
+      return { error: "Bitte wähle, ob du als Leader oder Follower tanzt." };
+    }
     if (error.message.includes("mandate required")) {
       return { needsMandate: true };
     }

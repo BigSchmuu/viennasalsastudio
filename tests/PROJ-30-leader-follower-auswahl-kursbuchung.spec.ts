@@ -91,21 +91,37 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
   test("AC2: Kurs ohne aktivierte Rollenabfrage zeigt keine Rollenauswahl im Buchungsdialog", async ({ page }) => {
     await login(page, "e2e30-a@viennasalsastudio.test");
     const dialog = await openBooking(page, KEIN_ROLLEN_KURS_ID);
-    await expect(dialog.getByText("Ich tanze als (optional)")).not.toBeVisible();
+    await expect(dialog.getByText("Ich tanze als", { exact: true })).not.toBeVisible();
   });
 
-  test("AC1/AC3: Kurs mit aktivierter Rollenabfrage zeigt optionale Leader/Follower/Beide-Auswahl", async ({ page }) => {
+  test("AC1/AC3: Kurs mit Rollenabfrage verlangt eine Leader/Follower/Beide-Auswahl", async ({ page }) => {
     await login(page, "e2e30-a@viennasalsastudio.test");
     const dialog = await openBooking(page, ROLLEN_KURS_ID);
-    await expect(dialog.getByText("Ich tanze als (optional)")).toBeVisible();
+    await expect(dialog.getByText("Ich tanze als", { exact: true })).toBeVisible();
+    // Seit der Umstellung auf Pflicht steht kein "(optional)" mehr daneben.
+    await expect(dialog).not.toContainText("Ich tanze als (optional)");
     await expect(dialog.getByLabel("Leader", { exact: true })).toBeVisible();
     await expect(dialog.getByLabel("Follower", { exact: true })).toBeVisible();
     await expect(dialog.getByLabel("Beide", { exact: true })).toBeVisible();
 
-    // Field is optional: filling only the required fields (no role) must
-    // still allow submitting.
+    // Seit 2026-08-25 Pflichtangabe: alle übrigen Felder ausgefüllt, aber ohne
+    // Rolle bleibt das Absenden gesperrt.
     await fillEntryDateAndPlan(dialog, page);
     // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
+    await dialog.locator("#terms-accepted-booking").check();
+    const absenden = dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" });
+    await expect(absenden).toBeDisabled();
+
+    await dialog.getByLabel("Leader", { exact: true }).click();
+    await expect(absenden).toBeEnabled();
+  });
+
+  test("Ein Kurs ohne Rollenabfrage verlangt keine Rolle", async ({ page }) => {
+    // Die Pflicht gilt nur, wo der Kurs die Rolle überhaupt abfragt — sonst
+    // gäbe es nichts zu wählen.
+    await login(page, "e2e30-a@viennasalsastudio.test");
+    const dialog = await openBooking(page, KEIN_ROLLEN_KURS_ID);
+    await fillEntryDateAndPlan(dialog, page);
     await dialog.locator("#terms-accepted-booking").check();
     await expect(dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" })).toBeEnabled();
   });
@@ -238,7 +254,7 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
     // max_role_difference on "E2E30 Kein Rollen Kurs".
     await login(page, "e2e30-a@viennasalsastudio.test");
     const dialog1 = await openBooking(page, KEIN_ROLLEN_KURS_ID);
-    await expect(dialog1.getByText("Ich tanze als (optional)")).toBeVisible();
+    await expect(dialog1.getByText("Ich tanze als", { exact: true })).toBeVisible();
     await fillEntryDateAndPlan(dialog1, page);
     await dialog1.getByLabel("Leader", { exact: true }).click();
     // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.

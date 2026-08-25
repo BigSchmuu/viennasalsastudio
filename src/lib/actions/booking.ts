@@ -136,6 +136,9 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       if (error.message.includes("terms not accepted")) {
         return { error: "Bitte bestätige zuerst die AGB." };
       }
+      if (error.message.includes("dance role required")) {
+        return { error: "Bitte wähle, ob du als Leader oder Follower tanzt." };
+      }
       if (error.message.includes("already enrolled")) {
         return { error: "Du bist für diesen Kurs bereits angemeldet." };
       }

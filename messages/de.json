@@ -94,7 +94,7 @@
     "planType": "Abo-Art",
     "date": "Termin",
     "choose": "Bitte wählen",
-    "danceRole": "Ich tanze als (optional)",
+    "danceRole": "Ich tanze als",
     "note": "Notiz (optional)",
     "couponCode": "Gutscheincode (optional)",
     "couponPlaceholder": "z.B. WILLKOMMEN20",
@@ -120,7 +120,8 @@
     "toastWaitlist": "Du wurdest auf die Warteliste eingetragen.",
     "errMandate": "Bitte hinterlege zuerst ein SEPA-Mandat auf deinem Profil.",
     "errFull": "Dieser Kurs ist mittlerweile voll. Bitte trage dich auf die Warteliste ein.",
-    "errRole": "Diese Rolle ist für diesen Kurs aktuell nicht verfügbar. Bitte trage dich auf die Warteliste ein."
+    "errRole": "Diese Rolle ist für diesen Kurs aktuell nicht verfügbar. Bitte trage dich auf die Warteliste ein.",
+    "danceRoleRequired": "Bitte wähle, ob du als Leader oder Follower tanzt."
   },
   "profile": {
     "heading": "Mein Profil",

@@ -94,7 +94,7 @@
     "planType": "Membership type",
     "date": "Date",
     "choose": "Please choose",
-    "danceRole": "I dance as (optional)",
+    "danceRole": "I dance as",
     "note": "Note (optional)",
     "couponCode": "Voucher code (optional)",
     "couponPlaceholder": "e.g. WELCOME20",
@@ -120,7 +120,8 @@
     "toastWaitlist": "You've been added to the waiting list.",
     "errMandate": "Please set up a SEPA mandate in your profile first.",
     "errFull": "This class has filled up in the meantime. Please join the waiting list.",
-    "errRole": "That role isn't available for this class right now. Please join the waiting list."
+    "errRole": "That role isn't available for this class right now. Please join the waiting list.",
+    "danceRoleRequired": "Please choose whether you dance as leader or follower."
   },
   "profile": {
     "heading": "My profile",

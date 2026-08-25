@@ -132,8 +132,13 @@ export function BookingDialog({
     !course.hasActiveSubscription &&
     hasMandate;
 
+  // PROJ-30: Die Rollenwahl ist Pflicht, aber nur wo der Kurs sie überhaupt
+  // abfragt — bei allen anderen gäbe es nichts zu wählen.
+  const roleMissing = course.roleQueryEnabled && !danceRole;
+
   const canSubmit =
     !termsAccepted ||
+    roleMissing ||
     (!!course.prerequisiteNote && !prerequisiteConfirmed) ||
     (!hasReferralSource && !referralSource)
       ? false

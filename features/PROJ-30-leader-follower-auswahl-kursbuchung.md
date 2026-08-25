@@ -30,7 +30,9 @@
 
 - [ ] Angenommen ein Admin bearbeitet einen Kurs, wenn er „Leader/Follower-Abfrage aktivieren" einschaltet, dann wird beim Buchen dieses Kurses die Rollenauswahl angezeigt
 - [ ] Angenommen ein Kurs hat die Rollenabfrage nicht aktiviert, wenn ein Kunde diesen Kurs bucht, dann erscheint keine Rollenauswahl im Buchungsdialog
-- [ ] Angenommen ein Kurs hat die Rollenabfrage aktiviert, wenn ein Kunde den Buchungsdialog öffnet, dann kann er zwischen Leader, Follower und Beide wählen; das Feld ist optional
+- [x] Angenommen ein Kurs hat die Rollenabfrage aktiviert, wenn ein Kunde den Buchungsdialog öffnet, dann muss er zwischen Leader, Follower und Beide wählen — **Pflichtangabe seit 2026-08-25** (vorher optional)
+- [x] Angenommen der Kunde hat keine Rolle gewählt, wenn er absenden will, dann ist das Absenden gesperrt
+- [x] Angenommen ein Kurs fragt die Rolle **nicht** ab, dann ändert sich für ihn nichts — es gibt dort nichts zu wählen
 - [ ] Angenommen ein Kunde hat beim Buchen eine Rolle gewählt, wenn der Admin die Teilnehmerliste des Kurses öffnet, dann sieht er die Rolle je Teilnehmer sowie eine Zusammenfassung (z.B. „6 Leader / 4 Follower / 2 Beide")
 - [ ] Angenommen ein Kunde hat keine Rolle angegeben, wenn der Admin die Teilnehmerliste öffnet, dann wird dieser Kunde als „keine Angabe" geführt
 - [ ] Angenommen ein Kurs hat die Rollenabfrage aktiviert, wenn der Admin eine maximale Rollen-Differenz einträgt, dann wird dieser Wert gespeichert und ab sofort für neue Buchungen dieses Kurses angewendet
@@ -100,7 +102,7 @@ Admin: Kursliste (course-manager.tsx, Tabellen-Übersicht)
 
 Buchungsdialog (booking-dialog.tsx, PROJ-8/PROJ-26)
 ├── Neue Frage „Ich tanze als:" (Leader / Follower / Beide)
-│   — erscheint nur, wenn der gewählte Kurs die Abfrage aktiviert hat, optional
+│   — erscheint nur, wenn der gewählte Kurs die Abfrage aktiviert hat; dort Pflicht
 └── Neuer Hinweis + „Auf Warteliste eintragen"-Button, wenn die gewählte Rolle
     die konfigurierte Differenz überschreiten würde
     (exakt dasselbe Muster wie der bestehende „Kurs ist voll"-Hinweis aus PROJ-12)
@@ -257,3 +259,49 @@ Beim Ausführen der Regressionstests für abhängige Features (PROJ-3, PROJ-8, P
 - **Commit:** `4b982df`
 - **Deployment method:** Push to `main` → Vercel auto-deploy (pre-existing project, no first-time Vercel setup needed)
 - **Post-deployment verification:** Confirmed live in production via Playwright against `e2e30-*` fixtures — booking dialog shows the "Ich tanze als (optional)" role selector on a course with the query enabled, and the admin course list correctly shows the live "1 L / 1 F / 1 B" / "1 wartend" distribution left over from the QA pass. No new environment variables required for this feature. No Vercel function log errors observed.
+
+---
+
+## Änderung: Rollenwahl wird zur Pflichtangabe (2026-08-25)
+
+Vom Betreiber gewünscht. Bisher war die Auswahl optional — ein Kunde konnte buchen, ohne
+sie anzugeben.
+
+**Nur wo der Kurs die Rolle abfragt.** Bei den übrigen Kursen gäbe es nichts zu wählen, und
+eine Pflicht wäre dort sinnlos. Von 14 echten Kursen betrifft das derzeit zwei.
+
+**Serverseitig erzwungen, nicht nur in der Oberfläche.** Die Sperre im Browser ist eine
+Behauptung des Browsers — dieselbe Überlegung wie beim Preis (PROJ-41) und bei der
+AGB-Zustimmung (PROJ-42). Neue Funktion `require_dance_role`, aufgerufen von
+`create_regular_course_booking` und `join_waitlist`. Ohne die Rolle kann der Betreiber das
+Rollenverhältnis nicht steuern, und genau dafür gibt es die Abfrage.
+
+**Bestehende Buchungen ohne Rolle bleiben unberührt.** Vier reguläre Anfragen tragen keine;
+sie nachträglich zu verlangen hieße, eine Angabe zu erfinden, die niemand gemacht hat.
+
+### Nachgewiesen
+| Eingabe (Kurs *mit* Abfrage) | Ergebnis |
+|---|---|
+| ohne Rolle | ✅ abgewiesen |
+| Rolle `null` | ✅ abgewiesen |
+| nur Leerzeichen | ✅ abgewiesen |
+| Kurs *ohne* Abfrage, ohne Rolle | ✅ angelegt (richtig) |
+
+Die Beschriftung heißt jetzt schlicht „Ich tanze als" — das „(optional)" ist weg, in beiden
+Sprachen.
+
+### Tests
+Drei Stellen in dieser Suite prüften die alte Beschriftung. Zwei davon wären nach der
+Umstellung **inhaltsleer** geworden: Sie behaupteten, „Ich tanze als (optional)" sei nicht
+sichtbar — was nach dem Wegfall des Textes trivial zutrifft, egal ob die Rollenabfrage
+funktioniert. Auf den neuen Text umgestellt, damit sie wieder etwas aussagen.
+
+Neu dazu: ein Test, dass ein Kurs **ohne** Abfrage weiterhin ohne Rolle buchbar ist.
+
+**Ergebnis:** 11 von 11 grün.
+
+### Migrationen
+| Datei | Inhalt |
+|---|---|
+| `20260825153052_proj30_require_dance_role_when_asked.sql` | Prüffunktion |
+| `20260825154002_proj30_use_dance_role_check.sql` | die zwei Funktionen rufen sie auf |
