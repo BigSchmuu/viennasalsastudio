@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { NextIntlClientProvider } from "next-intl";
 import { hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
@@ -7,10 +6,10 @@ import { routing } from "@/i18n/routing";
 /**
  * Sprachebene des Kundenbereichs (PROJ-43).
  *
- * Kopf- und Fußzeile sitzen eine Ebene tiefer im (site)-Rahmen. Diese Ebene
- * hält die Sprache aus der Adresse fest und reicht sie an die
- * Client-Komponenten weiter — ohne den Provider fänden diese keine Sprache und
- * die Seite bliebe leer.
+ * Hält die Sprache aus der Adresse fest, damit alle Seiten darunter dieselbe
+ * verwenden. Der Provider für die Client-Komponenten sitzt eine Ebene höher im
+ * äußersten Rahmen — dort erreicht er auch die Mitarbeiterbereiche, die
+ * dieselbe Kopf- und Fußzeile benutzen.
  */
 export default async function LocaleLayout({
   children,
@@ -24,7 +23,7 @@ export default async function LocaleLayout({
     notFound();
   }
   setRequestLocale(locale);
-  return <NextIntlClientProvider>{children}</NextIntlClientProvider>;
+  return children;
 }
 
 export function generateStaticParams() {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname } from "@/i18n/navigation";
 import { locales, defaultLocale, type Locale } from "@/i18n/routing";
 import { rememberLanguage } from "@/lib/actions/language";
@@ -25,6 +25,7 @@ const titles: Record<Locale, string> = { de: "Auf Deutsch anzeigen", en: "Show i
  * sich ohnehin die ganze Seite; ein Neuaufbau ist hier nichts, was auffällt.
  */
 export function LanguageSwitcher({ className }: { className?: string }) {
+  const t = useTranslations("nav");
   const aktiv = useLocale() as Locale;
   const pathname = usePathname();
   const [pending, setPending] = useState(false);
@@ -42,7 +43,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   }
 
   return (
-    <div className={cn("flex items-center gap-1", className)} role="group" aria-label="Sprache">
+    <div className={cn("flex items-center gap-1", className)} role="group" aria-label={t("language")}>
       {locales.map((locale) => (
         <button
           key={locale}

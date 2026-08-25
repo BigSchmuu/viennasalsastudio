@@ -1,1 +1,28 @@
-{}
+{
+  "nav": {
+    "courses": "Kurse",
+    "schedule": "Stundenplan",
+    "events": "Events",
+    "myCourses": "Meine Kurse",
+    "checkin": "Check-in",
+    "admin": "Admin",
+    "profile": "Mein Profil",
+    "login": "Login",
+    "openMenu": "Menü öffnen",
+    "menu": "Menü",
+    "language": "Sprache"
+  },
+  "footer": {
+    "copyright": "© {year} Vienna Salsa Studio by Lisa & Samuel OG",
+    "imprint": "Impressum",
+    "privacy": "Datenschutz",
+    "terms": "AGB"
+  },
+  "home": {
+    "title": "Vienna Salsa Studio",
+    "intro": "Entdecke unsere Kurse, sieh dir den Stundenplan an oder melde dich an, um dein Abo und deine Buchungen zu verwalten.",
+    "viewCourses": "Kurse ansehen",
+    "viewSchedule": "Stundenplan ansehen",
+    "login": "Login"
+  }
+}

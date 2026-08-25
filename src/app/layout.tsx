@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { getLocale } from "next-intl/server";
+import { NextIntlClientProvider } from "next-intl";
 import { Inter, Raleway } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { SentryInit } from "@/components/monitoring/sentry-init";
@@ -43,8 +44,15 @@ export default async function RootLayout({
           }}
         />
         <SentryInit />
-        {children}
-        <Toaster />
+        {/* Ganz aussen, damit auch die Mitarbeiterbereiche Sprachkontext
+            haben: Kopf- und Fusszeile sind dort dieselben Komponenten, und
+            ihre Links muessen wissen, ob ein Praefix gehoert. Fuer /admin,
+            /lehrer und /checkin liefert getLocale() Deutsch — sie bleiben
+            damit unveraendert. */}
+        <NextIntlClientProvider>
+          {children}
+          <Toaster />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

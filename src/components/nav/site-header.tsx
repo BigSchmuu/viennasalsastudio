@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link, usePathname } from "@/i18n/navigation";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -30,17 +30,18 @@ export function SiteHeader({
   /** PROJ-43: Im Mitarbeiterbereich gibt es nichts umzuschalten. */
   showLanguageSwitcher?: boolean;
 }) {
+  const t = useTranslations("nav");
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const links: NavLink[] = [
-    { href: "/kurse", label: "Kurse" },
-    { href: "/stundenplan", label: "Stundenplan" },
-    { href: "/events", label: "Events" },
-    ...(isTeacher ? [{ href: "/lehrer", label: "Meine Kurse" }] : []),
-    ...(isAdmin || isTeacher ? [{ href: "/checkin", label: "Check-in" }] : []),
-    ...(isAdmin ? [{ href: "/admin", label: "Admin" }] : []),
-    ...(isLoggedIn ? [{ href: "/profil", label: "Mein Profil" }] : [{ href: "/login", label: "Login" }]),
+    { href: "/kurse", label: t("courses") },
+    { href: "/stundenplan", label: t("schedule") },
+    { href: "/events", label: t("events") },
+    ...(isTeacher ? [{ href: "/lehrer", label: t("myCourses") }] : []),
+    ...(isAdmin || isTeacher ? [{ href: "/checkin", label: t("checkin") }] : []),
+    ...(isAdmin ? [{ href: "/admin", label: t("admin") }] : []),
+    ...(isLoggedIn ? [{ href: "/profil", label: t("profile") }] : [{ href: "/login", label: t("login") }]),
   ];
 
   function isActive(href: string) {
@@ -75,13 +76,13 @@ export function SiteHeader({
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden" aria-label="Menü öffnen">
+            <Button variant="ghost" size="icon" className="md:hidden" aria-label={t("openMenu")}>
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent side="right">
             <SheetHeader>
-              <SheetTitle>Menü</SheetTitle>
+              <SheetTitle>{t("menu")}</SheetTitle>
             </SheetHeader>
             <nav className="flex flex-col gap-1 mt-4">
               {links.map((link) => (
