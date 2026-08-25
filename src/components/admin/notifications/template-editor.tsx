@@ -28,9 +28,18 @@ type Props = {
   samples: Record<string, string>;
   initialFields: TemplateFields;
   isOverridden: boolean;
+  /** PROJ-43: Welche Sprachfassung bearbeitet wird. */
+  language: string;
 };
 
-export function TemplateEditor({ templateKey, placeholders, samples, initialFields, isOverridden }: Props) {
+export function TemplateEditor({
+  templateKey,
+  placeholders,
+  samples,
+  initialFields,
+  isOverridden,
+  language,
+}: Props) {
   const router = useRouter();
   const [fields, setFields] = useState<TemplateFields>(initialFields);
 
@@ -74,7 +83,7 @@ export function TemplateEditor({ templateKey, placeholders, samples, initialFiel
   async function handleSave() {
     setSaving(true);
     try {
-      const result = await saveTemplate(templateKey, fields);
+      const result = await saveTemplate(templateKey, fields, language);
       if ("error" in result) {
         toast.error(result.error);
         return;
@@ -104,7 +113,7 @@ export function TemplateEditor({ templateKey, placeholders, samples, initialFiel
     setResetDialogOpen(false);
     setResetting(true);
     try {
-      const result = await resetTemplate(templateKey);
+      const result = await resetTemplate(templateKey, language);
       if ("error" in result) {
         toast.error(result.error);
         return;

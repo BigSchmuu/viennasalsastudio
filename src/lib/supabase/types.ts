@@ -906,6 +906,7 @@ export type Database = {
         Row: {
           email_body: string
           email_subject: string
+          language: string
           push_body: string
           push_title: string
           template_key: string
@@ -914,6 +915,7 @@ export type Database = {
         Insert: {
           email_body: string
           email_subject: string
+          language?: string
           push_body: string
           push_title: string
           template_key: string
@@ -922,6 +924,7 @@ export type Database = {
         Update: {
           email_body?: string
           email_subject?: string
+          language?: string
           push_body?: string
           push_title?: string
           template_key?: string

@@ -72,11 +72,16 @@ function renderTemplate(
   key: TemplateKey,
   values: Record<string, string>,
   override: TemplateFields | undefined,
-  extraBodyHtml = ""
+  extraBodyHtml = "",
+  locale = "de"
 ): { subject: string; emailHtml: string; pushTitle: string; pushBody: string } {
   const meta = getTemplateMeta(key);
   if (!meta) throw new Error(`Unknown template key: ${key}`);
-  const fields = override ?? meta.defaults;
+  // PROJ-43: Eine angepasste Fassung des Betreibers geht vor. Fehlt sie, gilt
+  // die Vorlage in der Sprache des Empfängers — und fehlt die englische, die
+  // deutsche: eine Benachrichtigung in der falschen Sprache ist besser als
+  // keine.
+  const fields = override ?? (locale === "en" ? meta.defaultsEn ?? meta.defaults : meta.defaults);
 
   const subject = substitutePlain(fields.emailSubject, values);
   const bodyHtml = `<p>${substituteHtml(fields.emailBody, values, meta.boldPlaceholder)}</p>${extraBodyHtml}`;
@@ -186,19 +191,21 @@ export function buildNotificationContent(
     | ProbestundeNachfassungDetails
     | NewsletterDetails
     | NeueBuchungDetails,
-  override?: TemplateFields
+  override?: TemplateFields,
+  /** Sprache des Empfängers, aus profiles.language (PROJ-43). */
+  locale = "de"
 ): NotificationContent {
   switch (eventType) {
     case "buchungsstatus": {
       const d = details as BuchungsstatusDetails;
       const confirmed = d.newStatus === "confirmed";
       const key: TemplateKey = confirmed ? "buchungsstatus_bestaetigt" : "buchungsstatus_abgelehnt";
-      return { ...renderTemplate(key, { kurs: d.courseName }, override), url: "/profil" };
+      return { ...renderTemplate(key, { kurs: d.courseName }, override, "", locale), url: "/profil" };
     }
     case "warteliste": {
       const d = details as WartelisteDetails;
       return {
-        ...renderTemplate("warteliste", { kurs: d.courseName, datum: formatDate(d.chosenDate) }, override),
+        ...renderTemplate("warteliste", { kurs: d.courseName, datum: formatDate(d.chosenDate) }, override, "", locale),
         url: "/profil",
       };
     }
@@ -206,7 +213,7 @@ export function buildNotificationContent(
       const d = details as AboKuendigungDetails;
       const key: TemplateKey = d.newStatus === "paused" ? "abo_pausiert" : "abo_gekuendigt";
       return {
-        ...renderTemplate(key, { abo: d.subscriptionName, datum: formatDate(d.effectiveDate) }, override),
+        ...renderTemplate(key, { abo: d.subscriptionName, datum: formatDate(d.effectiveDate) }, override, "", locale),
         url: "/profil",
       };
     }
@@ -217,7 +224,9 @@ export function buildNotificationContent(
         ...renderTemplate(
           "kursstart_erinnerung",
           { kurs: d.courseName, datum: formatDate(d.chosenDate), typ: label },
-          override
+          override,
+          "",
+          locale
         ),
         url: "/profil",
       };
@@ -226,14 +235,14 @@ export function buildNotificationContent(
       const d = details as SepaAnkuendigungDetails;
       const amountText = d.amount.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
       return {
-        ...renderTemplate("sepa_ankuendigung", { betrag: amountText, datum: formatDate(d.dueDate) }, override),
+        ...renderTemplate("sepa_ankuendigung", { betrag: amountText, datum: formatDate(d.dueDate) }, override, "", locale),
         url: "/rechnungen",
       };
     }
     case "kursausfall": {
       const d = details as KursausfallDetails;
       return {
-        ...renderTemplate("kursausfall", { kurs: d.courseName, datum: formatDate(d.pauseDate) }, override),
+        ...renderTemplate("kursausfall", { kurs: d.courseName, datum: formatDate(d.pauseDate) }, override, "", locale),
         url: "/stundenplan",
       };
     }
@@ -249,7 +258,9 @@ export function buildNotificationContent(
             gebuehr: euro(d.bounceFee),
             gesamt: euro(d.grossAmount + d.bounceFee),
           },
-          override
+          override,
+          "",
+          locale
         ),
         url: "/rechnungen",
       };
@@ -257,7 +268,7 @@ export function buildNotificationContent(
     case "kursausfall": {
       const d = details as KursausfallDetails;
       return {
-        ...renderTemplate("kursausfall", { kurs: d.courseName, datum: formatDate(d.pauseDate) }, override),
+        ...renderTemplate("kursausfall", { kurs: d.courseName, datum: formatDate(d.pauseDate) }, override, "", locale),
         url: "/stundenplan",
       };
     }
@@ -273,7 +284,9 @@ export function buildNotificationContent(
             gebuehr: euro(d.bounceFee),
             gesamt: euro(d.grossAmount + d.bounceFee),
           },
-          override
+          override,
+          "",
+          locale
         ),
         url: "/rechnungen",
       };
@@ -284,14 +297,14 @@ export function buildNotificationContent(
 
       if (d.subType === "event_cancelled") {
         return {
-          ...renderTemplate("event_abgesagt", { event: d.eventName, zeitpunkt: whenText }, override),
+          ...renderTemplate("event_abgesagt", { event: d.eventName, zeitpunkt: whenText }, override, "", locale),
           url: "/profil",
         };
       }
 
       const key: TemplateKey = d.ticketStatus === "confirmed" ? "event_ticket_bestaetigt" : "event_ticket_reserviert";
       return {
-        ...renderTemplate(key, { event: d.eventName, zeitpunkt: whenText }, override),
+        ...renderTemplate(key, { event: d.eventName, zeitpunkt: whenText }, override, "", locale),
         url: "/profil",
       };
     }
@@ -301,7 +314,7 @@ export function buildNotificationContent(
       const linkHtml = `<p><a href="${SITE_URL}${url}" style="color: #ff3b30; text-decoration: none; font-weight: 600;">${escapeHtml(d.courseName)} jetzt buchen →</a></p>`;
       const key: TemplateKey =
         d.subType === "abend" ? "probestunde_nachfassung_abend" : "probestunde_nachfassung_naechster_termin";
-      return { ...renderTemplate(key, { kurs: d.courseName }, override, linkHtml), url };
+      return { ...renderTemplate(key, { kurs: d.courseName }, override, linkHtml, locale), url };
     }
     // PROJ-39: goes to the admin, not to a customer. Deliberately not part of
     // the PROJ-34 template registry — that editor manages customer-facing

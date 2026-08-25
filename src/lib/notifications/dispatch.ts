@@ -31,12 +31,21 @@ async function getChannelPreferences(
   return { email, push };
 }
 
-/** PROJ-34: looks up an admin-authored override for one template variant, if any. */
-async function fetchOverride(service: ServiceClient, key: string): Promise<TemplateFields | undefined> {
+/**
+ * PROJ-34: looks up an admin-authored override for one template variant, if any.
+ * PROJ-43: je Sprache — eine deutsche Anpassung gilt nicht für die englische
+ * Fassung, sonst bekäme ein englischer Kunde plötzlich deutschen Text.
+ */
+async function fetchOverride(
+  service: ServiceClient,
+  key: string,
+  locale: string
+): Promise<TemplateFields | undefined> {
   const { data } = await service
     .from("notification_template_overrides")
     .select("email_subject, email_body, push_title, push_body")
     .eq("template_key", key)
+    .eq("language", locale)
     .maybeSingle();
   if (!data) return undefined;
   return {
@@ -47,8 +56,23 @@ async function fetchOverride(service: ServiceClient, key: string): Promise<Templ
   };
 }
 
+/**
+ * Die Sprache des Empfängers (PROJ-43).
+ *
+ * Aus dem Profil, nicht aus einem Sitzungszustand: Eine Benachrichtigung
+ * entsteht im Hintergrund — beim nächtlichen Versand, beim Bestätigen durch
+ * den Betreiber. Eine „gerade eingestellte Sprache" gibt es dort nicht.
+ *
+ * Wer nie gewählt hat, bekommt Deutsch wie bisher.
+ */
+async function recipientLocale(service: ServiceClient, customerId: string): Promise<string> {
+  const { data } = await service.from("profiles").select("language").eq("id", customerId).maybeSingle();
+  return data?.language ?? "de";
+}
+
 async function resolveContent(service: ServiceClient, row: QueueRow): Promise<NotificationContent | null> {
   const payload = row.payload;
+  const locale = await recipientLocale(service, row.customer_id);
 
   switch (row.event_type) {
     case "buchungsstatus": {
@@ -62,7 +86,7 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         newStatus: payload.new_status as "confirmed" | "rejected",
       };
       const key = resolveTemplateKey("buchungsstatus", details);
-      return buildNotificationContent("buchungsstatus", details, key ? await fetchOverride(service, key) : undefined);
+      return buildNotificationContent("buchungsstatus", details, key ? await fetchOverride(service, key, locale) : undefined, locale);
     }
     case "warteliste": {
       const { data } = await service
@@ -72,7 +96,7 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         .maybeSingle();
       const details = { courseName: data?.name ?? "Kurs", chosenDate: payload.chosen_date as string };
       const key = resolveTemplateKey("warteliste", details);
-      return buildNotificationContent("warteliste", details, key ? await fetchOverride(service, key) : undefined);
+      return buildNotificationContent("warteliste", details, key ? await fetchOverride(service, key, locale) : undefined, locale);
     }
     case "abo_kuendigung": {
       const { data } = await service
@@ -86,7 +110,7 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         effectiveDate: payload.effective_date as string,
       };
       const key = resolveTemplateKey("abo_kuendigung", details);
-      return buildNotificationContent("abo_kuendigung", details, key ? await fetchOverride(service, key) : undefined);
+      return buildNotificationContent("abo_kuendigung", details, key ? await fetchOverride(service, key, locale) : undefined, locale);
     }
     case "kursstart_erinnerung": {
       const { data } = await service
@@ -104,7 +128,8 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
       return buildNotificationContent(
         "kursstart_erinnerung",
         details,
-        key ? await fetchOverride(service, key) : undefined
+        key ? await fetchOverride(service, key, locale) : undefined,
+        locale
       );
     }
     case "sepa_ankuendigung": {
@@ -113,7 +138,8 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
       return buildNotificationContent(
         "sepa_ankuendigung",
         details,
-        key ? await fetchOverride(service, key) : undefined
+        key ? await fetchOverride(service, key, locale) : undefined,
+        locale
       );
     }
     case "event_tickets": {
@@ -129,7 +155,8 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         return buildNotificationContent(
           "event_tickets",
           details,
-          key ? await fetchOverride(service, key) : undefined
+          key ? await fetchOverride(service, key, locale) : undefined,
+          locale
         );
       }
 
@@ -146,7 +173,7 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         ticketStatus: data.status as "confirmed" | "reserved",
       };
       const key = resolveTemplateKey("event_tickets", details);
-      return buildNotificationContent("event_tickets", details, key ? await fetchOverride(service, key) : undefined);
+      return buildNotificationContent("event_tickets", details, key ? await fetchOverride(service, key, locale) : undefined, locale);
     }
     case "probestunde_nachfassung": {
       const { data } = await service
@@ -164,7 +191,8 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
       return buildNotificationContent(
         "probestunde_nachfassung",
         details,
-        key ? await fetchOverride(service, key) : undefined
+        key ? await fetchOverride(service, key, locale) : undefined,
+        locale
       );
     }
     case "neue_buchung": {

@@ -32,6 +32,12 @@ export type TemplateMeta = {
   /** Display-only sample values, shown in the editor as a hint (e.g. "{kurs} → Salsa Beginner 1"). */
   samples: Record<string, string>;
   defaults: TemplateFields;
+  /**
+   * Englische Fassung (PROJ-43). Welche gilt, entscheidet die am Kundenkonto
+   * gespeicherte Sprache — nicht die des Browsers: eine Benachrichtigung
+   * entsteht, wenn niemand vor dem Bildschirm sitzt.
+   */
+  defaultsEn: TemplateFields;
 };
 
 export const TEMPLATE_REGISTRY: TemplateMeta[] = [
@@ -48,6 +54,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       pushTitle: "Buchung bestätigt: {kurs}",
       pushBody: "{kurs} ist bestätigt.",
     },
+    defaultsEn: {
+      emailSubject: "Booking confirmed: {kurs}",
+      emailBody:
+        "Your booking request for {kurs} has been confirmed.",
+      pushTitle: "Booking confirmed: {kurs}",
+      pushBody: "{kurs} is confirmed.",
+    },
   },
   {
     key: "buchungsstatus_abgelehnt",
@@ -61,6 +74,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       emailBody: "Deine Buchungsanfrage für {kurs} wurde leider abgelehnt.",
       pushTitle: "Buchung abgelehnt: {kurs}",
       pushBody: "{kurs} wurde abgelehnt.",
+    },
+    defaultsEn: {
+      emailSubject: "Booking declined: {kurs}",
+      emailBody:
+        "Unfortunately your booking request for {kurs} was declined.",
+      pushTitle: "Booking declined: {kurs}",
+      pushBody: "{kurs} was declined.",
     },
   },
   {
@@ -77,6 +97,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       pushTitle: "Du bist nachgerückt: {kurs}",
       pushBody: "Du bist in {kurs} nachgerückt.",
     },
+    defaultsEn: {
+      emailSubject: "You're in: {kurs}",
+      emailBody:
+        "A spot in {kurs} has opened up — you've moved up from the waiting list automatically for {datum}.",
+      pushTitle: "You're in: {kurs}",
+      pushBody: "You've moved up into {kurs}.",
+    },
   },
   {
     key: "abo_pausiert",
@@ -90,6 +117,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       emailBody: "Deine Pausierung von {abo} ist seit {datum} wirksam.",
       pushTitle: "Pausierung wirksam: {abo}",
       pushBody: "{abo} ist jetzt pausiert.",
+    },
+    defaultsEn: {
+      emailSubject: "Pause in effect: {abo}",
+      emailBody:
+        "Your pause of {abo} has been in effect since {datum}.",
+      pushTitle: "Pause in effect: {abo}",
+      pushBody: "{abo} is now paused.",
     },
   },
   {
@@ -105,6 +139,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       pushTitle: "Kündigung wirksam: {abo}",
       pushBody: "{abo} ist gekündigt.",
     },
+    defaultsEn: {
+      emailSubject: "Cancellation in effect: {abo}",
+      emailBody:
+        "Your cancellation of {abo} has been in effect since {datum}.",
+      pushTitle: "Cancellation in effect: {abo}",
+      pushBody: "{abo} has been cancelled.",
+    },
   },
   {
     key: "kursstart_erinnerung",
@@ -119,6 +160,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       pushTitle: "Erinnerung: {typ} morgen in {kurs}",
       pushBody: "Morgen: {typ} in {kurs}.",
     },
+    defaultsEn: {
+      emailSubject: "Reminder: {typ} tomorrow in {kurs}",
+      emailBody:
+        "A quick reminder: tomorrow, {datum}, you have your {typ} in {kurs}.",
+      pushTitle: "Reminder: {typ} tomorrow in {kurs}",
+      pushBody: "Tomorrow: {typ} in {kurs}.",
+    },
   },
   {
     key: "sepa_ankuendigung",
@@ -132,6 +180,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       emailBody: "Am {datum} ziehen wir {betrag} per SEPA-Lastschrift von deinem Konto ein.",
       pushTitle: "Bevorstehender Lastschrifteinzug: {betrag}",
       pushBody: "{betrag} am {datum}.",
+    },
+    defaultsEn: {
+      emailSubject: "Upcoming direct debit: {betrag}",
+      emailBody:
+        "On {datum} we'll collect {betrag} from your account by SEPA direct debit.",
+      pushTitle: "Upcoming direct debit: {betrag}",
+      pushBody: "{betrag} on {datum}.",
     },
   },
   {
@@ -148,6 +203,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       pushTitle: "Ticket bestätigt: {event}",
       pushBody: "{event} ist bestätigt.",
     },
+    defaultsEn: {
+      emailSubject: "Ticket confirmed: {event}",
+      emailBody:
+        "Your ticket for {event} on {zeitpunkt} is confirmed. You'll find the QR code for entry in your profile.",
+      pushTitle: "Ticket confirmed: {event}",
+      pushBody: "{event} is confirmed.",
+    },
   },
   {
     key: "event_ticket_reserviert",
@@ -162,6 +224,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
         "Dein Ticket für {event} am {zeitpunkt} ist reserviert. Bitte den Betrag vor Ort bezahlen — den QR-Code für den Einlass findest du in deinem Profil.",
       pushTitle: "Ticket reserviert: {event}",
       pushBody: "{event} ist reserviert — vor Ort zahlen.",
+    },
+    defaultsEn: {
+      emailSubject: "Ticket reserved: {event}",
+      emailBody:
+        "Your ticket for {event} on {zeitpunkt} is reserved. Please pay on site — you'll find the QR code for entry in your profile.",
+      pushTitle: "Ticket reserved: {event}",
+      pushBody: "{event} is reserved — pay on site.",
     },
   },
   {
@@ -178,6 +247,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       pushTitle: "Event abgesagt: {event}",
       pushBody: "{event} wurde abgesagt.",
     },
+    defaultsEn: {
+      emailSubject: "Event cancelled: {event}",
+      emailBody:
+        "Unfortunately {event} on {zeitpunkt} has been cancelled. Your ticket is void; any refund is handled outside the app.",
+      pushTitle: "Event cancelled: {event}",
+      pushBody: "{event} has been cancelled.",
+    },
   },
   {
     key: "probestunde_nachfassung_abend",
@@ -193,6 +269,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       pushTitle: "Wie war deine Probestunde in {kurs}?",
       pushBody: "Jetzt {kurs} buchen?",
     },
+    defaultsEn: {
+      emailSubject: "How was your trial class in {kurs}?",
+      emailBody:
+        "We hope you enjoyed your trial class in {kurs}! If you'd like to stay, you can book right away.",
+      pushTitle: "How was your trial class in {kurs}?",
+      pushBody: "Book {kurs} now?",
+    },
   },
   {
     key: "probestunde_nachfassung_naechster_termin",
@@ -206,6 +289,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       emailBody: "Der nächste Termin von {kurs} steht bald an — noch nicht zu spät, um dabei zu sein!",
       pushTitle: "Der nächste Termin von {kurs} steht bevor",
       pushBody: "Nächster Termin von {kurs} steht bevor.",
+    },
+    defaultsEn: {
+      emailSubject: "The next session of {kurs} is coming up",
+      emailBody:
+        "The next session of {kurs} is coming up soon — it's not too late to join!",
+      pushTitle: "The next session of {kurs} is coming up",
+      pushBody: "Next session of {kurs} is coming up.",
     },
   },
   {
@@ -227,6 +317,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       pushTitle: "Offene Zahlung: {gesamt}",
       pushBody: "Rechnung {rechnungsnummer} wurde zurückgebucht.",
     },
+    defaultsEn: {
+      emailSubject: "Outstanding payment: invoice {rechnungsnummer}",
+      emailBody:
+        "the direct debit for invoice {rechnungsnummer} of {betrag} was returned by your bank. This left us with a return fee of {gebuehr}, so {gesamt} is now outstanding. Please transfer the amount or get in touch if something isn't right.",
+      pushTitle: "Outstanding payment: {gesamt}",
+      pushBody: "Invoice {rechnungsnummer} was returned.",
+    },
   },
   {
     key: "kursausfall",
@@ -241,6 +338,13 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
         "der Termin von {kurs} am {datum} muss leider entfallen. Alle weiteren Termine finden wie geplant statt. Wir freuen uns, dich beim nächsten Mal wiederzusehen!",
       pushTitle: "{kurs} fällt aus",
       pushBody: "Der Termin am {datum} entfällt.",
+    },
+    defaultsEn: {
+      emailSubject: "{kurs} is cancelled on {datum}",
+      emailBody:
+        "the session of {kurs} on {datum} unfortunately has to be cancelled. All other sessions take place as planned. We look forward to seeing you next time!",
+      pushTitle: "{kurs} is cancelled",
+      pushBody: "The session on {datum} is cancelled.",
     },
   },
 ];

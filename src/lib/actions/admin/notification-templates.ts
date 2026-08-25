@@ -42,14 +42,21 @@ function validateFields(templateKey: string, fields: TemplateFields): string | n
   return null;
 }
 
-export async function saveTemplate(templateKey: string, fields: TemplateFields): Promise<ActionResult> {
+export async function saveTemplate(
+  templateKey: string,
+  fields: TemplateFields,
+  /** PROJ-43: Welche Sprachfassung angepasst wird. Die andere bleibt unberührt. */
+  language: string = "de"
+): Promise<ActionResult> {
   if (!isTemplateKey(templateKey)) return { error: "Unbekannte Vorlage." };
+  if (language !== "de" && language !== "en") return { error: "Unbekannte Sprache." };
   const validationError = validateFields(templateKey, fields);
   if (validationError) return { error: validationError };
 
   const { supabase } = await requireAdmin();
   const { error } = await supabase.from("notification_template_overrides").upsert({
     template_key: templateKey,
+    language,
     email_subject: fields.emailSubject.trim(),
     email_body: fields.emailBody.trim(),
     push_title: fields.pushTitle.trim(),
@@ -63,11 +70,17 @@ export async function saveTemplate(templateKey: string, fields: TemplateFields):
   return { success: true };
 }
 
-export async function resetTemplate(templateKey: string): Promise<ActionResult> {
+export async function resetTemplate(templateKey: string, language: string = "de"): Promise<ActionResult> {
   if (!isTemplateKey(templateKey)) return { error: "Unbekannte Vorlage." };
+  if (language !== "de" && language !== "en") return { error: "Unbekannte Sprache." };
 
   const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("notification_template_overrides").delete().eq("template_key", templateKey);
+  // Nur diese eine Sprachfassung zurücksetzen — die andere bleibt bestehen.
+  const { error } = await supabase
+    .from("notification_template_overrides")
+    .delete()
+    .eq("template_key", templateKey)
+    .eq("language", language);
   if (error) return { error: "Zurücksetzen fehlgeschlagen." };
 
   revalidatePath("/admin/benachrichtigungen");
