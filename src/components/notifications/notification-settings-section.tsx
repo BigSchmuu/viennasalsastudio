@@ -7,11 +7,10 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { setNotificationPreference } from "@/lib/actions/notifications";
+import { useTranslations } from "next-intl";
 import {
   notificationEventGroupValues,
   notificationChannelValues,
-  notificationEventGroupLabel,
-  notificationEventGroupDescription,
   notificationEmailOnlyGroups,
   type NotificationEventGroup,
   type NotificationChannel,
@@ -36,6 +35,7 @@ export function NotificationSettingsSection({
 }: {
   preferences: NotificationPreferenceRow[];
 }) {
+  const t = useTranslations("notifications");
   const [preferenceMap, setPreferenceMap] = useState(buildPreferenceMap(initialPreferences));
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -65,7 +65,7 @@ export function NotificationSettingsSection({
   async function handleActivatePush() {
     const result = await push.activate();
     if (result.error) toast.error(result.error);
-    else toast.success("Push-Benachrichtigungen sind jetzt aktiv.");
+    else toast.success(t("pushEnabled"));
   }
 
   async function handleDeactivatePush() {
@@ -78,25 +78,25 @@ export function NotificationSettingsSection({
   return (
     <div className="space-y-4">
       <div className="rounded-md border p-3 text-sm">
-        {push.status === "checking" && <p className="text-muted-foreground">Push-Status wird geprüft…</p>}
+        {push.status === "checking" && <p className="text-muted-foreground">{t("pushChecking")}</p>}
         {push.status === "unsupported" && (
           <p className="text-muted-foreground">
-            Push-Benachrichtigungen werden von diesem Browser nicht unterstützt.
+            {t("pushUnsupported")}
           </p>
         )}
         {push.status === "inactive" && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted-foreground">Push ist auf diesem Gerät noch nicht aktiviert.</p>
+            <p className="text-muted-foreground">{t("pushInactive")}</p>
             <Button type="button" size="sm" disabled={push.busy} onClick={handleActivatePush}>
-              {push.busy ? "Wird aktiviert…" : "Push-Benachrichtigungen aktivieren"}
+              {push.busy ? t("pushEnabling") : t("pushEnable")}
             </Button>
           </div>
         )}
         {push.status === "active" && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted-foreground">Push ist auf diesem Gerät aktiv.</p>
+            <p className="text-muted-foreground">{t("pushActive")}</p>
             <Button type="button" size="sm" variant="outline" disabled={push.busy} onClick={handleDeactivatePush}>
-              {push.busy ? "Wird deaktiviert…" : "Push deaktivieren"}
+              {push.busy ? t("pushDisabling") : t("pushDisable")}
             </Button>
           </div>
         )}
@@ -106,17 +106,17 @@ export function NotificationSettingsSection({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Ereignis</TableHead>
-              <TableHead className="text-center">E-Mail</TableHead>
-              <TableHead className="text-center">Push</TableHead>
+              <TableHead>{t("event")}</TableHead>
+              <TableHead className="text-center">{t("email")}</TableHead>
+              <TableHead className="text-center">{t("push")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {notificationEventGroupValues.map((eventGroup) => (
               <TableRow key={eventGroup}>
                 <TableCell>
-                  <p className="font-medium">{notificationEventGroupLabel[eventGroup]}</p>
-                  <p className="text-xs text-muted-foreground">{notificationEventGroupDescription[eventGroup]}</p>
+                  <p className="font-medium">{t(`group.${eventGroup}`)}</p>
+                  <p className="text-xs text-muted-foreground">{t(`groupHint.${eventGroup}`)}</p>
                 </TableCell>
                 {notificationChannelValues.map((channel) => {
                   if (channel === "push" && notificationEmailOnlyGroups.includes(eventGroup)) {
@@ -134,7 +134,7 @@ export function NotificationSettingsSection({
                         checked={isEnabled(eventGroup, channel)}
                         disabled={disabled}
                         onCheckedChange={(checked) => handleToggle(eventGroup, channel, checked)}
-                        aria-label={`${notificationEventGroupLabel[eventGroup]} per ${channel === "email" ? "E-Mail" : "Push"}`}
+                        aria-label={`${t(`group.${eventGroup}`)} — ${channel === "email" ? t("email") : t("push")}`}
                       />
                     </TableCell>
                   );
@@ -146,8 +146,7 @@ export function NotificationSettingsSection({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Die SEPA-Vorab-Ankündigung vor jedem Lastschrifteinzug wird immer per E-Mail verschickt und kann nicht
-        deaktiviert werden.
+        {t("sepaNote")}
       </p>
     </div>
   );

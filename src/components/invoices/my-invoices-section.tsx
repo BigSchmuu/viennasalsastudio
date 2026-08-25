@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { useLocale, useTranslations } from "next-intl";
 
 export type MyInvoiceRow = {
   id: string;
@@ -19,8 +20,10 @@ function formatDate(dateString: string): string {
 }
 
 export function MyInvoicesSection({ invoices }: { invoices: MyInvoiceRow[] }) {
+  const t = useTranslations("profile");
+  const locale = useLocale();
   if (invoices.length === 0) {
-    return <p className="text-sm text-muted-foreground py-4">Noch keine Rechnungen vorhanden.</p>;
+    return <p className="text-sm text-muted-foreground py-4">{t("noInvoices")}</p>;
   }
 
   return (
@@ -40,7 +43,7 @@ export function MyInvoicesSection({ invoices }: { invoices: MyInvoiceRow[] }) {
             <div className="flex items-center gap-3">
               <span className="font-medium">{formatEUR(invoice.grossAmount)}</span>
               <Badge variant={invoice.bounced ? "destructive" : "default"}>
-                {invoice.bounced ? "Rücklastschrift" : "Bezahlt"}
+                {invoice.bounced ? t("invoiceBounced") : t("invoicePaid")}
               </Badge>
             </div>
           </Link>

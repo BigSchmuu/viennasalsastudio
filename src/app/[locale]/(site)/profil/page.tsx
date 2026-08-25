@@ -16,6 +16,7 @@ import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
 import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
 import { TICKET_CANCELLATION_LEAD_DAYS } from "@/lib/constants/events";
 import type { ProfileInput } from "@/lib/validations/auth";
+import { getTranslations } from "next-intl/server";
 
 // Code-split out of the main /profil bundle: each pulls in real extra weight
 // (react-hook-form+zod, the QR-code generator, the push-notification hook)
@@ -179,13 +180,15 @@ export default async function ProfilePage() {
       };
     });
 
+  const t = await getTranslations("profile");
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
-              <CardTitle className="font-heading">Mein Profil</CardTitle>
+              <CardTitle className="font-heading">{t("heading")}</CardTitle>
               <CardDescription>{user.email}</CardDescription>
             </div>
             <LogoutButton />
@@ -207,9 +210,9 @@ export default async function ProfilePage() {
             <AccordionItem value="zahlungsmethode">
               <AccordionTrigger>
                 <div className="text-left">
-                  <p className="font-heading font-semibold">Zahlungsmethode</p>
+                  <p className="font-heading font-semibold">{t("sectionPayment")}</p>
                   <p className="text-sm font-normal text-muted-foreground">
-                    SEPA-Lastschriftmandat für deine Abo-Zahlungen
+                    {t("sectionPaymentHint")}
                   </p>
                 </div>
               </AccordionTrigger>
@@ -221,8 +224,8 @@ export default async function ProfilePage() {
             <AccordionItem value="abo">
               <AccordionTrigger>
                 <div className="text-left">
-                  <p className="font-heading font-semibold">Mein Abo</p>
-                  <p className="text-sm font-normal text-muted-foreground">Pausieren, kündigen oder umbuchen</p>
+                  <p className="font-heading font-semibold">{t("sectionSubscription")}</p>
+                  <p className="text-sm font-normal text-muted-foreground">{t("sectionSubscriptionHint")}</p>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -233,9 +236,9 @@ export default async function ProfilePage() {
             <AccordionItem value="buchungen">
               <AccordionTrigger>
                 <div className="text-left">
-                  <p className="font-heading font-semibold">Meine Buchungen</p>
+                  <p className="font-heading font-semibold">{t("sectionBookings")}</p>
                   <p className="text-sm font-normal text-muted-foreground">
-                    Buchungen, Probestunden und Drop-ins
+                    {t("sectionBookingsHint")}
                   </p>
                 </div>
               </AccordionTrigger>
@@ -247,9 +250,9 @@ export default async function ProfilePage() {
             <AccordionItem value="warteliste">
               <AccordionTrigger>
                 <div className="text-left">
-                  <p className="font-heading font-semibold">Meine Warteliste</p>
+                  <p className="font-heading font-semibold">{t("sectionWaitlist")}</p>
                   <p className="text-sm font-normal text-muted-foreground">
-                    Kurse, für die du auf einen freien Platz wartest
+                    {t("sectionWaitlistHint")}
                   </p>
                 </div>
               </AccordionTrigger>
@@ -261,9 +264,9 @@ export default async function ProfilePage() {
             <AccordionItem value="tickets">
               <AccordionTrigger>
                 <div className="text-left">
-                  <p className="font-heading font-semibold">Meine Tickets</p>
+                  <p className="font-heading font-semibold">{t("sectionTickets")}</p>
                   <p className="text-sm font-normal text-muted-foreground">
-                    Event- und Workshop-Tickets mit QR-Code
+                    {t("sectionTicketsHint")}
                   </p>
                 </div>
               </AccordionTrigger>
@@ -275,9 +278,9 @@ export default async function ProfilePage() {
             <AccordionItem value="rechnungen">
               <AccordionTrigger>
                 <div className="text-left">
-                  <p className="font-heading font-semibold">Meine Rechnungen</p>
+                  <p className="font-heading font-semibold">{t("sectionInvoices")}</p>
                   <p className="text-sm font-normal text-muted-foreground">
-                    Zahlungshistorie deiner Abo-Zahlungen
+                    {t("sectionInvoicesHint")}
                   </p>
                 </div>
               </AccordionTrigger>
@@ -289,9 +292,9 @@ export default async function ProfilePage() {
             <AccordionItem value="benachrichtigungen" className="border-b-0">
               <AccordionTrigger>
                 <div className="text-left">
-                  <p className="font-heading font-semibold">Benachrichtigungen</p>
+                  <p className="font-heading font-semibold">{t("sectionNotifications")}</p>
                   <p className="text-sm font-normal text-muted-foreground">
-                    Wähle, worüber du per E-Mail und Push informiert werden möchtest
+                    {t("sectionNotificationsHint")}
                   </p>
                 </div>
               </AccordionTrigger>

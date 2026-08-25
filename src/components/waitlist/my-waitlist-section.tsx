@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { leaveWaitlist } from "@/lib/actions/waitlist";
 import { desiredPlanLabel } from "@/lib/constants/booking";
 import { Button } from "@/components/ui/button";
+import { useLocale, useTranslations } from "next-intl";
+import { formatDate } from "@/lib/formatting";
 
 export type MyWaitlistRow = {
   id: string;
@@ -16,6 +18,8 @@ export type MyWaitlistRow = {
 };
 
 export function MyWaitlistSection({ entries: initialEntries }: { entries: MyWaitlistRow[] }) {
+  const t = useTranslations("profile");
+  const locale = useLocale();
   const [entries, setEntries] = useState(initialEntries);
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
@@ -28,14 +32,14 @@ export function MyWaitlistSection({ entries: initialEntries }: { entries: MyWait
         return;
       }
       setEntries((prev) => prev.filter((e) => e.id !== id));
-      toast.success("Von der Warteliste ausgetragen.");
+      toast.success(t("leftWaitlist"));
     } finally {
       setLoadingId(null);
     }
   }
 
   if (entries.length === 0) {
-    return <p className="text-sm text-muted-foreground">Du stehst auf keiner Warteliste.</p>;
+    return <p className="text-sm text-muted-foreground">{t("noWaitlist")}</p>;
   }
 
   return (
@@ -44,8 +48,8 @@ export function MyWaitlistSection({ entries: initialEntries }: { entries: MyWait
         <li key={entry.id} className="rounded-md border p-3 space-y-1">
           <p className="font-medium">{entry.courseName}</p>
           <p className="text-sm text-muted-foreground">
-            Position {entry.position} · {desiredPlanLabel(entry.desiredPlan)} · ab{" "}
-            {new Date(entry.chosenDate).toLocaleDateString("de-AT")}
+            {t("position", { n: entry.position })} · {desiredPlanLabel(entry.desiredPlan)} · {t("from")}{" "}
+            {formatDate(entry.chosenDate, locale)}
           </p>
           <Button
             variant="outline"
@@ -53,7 +57,7 @@ export function MyWaitlistSection({ entries: initialEntries }: { entries: MyWait
             disabled={loadingId === entry.id}
             onClick={() => handleLeave(entry.id)}
           >
-            Von der Warteliste austragen
+            {t("leaveWaitlist")}
           </Button>
         </li>
       ))}

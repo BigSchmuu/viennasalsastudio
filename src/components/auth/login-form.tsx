@@ -10,6 +10,7 @@ import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useTranslations } from "next-intl";
 import {
   Form,
   FormControl,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/form";
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
+  const t = useTranslations("auth");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
@@ -90,9 +92,9 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         {needsConfirmation && (
           <Alert>
             <AlertDescription className="space-y-2">
-              <p>Bitte bestätige zuerst deine E-Mail-Adresse, bevor du dich einloggst.</p>
+              <p>{t("confirmFirst")}</p>
               {resendState === "sent" ? (
-                <p className="font-medium">Bestätigungs-E-Mail erneut gesendet.</p>
+                <p className="font-medium">{t("confirmationResent")}</p>
               ) : (
                 <Button
                   type="button"
@@ -101,7 +103,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
                   onClick={handleResend}
                   disabled={resendState === "sending"}
                 >
-                  {resendState === "sending" ? "Wird gesendet…" : "Bestätigungs-E-Mail erneut senden"}
+                  {resendState === "sending" ? t("sending") : t("resendConfirmation")}
                 </Button>
               )}
             </AlertDescription>
@@ -113,9 +115,9 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>E-Mail</FormLabel>
+              <FormLabel>{t("email")}</FormLabel>
               <FormControl>
-                <Input type="email" autoComplete="email" placeholder="du@beispiel.at" {...field} />
+                <Input type="email" autoComplete="email" placeholder={t("emailPlaceholder")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -127,7 +129,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Passwort</FormLabel>
+              <FormLabel>{t("password")}</FormLabel>
               <FormControl>
                 <Input type="password" autoComplete="current-password" {...field} />
               </FormControl>
@@ -143,7 +145,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         </div>
 
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Wird eingeloggt…" : "Einloggen"}
+          {loading ? t("loggingIn") : t("login")}
         </Button>
 
         <p className="text-center text-sm text-muted-foreground">

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LoginForm } from "@/components/auth/login-form";
+import { getTranslations } from "next-intl/server";
 
 export default async function LoginPage({
   searchParams,
@@ -9,19 +10,20 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
 
+  const t = await getTranslations("auth");
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="font-heading">Einloggen</CardTitle>
-          <CardDescription>Willkommen zurück bei Vienna Salsa Studio.</CardDescription>
+          <CardTitle className="font-heading">{t("loginTitle")}</CardTitle>
+          <CardDescription>{t("loginSubtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {params.error === "confirm_failed" && (
             <Alert variant="destructive">
               <AlertDescription>
-                Der Bestätigungslink ist ungültig oder abgelaufen. Bitte fordere ihn erneut an
-                oder registriere dich neu.
+                {t("confirmFailed")}
               </AlertDescription>
             </Alert>
           )}

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TermsConsent } from "@/components/booking/terms-consent";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ function formatPrice(price: number): string {
 }
 
 export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyBookingRow[] }) {
+  const t = useTranslations("profile");
   const [bookings, setBookings] = useState(initialBookings);
   const [error, setError] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -99,7 +101,7 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
   }
 
   if (bookings.length === 0) {
-    return <p className="text-sm text-muted-foreground py-4 text-center">Noch keine Buchungen vorhanden.</p>;
+    return <p className="text-sm text-muted-foreground py-4 text-center">{t("noBookings")}</p>;
   }
 
   return (
@@ -133,7 +135,7 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
                     disabled={loadingId === booking.id}
                     onClick={() => handleCancel(booking.id)}
                   >
-                    Stornieren
+                    {t("cancelBooking")}
                   </Button>
                 )}
                 {booking.canRebook && (
@@ -150,7 +152,7 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
                       setError(null);
                     }}
                   >
-                    Umbuchen
+                    {t("rebook")}
                   </Button>
                 )}
               </div>
@@ -167,7 +169,7 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
           <div className="space-y-1">
             <Select value={newDate} onValueChange={setNewDate}>
               <SelectTrigger>
-                <SelectValue placeholder="Neuer Termin" />
+                <SelectValue placeholder={t("newDate")} />
               </SelectTrigger>
               <SelectContent>
                 {(rebookTarget?.availableDates ?? []).map((date) => (
@@ -183,7 +185,7 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
           <TermsConsent checked={termsAccepted} onCheckedChange={setTermsAccepted} id="terms-accepted-rebook" />
           <DialogFooter>
             <Button disabled={!newDate || !termsAccepted || loadingId === rebookTarget?.id} onClick={handleRebook}>
-              Umbuchen bestätigen
+              {t("confirmRebook")}
             </Button>
           </DialogFooter>
         </DialogContent>

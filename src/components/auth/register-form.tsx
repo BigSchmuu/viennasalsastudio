@@ -9,6 +9,7 @@ import { signUp } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useTranslations } from "next-intl";
 import {
   Form,
   FormControl,
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/form";
 
 export function RegisterForm() {
+  const t = useTranslations("auth");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -83,9 +85,9 @@ export function RegisterForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>E-Mail</FormLabel>
+              <FormLabel>{t("email")}</FormLabel>
               <FormControl>
-                <Input type="email" autoComplete="email" placeholder="du@beispiel.at" {...field} />
+                <Input type="email" autoComplete="email" placeholder={t("emailPlaceholder")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -97,7 +99,7 @@ export function RegisterForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Passwort</FormLabel>
+              <FormLabel>{t("password")}</FormLabel>
               <FormControl>
                 <Input type="password" autoComplete="new-password" {...field} />
               </FormControl>
@@ -107,7 +109,7 @@ export function RegisterForm() {
         />
 
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Wird registriert…" : "Registrieren"}
+          {loading ? t("registering") : t("register")}
         </Button>
 
         <p className="text-center text-sm text-muted-foreground">

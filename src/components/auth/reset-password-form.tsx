@@ -17,8 +17,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 export function ResetPasswordForm() {
+  const t = useTranslations("auth");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -76,7 +78,7 @@ export function ResetPasswordForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Neues Passwort</FormLabel>
+              <FormLabel>{t("newPassword")}</FormLabel>
               <FormControl>
                 <Input type="password" autoComplete="new-password" {...field} />
               </FormControl>
@@ -90,7 +92,7 @@ export function ResetPasswordForm() {
           name="confirmPassword"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Passwort bestätigen</FormLabel>
+              <FormLabel>{t("confirmPassword")}</FormLabel>
               <FormControl>
                 <Input type="password" autoComplete="new-password" {...field} />
               </FormControl>
@@ -100,7 +102,7 @@ export function ResetPasswordForm() {
         />
 
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Wird gespeichert…" : "Passwort speichern"}
+          {loading ? t("savingPassword") : t("savePassword")}
         </Button>
       </form>
     </Form>

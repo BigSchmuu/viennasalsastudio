@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -38,6 +39,7 @@ export type MandateData = {
 };
 
 export function PaymentMethodSection({ mandate: initialMandate }: { mandate: MandateData | null }) {
+  const t = useTranslations("profile");
   const [mandate, setMandate] = useState(initialMandate);
   const [showForm, setShowForm] = useState(mandate === null);
   const [removeOpen, setRemoveOpen] = useState(false);
@@ -75,7 +77,7 @@ export function PaymentMethodSection({ mandate: initialMandate }: { mandate: Man
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(true)}>
-              Mandat ersetzen
+              {t("replaceMandate")}
             </Button>
             <Button
               type="button"
@@ -86,7 +88,7 @@ export function PaymentMethodSection({ mandate: initialMandate }: { mandate: Man
                 setRemoveError(null);
               }}
             >
-              Mandat entfernen
+              {t("removeMandate")}
             </Button>
           </div>
         </div>
@@ -103,7 +105,7 @@ export function PaymentMethodSection({ mandate: initialMandate }: { mandate: Man
       <AlertDialog open={removeOpen} onOpenChange={(open) => !open && setRemoveOpen(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Mandat entfernen?</AlertDialogTitle>
+            <AlertDialogTitle>{t("removeMandateTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               Zukünftige Lastschriftläufe berücksichtigen dich nicht mehr, bis du ein neues Mandat hinterlegst.
               Dein Abo-Status ändert sich dadurch nicht automatisch.
@@ -115,7 +117,7 @@ export function PaymentMethodSection({ mandate: initialMandate }: { mandate: Man
             </Alert>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={removeLoading}
               onClick={(e) => {
@@ -139,6 +141,7 @@ function MandateForm({
   onSaved: (mandate: MandateData) => void;
   onCancel?: () => void;
 }) {
+  const t = useTranslations("profile");
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -181,7 +184,7 @@ function MandateForm({
           name="iban"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>IBAN</FormLabel>
+              <FormLabel>{t("iban")}</FormLabel>
               <FormControl>
                 <Input placeholder="AT12 3456 7890 1234 5678" autoComplete="off" {...field} />
               </FormControl>
@@ -195,7 +198,7 @@ function MandateForm({
           name="account_holder_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Kontoinhaber</FormLabel>
+              <FormLabel>{t("accountHolder")}</FormLabel>
               <FormControl>
                 <Input autoComplete="name" {...field} />
               </FormControl>
@@ -220,7 +223,7 @@ function MandateForm({
                     onCheckedChange={(checked) => field.onChange(checked === true)}
                   />
                 </FormControl>
-                <FormLabel className="font-normal">Ich stimme dem SEPA-Lastschriftmandat zu.</FormLabel>
+                <FormLabel className="font-normal">{t("sepaConsent")}</FormLabel>
               </div>
               <FormMessage />
             </FormItem>
@@ -229,11 +232,11 @@ function MandateForm({
 
         <div className="flex gap-2">
           <Button type="submit" disabled={loading}>
-            {loading ? "Wird gespeichert…" : "Mandat speichern"}
+            {loading ? t("saving") : t("saveMandate")}
           </Button>
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
-              Abbrechen
+              {t("cancel")}
             </Button>
           )}
         </div>

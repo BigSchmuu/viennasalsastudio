@@ -3,21 +3,19 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLocale, useTranslations } from "next-intl";
+import { dateLocale } from "@/lib/formatting";
 
-const MONTHS = [
-  "Januar",
-  "Februar",
-  "März",
-  "April",
-  "Mai",
-  "Juni",
-  "Juli",
-  "August",
-  "September",
-  "Oktober",
-  "November",
-  "Dezember",
-];
+/**
+ * Monatsnamen in der aktiven Sprache (PROJ-43).
+ *
+ * Von der Umgebung erzeugt statt fest eingetragen: eine zweite Liste im
+ * Übersetzungskatalog wäre zwölf Einträge, die niemand je ändert.
+ */
+function monthNames(locale: string): string[] {
+  const formatter = new Intl.DateTimeFormat(dateLocale(locale), { month: "long" });
+  return Array.from({ length: 12 }, (_, i) => formatter.format(new Date(Date.UTC(2000, i, 1))));
+}
 
 /** Oldest selectable birth year. Generous, but bounded so the list stays usable. */
 const MAX_AGE = 100;
@@ -58,6 +56,9 @@ export function BirthdateField({
   onChange: (value: string) => void;
   idPrefix?: string;
 }) {
+  const t = useTranslations("profile");
+  const locale = useLocale();
+  const MONTHS = monthNames(locale);
   // The three parts are held locally rather than derived from `value`:
   // picking only the day would otherwise emit "" (incomplete date) and
   // immediately erase itself, making the control impossible to fill in.
@@ -91,8 +92,8 @@ export function BirthdateField({
   return (
     <div className="flex gap-2">
       <Select value={day ? String(day) : ""} onValueChange={(v) => update({ day: Number(v), month, year })}>
-        <SelectTrigger id={`${idPrefix}-day`} aria-label="Tag" className="w-24">
-          <SelectValue placeholder="Tag" />
+        <SelectTrigger id={`${idPrefix}-day`} aria-label={t("day")} className="w-24">
+          <SelectValue placeholder={t("day")} />
         </SelectTrigger>
         <SelectContent>
           {days.map((d) => (
@@ -104,8 +105,8 @@ export function BirthdateField({
       </Select>
 
       <Select value={month ? String(month) : ""} onValueChange={(v) => update({ day, month: Number(v), year })}>
-        <SelectTrigger id={`${idPrefix}-month`} aria-label="Monat" className="w-36">
-          <SelectValue placeholder="Monat" />
+        <SelectTrigger id={`${idPrefix}-month`} aria-label={t("month")} className="w-36">
+          <SelectValue placeholder={t("month")} />
         </SelectTrigger>
         <SelectContent>
           {MONTHS.map((name, i) => (
@@ -117,8 +118,8 @@ export function BirthdateField({
       </Select>
 
       <Select value={year ? String(year) : ""} onValueChange={(v) => update({ day, month, year: Number(v) })}>
-        <SelectTrigger id={`${idPrefix}-year`} aria-label="Jahr" className="w-28">
-          <SelectValue placeholder="Jahr" />
+        <SelectTrigger id={`${idPrefix}-year`} aria-label={t("year")} className="w-28">
+          <SelectValue placeholder={t("year")} />
         </SelectTrigger>
         <SelectContent>
           {years.map((y) => (

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BirthdateField } from "@/components/form/birthdate-field";
+import { useTranslations } from "next-intl";
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/form";
 
 export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) {
+  const t = useTranslations("profile");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -80,7 +82,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
 
         {saved && (
           <Alert>
-            <AlertDescription>Profil gespeichert.</AlertDescription>
+            <AlertDescription>{t("profileSaved")}</AlertDescription>
           </Alert>
         )}
 
@@ -89,7 +91,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
           name="full_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Name</FormLabel>
+              <FormLabel>{t("name")}</FormLabel>
               <FormControl>
                 <Input autoComplete="name" {...field} />
               </FormControl>
@@ -103,7 +105,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
           name="phone"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Telefon</FormLabel>
+              <FormLabel>{t("phone")}</FormLabel>
               <FormControl>
                 <Input type="tel" autoComplete="tel" {...field} />
               </FormControl>
@@ -117,7 +119,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
           name="birthdate"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Geburtsdatum</FormLabel>
+              <FormLabel>{t("birthdate")}</FormLabel>
               <FormControl>
                 <BirthdateField value={field.value ?? ""} onChange={field.onChange} />
               </FormControl>
@@ -131,11 +133,11 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
           name="gender"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Geschlecht</FormLabel>
+              <FormLabel>{t("gender")}</FormLabel>
               <Select onValueChange={field.onChange} value={field.value || undefined}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Bitte wählen" />
+                    <SelectValue placeholder={t("choose")} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -152,7 +154,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
         />
 
         <Button type="submit" disabled={loading}>
-          {loading ? "Wird gespeichert…" : "Speichern"}
+          {loading ? t("saving") : t("save")}
         </Button>
       </form>
     </Form>

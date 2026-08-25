@@ -9,6 +9,7 @@ import { requestPasswordReset } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useTranslations } from "next-intl";
 import {
   Form,
   FormControl,
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/form";
 
 export function ForgotPasswordForm() {
+  const t = useTranslations("auth");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -82,9 +84,9 @@ export function ForgotPasswordForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>E-Mail</FormLabel>
+              <FormLabel>{t("email")}</FormLabel>
               <FormControl>
-                <Input type="email" autoComplete="email" placeholder="du@beispiel.at" {...field} />
+                <Input type="email" autoComplete="email" placeholder={t("emailPlaceholder")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -92,7 +94,7 @@ export function ForgotPasswordForm() {
         />
 
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Wird gesendet…" : "Reset-Link anfordern"}
+          {loading ? t("sending") : t("requestResetLink")}
         </Button>
 
         <p className="text-center text-sm text-muted-foreground">

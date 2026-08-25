@@ -8,6 +8,7 @@ import { ticketPaymentMethodLabel, ticketStatusLabel, ticketStatusColor } from "
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TicketQrCode } from "@/components/tickets/ticket-qr-code";
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -41,12 +42,14 @@ export type MyTicketRow = {
 };
 
 export function MyTicketsSection({ tickets }: { tickets: MyTicketRow[] }) {
+  const t = useTranslations("profile");
+  const locale = useLocale();
   const router = useRouter();
   const [cancelTarget, setCancelTarget] = useState<MyTicketRow | null>(null);
   const [loading, setLoading] = useState(false);
 
   if (tickets.length === 0) {
-    return <p className="text-sm text-muted-foreground">Du hast noch keine Event-Tickets.</p>;
+    return <p className="text-sm text-muted-foreground">{t("noTickets")}</p>;
   }
 
   return (
@@ -69,13 +72,13 @@ export function MyTicketsSection({ tickets }: { tickets: MyTicketRow[] }) {
           {(ticket.status === "reserved" || ticket.status === "confirmed") && (
             <div className="flex flex-col items-center gap-2 pt-2">
               <TicketQrCode ticketId={ticket.id} />
-              <p className="text-xs text-muted-foreground">Beim Einlass vorzeigen</p>
+              <p className="text-xs text-muted-foreground">{t("showAtEntrance")}</p>
             </div>
           )}
 
           {ticket.canCancel && (
             <Button variant="outline" size="sm" onClick={() => setCancelTarget(ticket)}>
-              Ticket stornieren
+              {t("cancelTicket")}
             </Button>
           )}
         </div>
@@ -84,13 +87,13 @@ export function MyTicketsSection({ tickets }: { tickets: MyTicketRow[] }) {
       <AlertDialog open={!!cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Ticket stornieren?</AlertDialogTitle>
+            <AlertDialogTitle>{t("cancelTicketTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               Dein Ticket für „{cancelTarget?.eventName}&rdquo; wird storniert und der Platz wieder freigegeben.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={loading}
               onClick={async () => {
@@ -101,7 +104,7 @@ export function MyTicketsSection({ tickets }: { tickets: MyTicketRow[] }) {
                   if ("error" in result) {
                     toast.error(result.error);
                   } else {
-                    toast.success("Ticket storniert.");
+                    toast.success(t("ticketCancelled"));
                     router.refresh();
                   }
                 } finally {
@@ -110,7 +113,7 @@ export function MyTicketsSection({ tickets }: { tickets: MyTicketRow[] }) {
                 }
               }}
             >
-              Stornieren
+              {t("cancelBooking")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

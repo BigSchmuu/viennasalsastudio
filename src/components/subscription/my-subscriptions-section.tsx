@@ -12,6 +12,7 @@ import { subscriptionStatusLabel, subscriptionStatusColor } from "@/lib/constant
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,7 @@ export function MySubscriptionsSection({
   subscriptions: MySubscriptionRow[];
   courses: SubscriptionCourseOption[];
 }) {
+  const t = useTranslations("profile");
   const [subscriptions, setSubscriptions] = useState(initialSubscriptions);
   const [error, setError] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -128,7 +130,7 @@ export function MySubscriptionsSection({
   }
 
   if (subscriptions.length === 0) {
-    return <p className="text-sm text-muted-foreground py-4 text-center">Kein aktives Abo vorhanden.</p>;
+    return <p className="text-sm text-muted-foreground py-4 text-center">{t("noSubscription")}</p>;
   }
 
   return (
@@ -173,12 +175,12 @@ export function MySubscriptionsSection({
                 )}
                 {canUndo && (
                   <Button variant="outline" size="sm" disabled={isLoading} onClick={() => handleUndo(subscription.id)}>
-                    Rückgängig machen
+                    {t("undo")}
                   </Button>
                 )}
                 {canReactivate && (
                   <Button variant="outline" size="sm" disabled={isLoading} onClick={() => handleReactivate(subscription.id)}>
-                    Reaktivieren
+                    {t("reactivate")}
                   </Button>
                 )}
                 {canSwitch && (
@@ -192,7 +194,7 @@ export function MySubscriptionsSection({
                       setError(null);
                     }}
                   >
-                    Umbuchen
+                    {t("rebook")}
                   </Button>
                 )}
               </div>
@@ -209,7 +211,7 @@ export function MySubscriptionsSection({
           <div className="space-y-1">
             <Select value={newCourseId} onValueChange={setNewCourseId}>
               <SelectTrigger>
-                <SelectValue placeholder="Neuer Kurs" />
+                <SelectValue placeholder={t("newCourse")} />
               </SelectTrigger>
               <SelectContent>
                 {courses
@@ -224,7 +226,7 @@ export function MySubscriptionsSection({
           </div>
           <DialogFooter>
             <Button disabled={!newCourseId || loadingId === switchTarget?.id} onClick={handleSwitch}>
-              Umbuchen bestätigen
+              {t("confirmRebook")}
             </Button>
           </DialogFooter>
         </DialogContent>

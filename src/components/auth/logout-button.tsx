@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { signOut } from "@/lib/actions/auth";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 export function LogoutButton() {
+  const t = useTranslations("profile");
   const [loading, setLoading] = useState(false);
 
   async function handleLogout(event: React.MouseEvent<HTMLButtonElement>) {
@@ -25,7 +27,7 @@ export function LogoutButton() {
     // preventDefault takes over for the nicer loading-state UX.
     <form action={signOut}>
       <Button type="submit" variant="outline" onClick={handleLogout} disabled={loading}>
-        {loading ? "Wird ausgeloggt…" : "Logout"}
+        {loading ? t("loggingOut") : t("logout")}
       </Button>
     </form>
   );
