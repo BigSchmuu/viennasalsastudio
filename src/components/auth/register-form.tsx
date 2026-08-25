@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterInput } from "@/lib/validations/auth";
@@ -55,7 +55,7 @@ export function RegisterForm() {
     return (
       <Alert>
         <AlertDescription>
-          Bitte bestätige deine E-Mail-Adresse über den Link, den wir dir geschickt haben.
+          {t("confirmEmailSent")}
         </AlertDescription>
       </Alert>
     );
@@ -113,9 +113,9 @@ export function RegisterForm() {
         </Button>
 
         <p className="text-center text-sm text-muted-foreground">
-          Bereits ein Konto?{" "}
+          {t("haveAccount")}{" "}
           <Link href="/login" className="text-primary hover:underline">
-            Jetzt einloggen
+            {t("loginNow")}
           </Link>
         </p>
       </form>

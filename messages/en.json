@@ -237,7 +237,21 @@
     "confirmFirst": "Please confirm your email address before logging in.",
     "requestResetLink": "Request reset link",
     "savePassword": "Save password",
-    "savingPassword": "Saving…"
+    "savingPassword": "Saving…",
+    "forgotPassword": "Forgot your password?",
+    "noAccount": "No account yet?",
+    "registerNow": "Sign up",
+    "haveAccount": "Already have an account?",
+    "loginNow": "Log in",
+    "backToLogin": "Back to log in",
+    "resetLinkSent": "If an account exists for this email address, we have sent you a link to reset your password.",
+    "confirmEmailSent": "Please confirm your email address using the link we just sent you.",
+    "forgotTitle": "Forgot password",
+    "forgotSubtitle": "Enter your email address and we'll send you a link to reset it.",
+    "resetTitle": "Set a new password",
+    "resetSubtitle": "Choose a new password for your account.",
+    "resetLinkInvalid": "This link is invalid or has expired.",
+    "requestNewLink": "Request a new link"
   },
   "legal": {
     "termsTitle": "Terms and Conditions",

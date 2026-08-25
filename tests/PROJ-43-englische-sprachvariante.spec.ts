@@ -319,3 +319,61 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     await expect(page.locator("input").first()).toHaveValue("Booking confirmed: {kurs}");
   });
 });
+
+// Nachgereicht 2026-08-26: der Anmeldebereich war noch deutsch (PROJ-43-Lücke).
+test.describe("Anmeldebereich auf Englisch", () => {
+  test.use({ locale: "en-GB" });
+
+  test("Login, Passwort-vergessen und Registrieren sind englisch und bleiben englisch", async ({ page }) => {
+    await page.goto("/en/login");
+    await page.waitForTimeout(800);
+    await expect(page.getByRole("link", { name: "Forgot your password?" })).toBeVisible();
+    await expect(page.getByText("No account yet?")).toBeVisible();
+
+    // Der Link muss die Sprache mitnehmen
+    await page.getByRole("link", { name: "Forgot your password?" }).click();
+    await page.waitForURL(/passwort-vergessen/, { timeout: 10000 });
+    expect(page.url()).toContain("/en/passwort-vergessen");
+    await expect(page.getByText("Forgot password", { exact: true })).toBeVisible();
+    await expect(page.getByText("we'll send you a link")).toBeVisible();
+
+    await page.getByRole("link", { name: "Back to log in" }).click();
+    await page.waitForURL(/login/, { timeout: 10000 });
+    expect(page.url()).toContain("/en/login");
+
+    await page.getByRole("link", { name: "Sign up" }).click();
+    await page.waitForURL(/registrieren/, { timeout: 10000 });
+    expect(page.url()).toContain("/en/registrieren");
+    await expect(page.getByText("Already have an account?")).toBeVisible();
+
+    // Ungültiger Rücksetz-Link, ohne Anmeldung
+    await page.goto("/en/passwort-zuruecksetzen");
+    await page.waitForTimeout(800);
+    await expect(page.getByText("Set a new password", { exact: true })).toBeVisible();
+    await expect(page.getByText("This link is invalid or has expired.")).toBeVisible();
+  });
+});
+
+test.describe("Deutsch bleibt unberührt", () => {
+  test.use({ locale: "de-DE" });
+  test("Deutsche Anmeldung unverändert, ohne Sprachpräfix", async ({ page }) => {
+    await page.goto("/login");
+    await page.waitForTimeout(800);
+    await page.getByRole("link", { name: "Passwort vergessen?" }).click();
+    await page.waitForURL(/passwort-vergessen/, { timeout: 10000 });
+    expect(page.url()).not.toContain("/en/");
+    await expect(page.getByText("Passwort vergessen", { exact: true })).toBeVisible();
+    await expect(page.getByText("wir schicken dir einen Link")).toBeVisible();
+  });
+});
+
+test.describe("Rücksetz-Link aus der E-Mail", () => {
+  test.use({ locale: "en-GB" });
+  test("Der Token überlebt die Sprachumleitung", async ({ page, context }) => {
+    await context.addCookies([{ name: "NEXT_LOCALE", value: "en", domain: "localhost", path: "/" }]);
+    await page.goto("/passwort-zuruecksetzen?code=abc123-token-xyz");
+    await page.waitForTimeout(1200);
+    console.log("GELANDET AUF:", page.url());
+    expect(page.url()).toContain("code=abc123-token-xyz");
+  });
+});

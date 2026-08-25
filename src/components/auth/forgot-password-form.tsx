@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { forgotPasswordSchema, type ForgotPasswordInput } from "@/lib/validations/auth";
@@ -54,8 +54,7 @@ export function ForgotPasswordForm() {
     return (
       <Alert>
         <AlertDescription>
-          Falls ein Konto mit dieser E-Mail-Adresse existiert, haben wir dir einen Link zum
-          Zurücksetzen deines Passworts geschickt.
+          {t("resetLinkSent")}
         </AlertDescription>
       </Alert>
     );
@@ -99,7 +98,7 @@ export function ForgotPasswordForm() {
 
         <p className="text-center text-sm text-muted-foreground">
           <Link href="/login" className="text-primary hover:underline">
-            Zurück zum Login
+            {t("backToLogin")}
           </Link>
         </p>
       </form>

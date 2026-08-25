@@ -1,10 +1,12 @@
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
+import { getTranslations } from "next-intl/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ResetPasswordPage() {
+  const t = await getTranslations("auth");
   const supabase = await createClient();
   const {
     data: { user },
@@ -14,8 +16,8 @@ export default async function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="font-heading">Neues Passwort festlegen</CardTitle>
-          <CardDescription>Wähle ein neues Passwort für dein Konto.</CardDescription>
+          <CardTitle className="font-heading">{t("resetTitle")}</CardTitle>
+          <CardDescription>{t("resetSubtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           {user ? (
@@ -23,9 +25,9 @@ export default async function ResetPasswordPage() {
           ) : (
             <Alert variant="destructive">
               <AlertDescription>
-                Dieser Link ist ungültig oder abgelaufen.{" "}
+                {t("resetLinkInvalid")}{" "}
                 <Link href="/passwort-vergessen" className="underline">
-                  Neuen Link anfordern
+                  {t("requestNewLink")}
                 </Link>
               </AlertDescription>
             </Alert>

@@ -237,7 +237,21 @@
     "confirmFirst": "Bitte bestätige zuerst deine E-Mail-Adresse, bevor du dich einloggst.",
     "requestResetLink": "Reset-Link anfordern",
     "savePassword": "Passwort speichern",
-    "savingPassword": "Wird gespeichert…"
+    "savingPassword": "Wird gespeichert…",
+    "forgotPassword": "Passwort vergessen?",
+    "noAccount": "Noch kein Konto?",
+    "registerNow": "Jetzt registrieren",
+    "haveAccount": "Bereits ein Konto?",
+    "loginNow": "Jetzt einloggen",
+    "backToLogin": "Zurück zum Login",
+    "resetLinkSent": "Falls ein Konto mit dieser E-Mail-Adresse existiert, haben wir dir einen Link zum Zurücksetzen deines Passworts geschickt.",
+    "confirmEmailSent": "Bitte bestätige deine E-Mail-Adresse über den Link, den wir dir geschickt haben.",
+    "forgotTitle": "Passwort vergessen",
+    "forgotSubtitle": "Gib deine E-Mail-Adresse ein, wir schicken dir einen Link zum Zurücksetzen.",
+    "resetTitle": "Neues Passwort festlegen",
+    "resetSubtitle": "Wähle ein neues Passwort für dein Konto.",
+    "resetLinkInvalid": "Dieser Link ist ungültig oder abgelaufen.",
+    "requestNewLink": "Neuen Link anfordern"
   },
   "legal": {
     "termsTitle": "Allgemeine Geschäftsbedingungen",

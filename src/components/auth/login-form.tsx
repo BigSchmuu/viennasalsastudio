@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
@@ -140,7 +140,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
 
         <div className="text-sm">
           <Link href="/passwort-vergessen" className="text-primary hover:underline">
-            Passwort vergessen?
+            {t("forgotPassword")}
           </Link>
         </div>
 
@@ -149,9 +149,9 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         </Button>
 
         <p className="text-center text-sm text-muted-foreground">
-          Noch kein Konto?{" "}
+          {t("noAccount")}{" "}
           <Link href="/registrieren" className="text-primary hover:underline">
-            Jetzt registrieren
+            {t("registerNow")}
           </Link>
         </p>
       </form>
