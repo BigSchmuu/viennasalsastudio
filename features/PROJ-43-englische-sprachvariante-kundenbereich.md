@@ -485,6 +485,52 @@ Test schaut jetzt auf die `href`-Werte und ruft die Adresse anschließend auf.
 
 ---
 
+## Zwei Fehler aus dem Betrieb (2026-08-25)
+
+Beide vom Betreiber nach dem Ausrollen gemeldet. Beide entstanden an derselben Stelle: der
+Sonderrolle der deutschen Adresse, die **kein Präfix** trägt.
+
+### BUG-2 — Der Admin-Knopf führte ins Leere
+Mit eingestelltem Englisch zeigte er auf `/en/admin` — und das gibt es nicht. Alle
+Navigationslinks liefen über die sprachbewusste Variante, auch die zu den
+Mitarbeiterbereichen, die außerhalb der Sprachebene liegen.
+
+*Behoben:* Mitarbeiterlinks tragen ein Kennzeichen und werden ohne Präfix gerendert.
+
+*Warum die QA das nicht fand:* Sie prüfte, dass `/en/admin` eine 404 liefert — korrekt, aber
+die halbe Wahrheit. Nie geprüft wurde, **wohin die Navigation verlinkt**.
+
+### BUG-3 — Zurück auf Deutsch passierte nichts
+Der Umschalter sprang auf die deutsche Adresse. Die trägt kein Präfix, also entschied allein
+das Sprach-Cookie — und das stand noch auf „en". Die Sprachweiche leitete sofort zurück, und
+der Kunde landete dort, wo er weg wollte.
+
+Das Cookie wurde nie aktualisiert, seit der Umschalter auf einen echten Seitenwechsel
+umgestellt wurde (Behebung des `lang`-Problems); die sprachbewusste Navigation hatte es
+zuvor selbst gesetzt. Eine übersehene Nebenwirkung.
+
+*Behoben:* Der Umschalter setzt das Cookie selbst.
+
+*Warum die QA das nicht fand:* **Sie prüfte nur eine Richtung.** Ein Umschalter hat zwei —
+und Deutsch → Englisch funktionierte aus einem Grund, der für die Gegenrichtung nicht gilt:
+`/en` ist eine ausdrückliche Ansage und schlägt das Cookie. Beide Tests prüfen jetzt beide
+Richtungen und zusätzlich, dass die Rückkehr hält.
+
+*Nebenbefund:* Der Fehler war **nicht** handyspezifisch, wie zunächst berichtet — am Rechner
+versagte er genauso. Die Beobachtung stimmte, die Ursache lag woanders.
+
+### Lehre für kommende Features
+Bei einem Zustand mit zwei Richtungen reicht es nicht, eine zu prüfen — besonders dann
+nicht, wenn die beiden Richtungen technisch **unterschiedlich** funktionieren. Und ein
+Test, der die Abwesenheit von etwas prüft (`/en/admin` → 404), sagt nichts darüber, ob
+irgendwo dorthin verlinkt wird.
+
+### Danach
+`tests/PROJ-43-…`: **18 grün**. 309 Unit-Tests. In der Produktion nachgeprüft: beide
+Richtungen am Handy, keine Konsolenfehler, und die Rückkehr auf Deutsch hält.
+
+---
+
 ## Deployment
 
 **Ausgerollt:** 2026-08-25 · **URL:** https://viennasalsastudio.vercel.app · **Tag:** `v1.43.0-PROJ-43`
