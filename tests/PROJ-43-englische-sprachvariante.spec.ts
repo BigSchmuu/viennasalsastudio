@@ -126,6 +126,35 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     }
   });
 
+  test("Die Navigation verlinkt Mitarbeiterbereiche ohne Sprachpräfix (BUG-2)", async ({ page }) => {
+    // Sie liegen außerhalb der Sprachebene: ein Link auf /en/admin führte ins
+    // Leere. Der Betreiber sah in der englischen Fassung eine Seite, die es
+    // nicht gibt.
+    await page.goto("/login");
+    await page.waitForTimeout(1000);
+    await page.getByLabel(/^(E-Mail|Email)$/).fill("e2e8-admin@viennasalsastudio.test");
+    await page.getByLabel(/^(Passwort|Password)$/).fill("CorrectPassword123!");
+    await page.waitForTimeout(400);
+    await page.getByRole("button", { name: /^(Einloggen|Log in)$/ }).click();
+    await page.waitForURL(/\/(en\/)?(profil|admin)$/, { timeout: 15000 });
+
+    await page.goto("/en/kurse");
+    await page.waitForTimeout(1500);
+    const navigation = page.getByRole("navigation").first();
+    for (const [name, ziel] of [
+      ["Admin", "/admin"],
+      ["Check-in", "/checkin"],
+    ] as const) {
+      const link = navigation.getByRole("link", { name });
+      await expect(link, name).toHaveAttribute("href", ziel);
+    }
+
+    // Und der Klick landet tatsächlich dort, statt auf einer 404.
+    const antwort = await page.goto("/admin");
+    expect(antwort?.status()).toBe(200);
+    expect(new URL(page.url()).pathname).toBe("/admin");
+  });
+
   test("Mitarbeiterbereiche haben keine Sprachebene", async ({ page }) => {
     for (const pfad of ["/en/lehrer", "/en/checkin", "/en/admin"]) {
       const antwort = await page.goto(pfad);

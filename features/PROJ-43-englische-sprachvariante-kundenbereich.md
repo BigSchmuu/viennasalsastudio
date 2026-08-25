@@ -460,6 +460,31 @@ unsichtbare Desktop-Leiste gefunden.
 
 ---
 
+## Bugfix nach dem Ausrollen (2026-08-25)
+
+**BUG-2 — Die Navigation verlinkte die Mitarbeiterbereiche mit Sprachpräfix (High)**
+
+Vom Betreiber im Betrieb gemeldet: Mit eingestelltem Englisch führte der Admin-Knopf auf
+`/en/admin` — und das gibt es nicht.
+
+*Ursache:* Alle Navigationslinks liefen über die sprachbewusste Variante, auch die zu
+`/admin`, `/lehrer` und `/checkin`. Die liegen aber außerhalb der Sprachebene, genau wie es
+der Entwurf vorsieht. Der Link hängte trotzdem ein `/en` davor.
+
+*Behoben:* Mitarbeiterlinks tragen jetzt ein Kennzeichen und werden ohne Präfix gerendert.
+Die Sprachwahl des Betreibers bleibt dabei erhalten — kehrt er in den Kundenbereich zurück,
+ist sie wieder da.
+
+*Warum die QA das nicht fand:* Sie prüfte, dass `/en/admin` eine 404 liefert — das tat es
+korrekt. Geprüft wurde aber nie, **wohin die Navigation tatsächlich verlinkt**. Der neue
+Test schaut jetzt auf die `href`-Werte und ruft die Adresse anschließend auf.
+
+### Danach
+- `tests/PROJ-43-…`: **17 grün**
+- `npm test` 309 grün, Lint und Build sauber
+
+---
+
 ## Deployment
 
 **Ausgerollt:** 2026-08-25 · **URL:** https://viennasalsastudio.vercel.app · **Tag:** `v1.43.0-PROJ-43`

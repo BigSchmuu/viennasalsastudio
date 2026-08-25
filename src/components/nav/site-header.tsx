@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import NextLink from "next/link";
 import { Link, usePathname } from "@/i18n/navigation";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,16 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-type NavLink = { href: string; label: string };
+type NavLink = {
+  href: string;
+  label: string;
+  /**
+   * Mitarbeiterbereich (PROJ-43): /admin, /lehrer und /checkin liegen
+   * außerhalb der Sprachebene. Ein Link mit Sprachpräfix zeigt dort auf
+   * /en/admin — und das gibt es nicht.
+   */
+  staff?: boolean;
+};
 
 export function SiteHeader({
   isLoggedIn,
@@ -38,9 +48,9 @@ export function SiteHeader({
     { href: "/kurse", label: t("courses") },
     { href: "/stundenplan", label: t("schedule") },
     { href: "/events", label: t("events") },
-    ...(isTeacher ? [{ href: "/lehrer", label: t("myCourses") }] : []),
-    ...(isAdmin || isTeacher ? [{ href: "/checkin", label: t("checkin") }] : []),
-    ...(isAdmin ? [{ href: "/admin", label: t("admin") }] : []),
+    ...(isTeacher ? [{ href: "/lehrer", label: t("myCourses"), staff: true }] : []),
+    ...(isAdmin || isTeacher ? [{ href: "/checkin", label: t("checkin"), staff: true }] : []),
+    ...(isAdmin ? [{ href: "/admin", label: t("admin"), staff: true }] : []),
     ...(isLoggedIn ? [{ href: "/profil", label: t("profile") }] : [{ href: "/login", label: t("login") }]),
   ];
 
@@ -56,20 +66,26 @@ export function SiteHeader({
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                "px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-                isActive(link.href)
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {links.map((link) => {
+            // Mitarbeiterbereiche ohne Sprachpräfix — sie haben keine
+            // Sprachebene. Die Sprachwahl des Betreibers bleibt dabei
+            // erhalten; kehrt er in den Kundenbereich zurück, ist sie wieder da.
+            const Komponente = link.staff ? NextLink : Link;
+            return (
+              <Komponente
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  isActive(link.href)
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {link.label}
+              </Komponente>
+            );
+          })}
           {showLanguageSwitcher && <LanguageSwitcher className="ml-1" />}
           {isLoggedIn && <LogoutButton />}
         </nav>
@@ -85,21 +101,24 @@ export function SiteHeader({
               <SheetTitle>{t("menu")}</SheetTitle>
             </SheetHeader>
             <nav className="flex flex-col gap-1 mt-4">
-              {links.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                    isActive(link.href)
-                      ? "bg-muted text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  )}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {links.map((link) => {
+                const Komponente = link.staff ? NextLink : Link;
+                return (
+                  <Komponente
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      "px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                      isActive(link.href)
+                        ? "bg-muted text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                  >
+                    {link.label}
+                  </Komponente>
+                );
+              })}
               {/* PROJ-43 BUG-1: Der Umschalter stand nur in der Desktop-Leiste
                   und war unter 768 px gar nicht erreichbar — wer auf dem Handy
                   die Sprache wechseln wollte, konnte es nicht. Für eine
