@@ -32,7 +32,15 @@ export function ScheduleBookingButton({
 
   return (
     <>
-      <Button size="sm" className="w-full" onClick={handleClick}>
+      {/* Ruhiger Umriss wie im Kurskatalog: Ein Stundenplan zeigt viele Kurse
+          untereinander, und eine Akzentfarbe wirkt nur, solange sie selten
+          ist. Das Rot bleibt der Buchung im Dialog vorbehalten. */}
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
+        onClick={handleClick}
+      >
         Buchen
       </Button>
 

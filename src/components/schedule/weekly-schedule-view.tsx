@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { weekdayOptions } from "@/lib/constants/weekdays";
 import { levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
 import { Badge } from "@/components/ui/badge";
@@ -10,12 +10,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SelfCheckinButton } from "@/components/schedule/self-checkin-button";
 import { ScheduleBookingButton } from "@/components/schedule/schedule-booking-button";
 import type { StudioPricing } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
 
 export type ScheduleEntry = {
   courseId: string;
   courseName: string;
   danceStyleName: string;
   level: string | null;
+  locationId: string;
   locationName: string;
   roomId: string;
   roomName: string | null;
@@ -46,10 +48,7 @@ export type ScheduleEntry = {
   };
 };
 
-// Vertical offset per minute of start-time difference between rooms —
-// mirrors the marketing website's day-timeline/day-track layout, applied
-// per Saal instead of per start-minute.
-const PX_PER_MINUTE = 3;
+const ALLE_STANDORTE = "__alle__";
 
 function formatTime(time: string): string {
   return time.slice(0, 5);
@@ -60,25 +59,14 @@ function minutesFromTime(time: string): number {
   return hours * 60 + minutes;
 }
 
-/** Extracts the number from a "Saal N" room name for left-to-right ordering
- * (Saal 1, Saal 2, Saal 3, ...). Rooms that don't follow this naming fall
- * back to alphabetical order after all numbered Säle. */
-function saalNumber(roomName: string | null): number {
-  const match = roomName?.match(/saal\s*(\d+)/i);
-  return match ? Number(match[1]) : Infinity;
-}
-
 function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
   const t = useTranslations("schedule");
   return (
     <Card className="rounded-card border-border/70 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-soft-lg">
       <CardHeader>
-        <CardTitle className="flex items-baseline justify-between gap-2 text-lg">
-          <span>{entry.courseName}</span>
-          <span className="text-sm font-normal text-muted-foreground">
-            {formatTime(entry.startTime)}–{formatTime(entry.endTime)}
-          </span>
-        </CardTitle>
+        {/* Die Uhrzeit steht an der Zeitschiene links, nicht noch einmal auf
+            jeder Karte daneben. */}
+        <CardTitle className="text-lg">{entry.courseName}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex flex-wrap gap-2">
@@ -134,92 +122,56 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
   );
 }
 
-/** Entries sharing the exact same start time render side by side; otherwise stacked. */
-function ScheduleSlots({ entries }: { entries: ScheduleEntry[] }) {
+
+/**
+ * Ein Tag als Zeitschiene (Designüberarbeitung 2026-08).
+ *
+ * Vorher standen die Säle als Spalten nebeneinander, jede um die Differenz
+ * ihrer ersten Anfangszeit nach unten versetzt. Das las sich am Rechner
+ * halbwegs, war am Handy unbenutzbar — vier Spalten auf 390 px — und der
+ * Versatz richtete ohnehin nur die erste Karte je Spalte aus.
+ *
+ * Jetzt führt die Zeit: Kurse zur selben Uhrzeit stehen nebeneinander, jede
+ * Uhrzeit einmal links an der Schiene. Am Handy klappt die Schiene über die
+ * Karten, statt sie zu verdrängen.
+ */
+function DayTimeline({ entries }: { entries: ScheduleEntry[] }) {
+  const t = useTranslations("schedule");
+
   const slots = new Map<string, ScheduleEntry[]>();
   for (const entry of entries) {
-    const key = entry.startTime;
-    if (!slots.has(key)) slots.set(key, []);
-    slots.get(key)!.push(entry);
+    if (!slots.has(entry.startTime)) slots.set(entry.startTime, []);
+    slots.get(entry.startTime)!.push(entry);
   }
-  const sortedStartTimes = [...slots.keys()].sort(
-    (a, b) => minutesFromTime(a) - minutesFromTime(b)
-  );
+  const startzeiten = [...slots.keys()].sort((a, b) => minutesFromTime(a) - minutesFromTime(b));
 
   return (
-    <div className="space-y-3">
-      {sortedStartTimes.map((startTime) => {
-        const slotEntries = slots.get(startTime)!;
+    <div className="space-y-8">
+      {startzeiten.map((zeit) => {
+        const imSlot = slots.get(zeit)!;
+        // Das späteste Ende der gleichzeitig startenden Kurse.
+        const ende = imSlot
+          .map((e) => e.endTime)
+          .sort((a, b) => minutesFromTime(b) - minutesFromTime(a))[0];
         return (
-          <div key={startTime} className="flex flex-wrap gap-3">
-            {slotEntries.map((entry) => (
-              <div key={entry.courseId} className="min-w-[240px] flex-1">
-                <ScheduleCard entry={entry} />
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Groups a day's entries into side-by-side columns by Saal (Saal 1 always
- * left, Saal 2 right of it, and so on), each column vertically offset to
- * reflect how much later its earliest course starts relative to the day's
- * overall earliest course — mirrors the marketing website's day-timeline
- * layout. Falls back to a single stacked list when only one room is used
- * that day. */
-function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
-  const t = useTranslations("schedule");
-  const rooms = new Map<string, { name: string; entries: ScheduleEntry[] }>();
-  for (const entry of entries) {
-    if (!rooms.has(entry.roomId)) {
-      rooms.set(entry.roomId, { name: entry.roomName ?? t("noRoom"), entries: [] });
-    }
-    rooms.get(entry.roomId)!.entries.push(entry);
-  }
-
-  const roomIds = [...rooms.keys()].sort((a, b) => {
-    const roomA = rooms.get(a)!;
-    const roomB = rooms.get(b)!;
-    const numA = saalNumber(roomA.name);
-    const numB = saalNumber(roomB.name);
-    if (numA !== numB) return numA - numB;
-    return roomA.name.localeCompare(roomB.name);
-  });
-
-  if (roomIds.length <= 1) {
-    return <ScheduleSlots entries={entries} />;
-  }
-
-  const dayEarliestStart = Math.min(...entries.map((e) => minutesFromTime(e.startTime)));
-
-  // Der Versatz zeigt an, dass ein Saal später beginnt — aber nur die erste
-  // Karte je Spalte richtet sich daran aus; darunter stapeln die Karten mit
-  // festem Abstand. Ein unbegrenzter Versatz kauft also fast nichts und kann
-  // die Seite zerreißen: Ein einzelner Kurs um 03:12 schob die Abendkurse bei
-  // 3 px je Minute um über 2500 px nach unten, und der Rest des Tages lag
-  // hinter einer leeren Fläche. Mehr als eine Stunde Vorsprung wird deshalb
-  // nicht mehr ausgespielt; die genaue Uhrzeit steht ohnehin auf jeder Karte.
-  const MAX_OFFSET_PX = 60 * PX_PER_MINUTE;
-
-  return (
-    <div
-      className="grid gap-3 items-start overflow-x-auto"
-      style={{ gridTemplateColumns: `repeat(${roomIds.length}, minmax(240px, 1fr))` }}
-    >
-      {roomIds.map((roomId) => {
-        const room = rooms.get(roomId)!;
-        const roomEarliestStart = Math.min(...room.entries.map((e) => minutesFromTime(e.startTime)));
-        const offsetPx = Math.min((roomEarliestStart - dayEarliestStart) * PX_PER_MINUTE, MAX_OFFSET_PX);
-        return (
-          <div key={roomId}>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-              {room.name}
-            </p>
-            <div style={{ marginTop: offsetPx }}>
-              <ScheduleSlots entries={room.entries} />
+          <div
+            key={zeit}
+            // Benennt den Abschnitt nach seiner Anfangszeit — so kann ein Test
+            // eine Uhrzeit samt ihren Kursen greifen, ohne über Klassennamen zu
+            // raten.
+            data-zeitschiene={formatTime(zeit)}
+            className="grid gap-3 sm:grid-cols-[6rem_1fr] sm:gap-5"
+          >
+            <div className="flex items-baseline gap-2 sm:block">
+              <p className="font-heading text-xl font-bold tabular-nums leading-none">{formatTime(zeit)}</p>
+              <p className="text-xs text-muted-foreground tabular-nums sm:mt-1">
+                {t("until")} {formatTime(ende)}
+              </p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+              {imSlot.map((entry) => (
+                <ScheduleCard key={entry.courseId} entry={entry} />
+              ))}
             </div>
           </div>
         );
@@ -236,13 +188,46 @@ export function WeeklyScheduleView({
   todayWeekday: number;
 }) {
   const [activeDay, setActiveDay] = useState(String(todayWeekday));
+  const [standort, setStandort] = useState(ALLE_STANDORTE);
 
   const t = useTranslations("schedule");
   const tag = useTranslations("weekdays");
 
+  // Die Standorte, an denen diese Woche überhaupt etwas stattfindet.
+  const standorte = useMemo(() => {
+    const gefunden = new Map<string, string>();
+    for (const eintrag of Object.values(entriesByWeekday).flat()) {
+      gefunden.set(eintrag.locationId, eintrag.locationName);
+    }
+    return [...gefunden].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [entriesByWeekday]);
 
   return (
     <Tabs value={activeDay} onValueChange={setActiveDay}>
+      {/* Erst ab zwei Standorten sinnvoll — sonst wäre es eine Auswahl ohne
+          Wahl. Sie steht über den Wochentagen, weil sie für die ganze Woche
+          gilt und nicht je Tag neu getroffen wird. */}
+      {standorte.length > 1 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {[{ id: ALLE_STANDORTE, name: t("allLocations") }, ...standorte].map((ort) => (
+            <button
+              key={ort.id}
+              type="button"
+              onClick={() => setStandort(ort.id)}
+              aria-pressed={standort === ort.id}
+              className={cn(
+                "rounded-full border px-4 py-1.5 text-sm transition-colors",
+                standort === ort.id
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {ort.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <TabsList>
           {weekdayOptions.map((day) => (
@@ -254,15 +239,17 @@ export function WeeklyScheduleView({
       </div>
 
       {weekdayOptions.map((day) => {
-        const entries = entriesByWeekday[day.value] ?? [];
+        const alle = entriesByWeekday[day.value] ?? [];
+        const entries =
+          standort === ALLE_STANDORTE ? alle : alle.filter((e) => e.locationId === standort);
         return (
-          <TabsContent key={day.value} value={String(day.value)} className="mt-4">
+          <TabsContent key={day.value} value={String(day.value)} className="mt-6">
             {entries.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">
                 {t("emptyDay")}
               </p>
             ) : (
-              <DaySchedule entries={entries} />
+              <DayTimeline entries={entries} />
             )}
           </TabsContent>
         );

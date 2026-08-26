@@ -85,7 +85,9 @@
     "soldOut": "Ausgebucht",
     "teacherTba": "Lehrer wird noch bekanntgegeben",
     "noRoom": "Ohne Saal",
-    "unnamedTeacher": "Unbenannter Lehrer"
+    "unnamedTeacher": "Unbenannter Lehrer",
+    "allLocations": "Alle Standorte",
+    "until": "bis"
   },
   "events": {
     "heading": "Events & Workshops",

@@ -85,7 +85,9 @@
     "soldOut": "Sold out",
     "teacherTba": "Teacher to be announced",
     "noRoom": "No room",
-    "unnamedTeacher": "Unnamed teacher"
+    "unnamedTeacher": "Unnamed teacher",
+    "allLocations": "All locations",
+    "until": "until"
   },
   "events": {
     "heading": "Events & workshops",
