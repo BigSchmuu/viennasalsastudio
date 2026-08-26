@@ -52,9 +52,9 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
       await expect(page.getByRole("button", { name: "Push-Benachrichtigungen aktivieren" })).toBeVisible();
     }
 
-    const pushSwitch = page.getByRole("switch", { name: "Buchungsstatus per Push" });
+    const pushSwitch = page.getByRole("switch", { name: "Buchungsstatus — Push" });
     await expect(pushSwitch).toBeDisabled();
-    const emailSwitch = page.getByRole("switch", { name: "Buchungsstatus per E-Mail" });
+    const emailSwitch = page.getByRole("switch", { name: "Buchungsstatus — E-Mail" });
     await expect(emailSwitch).toBeEnabled();
   });
 
@@ -66,7 +66,7 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
     await page.getByRole("button", { name: "Benachrichtigungen" }).click();
     await page.waitForTimeout(400);
 
-    const emailSwitch = page.getByRole("switch", { name: "Warteliste rückt nach per E-Mail" });
+    const emailSwitch = page.getByRole("switch", { name: "Warteliste rückt nach — E-Mail" });
     await expect(emailSwitch).toHaveAttribute("data-state", "checked");
     // The switch updates optimistically, so asserting its state says nothing
     // about whether the save landed. Reloading right away cancels the request
@@ -86,7 +86,7 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
     // it, before any switch/columnheader inside is in the DOM.
     await page.getByRole("button", { name: "Benachrichtigungen" }).click();
     await page.waitForTimeout(400);
-    await expect(page.getByRole("switch", { name: "Warteliste rückt nach per E-Mail" })).toHaveAttribute(
+    await expect(page.getByRole("switch", { name: "Warteliste rückt nach — E-Mail" })).toHaveAttribute(
       "data-state",
       "unchecked"
     );
@@ -96,8 +96,8 @@ test.describe("PROJ-16: Automatische E-Mail-/Push-Benachrichtigungen", () => {
     // instantly even before the server-side upsert completes — without this
     // wait, the test could close the page while that write is still in
     // flight and leave the fixture toggled off for the next run.
-    await page.getByRole("switch", { name: "Warteliste rückt nach per E-Mail" }).click();
-    await expect(page.getByRole("switch", { name: "Warteliste rückt nach per E-Mail" })).toHaveAttribute(
+    await page.getByRole("switch", { name: "Warteliste rückt nach — E-Mail" }).click();
+    await expect(page.getByRole("switch", { name: "Warteliste rückt nach — E-Mail" })).toHaveAttribute(
       "data-state",
       "checked"
     );

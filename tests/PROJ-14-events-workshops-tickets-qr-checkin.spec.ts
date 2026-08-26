@@ -146,6 +146,8 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await eventCard(page, "E2E14 Kaufen Event").getByRole("button", { name: "Ticket kaufen" }).click();
 
     await expect(page.getByRole("radio", { name: /SEPA-Lastschrift/ })).toBeChecked();
+    // PROJ-42: Ohne Zustimmung bleibt der Knopf gesperrt.
+    await page.getByRole("dialog").getByRole("checkbox", { name: /AGB gelesen/ }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Ticket kaufen" }).click();
     await expect(page.getByText("Ticket bestätigt! Du findest es mit QR-Code in deinem Profil.")).toBeVisible();
 
@@ -177,6 +179,8 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     const beforeCount = Number(before.match(/\d+/)![0]);
 
     await card.getByRole("button", { name: "Ticket kaufen" }).click();
+    // PROJ-42: Ohne Zustimmung bleibt der Knopf gesperrt.
+    await page.getByRole("dialog").getByRole("checkbox", { name: /AGB gelesen/ }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Ticket kaufen" }).click();
     await expect(page.getByText("Ticket reserviert! Zahlung bitte vor Ort.")).toBeVisible();
 
@@ -228,6 +232,8 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await login(page, CUSTOMER_MANDATE);
     await page.goto("/events");
     await eventCard(page, "E2E14 Checkin Event").getByRole("button", { name: "Ticket kaufen" }).click();
+    // PROJ-42: Ohne Zustimmung bleibt der Knopf gesperrt.
+    await page.getByRole("dialog").getByRole("checkbox", { name: /AGB gelesen/ }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Ticket kaufen" }).click();
     await expect(page.getByText("Ticket bestätigt! Du findest es mit QR-Code in deinem Profil.")).toBeVisible();
 
@@ -264,6 +270,8 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await login(page, CUSTOMER_MANDATE);
     await page.goto("/events");
     await eventCard(page, "E2E14 Cancel Notify Event").getByRole("button", { name: "Ticket kaufen" }).click();
+    // PROJ-42: Ohne Zustimmung bleibt der Knopf gesperrt.
+    await page.getByRole("dialog").getByRole("checkbox", { name: /AGB gelesen/ }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Ticket kaufen" }).click();
     await expect(page.getByText("Ticket bestätigt! Du findest es mit QR-Code in deinem Profil.")).toBeVisible();
 
@@ -284,7 +292,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await page.waitForTimeout(400);
     await expect(page.getByText("Event-Tickets", { exact: true })).toBeVisible();
 
-    const emailSwitch = page.getByRole("switch", { name: "Event-Tickets per E-Mail" });
+    const emailSwitch = page.getByRole("switch", { name: "Event-Tickets — E-Mail" });
     await expect(emailSwitch).toHaveAttribute("data-state", "checked");
     await emailSwitch.click();
     await expect(emailSwitch).toHaveAttribute("data-state", "unchecked");
@@ -293,7 +301,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await page.reload();
     await page.getByRole("button", { name: "Benachrichtigungen" }).click();
     await page.waitForTimeout(400);
-    await expect(page.getByRole("switch", { name: "Event-Tickets per E-Mail" })).toHaveAttribute("data-state", "unchecked");
+    await expect(page.getByRole("switch", { name: "Event-Tickets — E-Mail" })).toHaveAttribute("data-state", "unchecked");
 
     // Ticket must still be visible in profile regardless of notification preference.
     // The customer keeps every ticket ever bought for this event, cancelled ones
@@ -303,8 +311,8 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await expect(page.getByText("E2E14 Kaufen Event").first()).toBeVisible();
 
     // Reset to default for repeatable runs.
-    await page.getByRole("switch", { name: "Event-Tickets per E-Mail" }).click();
-    await expect(page.getByRole("switch", { name: "Event-Tickets per E-Mail" })).toHaveAttribute("data-state", "checked");
+    await page.getByRole("switch", { name: "Event-Tickets — E-Mail" }).click();
+    await expect(page.getByRole("switch", { name: "Event-Tickets — E-Mail" })).toHaveAttribute("data-state", "checked");
     await page.waitForTimeout(800);
   });
 });

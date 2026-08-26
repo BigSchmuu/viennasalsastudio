@@ -235,7 +235,23 @@ test.describe("PROJ-15: Gutscheine & Rabattcodes", () => {
   });
 
   test("Kunde mit bestehendem Abo bekommt keinen Gutschein mehr angerechnet", async ({ page }) => {
-    // Runs after the full flow above, which left this customer with a subscription.
+    // Der volle Ablauf oben schreibt diesen Kunden in genau diesen Kurs ein.
+    // Dann zeigt der Dialog aber „Du bist für diesen Kurs bereits angemeldet"
+    // (PROJ-8) und bietet gar kein Code-Feld mehr an — der Test käme nie bis
+    // zur Prüfung, die er behauptet zu prüfen.
+    //
+    // Gebraucht wird: ein Abo (das disqualifiziert), aber keine Einschreibung
+    // in diesen Kurs. Ein Flatrate-Abo ohne Kursbezug ist genau das.
+    await service.from("course_bookings").delete().eq("customer_id", customerId);
+    await service.from("subscriptions").delete().eq("customer_id", customerId);
+    await service.from("subscriptions").insert({
+      customer_id: customerId,
+      course_id: null,
+      name: "E2E15 Bestandsabo",
+      price: 40,
+      status: "active",
+    });
+
     await login(page, CUSTOMER);
     await openBookingDialog(page);
     await fillRegularForm(page);
