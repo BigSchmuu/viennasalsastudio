@@ -210,7 +210,7 @@ export default async function ProfilePage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
-        <Card>
+        <Card className="rounded-card shadow-soft">
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="font-heading">{t("heading")}</CardTitle>
@@ -230,7 +230,7 @@ export default async function ProfilePage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-card shadow-soft">
           <Accordion type="multiple" className="px-6">
             <AccordionItem value="zahlungsmethode">
               <AccordionTrigger>

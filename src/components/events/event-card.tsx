@@ -39,12 +39,12 @@ export function EventCard({
   const remaining = event.capacity - event.occupied;
 
   return (
-    <Card>
+    <Card className="flex flex-col rounded-card shadow-soft">
       <CardHeader>
         <CardTitle className="font-heading">{event.name}</CardTitle>
         <CardDescription>{formatDateTime(event.startsAt, locale)}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="flex-1 space-y-2">
         {event.location && <p className="text-sm text-muted-foreground">📍 {event.location}</p>}
         {event.description && <p className="text-sm">{event.description}</p>}
         <p className="text-sm font-medium">
@@ -62,11 +62,11 @@ export function EventCard({
       <CardFooter>
         {isFull ? (
           <Button disabled className="w-full">
-            Ausgebucht
+            {t("soldOut")}
           </Button>
         ) : isLoggedIn ? (
           <Button className="w-full" onClick={() => setPurchaseOpen(true)}>
-            Ticket kaufen
+            {t("buyTicket")}
           </Button>
         ) : (
           <Button className="w-full" asChild>

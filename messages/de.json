@@ -59,7 +59,15 @@
     "emptyFiltered": "Keine Kurse gefunden. Passe deine Filter an oder",
     "resetFilters": "setze sie zurück",
     "perMonth": "/ Monat",
-    "reducedPrice": "ermäßigt {price}"
+    "reducedPrice": "ermäßigt {price}",
+    "backToCatalog": "Zurück zum Kurskatalog",
+    "detailWhen": "Wann",
+    "detailWhere": "Wo",
+    "detailTeacher": "Wer unterrichtet",
+    "detailPrice": "Was es kostet",
+    "detailNextDates": "Nächste Termine",
+    "detailNoSchedule": "Termin wird noch bekanntgegeben",
+    "videoLessons": "Videolektionen"
   },
   "weekdays": {
     "0": "Montag",

@@ -7,7 +7,7 @@ export default async function RegisterPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm rounded-card shadow-soft">
         <CardHeader>
           <CardTitle className="font-heading">{t("registerTitle")}</CardTitle>
           <CardDescription>{t("registerSubtitle")}</CardDescription>

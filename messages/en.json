@@ -59,7 +59,15 @@
     "emptyFiltered": "No classes match your filters. Adjust them or",
     "resetFilters": "reset them",
     "perMonth": "/ month",
-    "reducedPrice": "reduced {price}"
+    "reducedPrice": "reduced {price}",
+    "backToCatalog": "Back to the course catalogue",
+    "detailWhen": "When",
+    "detailWhere": "Where",
+    "detailTeacher": "Who teaches",
+    "detailPrice": "What it costs",
+    "detailNextDates": "Next dates",
+    "detailNoSchedule": "Date to be announced",
+    "videoLessons": "Video lessons"
   },
   "weekdays": {
     "0": "Monday",
