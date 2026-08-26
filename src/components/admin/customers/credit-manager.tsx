@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/formatting";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 
@@ -47,6 +48,10 @@ export function CreditManager({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<"grant" | "deduct" | null>(null);
+  // Standardmäßig aus: Die stille Korrektur eines eigenen Vertippers dürfte der
+  // häufigere Fall sein — und eine ungewollt verschickte Nachricht lässt sich
+  // nicht zurückholen.
+  const [notify, setNotify] = useState(false);
 
   async function absenden(direction: "grant" | "deduct") {
     setLoading(direction);
@@ -57,14 +62,22 @@ export function CreditManager({
       formData.set("direction", direction);
       formData.set("amount", amount);
       formData.set("reason", reason);
+      formData.set("notify", String(direction === "grant" && notify));
       const result = await adjustCustomerCredit(formData);
       if ("error" in result) {
         setError(result.error);
         return;
       }
-      toast.success(direction === "grant" ? "Guthaben gutgeschrieben." : "Guthaben abgezogen.");
+      toast.success(
+        direction === "deduct"
+          ? "Guthaben abgezogen."
+          : notify
+            ? "Guthaben gutgeschrieben, der Kunde wird benachrichtigt."
+            : "Guthaben gutgeschrieben."
+      );
       setAmount("");
       setReason("");
+      setNotify(false);
       router.refresh();
     } finally {
       setLoading(null);
@@ -121,6 +134,25 @@ export function CreditManager({
           {loading === "deduct" ? "Wird gebucht…" : "Abziehen"}
         </Button>
       </div>
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="credit-notify"
+          checked={notify}
+          onCheckedChange={(wert) => setNotify(wert === true)}
+          disabled={!!loading}
+        />
+        <div className="space-y-0.5">
+          <Label htmlFor="credit-notify" className="font-normal">
+            Kunden über die Gutschrift benachrichtigen
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Er sieht dann den oben angegebenen Grund. Gilt nur beim Gutschreiben — ein Abzug wird nie
+            gemeldet. Hat der Kunde diese Benachrichtigungsart abgeschaltet, bekommt er sie nicht; das
+            Guthaben entsteht trotzdem.
+          </p>
+        </div>
+      </div>
+
       <p className="text-xs text-muted-foreground">
         Der Grund ist Pflicht — ein Kontostand ohne Erklärung ist in drei Monaten nicht mehr nachvollziehbar.
       </p>

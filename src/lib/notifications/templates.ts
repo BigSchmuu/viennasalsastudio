@@ -116,10 +116,16 @@ export type ProbestundeNachfassungDetails = {
   courseName: string;
   courseId: string;
 };
-/** PROJ-44: der gutgeschriebene Betrag und der neue Kontostand — der Werbende
+/** PROJ-44: der gutgeschriebene Betrag und der neue Kontostand — der Kunde
  *  soll nicht auf der nächsten Rechnung nachsehen müssen, wofür weniger
- *  abgebucht wurde. */
-export type EmpfehlungDetails = { amount: number; balance: number };
+ *  abgebucht wurde.
+ *
+ *  Zwei Ausprägungen: aus einer Empfehlung entsteht Guthaben ohne Zutun, eine
+ *  Gutschrift von Hand hat immer einen Anlass — und den will der Kunde lesen,
+ *  sonst wirft die Nachricht mehr Fragen auf, als sie beantwortet. */
+export type GuthabenDetails =
+  | { subType: "referral"; amount: number; balance: number }
+  | { subType: "manual"; amount: number; balance: number; reason: string };
 export type NewsletterDetails = { subject: string; body: string };
 /** PROJ-39: internal alert to the admin, not a customer-facing message. */
 export type NeueBuchungDetails = { customerName: string; courseName: string; bookingType: "regular" | "dropin" };
@@ -141,7 +147,7 @@ export function resolveTemplateKey(
     | KursausfallDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
-    | EmpfehlungDetails
+    | GuthabenDetails
     | NewsletterDetails
 ): TemplateKey | null {
   switch (eventType) {
@@ -170,8 +176,10 @@ export function resolveTemplateKey(
       return (details as ProbestundeNachfassungDetails).subType === "abend"
         ? "probestunde_nachfassung_abend"
         : "probestunde_nachfassung_naechster_termin";
-    case "empfehlung":
-      return "empfehlung_gutgeschrieben";
+    case "guthaben":
+      return (details as GuthabenDetails).subType === "referral"
+        ? "empfehlung_gutgeschrieben"
+        : "guthaben_gutgeschrieben";
     case "newsletter":
       return null;
   }
@@ -197,7 +205,7 @@ export function buildNotificationContent(
     | KursausfallDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
-    | EmpfehlungDetails
+    | GuthabenDetails
     | NewsletterDetails
     | NeueBuchungDetails,
   override?: TemplateFields,
@@ -248,8 +256,24 @@ export function buildNotificationContent(
         url: "/rechnungen",
       };
     }
-    case "empfehlung": {
-      const d = details as EmpfehlungDetails;
+    case "guthaben": {
+      const d = details as GuthabenDetails;
+      if (d.subType === "manual") {
+        return {
+          ...renderTemplate(
+            "guthaben_gutgeschrieben",
+            {
+              betrag: formatPrice(d.amount, locale),
+              guthaben: formatPrice(d.balance, locale),
+              grund: d.reason,
+            },
+            override,
+            "",
+            locale
+          ),
+          url: "/profil",
+        };
+      }
       return {
         ...renderTemplate(
           "empfehlung_gutgeschrieben",
@@ -367,7 +391,13 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
         fields
       );
     case "empfehlung_gutgeschrieben":
-      return buildNotificationContent("empfehlung", { amount: 15, balance: 30 }, fields);
+      return buildNotificationContent("guthaben", { subType: "referral", amount: 15, balance: 30 }, fields);
+    case "guthaben_gutgeschrieben":
+      return buildNotificationContent(
+        "guthaben",
+        { subType: "manual", amount: 20, balance: 35, reason: "Ausgleich für den Kursausfall am 12.03." },
+        fields
+      );
     case "warteliste":
       return buildNotificationContent(
         "warteliste",

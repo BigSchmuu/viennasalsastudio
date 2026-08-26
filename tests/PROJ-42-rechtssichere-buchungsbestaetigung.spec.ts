@@ -478,3 +478,28 @@ test.describe("PROJ-42: Rechtssichere Buchungsbestätigung", () => {
     expect(error?.message ?? "").toContain("terms_complete");
   });
 });
+
+// PROJ-44: Der Guthaben-Abschnitt kam mit dem Empfehlungsprogramm dazu.
+test.describe("AGB: Guthaben-Abschnitt", () => {
+  test.use({ locale: "de-DE" });
+  test("Deutsch: Punkt 6 Guthaben, Auszahlung ausgeschlossen", async ({ page }) => {
+    await page.goto("/agb");
+    await page.waitForTimeout(900);
+    await expect(page.getByRole("heading", { name: "6. Guthaben" })).toBeVisible();
+    await expect(page.getByText("Eine Auszahlung des Guthabens ist ausgeschlossen")).toBeVisible();
+    await expect(page.getByText("vom nächsten fälligen Abo-Beitrag abgezogen")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "7. Haftung" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "8. Schlussbestimmungen" })).toBeVisible();
+  });
+});
+
+test.describe("AGB englisch", () => {
+  test.use({ locale: "en-GB" });
+  test("Englisch: dieselbe Aussage, übersetzt", async ({ page }) => {
+    await page.goto("/en/agb");
+    await page.waitForTimeout(900);
+    await expect(page.getByRole("heading", { name: "6. Account credit" })).toBeVisible();
+    await expect(page.getByText("Credit cannot be paid out")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "8. Final provisions" })).toBeVisible();
+  });
+});

@@ -69,7 +69,28 @@ export function TermsEn() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-heading text-xl font-semibold">6. Liability</h2>
+        <h2 className="font-heading text-xl font-semibold">6. Account credit</h2>
+        <p>
+          Credit can arise in two ways: from our referral programme, when someone you referred takes out a
+          membership and their first payment has been collected successfully, or as a credit granted by us, for
+          example to make up for a cancelled class.
+        </p>
+        <p>
+          Credit is offset against future course fees only: it is deducted automatically from your next
+          membership payment, reducing the amount collected accordingly. If your credit exceeds the amount due,
+          it is offset down to zero only; the remainder stays on your account and is applied in the following
+          months.
+        </p>
+        <p>
+          <strong>Credit cannot be paid out</strong> — neither in cash nor by bank transfer. It is not
+          transferable to other people and does not earn interest. If your membership ends, existing credit does
+          not expire: it will continue to be offset against your course fees under a later membership. Credit is
+          not applied to drop-ins, tickets or events.
+        </p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-heading text-xl font-semibold">7. Liability</h2>
         <p>
           We are liable only for damage caused intentionally or through gross negligence. We accept no liability
           for the loss of or damage to personal belongings during a class. Participation in dance classes is at
@@ -78,7 +99,7 @@ export function TermsEn() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-heading text-xl font-semibold">7. Final provisions</h2>
+        <h2 className="font-heading text-xl font-semibold">8. Final provisions</h2>
         <p>
           Austrian law applies. Should any provision of these terms be invalid, the validity of the remaining
           provisions is unaffected.

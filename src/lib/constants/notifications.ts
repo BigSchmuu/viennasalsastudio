@@ -5,7 +5,7 @@ export const notificationEventGroupValues = [
   "kursstart_erinnerung",
   "event_tickets",
   "probestunde_nachfassung",
-  "empfehlung",
+  "guthaben",
   "newsletter",
 ] as const;
 export type NotificationEventGroup = (typeof notificationEventGroupValues)[number];
@@ -23,7 +23,7 @@ export const notificationEventGroupLabel: Record<NotificationEventGroup, string>
   kursstart_erinnerung: "Kursstart-Erinnerung",
   event_tickets: "Event-Tickets",
   probestunde_nachfassung: "Probestunden-Nachfassung",
-  empfehlung: "Empfehlung hat gezählt",
+  guthaben: "Guthaben",
   newsletter: "Newsletter",
 };
 
@@ -34,6 +34,6 @@ export const notificationEventGroupDescription: Record<NotificationEventGroup, s
   kursstart_erinnerung: "Erinnerung am Vortag einer Probestunde oder eines Drop-ins",
   event_tickets: "Dein Event-Ticket wurde bestätigt oder das Event wurde abgesagt",
   probestunde_nachfassung: "Erinnerung nach einer Probestunde, mit direktem Buchungslink",
-  empfehlung: "Jemand hat mit deinem Empfehlungscode gebucht und du bekommst Guthaben",
+  guthaben: "Du bekommst Guthaben — aus einer Empfehlung oder als Gutschrift des Studios",
   newsletter: "Ankündigungen und Aktionen des Studios",
 };

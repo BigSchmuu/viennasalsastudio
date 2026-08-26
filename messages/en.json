@@ -209,7 +209,7 @@
       "kursstart_erinnerung": "Class start reminder",
       "event_tickets": "Event tickets",
       "probestunde_nachfassung": "Trial class follow-up",
-      "empfehlung": "Referral counted",
+      "guthaben": "Credit",
       "newsletter": "Newsletter"
     },
     "groupHint": {
@@ -219,7 +219,7 @@
       "kursstart_erinnerung": "Reminder the day before a trial class or drop-in",
       "event_tickets": "Your event ticket was confirmed, or the event was cancelled",
       "probestunde_nachfassung": "Follow-up after a trial class, with a direct booking link",
-      "empfehlung": "Someone booked with your referral code and you get credit",
+      "guthaben": "You receive credit — from a referral or as a credit granted by the studio",
       "newsletter": "Announcements and offers from the studio"
     }
   },

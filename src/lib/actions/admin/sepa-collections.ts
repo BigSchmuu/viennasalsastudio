@@ -197,9 +197,13 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
       .map((b) =>
         enqueueNotification({
           customerId: b.referrer_id,
-          eventType: "empfehlung",
-          payload: { amount: Number(b.referrer_amount), balance: Number(b.referrer_balance) },
-          dedupeKey: `empfehlung:${b.referee_id}`,
+          eventType: "guthaben",
+          payload: {
+            sub_type: "referral",
+            amount: Number(b.referrer_amount),
+            balance: Number(b.referrer_balance),
+          },
+          dedupeKey: `guthaben_empfehlung:${b.referee_id}`,
         })
       )
   );

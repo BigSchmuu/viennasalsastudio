@@ -71,15 +71,11 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 - [x] Angenommen der Betreiber ändert einen Betrag, dann gilt der neue Wert für künftige Empfehlungen; bereits gutgeschriebenes Guthaben bleibt unverändert.
 - [x] Angenommen der Betreiber sieht sich einen Kunden an, dann erkennt er dessen Guthaben und wer ihn geworben hat.
 - [x] Angenommen der Betreiber will einem Kunden Guthaben gutschreiben, dann kann er das von Hand tun und muss dabei einen Grund angeben.
-- [ ] Angenommen der Betreiber vergibt Guthaben von Hand, dann entscheidet er dabei, ob der Kunde benachrichtigt wird; die Nachricht ist standardmäßig **aus**.
-- [ ] Angenommen der Betreiber wählt die Benachrichtigung an, dann sieht der Kunde den von ihm angegebenen Grund — nicht nur den Betrag.
+- [x] Angenommen der Betreiber vergibt Guthaben von Hand, dann entscheidet er dabei, ob der Kunde benachrichtigt wird; die Nachricht ist standardmäßig **aus**.
+- [x] Angenommen der Betreiber wählt die Benachrichtigung an, dann sieht der Kunde den von ihm angegebenen Grund — nicht nur den Betrag.
 - [x] Angenommen der Betreiber zieht Guthaben ab, dann wird der Kunde **nicht** benachrichtigt.
 - [x] Angenommen der Betreiber sieht sich das Guthaben eines Kunden an, dann erkennt er zu jeder Gutschrift, **woher** sie stammt — aus einer Empfehlung oder von Hand vergeben, mit dem angegebenen Grund.
 - [x] Angenommen der Betreiber vergibt versehentlich zu viel, dann kann er eine Gutschrift auch wieder abziehen — ebenfalls mit Grund.
-
-> **Stand 2026-08-26:** Zwei Kriterien sind noch offen — die wählbare
-> Benachrichtigung bei einer Gutschrift von Hand und der Grund darin. Alles
-> übrige ist umgesetzt und an echten Daten nachgewiesen.
 
 ## Edge Cases
 - Was, wenn der Werbende sein Abo kündigt, bevor das Guthaben aufgebraucht ist? → Es bleibt stehen. Kommt er zurück, wird es weiter verrechnet; ausgezahlt wird es nie.
@@ -306,6 +302,33 @@ zurückzugeben, die vorher schon beschreibbar waren.
 Beim selben Versuch geprüft und in Ordnung: Ein Kunde kann sich **nicht** selbst zum
 Betreiber machen (ein Trigger weist es ab) und sieht **keine** fremden Codes.
 
+### Nachgereicht am 2026-08-26
+
+**Die wählbare Benachrichtigung bei einer Gutschrift von Hand.** Ein Kästchen im
+Guthaben-Formular, standardmäßig aus — die stille Korrektur eines eigenen Vertippers
+dürfte der häufigere Fall sein, und eine ungewollt verschickte Nachricht lässt sich
+nicht zurückholen. Nach jedem Buchen springt es wieder auf aus, damit die nächste
+Gutschrift nicht versehentlich meldet. Beim Abziehen wird nie gemeldet, auch mit
+gesetztem Häkchen nicht.
+
+Dabei hat die Benachrichtigungsart ihren Namen gewechselt: von `empfehlung` auf
+`guthaben`. Sie trägt jetzt zwei Fälle — die gezählte Empfehlung und die Gutschrift
+von Hand — und beide sagen dem Kunden dasselbe. Zwei getrennte Schalter für eine
+Sache wären eine Frage, die niemand stellen will. Umbenennen statt danebenstellen
+war gefahrlos, weil die Art am selben Tag entstanden war: keine gespeicherten
+Einstellungen, keine Nachrichten, keine angepassten Vorlagen.
+
+**Die AGB nennen das Guthaben jetzt ausdrücklich** (neuer Punkt 6, deutsch und
+englisch): Es wird ausschließlich mit künftigen Kursbeiträgen verrechnet, eine
+Auszahlung ist ausgeschlossen, es ist nicht übertragbar, es verfällt nicht, und auf
+Drop-ins, Tickets und Events wird es nicht angerechnet.
+
+Der Stand bleibt dabei **2026-08**: Der Prüfer lässt keinen künftigen Monat zu, und
+die Fassung ist ohnehin monatsgenau — wir sind noch in dem Monat, auf den sie zeigt.
+Zum Zeitpunkt der Ergänzung gab es genau **eine** Zustimmung eines echten Kunden
+(die des Betreibers selbst) und 27 aus Testkonten; und niemand konnte vorher
+Guthaben haben, weil es das erst seit demselben Tag gibt.
+
 ### Oberfläche
 - **Kundenprofil:** Abschnitt „Empfehlen und Guthaben" — Code mit Kopierknopf, die
   beiden Beträge im Klartext, Kontostand und Verlauf. Stehen beide Beträge auf 0, wird
@@ -344,6 +367,6 @@ Produktion zweimal lahmgelegt, weil dort erzwingende Migrationen vor dem
 Deploy lagen. Die Regel bleibt: erst die App, dann die Migration, die etwas
 verlangt.
 
-**Offen bei Auslieferung:** die wählbare Benachrichtigung bei einer Gutschrift
-von Hand und der Grund darin (zwei Kriterien). Deshalb steht die Funktion in
-INDEX.md weiter auf „In Progress" — sie ist live, aber nicht vollständig.
+**Offen bei der ersten Auslieferung** waren die wählbare Benachrichtigung bei
+einer Gutschrift von Hand und der Grund darin. Beide sind am 2026-08-26
+nachgereicht; damit sind alle 25 Kriterien erfüllt.

@@ -13,7 +13,8 @@ export type TemplateKey =
   | "probestunde_nachfassung_naechster_termin"
   | "zahlungserinnerung"
   | "kursausfall"
-  | "empfehlung_gutgeschrieben";
+  | "empfehlung_gutgeschrieben"
+  | "guthaben_gutgeschrieben";
 
 export type TemplateFields = {
   emailSubject: string;
@@ -171,8 +172,8 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
   },
   {
     key: "empfehlung_gutgeschrieben",
-    eventGroupLabel: "Empfehlung hat gezählt",
-    variantLabel: "Guthaben gutgeschrieben",
+    eventGroupLabel: "Guthaben",
+    variantLabel: "Aus einer Empfehlung",
     placeholders: ["betrag", "guthaben"],
     boldPlaceholder: "betrag",
     samples: { betrag: "15,00 €", guthaben: "30,00 €" },
@@ -189,6 +190,28 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
         "Someone booked with your referral code and paid their first membership fee. We've credited you {betrag}. Your credit is now {guthaben} and will be deducted automatically from your next membership payment.",
       pushTitle: "Your referral counted: {betrag} credit",
       pushBody: "Your credit is now {guthaben}.",
+    },
+  },
+  {
+    key: "guthaben_gutgeschrieben",
+    eventGroupLabel: "Guthaben",
+    variantLabel: "Vom Studio gutgeschrieben",
+    placeholders: ["betrag", "guthaben", "grund"],
+    boldPlaceholder: "betrag",
+    samples: { betrag: "20,00 €", guthaben: "35,00 €", grund: "Ausgleich für den Kursausfall am 12.03." },
+    defaults: {
+      emailSubject: "Wir haben dir {betrag} Guthaben gutgeschrieben",
+      emailBody:
+        "Wir haben deinem Konto {betrag} Guthaben gutgeschrieben — {grund} Dein Guthaben beträgt jetzt {guthaben} und wird automatisch von deinem nächsten Abo-Beitrag abgezogen. Eine Auszahlung ist nicht möglich.",
+      pushTitle: "{betrag} Guthaben für dich",
+      pushBody: "{grund} Dein Guthaben beträgt jetzt {guthaben}.",
+    },
+    defaultsEn: {
+      emailSubject: "We've credited you {betrag}",
+      emailBody:
+        "We've added {betrag} credit to your account — {grund} Your credit is now {guthaben} and will be deducted automatically from your next membership payment. It cannot be paid out.",
+      pushTitle: "{betrag} credit for you",
+      pushBody: "{grund} Your credit is now {guthaben}.",
     },
   },
   {

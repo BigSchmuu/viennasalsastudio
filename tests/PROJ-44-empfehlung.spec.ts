@@ -176,7 +176,7 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
     const gid = geworben!.customer_id;
     await svc.from("customer_credits").delete().in("customer_id", [werber, gid]);
     await svc.from("profiles").update({ referred_by: werber, referral_rewarded_at: null }).eq("id", gid);
-    await svc.from("notification_queue").delete().eq("customer_id", werber).eq("event_type", "empfehlung");
+    await svc.from("notification_queue").delete().eq("customer_id", werber).eq("event_type", "guthaben");
 
     // 1. Lauf: die erste Lastschrift des Geworbenen, in der Vergangenheit.
     const gestern = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
@@ -210,7 +210,7 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
 
     // Der Werbende wird benachrichtigt, mit Betrag und neuem Kontostand.
     const { data: nachricht } = await svc
-      .from("notification_queue").select("payload").eq("dedupe_key", `empfehlung:${gid}`).maybeSingle();
+      .from("notification_queue").select("payload").eq("dedupe_key", `guthaben_empfehlung:${gid}`).maybeSingle();
     console.log("NACHRICHT:", JSON.stringify(nachricht?.payload));
     expect(nachricht).not.toBeNull();
     expect(Number((nachricht!.payload as Record<string, number>).amount)).toBe(15);
@@ -255,7 +255,7 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
     await svc.from("sepa_collection_items").delete().eq("id", pos1!.id);
     await svc.from("sepa_collection_runs").delete().in("id", [lauf1!.id, lauf2!.id]);
     await svc.from("profiles").update({ referred_by: null, referral_rewarded_at: null }).eq("id", gid);
-    await svc.from("notification_queue").delete().eq("event_type", "empfehlung");
+    await svc.from("notification_queue").delete().eq("event_type", "guthaben");
   });
 });
 
@@ -360,5 +360,101 @@ test.describe("PROJ-44: der Kunde kann sich kein Guthaben verschaffen", () => {
 
     await svc.from("course_bookings").delete().eq("id", buchung!.id);
     await svc.auth.admin.deleteUser(id);
+  });
+});
+
+test.describe("PROJ-44: Gutschrift von Hand mit wählbarer Nachricht", () => {
+  test.use({ locale: "de-DE" });
+
+  test("Standard ist aus: gutschreiben ohne Häkchen meldet nichts", async ({ page }) => {
+    const kunde = await kundeMit("e2e12-a@viennasalsastudio.test");
+    await svc.from("customer_credits").delete().eq("customer_id", kunde);
+    await svc.from("notification_queue").delete().eq("customer_id", kunde).eq("event_type", "guthaben");
+
+    await anmelden(page, "e2e8-admin@viennasalsastudio.test");
+    await page.goto("/admin/kunden/" + kunde);
+    await page.waitForTimeout(1800);
+
+    await expect(page.locator("#credit-notify")).not.toBeChecked();
+
+    await page.locator("#credit-amount").fill("20");
+    await page.locator("#credit-reason").fill("Ausgleich Kursausfall 12.03.");
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: "Gutschreiben" }).click();
+    await page.waitForTimeout(2500);
+
+    const { count } = await svc.from("notification_queue").select("id", { count: "exact", head: true })
+      .eq("customer_id", kunde).eq("event_type", "guthaben");
+    console.log("Ohne Häkchen — Nachrichten:", count);
+    expect(count).toBe(0);
+    const { data: g } = await svc.from("customer_credits").select("amount").eq("customer_id", kunde);
+    expect(g!.length).toBe(1);
+
+    await svc.from("customer_credits").delete().eq("customer_id", kunde);
+  });
+
+  test("Mit Häkchen: der Kunde bekommt Betrag, Grund und neuen Kontostand", async ({ page }) => {
+    const kunde = await kundeMit("e2e12-a@viennasalsastudio.test");
+    await svc.from("customer_credits").delete().eq("customer_id", kunde);
+    await svc.from("notification_queue").delete().eq("customer_id", kunde).eq("event_type", "guthaben");
+    await svc.from("customer_credits").insert({ customer_id: kunde, amount: 15, origin: "manual", reason: "Vorher vorhanden" });
+
+    await anmelden(page, "e2e8-admin@viennasalsastudio.test");
+    await page.goto("/admin/kunden/" + kunde);
+    await page.waitForTimeout(1800);
+
+    await page.locator("#credit-amount").fill("20");
+    await page.locator("#credit-reason").fill("Ausgleich für den Kursausfall am 12.03.");
+    await page.locator("#credit-notify").click();
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: "Gutschreiben" }).click();
+    await page.waitForTimeout(2500);
+    await expect(page.getByText("der Kunde wird benachrichtigt")).toBeVisible();
+    await page.locator("h3:has-text('Guthaben und Empfehlung')").locator("..").screenshot({ path: "/private/tmp/claude-501/-Users-samumamu-Documents-Programmieren-Vienna-Salsa-Studio-App/5c27567f-1050-4ac0-9f1c-beba9bd0759d/scratchpad/E1-gutschrift.png" });
+
+    const { data: nachricht } = await svc.from("notification_queue").select("payload, event_type")
+      .eq("customer_id", kunde).eq("event_type", "guthaben").maybeSingle();
+    console.log("Mit Häkchen — Nachricht:", JSON.stringify(nachricht?.payload));
+    expect(nachricht).not.toBeNull();
+    const p = nachricht!.payload as Record<string, unknown>;
+    expect(p.sub_type).toBe("manual");
+    expect(Number(p.amount)).toBe(20);
+    expect(Number(p.balance)).toBe(35);
+    expect(p.reason).toBe("Ausgleich für den Kursausfall am 12.03.");
+
+    // Nach dem Buchen ist das Häkchen wieder aus — die nächste Gutschrift
+    // meldet nicht versehentlich.
+    await expect(page.locator("#credit-notify")).not.toBeChecked();
+
+    await svc.from("customer_credits").delete().eq("customer_id", kunde);
+    await svc.from("notification_queue").delete().eq("customer_id", kunde).eq("event_type", "guthaben");
+  });
+
+  test("Ein Abzug meldet nie, auch mit gesetztem Häkchen", async ({ page }) => {
+    const kunde = await kundeMit("e2e12-a@viennasalsastudio.test");
+    await svc.from("customer_credits").delete().eq("customer_id", kunde);
+    await svc.from("notification_queue").delete().eq("customer_id", kunde).eq("event_type", "guthaben");
+    await svc.from("customer_credits").insert({ customer_id: kunde, amount: 50, origin: "manual", reason: "Startguthaben" });
+
+    await anmelden(page, "e2e8-admin@viennasalsastudio.test");
+    await page.goto("/admin/kunden/" + kunde);
+    await page.waitForTimeout(1800);
+
+    await page.locator("#credit-amount").fill("10");
+    await page.locator("#credit-reason").fill("Zu viel vergeben, Korrektur");
+    await page.locator("#credit-notify").click();
+    await expect(page.locator("#credit-notify")).toBeChecked();
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: "Abziehen" }).click();
+    await page.waitForTimeout(2500);
+
+    const { count } = await svc.from("notification_queue").select("id", { count: "exact", head: true })
+      .eq("customer_id", kunde).eq("event_type", "guthaben");
+    console.log("Abzug trotz Häkchen — Nachrichten:", count);
+    expect(count).toBe(0);
+    const { data: g } = await svc.from("customer_credits").select("amount").eq("customer_id", kunde);
+    expect(g!.reduce((s, x) => s + Number(x.amount), 0)).toBe(40);
+
+    await svc.from("customer_credits").delete().eq("customer_id", kunde);
   });
 });

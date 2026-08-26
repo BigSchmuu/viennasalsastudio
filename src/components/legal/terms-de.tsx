@@ -64,7 +64,28 @@ export function TermsDe() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-heading text-xl font-semibold">6. Haftung</h2>
+        <h2 className="font-heading text-xl font-semibold">6. Guthaben</h2>
+        <p>
+          Guthaben kann auf zwei Wegen entstehen: aus unserem Empfehlungsprogramm, wenn eine von dir geworbene
+          Person ein Abonnement abschließt und ihr erster Beitrag erfolgreich eingezogen wurde, oder als
+          Gutschrift durch uns, etwa zum Ausgleich eines ausgefallenen Kurstermins.
+        </p>
+        <p>
+          Guthaben wird ausschließlich mit künftigen Kursbeiträgen verrechnet: Es wird automatisch vom nächsten
+          fälligen Abo-Beitrag abgezogen, sodass sich der eingezogene Betrag entsprechend verringert. Übersteigt
+          das Guthaben den fälligen Beitrag, wird nur bis auf null verrechnet; der Rest bleibt bestehen und wird
+          in den Folgemonaten weiter angerechnet.
+        </p>
+        <p>
+          <strong>Eine Auszahlung des Guthabens ist ausgeschlossen</strong> — weder in bar noch per Überweisung.
+          Guthaben ist nicht auf andere Personen übertragbar und wird nicht verzinst. Endet dein Abonnement,
+          verfällt bestehendes Guthaben nicht: Es wird bei einem späteren Abonnement weiter mit deinen
+          Kursbeiträgen verrechnet. Auf Drop-ins, Tickets und Events wird Guthaben nicht angerechnet.
+        </p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-heading text-xl font-semibold">7. Haftung</h2>
         <p>
           Wir haften nur für Schäden, die vorsätzlich oder grob fahrlässig verursacht wurden. Für den Verlust
           oder die Beschädigung persönlicher Gegenstände während des Kursbesuchs übernehmen wir keine Haftung.
@@ -73,7 +94,7 @@ export function TermsDe() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-heading text-xl font-semibold">7. Schlussbestimmungen</h2>
+        <h2 className="font-heading text-xl font-semibold">8. Schlussbestimmungen</h2>
         <p>
           Es gilt österreichisches Recht. Sollte eine Bestimmung dieser AGB unwirksam sein, bleibt die
           Wirksamkeit der übrigen Bestimmungen davon unberührt.

@@ -132,11 +132,23 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         locale
       );
     }
-    case "empfehlung": {
-      const details = { amount: payload.amount as number, balance: payload.balance as number };
-      const key = resolveTemplateKey("empfehlung", details);
+    case "guthaben": {
+      const details =
+        payload.sub_type === "manual"
+          ? {
+              subType: "manual" as const,
+              amount: payload.amount as number,
+              balance: payload.balance as number,
+              reason: (payload.reason as string) ?? "",
+            }
+          : {
+              subType: "referral" as const,
+              amount: payload.amount as number,
+              balance: payload.balance as number,
+            };
+      const key = resolveTemplateKey("guthaben", details);
       return buildNotificationContent(
-        "empfehlung",
+        "guthaben",
         details,
         key ? await fetchOverride(service, key, locale) : undefined,
         locale
