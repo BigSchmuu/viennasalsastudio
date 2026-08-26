@@ -106,7 +106,10 @@ describe("pastOccurrences", () => {
 describe("daysUntil", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 7, 16, 23, 0, 0)); // late in the day, should not matter
+    // Ausdrücklich in UTC vorgegeben: 16.08. 12:00 UTC ist in Wien der 16.08.
+    // um 14:00. Eine Vorgabe in Ortszeit wäre mehrdeutig, seit die Rechnung
+    // den Wiener Kalendertag nimmt und nicht den des Servers.
+    vi.setSystemTime(new Date("2026-08-16T12:00:00Z"));
   });
 
   afterEach(() => {
@@ -115,6 +118,16 @@ describe("daysUntil", () => {
 
   it("returns 0 for today", () => {
     expect(daysUntil("2026-08-16")).toBe(0);
+  });
+
+  it("zählt um 00:30 Wiener Zeit bereits den neuen Tag, obwohl es in UTC noch gestern ist", () => {
+    // Der Fall, der die Fristen betraf: 22:30 UTC ist in Wien 00:30 am
+    // Folgetag. Ein Kurs an diesem Folgetag ist dann „heute" — und damit
+    // nicht mehr stornierbar.
+    vi.setSystemTime(new Date("2026-08-16T22:30:00Z"));
+    expect(daysUntil("2026-08-17")).toBe(0);
+    expect(daysUntil("2026-08-18")).toBe(1);
+    vi.setSystemTime(new Date("2026-08-16T12:00:00Z"));
   });
 
   it("returns 1 for tomorrow", () => {

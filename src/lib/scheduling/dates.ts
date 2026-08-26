@@ -1,3 +1,5 @@
+import { heuteInWien } from "@/lib/constants/zeitzone";
+
 // Weekday convention across the app: 0=Montag ... 6=Sonntag.
 // JS Date.getDay() uses 0=Sonntag ... 6=Samstag, so it needs remapping.
 export function jsDayToWeekday(jsDay: number): number {
@@ -20,8 +22,9 @@ export function upcomingOccurrences(
   { count, pauseDates = [] }: { count: number; pauseDates?: string[] }
 ): string[] {
   const pauseSet = new Set(pauseDates);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Der heutige Tag in Wien, als reiner Kalendertag. Vorher der Tag des
+  // Servers — auf Vercel (UTC) nachts also der falsche.
+  const today = new Date(heuteInWien() + "T12:00:00Z");
 
   const todayWeekday = jsDayToWeekday(today.getDay());
   const daysUntilNext = (weekday - todayWeekday + 7) % 7;
@@ -73,12 +76,21 @@ export function pastOccurrences(
   return dates;
 }
 
-/** Whole days between today and `dateString` (negative if in the past). */
+/**
+ * Ganze Tage zwischen heute und `dateString` (negativ, wenn vergangen).
+ *
+ * „Heute" ist der Kalendertag in Wien, nicht der des Servers. Bei Vercel läuft
+ * der auf UTC: Zwischen Mitternacht und 2 Uhr Wiener Zeit zählte die Rechnung
+ * noch den Vortag, und ein Kunde konnte um 00:30 einen Kurs stornieren, der
+ * nach seinem Kalender schon heute stattfindet.
+ *
+ * Beide Seiten werden als reine Kalendertage in UTC verglichen — nicht als
+ * Zeitpunkte. So kann keine Sommerzeitumstellung dazwischenkommen.
+ */
 export function daysUntil(dateString: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(dateString + "T00:00:00");
-  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const heute = new Date(heuteInWien() + "T00:00:00Z");
+  const ziel = new Date(dateString.slice(0, 10) + "T00:00:00Z");
+  return Math.round((ziel.getTime() - heute.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 /** Minutes Europe/Vienna is ahead of UTC at the given instant (handles CET/CEST). */

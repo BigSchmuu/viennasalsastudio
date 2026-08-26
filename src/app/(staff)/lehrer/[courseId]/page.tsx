@@ -12,6 +12,7 @@ import {
   type EligibleCustomer,
 } from "@/components/teacher/attendance-matrix";
 import type { RosterRow } from "@/lib/actions/teacher/load-more-occurrences";
+import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 
 const PAST_WINDOW = 8;
 
@@ -53,7 +54,7 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
 
   if (schedule) {
     const pauseDates = schedule.course_schedule_pauses.map((p) => p.pause_date);
-    const todayDate = formatDateLocal(new Date());
+    const todayDate = heuteInWien();
     const isTodayOccurrence = jsDayToWeekday(new Date().getDay()) === schedule.weekday && !pauseDates.includes(todayDate);
 
     const past = pastOccurrences(schedule.weekday, { count: PAST_WINDOW, pauseDates });
@@ -91,7 +92,8 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
     const { data: birthdateRows } = allIds.length
       ? await supabase.from("profiles").select("id, birthdate").in("id", allIds)
       : { data: [] };
-    const today = new Date();
+    // Der Wiener Kalendertag, nicht der des Servers (UTC bei Vercel).
+    const today = heuteAlsDatumInWien();
     const birthdayTodayById = new Set(
       (birthdateRows ?? []).filter((p) => p.birthdate && isBirthdayToday(p.birthdate, today)).map((p) => p.id)
     );

@@ -6,6 +6,7 @@ import { MetricTile } from "@/components/admin/analytics/metric-tile";
 import { TrendChart, type TrendPoint } from "@/components/admin/analytics/trend-chart";
 import { OccupancyList, type OccupancyRow } from "@/components/admin/analytics/occupancy-list";
 import { BirthdayList, type BirthdayRow } from "@/components/admin/analytics/birthday-list";
+import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 
 const BIRTHDAY_WINDOW_DAYS = 7;
 
@@ -92,7 +93,8 @@ export default async function AdminDashboardPage({
   // A customer with multiple active subscriptions still counts once.
   const activeCustomerCount = new Set((activeSubsRes.data ?? []).map((s) => s.customer_id)).size;
 
-  const today = new Date();
+  // Der Wiener Kalendertag, nicht der des Servers (UTC bei Vercel).
+  const today = heuteAlsDatumInWien();
   const birthdayRows: BirthdayRow[] = (birthdatesRes.data ?? [])
     .map((p) => ({
       customerId: p.id,

@@ -194,7 +194,14 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.waitForTimeout(300);
     await page.getByRole("dialog").getByRole("combobox").first().click();
     await page.waitForTimeout(300);
-    await page.getByRole("option").first().click();
+    // Nicht den ersten Termin: Er kann heute sein, wenn der Kurs heute
+    // stattfindet. Am selben Tag lässt sich eine Probestunde zu Recht nicht
+    // mehr umbuchen oder stornieren — und genau das prüfen die beiden Tests
+    // weiter unten an dieser Buchung. Der Kurs bleibt derselbe, nur eine
+    // Woche später.
+    const termine = page.getByRole("option");
+    const anzahlTermine = await termine.count();
+    await termine.nth(anzahlTermine > 1 ? 1 : 0).click();
     // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
     await page.locator("#terms-accepted-booking").check();
     await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
@@ -278,7 +285,12 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.waitForTimeout(400);
     await page.getByRole("dialog").getByRole("combobox").click();
     await page.waitForTimeout(300);
-    await page.getByRole("option").nth(1).click();
+    // Der letzte angebotene Termin: Auf den vorderen liegen bereits die
+    // Probestunde selbst und der Drop-in aus einem früheren Test — dann
+    // meldet die App zu Recht „Für diesen Termin hast du bereits eine
+    // Buchung."
+    const neueTermine = page.getByRole("option");
+    await neueTermine.nth((await neueTermine.count()) - 1).click();
     // PROJ-42: Auch das Umbuchen legt eine neue Buchung an — sie trägt
     // ihre eigene Zustimmung, ohne Sonderweg.
     await page.locator("#terms-accepted-rebook").check();

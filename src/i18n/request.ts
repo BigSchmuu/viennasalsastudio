@@ -1,6 +1,7 @@
 import { getRequestConfig } from "next-intl/server";
 import { hasLocale } from "next-intl";
 import { routing } from "@/i18n/routing";
+import { STUDIO_TIMEZONE } from "@/lib/constants/zeitzone";
 
 export default getRequestConfig(async ({ requestLocale }) => {
   const requested = await requestLocale;
@@ -11,6 +12,9 @@ export default getRequestConfig(async ({ requestLocale }) => {
   return {
     locale,
     messages,
+    // Ohne Angabe nimmt next-intl die Zeitzone des Servers — bei Vercel UTC.
+    // Das Studio steht in Wien.
+    timeZone: STUDIO_TIMEZONE,
     // Fehlt eine Übersetzung, erscheint der deutsche Text. Eine leere Stelle
     // oder ein sichtbarer Schlüssel wäre ein Fehler, den der Kunde sieht.
     onError() {},
