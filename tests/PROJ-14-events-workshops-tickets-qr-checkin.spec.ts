@@ -36,6 +36,21 @@ test.beforeAll(async () => {
 
   const hoursFromNow = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
 
+  // Die Stornofrist rechnet tagesgenau (daysUntil auf dem Datum, wie bei
+  // Buchungen — so im Spec festgelegt). Ein Termin „in 12 Stunden" liegt
+  // deshalb je nach Tageszeit mal innerhalb, mal außerhalb der Frist: Läuft
+  // die Suite vormittags, bleibt er heute; läuft sie abends, fällt er auf
+  // morgen und die Frist gilt plötzlich als gewahrt. Genau daran ist der Test
+  // um 23:02 gescheitert, nachdem er um 04:29 grün war.
+  //
+  // Für einen Termin, der zuverlässig innerhalb der Frist liegt, zählt nur
+  // der Kalendertag — also heute, zu fester Stunde.
+  const heuteUm = (stunde: number) => {
+    const d = new Date();
+    d.setHours(stunde, 0, 0, 0);
+    return d.toISOString();
+  };
+
   // Seats must be free again for the three events the suite buys from.
   const needFreeSeats = ["E2E14 Kaufen Event", "E2E14 Checkin Event", "E2E14 Cancel Notify Event"]
     .map((n) => byName.get(n))
@@ -64,7 +79,7 @@ test.beforeAll(async () => {
   // the cancel button stays hidden. Its existing ticket is left alone.
   const stornofrist = byName.get("E2E14 Stornofrist Event");
   if (stornofrist) {
-    await service.from("events").update({ status: "geplant", starts_at: hoursFromNow(12) }).eq("id", stornofrist);
+    await service.from("events").update({ status: "geplant", starts_at: heuteUm(12) }).eq("id", stornofrist);
   }
 
   // AC13 switches the event-ticket e-mail preference off and tries to switch it
