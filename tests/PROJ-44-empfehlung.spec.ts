@@ -157,6 +157,37 @@ test.describe("PROJ-44: Empfehlungsprogramm", () => {
 test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
   test.use({ locale: "de-DE" });
 
+  // Was der Test anlegt, wird hier vermerkt und danach in jedem Fall entfernt.
+  // Vorher stand das Aufräumen am Ende des Tests — und blieb damit genau dann
+  // liegen, wenn eine Prüfung scheiterte. Die zurückgebliebenen Läufe samt
+  // Rechnungen haben zweimal die PROJ-10-Tests zu Fall gebracht, die auf eine
+  // Rechnung je Kunde zählen.
+  const angelegteLaeufe: string[] = [];
+  const beruehrteKunden: string[] = [];
+
+  test.afterEach(async () => {
+    for (const lauf of angelegteLaeufe) {
+      const { data: positionen } = await svc.from("sepa_collection_items").select("id").eq("run_id", lauf);
+      const ids = (positionen ?? []).map((p) => p.id);
+      if (ids.length) {
+        await svc.from("invoices").delete().in("collection_item_id", ids);
+        await svc.from("customer_credits").delete().in("collection_item_id", ids);
+      }
+      await svc.from("sepa_collection_items").delete().eq("run_id", lauf);
+      await svc.from("sepa_collection_runs").delete().eq("id", lauf);
+    }
+    if (beruehrteKunden.length) {
+      await svc.from("customer_credits").delete().in("customer_id", beruehrteKunden);
+      await svc
+        .from("profiles")
+        .update({ referred_by: null, referral_rewarded_at: null })
+        .in("id", beruehrteKunden);
+    }
+    await svc.from("notification_queue").delete().eq("event_type", "guthaben");
+    angelegteLaeufe.length = 0;
+    beruehrteKunden.length = 0;
+  });
+
   test("Belohnung erst nach der ersten erfolgreichen Abbuchung, dann verrechnet und angekündigt", async ({ page }) => {
     const werber = await kundeMit("e2e12-a@viennasalsastudio.test");
     const { data: w } = await svc.from("profiles").select("referral_code").eq("id", werber).single();
@@ -174,6 +205,7 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
     test.skip(!geworben, "Kein E2E-Kunde mit Abo und Mandat verfügbar");
 
     const gid = geworben!.customer_id;
+    beruehrteKunden.push(werber, gid);
     await svc.from("customer_credits").delete().in("customer_id", [werber, gid]);
     await svc.from("profiles").update({ referred_by: werber, referral_rewarded_at: null }).eq("id", gid);
     await svc.from("notification_queue").delete().eq("customer_id", werber).eq("event_type", "guthaben");
@@ -181,6 +213,7 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
     // 1. Lauf: die erste Lastschrift des Geworbenen, in der Vergangenheit.
     const gestern = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const { data: lauf1 } = await svc.from("sepa_collection_runs").insert({ due_date: gestern }).select("id").single();
+    angelegteLaeufe.push(lauf1!.id);
     const { data: pos1 } = await svc
       .from("sepa_collection_items")
       .insert({
@@ -200,6 +233,19 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
     const bestaetigen = page.getByRole("button", { name: /Trotzdem|Fortfahren/ });
     if (await bestaetigen.count()) { await bestaetigen.first().click(); await page.waitForTimeout(6000); }
 
+    // Sofort vermerken, noch vor der ersten Prüfung: Ein Lauf, den erst eine
+    // spätere Zeile registriert, bleibt bei einem Fehlschlag davor liegen —
+    // samt seiner Rechnungen.
+    const { data: lauf2 } = await svc
+      .from("sepa_collection_runs")
+      .select("id")
+      .eq("due_date", faellig)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    expect(lauf2, "der Lauf wurde nicht angelegt").not.toBeNull();
+    angelegteLaeufe.push(lauf2!.id);
+
     const { data: gutschriften } = await svc
       .from("customer_credits").select("customer_id, amount, origin").in("customer_id", [werber, gid]);
     console.log("GUTSCHRIFTEN:", JSON.stringify(gutschriften));
@@ -217,8 +263,6 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
 
     // Das frische Guthaben mindert schon diesen Lauf, und die Ankündigung
     // nennt den geminderten Betrag.
-    const { data: lauf2 } = await svc
-      .from("sepa_collection_runs").select("id").eq("due_date", faellig).order("created_at", { ascending: false }).limit(1).single();
     // Der Kunde kann mehrere Positionen im Lauf haben — gemeint ist die zu
     // seinem Abo, denn nur Abo-Positionen werden mit Guthaben verrechnet.
     const { data: pos2 } = await svc
@@ -246,16 +290,6 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
       expect(rechnung!.description).toContain("15,00 € Guthaben verrechnet");
     }
 
-    // Aufräumen
-    await svc.from("invoices").delete().in("collection_item_id", [pos1!.id, pos2?.id ?? pos1!.id]);
-    const { data: alleP } = await svc.from("sepa_collection_items").select("id").eq("run_id", lauf2!.id);
-    await svc.from("invoices").delete().in("collection_item_id", alleP!.map((p) => p.id));
-    await svc.from("customer_credits").delete().in("customer_id", [werber, gid]);
-    await svc.from("sepa_collection_items").delete().eq("run_id", lauf2!.id);
-    await svc.from("sepa_collection_items").delete().eq("id", pos1!.id);
-    await svc.from("sepa_collection_runs").delete().in("id", [lauf1!.id, lauf2!.id]);
-    await svc.from("profiles").update({ referred_by: null, referral_rewarded_at: null }).eq("id", gid);
-    await svc.from("notification_queue").delete().eq("event_type", "guthaben");
   });
 });
 
