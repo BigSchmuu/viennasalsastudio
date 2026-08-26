@@ -327,4 +327,23 @@ _To be added by /qa_
 ---
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://viennasalsastudio.vercel.app — 2026-08-26
+**Tag:** `v1.44.0-PROJ-44`
+
+In der Produktion nachgeprüft, nicht nur lokal: Der Kunde sieht seinen Code
+(`VSS-P88XKV`) und den Satz „du € 15,00, dein Freund € 15,00"; der Betreiber
+findet die beiden Beträge im Preisformular; `/en/login` führt auf
+`/en/passwort-vergessen` und bleibt englisch.
+
+**Reihenfolge:** Die Migrationen lagen bereits vor dem Deploy auf der
+Produktionsdatenbank. Das war hier unschädlich — ohne die neue App kann
+niemand einen Code eingeben, und `grant_pending_referral_rewards` ruft nur
+neuer Code auf. Bei PROJ-42 und PROJ-30 hat dieselbe Reihenfolge die
+Produktion zweimal lahmgelegt, weil dort erzwingende Migrationen vor dem
+Deploy lagen. Die Regel bleibt: erst die App, dann die Migration, die etwas
+verlangt.
+
+**Offen bei Auslieferung:** die wählbare Benachrichtigung bei einer Gutschrift
+von Hand und der Grund darin (zwei Kriterien). Deshalb steht die Funktion in
+INDEX.md weiter auf „In Progress" — sie ist live, aber nicht vollständig.
