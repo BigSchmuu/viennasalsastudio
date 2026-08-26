@@ -377,3 +377,27 @@ test.describe("Rücksetz-Link aus der E-Mail", () => {
     expect(page.url()).toContain("code=abc123-token-xyz");
   });
 });
+
+// Designüberarbeitung 2026-08: Der Hero nennt das Angebot. Er darf nichts
+// behaupten, was das Studio nicht anbietet.
+test.describe("Startseite: das genannte Angebot stimmt", () => {
+  test.use({ locale: "de-DE" });
+
+  test("Kein Kizomba mehr", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 700 });
+  
+    // Zuerst Deutsch: Ein Besuch auf /en merkt sich die Sprache im Cookie,
+    // danach wäre auch / englisch.
+    await page.goto("/");
+    await page.waitForTimeout(2000);
+    await expect(page.getByText("Salsa und Bachata in Wien")).toBeVisible();
+  
+    for (const pfad of ["/", "/kurse", "/stundenplan", "/events", "/en"]) {
+      await page.goto(pfad);
+      await page.waitForTimeout(1500);
+      const text = await page.locator("body").innerText();
+      expect(text, pfad + " enthält Kizomba").not.toContain("Kizomba");
+    }
+    await expect(page.getByText("Salsa and Bachata in Vienna")).toBeVisible();
+  });
+});
