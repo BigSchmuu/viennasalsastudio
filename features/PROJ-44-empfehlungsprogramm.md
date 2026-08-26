@@ -43,39 +43,43 @@ Es gibt bisher **keinen Begriff von Guthaben oder Rabatt auf ein Abo**: Der SEPA
 **Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
 
 ### Der Code
-- [ ] Angenommen ein Kunde öffnet sein Profil, dann findet er seinen persönlichen Empfehlungscode und kann ihn kopieren.
-- [ ] Angenommen zwei Kunden vergleichen ihre Codes, dann sind sie verschieden und nicht erratbar.
-- [ ] Angenommen ein Kunde gibt beim Buchen **seinen eigenen** Code ein, dann wird er nicht anerkannt.
-- [ ] Angenommen ein Kunde hatte schon einmal ein Abo, wenn er einen Empfehlungscode eingibt, dann wird er nicht anerkannt — das Programm gilt für neue Kunden.
-- [ ] Angenommen ein Kunde gibt einen Code ein, dann muss er nicht wissen, ob es ein Gutschein oder eine Empfehlung ist; beides wird im selben Feld eingegeben.
+- [x] Angenommen ein Kunde öffnet sein Profil, dann findet er seinen persönlichen Empfehlungscode und kann ihn kopieren.
+- [x] Angenommen zwei Kunden vergleichen ihre Codes, dann sind sie verschieden und nicht erratbar.
+- [x] Angenommen ein Kunde gibt beim Buchen **seinen eigenen** Code ein, dann wird er nicht anerkannt.
+- [x] Angenommen ein Kunde hatte schon einmal ein Abo, wenn er einen Empfehlungscode eingibt, dann wird er nicht anerkannt — das Programm gilt für neue Kunden.
+- [x] Angenommen ein Kunde gibt einen Code ein, dann muss er nicht wissen, ob es ein Gutschein oder eine Empfehlung ist; beides wird im selben Feld eingegeben.
 
 ### Die Belohnung
-- [ ] Angenommen ein Geworbener bucht mit einem gültigen Code, wenn seine **erste Lastschrift erfolgreich** eingezogen wurde, dann erhalten beide Seiten je 15 € Guthaben.
-- [ ] Angenommen die erste Lastschrift kommt zurück, dann entsteht **kein** Guthaben — für keine der beiden Seiten.
-- [ ] Angenommen der Geworbene kündigt vor der ersten Abbuchung, dann entsteht kein Guthaben.
-- [ ] Angenommen ein Kunde wirbt mehrere Personen, dann gibt es keine Obergrenze.
+- [x] Angenommen ein Geworbener bucht mit einem gültigen Code, wenn seine **erste Lastschrift erfolgreich** eingezogen wurde, dann erhalten beide Seiten je 15 € Guthaben.
+- [x] Angenommen die erste Lastschrift kommt zurück, dann entsteht **kein** Guthaben — für keine der beiden Seiten.
+- [x] Angenommen der Geworbene kündigt vor der ersten Abbuchung, dann entsteht kein Guthaben.
+- [x] Angenommen ein Kunde wirbt mehrere Personen, dann gibt es keine Obergrenze.
 
 ### Benachrichtigung
-- [ ] Angenommen eine Empfehlung eines Kunden hat gezählt, dann wird er darüber benachrichtigt und erfährt, wie viel Guthaben er nun hat.
-- [ ] Angenommen der Kunde hat diese Benachrichtigungsart abgeschaltet, dann bekommt er sie nicht — das Guthaben entsteht trotzdem.
-- [ ] Angenommen ein Kunde nutzt die englische Fassung, dann kommt auch diese Benachrichtigung auf Englisch.
+- [x] Angenommen eine Empfehlung eines Kunden hat gezählt, dann wird er darüber benachrichtigt und erfährt, wie viel Guthaben er nun hat.
+- [x] Angenommen der Kunde hat diese Benachrichtigungsart abgeschaltet, dann bekommt er sie nicht — das Guthaben entsteht trotzdem.
+- [x] Angenommen ein Kunde nutzt die englische Fassung, dann kommt auch diese Benachrichtigung auf Englisch.
 
 ### Die Verrechnung
-- [ ] Angenommen ein Kunde hat Guthaben, wenn der nächste SEPA-Lauf ihn erfasst, dann wird das Guthaben vom Abo-Betrag abgezogen.
-- [ ] Angenommen das Guthaben ist größer als der Abo-Betrag, dann wird nur bis auf null verrechnet und der Rest bleibt für den nächsten Lauf stehen.
-- [ ] Angenommen ein Betrag wurde durch Guthaben gemindert, wenn der Kunde seine Rechnung ansieht, dann ist erkennbar, dass und in welcher Höhe Guthaben verrechnet wurde.
-- [ ] Angenommen ein Kunde hat Guthaben, aber kein aktives Abo, dann bleibt das Guthaben stehen und wird **nicht** ausgezahlt.
+- [x] Angenommen ein Kunde hat Guthaben, wenn der nächste SEPA-Lauf ihn erfasst, dann wird das Guthaben vom Abo-Betrag abgezogen.
+- [x] Angenommen das Guthaben ist größer als der Abo-Betrag, dann wird nur bis auf null verrechnet und der Rest bleibt für den nächsten Lauf stehen.
+- [x] Angenommen ein Betrag wurde durch Guthaben gemindert, wenn der Kunde seine Rechnung ansieht, dann ist erkennbar, dass und in welcher Höhe Guthaben verrechnet wurde.
+- [x] Angenommen ein Kunde hat Guthaben, aber kein aktives Abo, dann bleibt das Guthaben stehen und wird **nicht** ausgezahlt.
 
 ### Pflege durch den Betreiber
-- [ ] Angenommen der Betreiber öffnet die Stelle, an der er die Preise pflegt, dann findet er dort die beiden Beträge (Werbender / Geworbener) und kann sie ändern.
-- [ ] Angenommen der Betreiber ändert einen Betrag, dann gilt der neue Wert für künftige Empfehlungen; bereits gutgeschriebenes Guthaben bleibt unverändert.
-- [ ] Angenommen der Betreiber sieht sich einen Kunden an, dann erkennt er dessen Guthaben und wer ihn geworben hat.
-- [ ] Angenommen der Betreiber will einem Kunden Guthaben gutschreiben, dann kann er das von Hand tun und muss dabei einen Grund angeben.
+- [x] Angenommen der Betreiber öffnet die Stelle, an der er die Preise pflegt, dann findet er dort die beiden Beträge (Werbender / Geworbener) und kann sie ändern.
+- [x] Angenommen der Betreiber ändert einen Betrag, dann gilt der neue Wert für künftige Empfehlungen; bereits gutgeschriebenes Guthaben bleibt unverändert.
+- [x] Angenommen der Betreiber sieht sich einen Kunden an, dann erkennt er dessen Guthaben und wer ihn geworben hat.
+- [x] Angenommen der Betreiber will einem Kunden Guthaben gutschreiben, dann kann er das von Hand tun und muss dabei einen Grund angeben.
 - [ ] Angenommen der Betreiber vergibt Guthaben von Hand, dann entscheidet er dabei, ob der Kunde benachrichtigt wird; die Nachricht ist standardmäßig **aus**.
 - [ ] Angenommen der Betreiber wählt die Benachrichtigung an, dann sieht der Kunde den von ihm angegebenen Grund — nicht nur den Betrag.
-- [ ] Angenommen der Betreiber zieht Guthaben ab, dann wird der Kunde **nicht** benachrichtigt.
-- [ ] Angenommen der Betreiber sieht sich das Guthaben eines Kunden an, dann erkennt er zu jeder Gutschrift, **woher** sie stammt — aus einer Empfehlung oder von Hand vergeben, mit dem angegebenen Grund.
-- [ ] Angenommen der Betreiber vergibt versehentlich zu viel, dann kann er eine Gutschrift auch wieder abziehen — ebenfalls mit Grund.
+- [x] Angenommen der Betreiber zieht Guthaben ab, dann wird der Kunde **nicht** benachrichtigt.
+- [x] Angenommen der Betreiber sieht sich das Guthaben eines Kunden an, dann erkennt er zu jeder Gutschrift, **woher** sie stammt — aus einer Empfehlung oder von Hand vergeben, mit dem angegebenen Grund.
+- [x] Angenommen der Betreiber vergibt versehentlich zu viel, dann kann er eine Gutschrift auch wieder abziehen — ebenfalls mit Grund.
+
+> **Stand 2026-08-26:** Zwei Kriterien sind noch offen — die wählbare
+> Benachrichtigung bei einer Gutschrift von Hand und der Grund darin. Alles
+> übrige ist umgesetzt und an echten Daten nachgewiesen.
 
 ## Edge Cases
 - Was, wenn der Werbende sein Abo kündigt, bevor das Guthaben aufgebraucht ist? → Es bleibt stehen. Kommt er zurück, wird es weiter verrechnet; ausgezahlt wird es nie.
