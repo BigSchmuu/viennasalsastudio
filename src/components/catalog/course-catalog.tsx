@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { levelOptions, levelLabel, levelColor, levelBadgeStyle } from "@/lib/constants/levels";
+import { levelOptions, levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -91,6 +91,7 @@ export function CourseCatalog({
   const hasMore = visibleCount < filtered.length;
 
   const filtersActive = danceStyleId !== ALL || level !== ALL || locationId !== ALL;
+
 
   function resetFilters() {
     setDanceStyleId(ALL);
@@ -200,16 +201,15 @@ export function CourseCatalog({
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {visible.map((course) => (
               <Card
                 key={course.id}
-                className="border-l-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                style={{ borderLeftColor: levelColor(course.level) }}
+                className="group flex flex-col rounded-card border-border/70 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-soft-lg"
               >
-                <Link href={`/kurse/${course.id}`} className="block">
-                  <CardHeader>
-                    <CardTitle>{course.name}</CardTitle>
+                <Link href={`/kurse/${course.id}`} className="block flex-1">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="transition-colors group-hover:text-primary">{course.name}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex flex-wrap gap-2">
@@ -219,22 +219,32 @@ export function CourseCatalog({
                       </Badge>
                       {course.isFull && <Badge variant="destructive">{t("soldOut")}</Badge>}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {course.roomName ? `${course.locationName} · ${course.roomName}` : course.locationName}
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      {course.teacherNames.length > 0
-                        ? course.teacherNames.join(", ")
-                        : t("teacherTba")}
-                    </p>
+                    {/* Ein noch offener Lehrer bleibt sichtbar (PROJ-5), tritt
+                        aber zurück: Ein feststehender Name ist ein Grund für
+                        die Wahl, „wird noch bekanntgegeben" ist es nicht. */}
+                    {course.teacherNames.length > 0 ? (
+                      <p className="text-sm text-muted-foreground">{course.teacherNames.join(", ")}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground/70">{t("teacherTba")}</p>
+                    )}
                     <CoursePriceLine pricing={pricing} coursePrice={course.price} className="text-sm" />
                     {course.prerequisiteNote && (
-                      <p className="text-xs bg-muted rounded-md px-2 py-1">{course.prerequisiteNote}</p>
+                      <p className="text-xs bg-muted rounded-lg px-2 py-1">{course.prerequisiteNote}</p>
                     )}
                   </CardContent>
                 </Link>
                 <CardFooter>
-                  <Button className="w-full rounded-full" onClick={() => handleBook(course)}>
+                  {/* Vorher: zwölf vollflächig rote Knöpfe übereinander. Eine
+                      Akzentfarbe wirkt nur, solange sie selten ist — das Rot
+                      bleibt jetzt der Buchung im Dialog vorbehalten. */}
+                  <Button
+                    variant="outline"
+                    className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
+                    onClick={() => handleBook(course)}
+                  >
                     {t("book")}
                   </Button>
                 </CardFooter>

@@ -59,9 +59,9 @@ export function SiteHeader({
   }
 
   return (
-    <header className="border-b bg-background">
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="font-heading text-lg font-bold">
+        <Link href="/" className="font-heading text-lg font-bold tracking-[-0.5px]">
           Vienna Salsa Studio
         </Link>
 
@@ -76,7 +76,7 @@ export function SiteHeader({
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  "nav-label px-3 py-2 border-b-2 -mb-px transition-colors",
                   isActive(link.href)
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"

@@ -4,26 +4,38 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 240 33% 99%;   /* #fbfbfd */
+    --foreground: 226 49% 8%;    /* #0b1020 */
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 226 49% 8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover-foreground: 226 49% 8%;
     --primary: 4 100% 59%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --secondary: 228 38% 97%;    /* #f6f7fb */
+    --secondary-foreground: 226 49% 12%;
+    --muted: 228 38% 97%;
+    --muted-foreground: 226 18% 40%;
+    --accent: 228 38% 96%;
+    --accent-foreground: 226 49% 12%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
+    --border: 226 22% 90%;
+    --input: 226 22% 88%;
     --ring: 4 100% 59%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Marke (docs/design-system.md) */
+    --salsa: 4 100% 59%;      /* #ff3b30 */
+    --mango: 41 100% 50%;     /* #ffb000 */
+    --berry: 252 100% 68%;    /* #7c5cff */
+
+    /* Kursniveaus — dieselben Werte wie auf der Website */
+    --level-beginner: 173 58% 39%;
+    --level-improver: 205 38% 44%;
+    --level-intermediate: 43 74% 66%;
+    --level-advanced: 355 78% 56%;
+    --level-open: 262 90% 66%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -46,8 +58,10 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
+    /* Die Marke bleibt auch im Dunkeln die Marke — vorher wurde sie hier
+       zu Weiß, und das Rot war weg. */
+    --primary: 4 100% 62%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
@@ -58,7 +72,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    --ring: 4 100% 62%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -81,5 +95,20 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Der Kundenbereich bekommt den weichen Verlauf der Website. Die
+     Verwaltung nicht: Dort zählt Dichte und Lesbarkeit, und ein Verlauf
+     unter einer Tabelle mit 50 Zeilen macht sie nur unruhig. */
+  .brand-surface {
+    background-image:
+      radial-gradient(60rem 30rem at 15% -10%, hsl(var(--salsa) / 0.06), transparent 60%),
+      radial-gradient(45rem 25rem at 90% 0%, hsl(var(--mango) / 0.07), transparent 55%);
+    background-attachment: fixed;
+  }
+
+  /* Versalien mit Sperrung für die Navigation (docs/design-system.md) */
+  .nav-label {
+    @apply text-[13px] font-semibold uppercase tracking-[0.08em];
   }
 }

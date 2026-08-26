@@ -14,6 +14,16 @@ const config: Config = {
   			heading: ['var(--font-raleway)'],
   		},
   		colors: {
+  			salsa: 'hsl(var(--salsa))',
+  			mango: 'hsl(var(--mango))',
+  			berry: 'hsl(var(--berry))',
+  			level: {
+  				beginner: 'hsl(var(--level-beginner))',
+  				improver: 'hsl(var(--level-improver))',
+  				intermediate: 'hsl(var(--level-intermediate))',
+  				advanced: 'hsl(var(--level-advanced))',
+  				open: 'hsl(var(--level-open))'
+  			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
@@ -68,7 +78,15 @@ const config: Config = {
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			sm: 'calc(var(--radius) - 4px)',
+  			/* Großzügig gerundete Karten und Abschnitte (docs/design-system.md) */
+  			card: '26px'
+  		},
+  		boxShadow: {
+  			/* Weiche, große Streuung statt harter Kanten — der Schattenstil
+  			   der Website. */
+  			soft: '0 8px 22px rgba(13, 18, 40, 0.08)',
+  			'soft-lg': '0 18px 55px rgba(13, 18, 40, 0.12)'
   		},
   		keyframes: {
   			'accordion-down': {

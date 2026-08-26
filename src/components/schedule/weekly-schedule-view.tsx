@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { weekdayOptions } from "@/lib/constants/weekdays";
-import { levelLabel, levelColor, levelBadgeStyle } from "@/lib/constants/levels";
+import { levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useTranslations } from "next-intl";
@@ -71,10 +71,7 @@ function saalNumber(roomName: string | null): number {
 function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
   const t = useTranslations("schedule");
   return (
-    <Card
-      className="border-l-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-      style={{ borderLeftColor: levelColor(entry.level) }}
-    >
+    <Card className="rounded-card border-border/70 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-soft-lg">
       <CardHeader>
         <CardTitle className="flex items-baseline justify-between gap-2 text-lg">
           <span>{entry.courseName}</span>
@@ -91,14 +88,15 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
           </Badge>
           {entry.booking?.isFull && <Badge variant="destructive">{t("soldOut")}</Badge>}
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {entry.roomName ? `${entry.locationName} · ${entry.roomName}` : entry.locationName}
         </p>
-        <p className="text-sm text-muted-foreground">
-          {entry.teacherNames.length > 0
-            ? entry.teacherNames.join(", ")
-            : t("teacherTba")}
-        </p>
+        {/* Ein noch offener Lehrer bleibt sichtbar (PROJ-6), tritt aber zurück. */}
+        {entry.teacherNames.length > 0 ? (
+          <p className="text-sm text-muted-foreground">{entry.teacherNames.join(", ")}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground/70">{t("teacherTba")}</p>
+        )}
         {entry.prerequisiteNote && (
           <p className="text-xs bg-muted rounded-md px-2 py-1">{entry.prerequisiteNote}</p>
         )}
@@ -197,6 +195,15 @@ function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
 
   const dayEarliestStart = Math.min(...entries.map((e) => minutesFromTime(e.startTime)));
 
+  // Der Versatz zeigt an, dass ein Saal später beginnt — aber nur die erste
+  // Karte je Spalte richtet sich daran aus; darunter stapeln die Karten mit
+  // festem Abstand. Ein unbegrenzter Versatz kauft also fast nichts und kann
+  // die Seite zerreißen: Ein einzelner Kurs um 03:12 schob die Abendkurse bei
+  // 3 px je Minute um über 2500 px nach unten, und der Rest des Tages lag
+  // hinter einer leeren Fläche. Mehr als eine Stunde Vorsprung wird deshalb
+  // nicht mehr ausgespielt; die genaue Uhrzeit steht ohnehin auf jeder Karte.
+  const MAX_OFFSET_PX = 60 * PX_PER_MINUTE;
+
   return (
     <div
       className="grid gap-3 items-start overflow-x-auto"
@@ -205,7 +212,7 @@ function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
       {roomIds.map((roomId) => {
         const room = rooms.get(roomId)!;
         const roomEarliestStart = Math.min(...room.entries.map((e) => minutesFromTime(e.startTime)));
-        const offsetPx = (roomEarliestStart - dayEarliestStart) * PX_PER_MINUTE;
+        const offsetPx = Math.min((roomEarliestStart - dayEarliestStart) * PX_PER_MINUTE, MAX_OFFSET_PX);
         return (
           <div key={roomId}>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
@@ -232,6 +239,7 @@ export function WeeklyScheduleView({
 
   const t = useTranslations("schedule");
   const tag = useTranslations("weekdays");
+
 
   return (
     <Tabs value={activeDay} onValueChange={setActiveDay}>
