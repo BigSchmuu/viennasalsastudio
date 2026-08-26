@@ -15,6 +15,17 @@ function readPrice(value: FormDataEntryValue | null): number | null {
   return Number(raw);
 }
 
+/**
+ * Bei den Belohnungsbeträgen ist 0 eine Aussage, leer dagegen ein Versehen.
+ * Ein leeres Feld wird deshalb nicht als 0 gelesen — sonst schaltete ein
+ * versehentlich geleertes Feld das Empfehlungsprogramm still ab.
+ */
+function readReward(value: FormDataEntryValue | null): number | undefined {
+  const raw = String(value ?? "").trim();
+  if (!raw) return undefined;
+  return Number(raw);
+}
+
 export async function updatePricing(formData: FormData): Promise<ActionResult> {
   const parsed = pricingSchema.safeParse({
     normal_price: Number(formData.get("normal_price")),
@@ -23,6 +34,8 @@ export async function updatePricing(formData: FormData): Promise<ActionResult> {
     course_student_price: readPrice(formData.get("course_student_price")),
     flatrate_price: readPrice(formData.get("flatrate_price")),
     flatrate_student_price: readPrice(formData.get("flatrate_student_price")),
+    referral_reward_referrer: readReward(formData.get("referral_reward_referrer")),
+    referral_reward_referee: readReward(formData.get("referral_reward_referee")),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };

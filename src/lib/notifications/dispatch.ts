@@ -132,6 +132,16 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         locale
       );
     }
+    case "empfehlung": {
+      const details = { amount: payload.amount as number, balance: payload.balance as number };
+      const key = resolveTemplateKey("empfehlung", details);
+      return buildNotificationContent(
+        "empfehlung",
+        details,
+        key ? await fetchOverride(service, key, locale) : undefined,
+        locale
+      );
+    }
     case "sepa_ankuendigung": {
       const details = { amount: payload.amount as number, dueDate: payload.due_date as string };
       const key = resolveTemplateKey("sepa_ankuendigung", details);

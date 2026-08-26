@@ -13,6 +13,12 @@ export type StudioPricing = {
   dropin: { normal: number; student: number };
   course: { normal: number | null; student: number | null };
   flatrate: { normal: number | null; student: number | null };
+  /**
+   * Die beiden Empfehlungsbeträge (PROJ-44). Anders als die Abo-Preise nie
+   * `null`: Bei einer Belohnung ist 0 die Aussage „das Programm ist aus", und
+   * genau dafür gibt es das Feld — einen eigenen Schalter braucht es nicht.
+   */
+  referral: { referrer: number; referee: number };
 };
 
 /** Fallback, falls die Preiszeile fehlt — entspricht dem bisherigen Verhalten. */
@@ -26,6 +32,8 @@ type PricingRow = {
   course_student_price?: number | null;
   flatrate_price?: number | null;
   flatrate_student_price?: number | null;
+  referral_reward_referrer?: number | null;
+  referral_reward_referee?: number | null;
 } | null;
 
 /** Übersetzt die Datenbankzeile in die Preisliste — an genau einer Stelle. */
@@ -42,6 +50,10 @@ export function readStudioPricing(row: PricingRow): StudioPricing {
     flatrate: {
       normal: row?.flatrate_price ?? null,
       student: row?.flatrate_student_price ?? null,
+    },
+    referral: {
+      referrer: row?.referral_reward_referrer ?? 0,
+      referee: row?.referral_reward_referee ?? 0,
     },
   };
 }

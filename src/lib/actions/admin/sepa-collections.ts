@@ -106,13 +106,36 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   const { data: angelegtePositionen, error: itemsError } = await supabase
     .from("sepa_collection_items")
     .insert(items.map((item) => ({ ...item, run_id: run.id })))
-    .select("id, customer_id, subscription_id, amount");
+    .select("id, customer_id, subscription_id, event_ticket_id, amount");
 
   if (itemsError) {
     return { error: "Lastschriftpositionen konnten nicht gespeichert werden." };
   }
 
-  // PROJ-44: Guthaben mindert den Abzubuchenden Betrag — es entsteht keine
+  // PROJ-44: Empfehlungen, deren erste Lastschrift durchgegangen ist, werden
+  // jetzt belohnt — vor der Verrechnung, damit das frische Guthaben schon
+  // diesen Lauf mindert. Wer im vorigen Lauf geworben hat, wartet nicht noch
+  // einen Monat auf die Wirkung.
+  const { data: belohnungen, error: belohnungFehler } = await supabase.rpc(
+    "grant_pending_referral_rewards"
+  );
+  if (belohnungFehler) {
+    // Der Lauf selbst steht bereits. Eine ausgefallene Belohnung ist ärgerlich,
+    // aber sie geht nicht verloren: Solange referral_rewarded_at leer bleibt,
+    // findet der nächste Lauf denselben Fall wieder.
+    console.error("grant_pending_referral_rewards failed", belohnungFehler);
+  }
+
+  // Was angekündigt wird, führt diese Liste — die Verrechnung darunter senkt
+  // einzelne Beträge, und die Ankündigung muss den gesenkten nennen.
+  const angekuendigt = (angelegtePositionen ?? []).map((position) => ({
+    customerId: position.customer_id,
+    subscriptionId: position.subscription_id,
+    eventTicketId: position.event_ticket_id,
+    amount: position.amount as number,
+  }));
+
+  // PROJ-44: Guthaben mindert den abzubuchenden Betrag — es entsteht keine
   // zweite Buchung, denn eine negative Lastschrift gibt es nicht.
   //
   // Erst nach dem Anlegen, weil die Verrechnung an der Position festgehalten
@@ -121,7 +144,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   //
   // Nur Abo-Positionen. Tickets werden nicht regelmäßig eingezogen; dort hätte
   // eine Verrechnung keinen natürlichen Zeitpunkt.
-  for (const position of angelegtePositionen ?? []) {
+  for (const [index, position] of (angelegtePositionen ?? []).entries()) {
     if (!position.subscription_id || position.amount <= 0) continue;
     const { data: verrechnet } = await supabase.rpc("redeem_customer_credit", {
       p_customer_id: position.customer_id,
@@ -129,10 +152,12 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
       p_max_amount: position.amount,
     });
     if (verrechnet && verrechnet > 0) {
+      const gemindert = position.amount - verrechnet;
       await supabase
         .from("sepa_collection_items")
-        .update({ amount: position.amount - verrechnet })
+        .update({ amount: gemindert })
         .eq("id", position.id);
+      angekuendigt[index].amount = gemindert;
     }
   }
 
@@ -150,15 +175,33 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   // timing out even though the run/invoices already saved successfully. The
   // cron drain sends these. Keyed by run.id (not due_date) so a correction
   // run for the same due date still gets its own announcement per item.
+  //
+  // Der angekündigte Betrag ist der nach der Guthabenverrechnung — eine
+  // Vorabankündigung, die mehr nennt als abgebucht wird, ist keine.
   await Promise.all(
-    items.map((item) =>
+    angekuendigt.map((item) =>
       enqueueNotification({
-        customerId: item.customer_id,
+        customerId: item.customerId,
         eventType: "sepa_ankuendigung",
         payload: { amount: item.amount, due_date: dueDate },
-        dedupeKey: `sepa_item:${item.subscription_id ?? item.event_ticket_id}:${run.id}`,
+        dedupeKey: `sepa_item:${item.subscriptionId ?? item.eventTicketId}:${run.id}`,
       })
     )
+  );
+
+  // Nur der Werbende wird benachrichtigt. Der Geworbene sieht sein Guthaben
+  // ohnehin auf der Rechnung, die dieser Lauf gerade erzeugt hat.
+  await Promise.all(
+    (belohnungen ?? [])
+      .filter((b) => Number(b.referrer_amount) > 0)
+      .map((b) =>
+        enqueueNotification({
+          customerId: b.referrer_id,
+          eventType: "empfehlung",
+          payload: { amount: Number(b.referrer_amount), balance: Number(b.referrer_balance) },
+          dedupeKey: `empfehlung:${b.referee_id}`,
+        })
+      )
   );
 
   revalidatePath("/admin/lastschriften");
@@ -204,7 +247,16 @@ export async function generateRunXml(runId: string): Promise<RunXmlResult> {
     return { error: "Keine Positionen für diesen Lauf gefunden." };
   }
 
-  const mandateReferences = [...new Set(rawItems.map((i) => i.mandate_reference))];
+  // PROJ-44: Deckt das Guthaben den vollen Beitrag, bleibt eine Position über
+  // 0 € stehen. Sie gehört in die Rechnung — dort erklärt sie, warum nichts
+  // abgebucht wurde — aber nicht in die Bankdatei: Eine Lastschrift über 0 €
+  // weist die Bank ab, und das kann die ganze Datei mitnehmen.
+  const einzuziehen = rawItems.filter((item) => item.amount > 0);
+  if (einzuziehen.length === 0) {
+    return { error: "In diesem Lauf ist nichts einzuziehen — alle Beträge sind durch Guthaben gedeckt." };
+  }
+
+  const mandateReferences = [...new Set(einzuziehen.map((i) => i.mandate_reference))];
   const { data: mandates } = await supabase
     .from("sepa_mandates")
     .select("mandate_reference, consented_at")
@@ -213,12 +265,17 @@ export async function generateRunXml(runId: string): Promise<RunXmlResult> {
     (mandates ?? []).map((m) => [m.mandate_reference, m.consented_at.slice(0, 10)])
   );
 
+  // Nur wirklich eingezogene Positionen zählen als frühere Nutzung des
+  // Mandats: Eine durch Guthaben auf 0 € gesunkene Position war nie in einer
+  // Bankdatei. Zählte sie mit, würde die nächste Lastschrift als
+  // Folgelastschrift gekennzeichnet, obwohl das Mandat noch nie benutzt wurde.
   const { data: priorItems } = await supabase
     .from("sepa_collection_items")
     .select("mandate_reference, created_at")
-    .in("mandate_reference", mandateReferences);
+    .in("mandate_reference", mandateReferences)
+    .gt("amount", 0);
 
-  const items: SepaXmlItem[] = rawItems.map((item) => {
+  const items: SepaXmlItem[] = einzuziehen.map((item) => {
     const hasEarlierUse = (priorItems ?? []).some(
       (p) => p.mandate_reference === item.mandate_reference && p.created_at < item.created_at
     );

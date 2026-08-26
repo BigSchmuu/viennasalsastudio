@@ -18,7 +18,7 @@ export default async function CustomerDetailPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, birthdate, gender")
+    .select("id, full_name, phone, birthdate, gender, referral_code, referred_by, referral_rewarded_at")
     .eq("id", id)
     .eq("role", "customer")
     .single();
@@ -79,6 +79,19 @@ export default async function CustomerDetailPage({
 
   const courses = coursesRes.data ?? [];
 
+  // PROJ-44: Wer diesen Kunden geworben hat. Wurde der Werbende geloescht,
+  // steht referred_by auf null und die Zuordnung ist damit weg — das Guthaben
+  // des Geworbenen bleibt davon unberuehrt.
+  let werber: { id: string; full_name: string | null } | null = null;
+  if (profile.referred_by) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("id", profile.referred_by)
+      .maybeSingle();
+    werber = data;
+  }
+
   const creditEntries: CreditEntry[] = (creditsRes.data ?? []).map((c) => ({
     id: c.id,
     amount: Number(c.amount),
@@ -120,7 +133,26 @@ export default async function CustomerDetailPage({
       </div>
 
       <div className="space-y-3">
-        <h3 className="font-heading text-lg font-semibold">Guthaben</h3>
+        <h3 className="font-heading text-lg font-semibold">Guthaben und Empfehlung</h3>
+        <div className="rounded-md border p-4 text-sm space-y-1">
+          <p>
+            <span className="text-muted-foreground">Eigener Empfehlungscode: </span>
+            <span className="font-mono">{profile.referral_code ?? "—"}</span>
+          </p>
+          <p>
+            <span className="text-muted-foreground">Geworben von: </span>
+            {werber ? (
+              <Link href={`/admin/kunden/${werber.id}`} className="underline">
+                {werber.full_name ?? "Unbenannt"}
+              </Link>
+            ) : (
+              "—"
+            )}
+            {profile.referred_by && !profile.referral_rewarded_at && (
+              <span className="text-muted-foreground"> — Guthaben noch offen, es entsteht nach der ersten erfolgreichen Abbuchung</span>
+            )}
+          </p>
+        </div>
         <CreditManager customerId={id} balance={creditBalance} entries={creditEntries} />
       </div>
     </div>

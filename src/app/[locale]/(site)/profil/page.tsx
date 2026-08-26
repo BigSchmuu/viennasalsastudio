@@ -9,6 +9,7 @@ import { MyBookingsSection, type MyBookingRow } from "@/components/booking/my-bo
 import { MySubscriptionsSection, type MySubscriptionRow } from "@/components/subscription/my-subscriptions-section";
 import { MyInvoicesSection, type MyInvoiceRow } from "@/components/invoices/my-invoices-section";
 import { MyCreditSection, type MyCreditEntry } from "@/components/credits/my-credit-section";
+import { readStudioPricing } from "@/lib/pricing";
 import { MyWaitlistSection, type MyWaitlistRow } from "@/components/waitlist/my-waitlist-section";
 import type { NotificationPreferenceRow } from "@/components/notifications/notification-settings-section";
 import type { MyTicketRow } from "@/components/tickets/my-tickets-section";
@@ -55,9 +56,10 @@ export default async function ProfilePage() {
     { data: waitlistRows },
     { data: notificationPreferenceRows },
     { data: ticketRows },
+    { data: pricingRow },
     { data: creditRows },
   ] = await Promise.all([
-    supabase.from("profiles").select("full_name, phone, birthdate, gender").eq("id", user.id).single(),
+    supabase.from("profiles").select("full_name, phone, birthdate, gender, referral_code").eq("id", user.id).single(),
     supabase
       .from("sepa_mandates")
       .select("id, iban, account_holder_name, consented_at")
@@ -92,6 +94,9 @@ export default async function ProfilePage() {
       .select("id, payment_method, status, price, events(name, starts_at)")
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false }),
+    // PROJ-44: Die beiden Belohnungsbeträge — stehen beide auf 0, ist das
+    // Empfehlungsprogramm aus und der Code wird nicht angeboten.
+    supabase.from("dropin_pricing").select("*").limit(1).single(),
     // PROJ-44: Guthaben-Verlauf. Der Kontostand ist die Summe daraus.
     supabase
       .from("customer_credits")
@@ -199,6 +204,7 @@ export default async function ProfilePage() {
     createdAt: c.created_at,
   }));
   const creditBalance = creditEntries.reduce((summe, e) => summe + e.amount, 0);
+  const studioPricing = readStudioPricing(pricingRow);
   const tc = await getTranslations("credit");
 
   return (
@@ -302,7 +308,13 @@ export default async function ProfilePage() {
                 </div>
               </AccordionTrigger>
               <AccordionContent>
-                <MyCreditSection balance={creditBalance} entries={creditEntries} />
+                <MyCreditSection
+                  balance={creditBalance}
+                  entries={creditEntries}
+                  referralCode={profile?.referral_code ?? null}
+                  rewardReferrer={studioPricing.referral.referrer}
+                  rewardReferee={studioPricing.referral.referee}
+                />
               </AccordionContent>
             </AccordionItem>
 

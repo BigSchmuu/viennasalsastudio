@@ -65,7 +65,7 @@ test("PROJ-44: der Kunde sieht Kontostand, Grund und den Hinweis auf die Verrech
   await page.waitForURL(/\/profil$/, { timeout: 15000 });
   await page.waitForTimeout(1200);
 
-  await page.getByRole("button", { name: "Mein Guthaben" }).click();
+  await page.getByRole("button", { name: "Empfehlen und Guthaben" }).click();
   await page.waitForTimeout(900);
   await expect(page.getByText("€ 30,00").first()).toBeVisible();
   expect(await page.getByText("€ 30,00").count()).toBe(2); // Kontostand + Verlaufszeile
@@ -97,7 +97,7 @@ test.describe("Guthaben englisch und Vorzeichen", () => {
     await page.waitForTimeout(1200);
     expect(page.url()).toContain("/en/");
 
-    await page.getByRole("button", { name: "My credit" }).click();
+    await page.getByRole("button", { name: "Refer a friend & credit" }).click();
     await page.waitForTimeout(900);
     const abschnitt = page.locator("div[data-state=open]").filter({ hasText: "cannot be paid out" }).last();
     await expect(abschnitt.getByText("Correction of a duplicate grant")).toBeVisible();

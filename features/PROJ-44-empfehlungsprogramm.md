@@ -245,7 +245,75 @@ Verrechnung hätte dort keinen natürlichen Zeitpunkt.
 ---
 
 ## Implementation Notes
-_To be added by /frontend and /backend_
+
+### Datenbank (2026-08-25/26)
+
+| Migration | Was sie tut |
+|---|---|
+| `proj44_customer_credits_ledger` | Der Guthaben-Verlauf. Prüfungen in der Tabelle statt in der Oberfläche: Ein Betrag von 0 ist unmöglich, eine Gutschrift von Hand braucht einen Grund, eine Verrechnung braucht die Abbuchung, auf die sie sich bezieht, und sie ist immer negativ. |
+| `proj44_credit_balance_and_grants` | Kontostand, Gutschreiben, Abziehen, Verrechnen. Ein Abzug unter null wird abgewiesen. |
+| `proj44_invoice_shows_redeemed_credit` | Die Rechnung erklärt den geminderten Betrag. |
+| `proj44_referral_code_and_attribution` | Code je Kunde (zufällig, ohne 0/O und 1/I/L), „geworben von", Sperre gegen die zweite Gutschrift. Alle 52 Bestandskunden haben ihren Code bekommen. |
+| `proj44_referral_reward_amounts` | Die beiden Beträge bei den Preisen, Standard 15 €. Nicht nullable: 0 ist hier eine Aussage, kein fehlender Wert. |
+| `proj44_code_field_accepts_referral` | `check_coupon_code` erkennt beide Code-Arten und sagt, welche es war. |
+| `proj44_booking_attributes_referral` | Die Buchung ordnet den Kunden dem Werbenden zu. |
+| `proj44_grant_pending_referral_rewards` | Die Belohnung, geprüft am Lauf danach. |
+| `proj44_referral_notification_type` | Die neue Benachrichtigungsart. |
+
+**Warum die Belohnung nicht am Einzugstag entsteht:** Ob eine Lastschrift durchgeht,
+weiß am Tag des Einzugs niemand — eine Rücklastschrift meldet die Bank Tage später.
+Geprüft wird deshalb erst der Einzug, der in der Vergangenheit liegt und nicht
+zurückkam. Der Werbende wartet dadurch rund vier Wochen.
+
+**Die Sperre gegen die zweite Gutschrift** ist `referral_rewarded_at`, gesetzt im
+selben `update`, das die Fälle auswählt. Ein wiederholter Lauf findet denselben
+Kunden nicht mehr. Nachgewiesen: zweiter Aufruf liefert eine leere Liste.
+
+### Zwei Fehler, die dabei sichtbar wurden
+
+- **Die SEPA-Vorabankündigung nannte den Betrag vor der Guthabenverrechnung.** Ein
+  Kunde mit 15 € Guthaben hätte „30,00 €" angekündigt bekommen und 15,00 € abgebucht.
+  Eine Vorabankündigung, die mehr nennt als eingezogen wird, ist keine. Sie nennt jetzt
+  den tatsächlichen Betrag.
+- **Eine durch Guthaben auf 0 € gesunkene Position wäre in die Bankdatei gewandert.**
+  Eine Lastschrift über 0 € weist die Bank ab, im schlimmsten Fall mitsamt der ganzen
+  Datei. Solche Positionen bleiben jetzt draußen — die Rechnung dazu entsteht weiterhin,
+  denn sie erklärt, warum nichts abgebucht wurde. Zusätzlich zählen sie nicht mehr als
+  frühere Nutzung des Mandats: Sonst wäre die nächste Lastschrift als Folgelastschrift
+  gekennzeichnet worden, obwohl das Mandat nie benutzt wurde.
+
+### Eine Lücke, die ich selbst eingebaut hatte
+
+Die drei neuen Spalten am Kundenkonto waren für den Kunden selbst beschreibbar —
+`profiles` erlaubt ihm, seine eigene Zeile zu ändern, und neue Spalten erben dieses
+Recht stillschweigend.
+
+Nachgewiesen, nicht vermutet: Ein angemeldeter Kunde konnte `referral_rewarded_at`
+auf leer setzen. Der nächste Lastschriftlauf hätte dieselbe Empfehlung erneut belohnt
+— Monat für Monat, je 15 € auf zwei Konten. Ebenso konnte er sich selbst einen
+Werbenden eintragen und damit die Bedingung „nur für Neukunden" umgehen.
+
+Der erste Reparaturversuch blieb wirkungslos: Ich entzog die Rechte spaltenweise,
+aber das Recht war auf Tabellenebene vergeben, und ein spaltenweiser Entzug hebt das
+nicht auf. Der Angriff gelang danach unverändert — was ihn erneut auszuprobieren
+zutage förderte. Richtig ist, das Tabellenrecht zu entziehen und genau die Spalten
+zurückzugeben, die vorher schon beschreibbar waren.
+
+Beim selben Versuch geprüft und in Ordnung: Ein Kunde kann sich **nicht** selbst zum
+Betreiber machen (ein Trigger weist es ab) und sieht **keine** fremden Codes.
+
+### Oberfläche
+- **Kundenprofil:** Abschnitt „Empfehlen und Guthaben" — Code mit Kopierknopf, die
+  beiden Beträge im Klartext, Kontostand und Verlauf. Stehen beide Beträge auf 0, wird
+  der Code nicht angeboten: Ein Code ohne Belohnung wäre ein Versprechen, das niemand einlöst.
+- **Buchungsdialog:** Ein Feld für beides. Der Hinweis darunter unterscheidet, weil die
+  Wirkung sich unterscheidet — ein Gutschein senkt den Preis sofort, eine Empfehlung
+  bringt Guthaben nach der ersten Abbuchung.
+- **Kundenansicht des Betreibers:** eigener Code, „geworben von" mit Verweis auf den
+  Werbenden, und der Hinweis, dass das Guthaben noch offen ist.
+- **Preisformular:** die beiden Beträge, mit dem Hinweis, dass 0 das Programm abschaltet.
+
+Alle Kundentexte in beiden Sprachen.
 
 ---
 

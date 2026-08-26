@@ -45,6 +45,17 @@ const requiredPrice = (label: string) =>
     .positive(`${label} muss größer als 0 sein`)
     .max(MAX_PRICE, `${label} darf höchstens ${MAX_PRICE} € betragen`);
 
+/**
+ * Ein Belohnungsbetrag darf 0 sein — das ist die Art, das Empfehlungsprogramm
+ * abzuschalten (PROJ-44). Leer darf er nicht sein: Ein leeres Feld sähe aus
+ * wie „nicht gepflegt", würde das Programm aber still beenden.
+ */
+const rewardAmount = (label: string) =>
+  z
+    .number({ message: `${label} darf nicht leer sein — 0 schaltet das Programm ab` })
+    .min(0, `${label} darf nicht negativ sein`)
+    .max(MAX_PRICE, `${label} darf höchstens ${MAX_PRICE} € betragen`);
+
 /** Abo- und Flatrate-Preise dürfen fehlen: `null` heißt „noch nicht gepflegt". */
 const optionalPrice = (label: string) => requiredPrice(label).nullable();
 
@@ -67,6 +78,8 @@ export const pricingSchema = z
     course_student_price: optionalPrice("Kursabo-Studierendenpreis"),
     flatrate_price: optionalPrice("Flatrate-Normalpreis"),
     flatrate_student_price: optionalPrice("Flatrate-Studierendenpreis"),
+    referral_reward_referrer: rewardAmount("Empfehlungsguthaben für den Werbenden"),
+    referral_reward_referee: rewardAmount("Empfehlungsguthaben für den Geworbenen"),
   })
   // Eine Ermäßigung, die teurer ist als der reguläre Preis, ist immer ein
   // Zahlendreher — und einer, den niemand bemerkt, weil er plausibel aussieht.

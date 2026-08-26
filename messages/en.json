@@ -96,8 +96,8 @@
     "choose": "Please choose",
     "danceRole": "I dance as",
     "note": "Note (optional)",
-    "couponCode": "Voucher code (optional)",
-    "couponPlaceholder": "e.g. WELCOME20",
+    "couponCode": "Voucher or referral code (optional)",
+    "couponPlaceholder": "e.g. WELCOME20 or VSS-K7M2QX",
     "couponChecking": "Checking code…",
     "noWeeklySlot": "No weekly slot set.",
     "trialFree": "Free, confirmed straight away.",
@@ -121,7 +121,12 @@
     "errMandate": "Please set up a SEPA mandate in your profile first.",
     "errFull": "This class has filled up in the meantime. Please join the waiting list.",
     "errRole": "That role isn't available for this class right now. Please join the waiting list.",
-    "danceRoleRequired": "Please choose whether you dance as leader or follower."
+    "danceRoleRequired": "Please choose whether you dance as leader or follower.",
+    "couponValidPercent": "Voucher valid: {betrag}% off",
+    "couponValidFixed": "Voucher valid: {betrag} off",
+    "referralValid": "Referral code recognised: {betrag} credit after your first payment.",
+    "couponRateLimited": "Too many code attempts. Please wait a few minutes. You can still book without a code.",
+    "couponInvalid": "This code is not valid. You can still book without a code."
   },
   "profile": {
     "heading": "My profile",
@@ -204,6 +209,7 @@
       "kursstart_erinnerung": "Class start reminder",
       "event_tickets": "Event tickets",
       "probestunde_nachfassung": "Trial class follow-up",
+      "empfehlung": "Referral counted",
       "newsletter": "Newsletter"
     },
     "groupHint": {
@@ -213,6 +219,7 @@
       "kursstart_erinnerung": "Reminder the day before a trial class or drop-in",
       "event_tickets": "Your event ticket was confirmed, or the event was cancelled",
       "probestunde_nachfassung": "Follow-up after a trial class, with a direct booking link",
+      "empfehlung": "Someone booked with your referral code and you get credit",
       "newsletter": "Announcements and offers from the studio"
     }
   },
@@ -261,11 +268,17 @@
     "readGerman": "Read the German version"
   },
   "credit": {
-    "section": "My credit",
-    "sectionHint": "Automatically offset against your next membership payment",
+    "section": "Refer a friend & credit",
+    "sectionHint": "Your referral code and your credit",
     "offsetHint": "This is deducted automatically from your next membership payment. It cannot be paid out.",
     "originRedeemed": "Offset against your membership payment",
     "originReferral": "Referral",
-    "empty": "You don't have any credit at the moment."
+    "empty": "You don't have any credit at the moment.",
+    "referralHeading": "Your referral code",
+    "referralIntro": "Share your code with friends. As soon as someone books with it and their first payment goes through, you both get credit — {werber} for you, {geworbener} for your friend.",
+    "referralIntroOneSided": "Share your code with friends. As soon as someone books with it and their first payment goes through, you get {werber} credit.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "balanceHeading": "Your credit"
   }
 }

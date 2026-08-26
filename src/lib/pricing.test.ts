@@ -5,7 +5,24 @@ const pricing: StudioPricing = {
   dropin: { normal: 20, student: 15 },
   course: { normal: 65, student: 45 },
   flatrate: { normal: 145, student: 100 },
+  referral: { referrer: 15, referee: 15 },
 };
+
+describe("readStudioPricing — Empfehlungsbeträge", () => {
+  it("liest die gepflegten Beträge", () => {
+    const p = readStudioPricing({ referral_reward_referrer: 20, referral_reward_referee: 10 });
+    expect(p.referral).toEqual({ referrer: 20, referee: 10 });
+  });
+
+  it("liest 0 als 0 und nicht als „nicht gepflegt“", () => {
+    const p = readStudioPricing({ referral_reward_referrer: 0, referral_reward_referee: 0 });
+    expect(p.referral).toEqual({ referrer: 0, referee: 0 });
+  });
+
+  it("fehlt die Zeile ganz, ist das Programm aus — nicht versehentlich an", () => {
+    expect(readStudioPricing(null).referral).toEqual({ referrer: 0, referee: 0 });
+  });
+});
 
 describe("planPrice", () => {
   it("uses the standard course price when the course has none", () => {
@@ -37,6 +54,7 @@ describe("planPrice", () => {
       dropin: { normal: 20, student: 15 },
       course: { normal: null, student: null },
       flatrate: { normal: null, student: null },
+      referral: { referrer: 15, referee: 15 },
     };
     expect(planPrice(empty, "single_course", { coursePrice: null })).toBeNull();
     expect(planPrice(empty, "flatrate")).toBeNull();
@@ -61,6 +79,8 @@ describe("readStudioPricing", () => {
       course_student_price: 45,
       flatrate_price: 145,
       flatrate_student_price: 100,
+      referral_reward_referrer: 15,
+      referral_reward_referee: 15,
     });
     expect(result).toEqual(pricing);
   });

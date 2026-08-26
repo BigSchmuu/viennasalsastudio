@@ -56,6 +56,8 @@ export function PricingForm({ pricing }: { pricing: StudioPricing }) {
   const [courseStudent, setCourseStudent] = useState(toField(pricing.course.student));
   const [flatrateNormal, setFlatrateNormal] = useState(toField(pricing.flatrate.normal));
   const [flatrateStudent, setFlatrateStudent] = useState(toField(pricing.flatrate.student));
+  const [rewardReferrer, setRewardReferrer] = useState(String(pricing.referral.referrer));
+  const [rewardReferee, setRewardReferee] = useState(String(pricing.referral.referee));
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -72,6 +74,8 @@ export function PricingForm({ pricing }: { pricing: StudioPricing }) {
       formData.set("course_student_price", courseStudent);
       formData.set("flatrate_price", flatrateNormal);
       formData.set("flatrate_student_price", flatrateStudent);
+      formData.set("referral_reward_referrer", rewardReferrer);
+      formData.set("referral_reward_referee", rewardReferee);
       const result = await updatePricing(formData);
       if ("error" in result) {
         setError(result.error);
@@ -153,6 +157,28 @@ export function PricingForm({ pricing }: { pricing: StudioPricing }) {
             placeholder="100"
           />
         </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Empfehlungsguthaben</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <PriceField
+            id="referral-reward-referrer"
+            label="Für den Werbenden (€)"
+            value={rewardReferrer}
+            onChange={setRewardReferrer}
+          />
+          <PriceField
+            id="referral-reward-referee"
+            label="Für den Geworbenen (€)"
+            value={rewardReferee}
+            onChange={setRewardReferee}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Wird gutgeschrieben, sobald die erste Lastschrift des Geworbenen durchgegangen ist. Beide auf 0 gesetzt
+          schaltet das Empfehlungsprogramm ab. Bereits vergebenes Guthaben bleibt unverändert.
+        </p>
       </div>
 
       <Button type="button" size="sm" disabled={loading} onClick={handleSave}>

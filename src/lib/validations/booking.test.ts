@@ -134,10 +134,27 @@ describe("pricingSchema", () => {
     course_student_price: 45,
     flatrate_price: 145,
     flatrate_student_price: 100,
+    referral_reward_referrer: 15,
+    referral_reward_referee: 15,
   };
 
   it("accepts the full price list", () => {
     expect(pricingSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("lässt 0 als Belohnung zu — so wird das Empfehlungsprogramm abgeschaltet", () => {
+    const r = pricingSchema.safeParse({ ...base, referral_reward_referrer: 0, referral_reward_referee: 0 });
+    expect(r.success).toBe(true);
+  });
+
+  it("weist ein leeres Belohnungsfeld ab — das wäre ein stilles Abschalten", () => {
+    const r = pricingSchema.safeParse({ ...base, referral_reward_referrer: undefined });
+    expect(r.success).toBe(false);
+    expect(r.success === false && r.error.issues[0].message).toContain("darf nicht leer sein");
+  });
+
+  it("weist eine negative Belohnung ab", () => {
+    expect(pricingSchema.safeParse({ ...base, referral_reward_referee: -5 }).success).toBe(false);
   });
 
   it("rejects zero or negative prices", () => {

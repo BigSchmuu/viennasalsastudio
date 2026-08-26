@@ -372,22 +372,22 @@ export function BookingDialog({
                       />
                       {couponChecking ? (
                         <p className="text-xs text-muted-foreground">{t("couponChecking")}</p>
+                      ) : couponStatus?.valid && couponStatus.kind === "referral" ? (
+                        <p className="text-xs text-emerald-600">
+                          {t("referralValid", { betrag: formatPrice(couponStatus.creditAmount, locale) })}
+                        </p>
                       ) : couponStatus?.valid ? (
                         <p className="text-xs text-emerald-600">
-                          Gutschein gültig:{" "}
                           {couponStatus.discountType === "percent"
-                            ? `${couponStatus.discountAmount}% Rabatt`
-                            : `${formatPrice(couponStatus.discountAmount)} Rabatt`}
+                            ? t("couponValidPercent", { betrag: couponStatus.discountAmount })
+                            : t("couponValidFixed", {
+                                betrag: formatPrice(couponStatus.discountAmount, locale),
+                              })}
                         </p>
                       ) : couponStatus?.rateLimited ? (
-                        <p className="text-xs text-destructive">
-                          Zu viele Code-Versuche. Bitte warte ein paar Minuten. Du kannst trotzdem ohne Gutschein
-                          buchen.
-                        </p>
+                        <p className="text-xs text-destructive">{t("couponRateLimited")}</p>
                       ) : couponStatus ? (
-                        <p className="text-xs text-destructive">
-                          Dieser Code ist nicht gültig. Du kannst trotzdem ohne Gutschein buchen.
-                        </p>
+                        <p className="text-xs text-destructive">{t("couponInvalid")}</p>
                       ) : null}
                     </div>
                   </>

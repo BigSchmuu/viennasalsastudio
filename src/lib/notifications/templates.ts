@@ -1,4 +1,5 @@
 import type { NotificationEventGroup } from "@/lib/constants/notifications";
+import { formatPrice } from "@/lib/pricing";
 import {
   getTemplateMeta,
   substitutePlain,
@@ -115,6 +116,10 @@ export type ProbestundeNachfassungDetails = {
   courseName: string;
   courseId: string;
 };
+/** PROJ-44: der gutgeschriebene Betrag und der neue Kontostand — der Werbende
+ *  soll nicht auf der nächsten Rechnung nachsehen müssen, wofür weniger
+ *  abgebucht wurde. */
+export type EmpfehlungDetails = { amount: number; balance: number };
 export type NewsletterDetails = { subject: string; body: string };
 /** PROJ-39: internal alert to the admin, not a customer-facing message. */
 export type NeueBuchungDetails = { customerName: string; courseName: string; bookingType: "regular" | "dropin" };
@@ -136,6 +141,7 @@ export function resolveTemplateKey(
     | KursausfallDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
+    | EmpfehlungDetails
     | NewsletterDetails
 ): TemplateKey | null {
   switch (eventType) {
@@ -164,6 +170,8 @@ export function resolveTemplateKey(
       return (details as ProbestundeNachfassungDetails).subType === "abend"
         ? "probestunde_nachfassung_abend"
         : "probestunde_nachfassung_naechster_termin";
+    case "empfehlung":
+      return "empfehlung_gutgeschrieben";
     case "newsletter":
       return null;
   }
@@ -189,6 +197,7 @@ export function buildNotificationContent(
     | KursausfallDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
+    | EmpfehlungDetails
     | NewsletterDetails
     | NeueBuchungDetails,
   override?: TemplateFields,
@@ -239,30 +248,17 @@ export function buildNotificationContent(
         url: "/rechnungen",
       };
     }
-    case "kursausfall": {
-      const d = details as KursausfallDetails;
-      return {
-        ...renderTemplate("kursausfall", { kurs: d.courseName, datum: formatDate(d.pauseDate) }, override, "", locale),
-        url: "/stundenplan",
-      };
-    }
-    case "zahlungserinnerung": {
-      const d = details as ZahlungserinnerungDetails;
-      const euro = (n: number) => n.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
+    case "empfehlung": {
+      const d = details as EmpfehlungDetails;
       return {
         ...renderTemplate(
-          "zahlungserinnerung",
-          {
-            rechnungsnummer: d.invoiceNumber,
-            betrag: euro(d.grossAmount),
-            gebuehr: euro(d.bounceFee),
-            gesamt: euro(d.grossAmount + d.bounceFee),
-          },
+          "empfehlung_gutgeschrieben",
+          { betrag: formatPrice(d.amount, locale), guthaben: formatPrice(d.balance, locale) },
           override,
           "",
           locale
         ),
-        url: "/rechnungen",
+        url: "/profil",
       };
     }
     case "kursausfall": {
@@ -370,6 +366,8 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
         { courseName: "Salsa Beginner 1", newStatus: "rejected" },
         fields
       );
+    case "empfehlung_gutgeschrieben":
+      return buildNotificationContent("empfehlung", { amount: 15, balance: 30 }, fields);
     case "warteliste":
       return buildNotificationContent(
         "warteliste",

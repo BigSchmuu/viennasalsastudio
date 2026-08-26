@@ -96,8 +96,8 @@
     "choose": "Bitte wählen",
     "danceRole": "Ich tanze als",
     "note": "Notiz (optional)",
-    "couponCode": "Gutscheincode (optional)",
-    "couponPlaceholder": "z.B. WILLKOMMEN20",
+    "couponCode": "Gutschein- oder Empfehlungscode (optional)",
+    "couponPlaceholder": "z.B. WILLKOMMEN20 oder VSS-K7M2QX",
     "couponChecking": "Code wird geprüft…",
     "noWeeklySlot": "Kein Wochentermin hinterlegt.",
     "trialFree": "Kostenlos, wird sofort bestätigt.",
@@ -121,7 +121,12 @@
     "errMandate": "Bitte hinterlege zuerst ein SEPA-Mandat auf deinem Profil.",
     "errFull": "Dieser Kurs ist mittlerweile voll. Bitte trage dich auf die Warteliste ein.",
     "errRole": "Diese Rolle ist für diesen Kurs aktuell nicht verfügbar. Bitte trage dich auf die Warteliste ein.",
-    "danceRoleRequired": "Bitte wähle, ob du als Leader oder Follower tanzt."
+    "danceRoleRequired": "Bitte wähle, ob du als Leader oder Follower tanzt.",
+    "couponValidPercent": "Gutschein gültig: {betrag}% Rabatt",
+    "couponValidFixed": "Gutschein gültig: {betrag} Rabatt",
+    "referralValid": "Empfehlungscode erkannt: {betrag} Guthaben nach deiner ersten Abbuchung.",
+    "couponRateLimited": "Zu viele Code-Versuche. Bitte warte ein paar Minuten. Du kannst trotzdem ohne Code buchen.",
+    "couponInvalid": "Dieser Code ist nicht gültig. Du kannst trotzdem ohne Code buchen."
   },
   "profile": {
     "heading": "Mein Profil",
@@ -204,6 +209,7 @@
       "kursstart_erinnerung": "Kursstart-Erinnerung",
       "event_tickets": "Event-Tickets",
       "probestunde_nachfassung": "Probestunden-Nachfassung",
+      "empfehlung": "Empfehlung hat gezählt",
       "newsletter": "Newsletter"
     },
     "groupHint": {
@@ -213,6 +219,7 @@
       "kursstart_erinnerung": "Erinnerung am Vortag einer Probestunde oder eines Drop-ins",
       "event_tickets": "Dein Event-Ticket wurde bestätigt oder das Event wurde abgesagt",
       "probestunde_nachfassung": "Erinnerung nach einer Probestunde, mit direktem Buchungslink",
+      "empfehlung": "Jemand hat mit deinem Empfehlungscode gebucht und du bekommst Guthaben",
       "newsletter": "Ankündigungen und Aktionen des Studios"
     }
   },
@@ -261,11 +268,17 @@
     "readGerman": "Deutsche Fassung lesen"
   },
   "credit": {
-    "section": "Mein Guthaben",
-    "sectionHint": "Wird automatisch mit deinem nächsten Abo-Beitrag verrechnet",
+    "section": "Empfehlen und Guthaben",
+    "sectionHint": "Dein Empfehlungscode und dein Guthaben",
     "offsetHint": "Wird automatisch von deinem nächsten Abo-Beitrag abgezogen. Eine Auszahlung ist nicht möglich.",
     "originRedeemed": "Mit deinem Abo-Beitrag verrechnet",
     "originReferral": "Empfehlung",
-    "empty": "Du hast derzeit kein Guthaben."
+    "empty": "Du hast derzeit kein Guthaben.",
+    "referralHeading": "Dein Empfehlungscode",
+    "referralIntro": "Gib deinen Code an Freunde weiter. Sobald jemand damit bucht und der erste Beitrag abgebucht wurde, bekommt ihr beide Guthaben — du {werber}, dein Freund {geworbener}.",
+    "referralIntroOneSided": "Gib deinen Code an Freunde weiter. Sobald jemand damit bucht und der erste Beitrag abgebucht wurde, bekommst du {werber} Guthaben.",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "balanceHeading": "Dein Guthaben"
   }
 }

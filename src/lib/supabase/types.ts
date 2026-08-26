@@ -658,6 +658,8 @@ export type Database = {
           flatrate_student_price: number | null
           id: string
           normal_price: number
+          referral_reward_referee: number
+          referral_reward_referrer: number
           student_price: number
           updated_at: string
         }
@@ -668,6 +670,8 @@ export type Database = {
           flatrate_student_price?: number | null
           id?: string
           normal_price: number
+          referral_reward_referee?: number
+          referral_reward_referrer?: number
           student_price: number
           updated_at?: string
         }
@@ -678,6 +682,8 @@ export type Database = {
           flatrate_student_price?: number | null
           id?: string
           normal_price?: number
+          referral_reward_referee?: number
+          referral_reward_referrer?: number
           student_price?: number
           updated_at?: string
         }
@@ -1010,7 +1016,10 @@ export type Database = {
           id: string
           language: string | null
           phone: string | null
+          referral_code: string | null
+          referral_rewarded_at: string | null
           referral_source: string | null
+          referred_by: string | null
           role: string
         }
         Insert: {
@@ -1021,7 +1030,10 @@ export type Database = {
           id: string
           language?: string | null
           phone?: string | null
+          referral_code?: string | null
+          referral_rewarded_at?: string | null
           referral_source?: string | null
+          referred_by?: string | null
           role?: string
         }
         Update: {
@@ -1032,10 +1044,28 @@ export type Database = {
           id?: string
           language?: string | null
           phone?: string | null
+          referral_code?: string | null
+          referral_rewarded_at?: string | null
           referral_source?: string | null
+          referred_by?: string | null
           role?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -1626,6 +1656,7 @@ export type Database = {
       check_coupon_code: {
         Args: { p_code: string }
         Returns: {
+          code_kind: string
           discount_amount: number
           discount_type: string
           rate_limited: boolean
@@ -1746,6 +1777,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      generate_referral_code: { Args: never; Returns: string }
       get_course_attendance_roster: {
         Args: { p_course_id: string; p_occurrence_date: string }
         Returns: {
@@ -1799,6 +1831,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      grant_pending_referral_rewards: {
+        Args: never
+        Returns: {
+          referee_amount: number
+          referee_id: string
+          referrer_amount: number
+          referrer_balance: number
+          referrer_id: string
+        }[]
       }
       is_course_teacher: { Args: { p_course_id: string }; Returns: boolean }
       join_waitlist: {

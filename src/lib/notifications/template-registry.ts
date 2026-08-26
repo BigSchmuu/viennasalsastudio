@@ -12,7 +12,8 @@ export type TemplateKey =
   | "probestunde_nachfassung_abend"
   | "probestunde_nachfassung_naechster_termin"
   | "zahlungserinnerung"
-  | "kursausfall";
+  | "kursausfall"
+  | "empfehlung_gutgeschrieben";
 
 export type TemplateFields = {
   emailSubject: string;
@@ -166,6 +167,28 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
         "A quick reminder: tomorrow, {datum}, you have your {typ} in {kurs}.",
       pushTitle: "Reminder: {typ} tomorrow in {kurs}",
       pushBody: "Tomorrow: {typ} in {kurs}.",
+    },
+  },
+  {
+    key: "empfehlung_gutgeschrieben",
+    eventGroupLabel: "Empfehlung hat gezählt",
+    variantLabel: "Guthaben gutgeschrieben",
+    placeholders: ["betrag", "guthaben"],
+    boldPlaceholder: "betrag",
+    samples: { betrag: "15,00 €", guthaben: "30,00 €" },
+    defaults: {
+      emailSubject: "Deine Empfehlung hat gezählt: {betrag} Guthaben",
+      emailBody:
+        "Jemand hat mit deinem Empfehlungscode gebucht und den ersten Beitrag bezahlt. Dafür schreiben wir dir {betrag} gut. Dein Guthaben beträgt jetzt {guthaben} und wird automatisch von deinem nächsten Abo-Beitrag abgezogen.",
+      pushTitle: "Deine Empfehlung hat gezählt: {betrag} Guthaben",
+      pushBody: "Dein Guthaben beträgt jetzt {guthaben}.",
+    },
+    defaultsEn: {
+      emailSubject: "Your referral counted: {betrag} credit",
+      emailBody:
+        "Someone booked with your referral code and paid their first membership fee. We've credited you {betrag}. Your credit is now {guthaben} and will be deducted automatically from your next membership payment.",
+      pushTitle: "Your referral counted: {betrag} credit",
+      pushBody: "Your credit is now {guthaben}.",
     },
   },
   {
