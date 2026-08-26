@@ -59,14 +59,24 @@ function minutesFromTime(time: string): number {
   return hours * 60 + minutes;
 }
 
+/** Zieht die Nummer aus einem Saalnamen („Saal 2") für die Reihenfolge von
+ * links nach rechts. Namen ohne Nummer stehen alphabetisch dahinter. */
+function saalNumber(roomName: string | null): number {
+  const match = roomName?.match(/saal\s*(\d+)/i);
+  return match ? Number(match[1]) : Infinity;
+}
+
 function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
   const t = useTranslations("schedule");
   return (
     <Card className="rounded-card border-border/70 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-soft-lg">
       <CardHeader>
-        {/* Die Uhrzeit steht an der Zeitschiene links, nicht noch einmal auf
-            jeder Karte daneben. */}
-        <CardTitle className="text-lg">{entry.courseName}</CardTitle>
+        <CardTitle className="flex items-baseline justify-between gap-2 text-lg">
+          <span>{entry.courseName}</span>
+          <span className="whitespace-nowrap text-sm font-normal tabular-nums text-muted-foreground">
+            {formatTime(entry.startTime)}–{formatTime(entry.endTime)}
+          </span>
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex flex-wrap gap-2">
@@ -123,21 +133,10 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
 }
 
 
-/**
- * Ein Tag als Zeitschiene (Designüberarbeitung 2026-08).
- *
- * Vorher standen die Säle als Spalten nebeneinander, jede um die Differenz
- * ihrer ersten Anfangszeit nach unten versetzt. Das las sich am Rechner
- * halbwegs, war am Handy unbenutzbar — vier Spalten auf 390 px — und der
- * Versatz richtete ohnehin nur die erste Karte je Spalte aus.
- *
- * Jetzt führt die Zeit: Kurse zur selben Uhrzeit stehen nebeneinander, jede
- * Uhrzeit einmal links an der Schiene. Am Handy klappt die Schiene über die
- * Karten, statt sie zu verdrängen.
- */
-function DayTimeline({ entries }: { entries: ScheduleEntry[] }) {
-  const t = useTranslations("schedule");
+const PX_PER_MINUTE = 3;
 
+/** Kurse mit gleicher Anfangszeit stehen innerhalb eines Saals nebeneinander. */
+function SaalSpalte({ entries }: { entries: ScheduleEntry[] }) {
   const slots = new Map<string, ScheduleEntry[]>();
   for (const entry of entries) {
     if (!slots.has(entry.startTime)) slots.set(entry.startTime, []);
@@ -146,32 +145,79 @@ function DayTimeline({ entries }: { entries: ScheduleEntry[] }) {
   const startzeiten = [...slots.keys()].sort((a, b) => minutesFromTime(a) - minutesFromTime(b));
 
   return (
-    <div className="space-y-8">
-      {startzeiten.map((zeit) => {
-        const imSlot = slots.get(zeit)!;
-        // Das späteste Ende der gleichzeitig startenden Kurse.
-        const ende = imSlot
-          .map((e) => e.endTime)
-          .sort((a, b) => minutesFromTime(b) - minutesFromTime(a))[0];
-        return (
-          <div
-            key={zeit}
-            // Benennt den Abschnitt nach seiner Anfangszeit — so kann ein Test
-            // eine Uhrzeit samt ihren Kursen greifen, ohne über Klassennamen zu
-            // raten.
-            data-zeitschiene={formatTime(zeit)}
-            className="grid gap-3 sm:grid-cols-[6rem_1fr] sm:gap-5"
-          >
-            <div className="flex items-baseline gap-2 sm:block">
-              <p className="font-heading text-xl font-bold tabular-nums leading-none">{formatTime(zeit)}</p>
-              <p className="text-xs text-muted-foreground tabular-nums sm:mt-1">
-                {t("until")} {formatTime(ende)}
-              </p>
+    <div className="space-y-4">
+      {startzeiten.map((zeit) => (
+        <div key={zeit} className="flex flex-wrap gap-4">
+          {slots.get(zeit)!.map((entry) => (
+            <div key={entry.courseId} className="min-w-[240px] flex-1">
+              <ScheduleCard entry={entry} />
             </div>
-            <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-              {imSlot.map((entry) => (
-                <ScheduleCard key={entry.courseId} entry={entry} />
-              ))}
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Ein Tag, nach Sälen aufgeteilt (Designüberarbeitung 2026-08).
+ *
+ * Die Säle stehen nebeneinander, und ein Saal, der später beginnt, startet
+ * entsprechend tiefer — so sieht man auf einen Blick, was parallel läuft.
+ *
+ * Zwei Dinge sind dabei anders als vorher:
+ *
+ * Der Versatz ist auf eine Stunde begrenzt. Unbegrenzt schob ein einzelner
+ * Kurs um 03:12 den Rest des Tages um über 2500 px nach unten, und dahinter
+ * lag eine leere Fläche. Mehr als eine Stunde Vorsprung sagt ohnehin nichts
+ * mehr aus, das die Uhrzeit auf der Karte nicht schon sagt.
+ *
+ * Und am Handy klappen die Säle untereinander statt nebeneinander: Vier
+ * Spalten auf 390 px waren nicht lesbar, die letzte wurde abgeschnitten. Dort
+ * entfällt auch der Versatz — untereinander bedeutet er nichts.
+ */
+function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
+  const t = useTranslations("schedule");
+
+  const raeume = new Map<string, { name: string; entries: ScheduleEntry[] }>();
+  for (const entry of entries) {
+    if (!raeume.has(entry.roomId)) {
+      raeume.set(entry.roomId, { name: entry.roomName ?? t("noRoom"), entries: [] });
+    }
+    raeume.get(entry.roomId)!.entries.push(entry);
+  }
+
+  const raumIds = [...raeume.keys()].sort((a, b) => {
+    const raumA = raeume.get(a)!;
+    const raumB = raeume.get(b)!;
+    const nrA = saalNumber(raumA.name);
+    const nrB = saalNumber(raumB.name);
+    if (nrA !== nrB) return nrA - nrB;
+    return raumA.name.localeCompare(raumB.name);
+  });
+
+  if (raumIds.length <= 1) {
+    return <SaalSpalte entries={entries} />;
+  }
+
+  const fruehesterStart = Math.min(...entries.map((e) => minutesFromTime(e.startTime)));
+  const MAX_VERSATZ_PX = 60 * PX_PER_MINUTE;
+
+  return (
+    <div
+      style={{ ["--spalten" as string]: `repeat(${raumIds.length}, minmax(240px, 1fr))` }}
+      className="grid grid-cols-1 gap-8 sm:gap-5 sm:[grid-template-columns:var(--spalten)] sm:overflow-x-auto"
+    >
+      {raumIds.map((raumId) => {
+        const raum = raeume.get(raumId)!;
+        const raumStart = Math.min(...raum.entries.map((e) => minutesFromTime(e.startTime)));
+        const versatzPx = Math.min((raumStart - fruehesterStart) * PX_PER_MINUTE, MAX_VERSATZ_PX);
+        return (
+          <div key={raumId}>
+            <p className="nav-label mb-3 text-muted-foreground">{raum.name}</p>
+            {/* Der Versatz greift erst ab sm — untereinander sagt er nichts. */}
+            <div style={{ ["--versatz" as string]: `${versatzPx}px` }} className="sm:mt-[var(--versatz)]">
+              <SaalSpalte entries={raum.entries} />
             </div>
           </div>
         );
@@ -249,7 +295,7 @@ export function WeeklyScheduleView({
                 {t("emptyDay")}
               </p>
             ) : (
-              <DayTimeline entries={entries} />
+              <DaySchedule entries={entries} />
             )}
           </TabsContent>
         );

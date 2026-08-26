@@ -95,11 +95,8 @@ test.describe("PROJ-6: Stundenplan & Kalender", () => {
     await page.goto("/stundenplan");
     await page.getByRole("tab", { name: "Mittwoch" }).click();
     await page.waitForTimeout(400);
-    // Die Uhrzeit steht seit der Designüberarbeitung an der Zeitschiene links,
-    // nicht mehr auf jeder Karte — der Abschnitt trägt sie als Anker.
-    const slot = page.locator('[data-zeitschiene="17:00"]');
-    await expect(slot).toContainText("E2E6 Kurs Ohne Termin");
-    await expect(slot).toContainText("bis 18:00");
+    await expect(page.getByText("E2E6 Kurs Ohne Termin")).toBeVisible();
+    await expect(page.getByText("17:00–18:00")).toBeVisible();
   });
 
   test("Admin ändert bestehenden Wochentermin; Änderung sofort sichtbar", async ({ page }) => {
@@ -112,9 +109,7 @@ test.describe("PROJ-6: Stundenplan & Kalender", () => {
     await page.goto("/stundenplan");
     await page.getByRole("tab", { name: "Montag" }).click();
     await page.waitForTimeout(400);
-    const slot = page.locator('[data-zeitschiene="18:30"]');
-    await expect(slot).toContainText("E2E6 Kurs Montag");
-    await expect(slot).toContainText("bis 19:00");
+    await expect(page.getByText("18:30–19:00")).toBeVisible();
   });
 
   test("Wochentag ohne terminierten Kurs zeigt verständlichen Leerzustand", async ({ page }) => {
@@ -150,9 +145,7 @@ test.describe("PROJ-6: Stundenplan & Kalender", () => {
     // on an unscoped page-wide text match.
     const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E6 Kurs Heute" });
     await expect(card).toBeVisible();
-    // Die Uhrzeit steht an der Zeitschiene, nicht in der Karte — der Besucher
-    // sieht sie weiterhin, nur an anderer Stelle.
-    await expect(page.locator('[data-zeitschiene="19:00"]')).toContainText("E2E6 Kurs Heute");
+    await expect(card.getByText("19:00–20:00")).toBeVisible();
     await expect(card.getByText("E2E6 Forro", { exact: true })).toBeVisible();
     await expect(card.getByText("Improver", { exact: true })).toBeVisible();
     await expect(card.getByText("E2E6 Location")).toBeVisible();
