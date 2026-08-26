@@ -127,4 +127,40 @@ test.describe("PROJ-5: Kurskatalog (Browsing & Filter)", () => {
     await page.waitForTimeout(500);
     await expect(page).toHaveURL(/\/login\?redirect=\/kurse/);
   });
+
+  // Designüberarbeitung 2026-08: Die Startseite verlinkt je Stufe in den
+  // Katalog. Anfangs stand die Stufe nur in der Adresse und filterte nichts.
+  test("Stufen-Kacheln filtern wirklich", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 950 });
+    await page.goto("/");
+    await page.waitForTimeout(2500);
+  
+    await page.getByRole("link", { name: /Beginner/ }).click();
+    await page.waitForURL(/level=beginner/, { timeout: 10000 });
+    await page.waitForTimeout(1500);
+    const beginnerKarten = await page.locator(".rounded-lg.border.bg-card").count();
+    const beginnerAbzeichen = await page.locator(".rounded-lg.border.bg-card").filter({ hasText: "Beginner" }).count();
+    console.log("Beginner:", beginnerKarten, "Karten,", beginnerAbzeichen, "Beginner-Abzeichen");
+    expect(beginnerKarten).toBeGreaterThan(0);
+    expect(beginnerAbzeichen).toBe(beginnerKarten);
+  
+    // Zweite Stufe, ohne die Seite zu verlassen — hier ging es vorher schief
+    await page.goto("/");
+    await page.waitForTimeout(1500);
+    await page.getByRole("link", { name: /Advanced/ }).click();
+    await page.waitForURL(/level=advanced/, { timeout: 10000 });
+    await page.waitForTimeout(1500);
+    const advKarten = await page.locator(".rounded-lg.border.bg-card").count();
+    const advAbzeichen = await page.locator(".rounded-lg.border.bg-card").filter({ hasText: "Advanced" }).count();
+    console.log("Advanced:", advKarten, "Karten,", advAbzeichen, "Advanced-Abzeichen");
+    expect(advAbzeichen).toBe(advKarten);
+    expect(advKarten).not.toBe(beginnerKarten);
+  
+    // Wechsel direkt in der Adresse, ohne Neumontage
+    await page.goto("/kurse?level=beginner");
+    await page.waitForTimeout(1500);
+    expect(await page.locator(".rounded-lg.border.bg-card").filter({ hasText: "Beginner" }).count()).toBe(beginnerKarten);
+    // Das Filterfeld zeigt die Stufe aus der Adresse an
+    await expect(page.getByRole("combobox").filter({ hasText: "Beginner" })).toBeVisible();
+  });
 });

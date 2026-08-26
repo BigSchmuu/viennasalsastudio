@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { levelOptions, levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
@@ -72,8 +72,20 @@ export function CourseCatalog({
 }) {
   const t = useTranslations("courses");
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Die Startseite verlinkt je Stufe hierher (/kurse?level=beginner). Ohne
+  // diese Zeilen stünde die Stufe zwar in der Adresse, der Katalog zeigte
+  // aber weiter alles — genau das ist passiert.
+  const searchParams = useSearchParams();
+
+  // Die Stufe steht in der Adresse, nicht im Zustand der Komponente. Damit
+  // kann beides gar nicht erst auseinanderlaufen — ein zweiter Verweis auf
+  // eine andere Stufe wirkt sofort, ohne dass die Komponente neu montiert
+  // werden müsste. Nebenbei ist ein gefilterter Katalog so verschickbar.
+  const level = searchParams.get("level") ?? ALL;
+
   const [danceStyleId, setDanceStyleId] = useState(ALL);
-  const [level, setLevel] = useState(ALL);
   const [locationId, setLocationId] = useState(ALL);
   const [bookingCourse, setBookingCourse] = useState<CatalogCourseRow | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -92,6 +104,16 @@ export function CourseCatalog({
 
   const filtersActive = danceStyleId !== ALL || level !== ALL || locationId !== ALL;
 
+
+  /** Schreibt die Stufe in die Adresse — dort lebt sie. */
+  function setLevel(wert: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (wert === ALL) params.delete("level");
+    else params.set("level", wert);
+    const suffix = params.toString();
+    router.replace(suffix ? `${pathname}?${suffix}` : pathname, { scroll: false });
+    setVisibleCount(PAGE_SIZE);
+  }
 
   function resetFilters() {
     setDanceStyleId(ALL);
