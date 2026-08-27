@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 /** Die Produktionsdatenbank. Hier steht sie nur, um sie auszuschließen. */
 const PRODUKTION_REF = "kqdnaevyzgtrmaatinrx";
@@ -27,7 +27,16 @@ export function ladeTestUmgebung(): void {
     );
   }
 
-  process.loadEnvFile(".env.test");
+  // Bewusst nicht process.loadEnvFile: das überschreibt bereits gesetzte
+  // Variablen *nicht*. Wer vorher .env.local geladen hat — die
+  // Vitest-Konfiguration tut genau das — behielte damit stillschweigend die
+  // Produktionsdaten. Hier gewinnt .env.test immer.
+  for (const zeile of readFileSync(".env.test", "utf8").split("\n")) {
+    const treffer = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(zeile);
+    if (!treffer) continue;
+    const wert = treffer[2].trim().replace(/^["']|["']$/g, "");
+    process.env[treffer[1]] = wert;
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   if (url.includes(PRODUKTION_REF)) {
