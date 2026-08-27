@@ -9,6 +9,9 @@ async function login(page: import("@playwright/test").Page, { email, password }:
   await page.getByLabel("Passwort").fill(password);
   await page.getByRole("button", { name: "Einloggen" }).click();
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
+  // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
+  // dem Profil — also dorthin, wo der Test vorher schon stand.
+  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil");
 }
 
 test.describe("PROJ-32: Aktive-Kunden-Anzahl im Dashboard", () => {

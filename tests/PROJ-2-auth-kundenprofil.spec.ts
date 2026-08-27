@@ -35,7 +35,8 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
       await page.waitForTimeout(2500);
 
       expect(page.url()).not.toContain("example.com");
-      await expect(page).toHaveURL(/\/profil$/);
+      // Seit PROJ-45 ist /mein-bereich der Rückfall für Kunden, nicht /profil.
+      await expect(page).toHaveURL(/\/mein-bereich$/);
 
       await page.getByRole("button", { name: "Logout" }).first().click();
       await page.waitForTimeout(1200);
@@ -108,7 +109,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
-    await expect(page).toHaveURL(/\/profil$/);
+    // Seit PROJ-45 landet ein Kunde auf /mein-bereich. Diese Prüfung gilt
+    // dem Profil, also wird dorthin gewechselt.
+    await expect(page).toHaveURL(/\/mein-bereich$/);
+    await page.goto("/profil");
 
     await expect(page.getByLabel("Rolle")).toHaveCount(0);
 
@@ -135,7 +139,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL_2);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
-    await expect(page).toHaveURL(/\/profil$/);
+    // Seit PROJ-45 landet ein Kunde auf /mein-bereich. Diese Prüfung gilt
+    // dem Profil, also wird dorthin gewechselt.
+    await expect(page).toHaveURL(/\/mein-bereich$/);
+    await page.goto("/profil");
     await page.waitForTimeout(2000);
 
     const currentYear = new Date().getFullYear();
@@ -153,7 +160,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL_2);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
-    await expect(page).toHaveURL(/\/profil$/);
+    // Seit PROJ-45 landet ein Kunde auf /mein-bereich. Diese Prüfung gilt
+    // dem Profil, also wird dorthin gewechselt.
+    await expect(page).toHaveURL(/\/mein-bereich$/);
+    await page.goto("/profil");
     await page.waitForTimeout(2000);
 
     const field = page.locator("div.flex.gap-2").filter({ has: page.getByLabel("Jahr") });
@@ -165,7 +175,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
-    await expect(page).toHaveURL(/\/profil$/);
+    // Seit PROJ-45 landet ein Kunde auf /mein-bereich. Diese Prüfung gilt
+    // dem Profil, also wird dorthin gewechselt.
+    await expect(page).toHaveURL(/\/mein-bereich$/);
+    await page.goto("/profil");
 
     // See BUG-1 in QA results — same hydration-timing caveat as the profile save test.
     await page.waitForTimeout(2000);

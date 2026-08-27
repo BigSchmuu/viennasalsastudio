@@ -58,6 +58,9 @@ async function login(page: Page, creds: { email: string; password: string }) {
   await page.getByLabel("Passwort").fill(creds.password);
   await page.getByRole("button", { name: "Einloggen" }).click();
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 15000 });
+  // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
+  // dem Profil — also dorthin, wo der Test vorher schon stand.
+  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil");
 }
 
 /** Reads the counter off the Buchungen menu entry; 0 when no badge is shown. */

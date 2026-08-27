@@ -29,6 +29,9 @@ async function anmelden(page: import("@playwright/test").Page, mail: string, zie
   await page.waitForTimeout(400);
   await page.getByRole("button", { name: "Einloggen" }).click();
   await page.waitForURL(ziel, { timeout: 15000 });
+  // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
+  // dem Profil — also dorthin, wo der Test vorher schon stand.
+  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil");
 }
 
 test.describe("PROJ-44: Empfehlungsprogramm", () => {
@@ -40,7 +43,7 @@ test.describe("PROJ-44: Empfehlungsprogramm", () => {
     const { data: p } = await svc.from("profiles").select("referral_code").eq("id", kunde).single();
     expect(p!.referral_code).toMatch(/^VSS-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
 
-    await anmelden(page, "e2e12-a@viennasalsastudio.test", /\/profil$/);
+    await anmelden(page, "e2e12-a@viennasalsastudio.test");
     await page.getByRole("button", { name: "Empfehlen und Guthaben" }).click();
     await page.waitForTimeout(700);
     await expect(page.getByText(p!.referral_code!)).toBeVisible();

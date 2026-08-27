@@ -10,6 +10,9 @@ async function login(page: Page, creds: { email: string; password: string }) {
   await page.getByRole("button", { name: "Einloggen" }).click();
   // Admin lands on /admin after login, every other role on /profil.
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
+  // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
+  // dem Profil — also dorthin, wo der Test vorher schon stand.
+  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil");
 }
 
 test.describe("PROJ-33: Sortier- und Filterfunktion für Admin-Listen", () => {

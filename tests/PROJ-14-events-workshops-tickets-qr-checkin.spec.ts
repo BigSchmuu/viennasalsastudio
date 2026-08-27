@@ -118,6 +118,9 @@ async function login(page: Page, { email, password }: { email: string; password:
   // it regularly arrived later, and the next page.goto() of the calling test
   // was then aborted with "interrupted by another navigation".
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
+  // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
+  // dem Profil — also dorthin, wo der Test vorher schon stand.
+  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil");
 }
 
 // shadcn Card root: "rounded-lg border bg-card text-card-foreground shadow-sm"

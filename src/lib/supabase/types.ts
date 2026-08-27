@@ -1686,6 +1686,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      count_my_recent_attendance: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       create_invoices_for_collection_run: {
         Args: { p_run_id: string }
         Returns: undefined

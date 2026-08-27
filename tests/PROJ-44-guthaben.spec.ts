@@ -64,6 +64,8 @@ test("PROJ-44: der Kunde sieht Kontostand, Grund und den Hinweis auf die Verrech
   await page.waitForTimeout(500);
   await page.getByRole("button", { name: "Einloggen" }).click();
   await page.waitForURL(/\/(mein-bereich|profil)$/, { timeout: 15000 });
+  // Seit PROJ-45 landen Kunden auf /mein-bereich; geprüft wird hier das Profil.
+  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil");
   await page.waitForTimeout(1200);
 
   await page.getByRole("button", { name: "Empfehlen und Guthaben" }).click();
@@ -95,6 +97,8 @@ test.describe("Guthaben englisch und Vorzeichen", () => {
     await page.waitForTimeout(500);
     await page.getByRole("button", { name: /Log in|Einloggen/ }).click();
     await page.waitForURL(/\/(mein-bereich|profil)$/, { timeout: 15000 });
+    // Seit PROJ-45 landen Kunden auf /mein-bereich; geprüft wird hier das Profil.
+    if (page.url().includes("/mein-bereich")) await page.goto("/en/profil");
     await page.waitForTimeout(1200);
     expect(page.url()).toContain("/en/");
 

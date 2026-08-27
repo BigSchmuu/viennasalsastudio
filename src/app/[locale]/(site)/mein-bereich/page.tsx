@@ -80,6 +80,7 @@ export default async function MeinBereichPage() {
     { data: guthabenRows },
     { data: preisZeile },
     { data: alleKursnamen },
+    { data: anwesenheitAnzahl },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, referral_code").eq("id", user.id).single(),
     supabase
@@ -116,6 +117,10 @@ export default async function MeinBereichPage() {
     supabase.from("customer_credits").select("amount").eq("customer_id", user.id),
     supabase.from("dropin_pricing").select("*").limit(1).maybeSingle(),
     supabase.from("courses").select("id, name"),
+    // Anwesenheiten sind abgeschottet (RLS aktiv, keine Policy). Diese
+    // Funktion liefert ausschließlich die eigene Zahl — siehe die Migration
+    // 20260827154946.
+    supabase.rpc("count_my_recent_attendance"),
   ]);
 
   const hatMandat = Boolean(mandat);
@@ -346,12 +351,6 @@ export default async function MeinBereichPage() {
   const guthaben = (guthabenRows ?? []).reduce((summe, z) => summe + Number(z.amount), 0);
   const empfehlungAktiv = pricing.referral.referrer > 0 || pricing.referral.referee > 0;
 
-  // PROJ-45: Anwesenheiten sind bewusst abgeschottet — RLS aktiv, keine
-  // einzige Policy, jeder Zugriff läuft über eine eigens gebaute Funktion.
-  // Die eng gefasste Abfrage der eigenen Zahl entsteht im Backend-Schritt;
-  // bis dahin bleibt der Abschnitt aus, statt etwas zu behaupten.
-  const anwesenheitAnzahl = 0;
-
   // --- Ausgabe ---------------------------------------------------------
 
   const [t, locale] = await Promise.all([getTranslations("dashboard"), getLocale()]);
@@ -397,7 +396,7 @@ export default async function MeinBereichPage() {
 
         <ThisWeekSection events={wochenEvents} hasMandate={hatMandat} />
 
-        <AttendanceSection anzahl={anwesenheitAnzahl} />
+        <AttendanceSection anzahl={anwesenheitAnzahl ?? 0} />
 
         <CreditReferralSection
           guthaben={guthaben}
