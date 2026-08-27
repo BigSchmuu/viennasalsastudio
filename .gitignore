@@ -43,3 +43,7 @@ yarn-error.log*
 next-env.d.ts
 .env.test
 produktion-sicherung-*.json
+.env*
+# Von `vercel link` gesetzt. Die Beispieldateien dokumentieren die noetigen
+# Variablen und gehoeren ins Repository -- sie enthalten keine Werte.
+!.env*.example

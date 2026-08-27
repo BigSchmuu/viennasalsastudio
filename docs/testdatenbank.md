@@ -80,8 +80,31 @@ Anwesenheit eingetragen hat, zeigt teils auf echte Lehrer.
 In **beide** Projekte einspielen. Die Nachweis-Tabelle der Testdatenbank kennt
 alle 91 bisherigen Migrationen, `supabase db push` spielt also nur Neues ein.
 
-## Noch offen
+## Vercel-Vorschau
 
-Die Vorschau-Deployments von Vercel zeigen weiterhin auf die
-Produktionsdatenbank. Wer dort etwas anklickt, ändert echte Daten. Ein Satz
-Umgebungsvariablen je Umgebung in Vercel löst das.
+Vorschau-Deployments lesen die Testdatenbank, Produktion die echte. Vier
+Variablen sind in Vercel je Umgebung getrennt gesetzt:
+
+| Variable | Production | Preview |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | `kqdnaevyzgtrmaatinrx` | `pdlwtlfjqevzslldenel` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Produktionsschlüssel | Testschlüssel |
+| `SUPABASE_SERVICE_ROLE_KEY` | Produktionsschlüssel | Testschlüssel |
+| `NEXT_PUBLIC_SITE_URL` | gleich | gleich |
+
+Zwei Fallstricke, beide bereits einmal zugeschlagen:
+
+- **`vercel env rm NAME preview` löscht den ganzen Eintrag**, nicht nur die
+  Vorschau. Der Produktionswert geht mit verloren. Nach jedem `rm` also
+  *beide* Umgebungen neu setzen.
+- **`vercel env add` bricht bei `NEXT_PUBLIC_`-Namen ab**, die nach einem
+  Zugangsschlüssel aussehen, und verlangt ein ausdrückliches
+  `--type config` (öffentlich) oder `--type secret` (privat). Wer die
+  Ausgabe wegwirft, merkt nicht, dass nichts gesetzt wurde.
+
+`vercel env pull` gibt `Secret`-Werte nur als `[SENSITIVE]` zurück; ein
+Schlüssel lässt sich darüber also nicht gegenprüfen. Prüfbar ist er direkt an
+der Datenbank: der Testschlüssel wird von der Produktion mit `401` abgewiesen.
+
+Vorschau-Deployments liegen hinter Vercels Deployment-Schutz, sind also nur
+eingeloggt erreichbar.
