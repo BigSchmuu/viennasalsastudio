@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import type { ActionResult } from "@/lib/actions/types";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 
 export async function createCoupon(formData: FormData): Promise<ActionResult> {
   const code = String(formData.get("code") ?? "").trim();
@@ -28,7 +29,9 @@ export async function createCoupon(formData: FormData): Promise<ActionResult> {
   if (!Number.isInteger(maxRedemptions) || maxRedemptions <= 0) {
     return { error: "Bitte eine gültige maximale Einlöse-Anzahl eingeben." };
   }
-  if (expiresAt && expiresAt < new Date().toISOString().slice(0, 10)) {
+  // Gegen den Wiener Tag, nicht den UTC-Tag: Sonst gilt ein Ablaufdatum
+  // nachts zwei Stunden lang als vergangen, obwohl es das nicht ist.
+  if (expiresAt && expiresAt < heuteInWien()) {
     return { error: "Das Ablaufdatum darf nicht in der Vergangenheit liegen." };
   }
 

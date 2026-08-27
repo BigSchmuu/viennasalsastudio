@@ -3,6 +3,7 @@ import { BookingManager, type AdminBookingRow } from "@/components/admin/booking
 import { PricingForm } from "@/components/admin/bookings/pricing-form";
 import { readStudioPricing } from "@/lib/pricing";
 import { bookingTypeValues } from "@/lib/constants/booking";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 
 const SORTABLE_COLUMNS = ["customer_name", "course_name", "chosen_date"] as const;
 
@@ -44,7 +45,9 @@ export default async function BuchungenPage({
   // PROJ-15: recomputed on every page load rather than trusted from the
   // attach-time decision, so a coupon that has since expired, been exhausted
   // or deactivated stops showing as a discount hint immediately.
-  const today = new Date().toISOString().slice(0, 10);
+  // Der Wiener Kalendertag. toISOString() liefert den UTC-Tag und lag
+  // nachts einen Tag daneben.
+  const today = heuteInWien();
 
   const bookings: AdminBookingRow[] = (bookingsRes.data ?? []).map((b) => {
     const coupon = b.coupons;

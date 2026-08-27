@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 
 export type CouponRow = {
   id: string;
@@ -217,7 +218,7 @@ export function CouponManager({ coupons: initialCoupons }: { coupons: CouponRow[
           <TableBody>
             {coupons.map((coupon) => {
               const exhausted = coupon.redemptionCount >= coupon.maxRedemptions;
-              const expired = !!coupon.expiresAt && coupon.expiresAt < new Date().toISOString().slice(0, 10);
+              const expired = !!coupon.expiresAt && coupon.expiresAt < heuteInWien();
               return (
                 <TableRow key={coupon.id}>
                   <TableCell className="font-medium">{coupon.code}</TableCell>
