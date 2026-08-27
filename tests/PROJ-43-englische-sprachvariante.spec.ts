@@ -43,7 +43,7 @@ async function login(page: Page, pfad = "/login") {
   await page.getByLabel(/^(Passwort|Password)$/).fill(CUSTOMER.password);
   await page.waitForTimeout(400);
   await page.getByRole("button", { name: /^(Einloggen|Log in)$/ }).click();
-  await page.waitForURL(/\/(en\/)?(profil|admin)$/, { timeout: 15000 });
+  await page.waitForURL(/\/(en\/)?(mein-bereich|profil|admin)$/, { timeout: 15000 });
 }
 
 test.describe("PROJ-43: Englische Sprachvariante", () => {
@@ -170,7 +170,7 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     await page.getByLabel(/^(Passwort|Password)$/).fill("CorrectPassword123!");
     await page.waitForTimeout(400);
     await page.getByRole("button", { name: /^(Einloggen|Log in)$/ }).click();
-    await page.waitForURL(/\/(en\/)?(profil|admin)$/, { timeout: 15000 });
+    await page.waitForURL(/\/(en\/)?(mein-bereich|profil|admin)$/, { timeout: 15000 });
 
     await page.goto("/en/kurse");
     await page.waitForTimeout(1500);
@@ -309,7 +309,7 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     await page.getByLabel("Passwort").fill("CorrectPassword123!");
     await page.waitForTimeout(400);
     await page.getByRole("button", { name: "Einloggen" }).click();
-    await page.waitForURL(/\/(profil|admin)$/, { timeout: 15000 });
+    await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 15000 });
 
     await page.goto("/admin/benachrichtigungen/buchungsstatus_bestaetigt");
     await page.waitForTimeout(1200);

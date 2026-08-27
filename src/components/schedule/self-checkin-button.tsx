@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { selfToggleAttendance } from "@/lib/actions/self-checkin";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ export function SelfCheckinButton({
   endsAtIso: string;
   initialCheckedIn: boolean;
 }) {
+  const t = useTranslations("dashboard.checkin");
   const [checkedIn, setCheckedIn] = useState(initialCheckedIn);
   const [loading, setLoading] = useState(false);
 
@@ -39,7 +41,7 @@ export function SelfCheckinButton({
         return;
       }
       setCheckedIn(result.status === "present");
-      toast.success(result.status === "present" ? "Eingecheckt!" : "Check-In zurückgenommen.");
+      toast.success(result.status === "present" ? t("successIn") : t("successOut"));
     } finally {
       setLoading(false);
     }
@@ -48,7 +50,7 @@ export function SelfCheckinButton({
   if (checkedIn && !canUndo) {
     return (
       <Button size="sm" variant="secondary" disabled className="w-full">
-        ✓ Eingecheckt
+        ✓ {t("done")}
       </Button>
     );
   }
@@ -61,7 +63,7 @@ export function SelfCheckinButton({
       onClick={handleClick}
       className="w-full"
     >
-      {checkedIn ? "✓ Eingecheckt" : "Ich bin da"}
+      {checkedIn ? `✓ ${t("done")}` : t("action")}
     </Button>
   );
 }

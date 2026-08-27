@@ -10,7 +10,8 @@
     "login": "Log in",
     "openMenu": "Open menu",
     "menu": "Menu",
-    "language": "Language"
+    "language": "Language",
+    "dashboard": "My Area"
   },
   "footer": {
     "copyright": "© {year} Vienna Salsa Studio by Lisa & Samuel OG",
@@ -307,5 +308,80 @@
     "copy": "Copy",
     "copied": "Copied",
     "balanceHeading": "Your credit"
+  },
+  "dashboard": {
+    "greeting": "Hello, {name}!",
+    "greetingNoName": "Welcome!",
+    "profileHint": "You'll find invoices, personal details and settings in your profile.",
+    "profileCta": "Go to profile",
+    "openItems": {
+      "heading": "To do",
+      "mandateTitle": "No payment method yet",
+      "mandateBody": "Without a SEPA mandate you can't start a subscription or join a waiting list.",
+      "mandateCta": "Add it now",
+      "bookingTitle": "Booking awaiting confirmation",
+      "bookingBody": "{course} — we'll let you know as soon as it's confirmed.",
+      "bookingCta": "View booking",
+      "waitlistTitle": "You're on the waiting list",
+      "waitlistBody": "{course} — we'll tell you as soon as a spot opens up.",
+      "waitlistCta": "View waiting list"
+    },
+    "nextCourse": {
+      "heading": "Your next class",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "running": "on right now",
+      "place": "{room} · {location}",
+      "roomOnly": "{room}",
+      "noPlace": "Location to be announced",
+      "after": "After that: {weekday}, {time} · {course}",
+      "checkinOpensAt": "Check in from {time}",
+      "trialBadge": "Trial class",
+      "dropinBadge": "Drop-in"
+    },
+    "checkin": {
+      "action": "I'm here",
+      "done": "Checked in",
+      "successIn": "Checked in!",
+      "successOut": "Check-in undone."
+    },
+    "start": {
+      "trialTitle": "Come to a trial class",
+      "trialBody": "No commitment, free once. Pick a date that suits you.",
+      "trialCta": "Pick a date",
+      "suggestionsHeading": "Good places to start",
+      "allCourses": "See all classes",
+      "nextStart": "Next session: {date}"
+    },
+    "practice": {
+      "heading": "Practise",
+      "subheading": "Video lessons for {course}",
+      "showAll": "See all {count} lessons",
+      "close": "Close video"
+    },
+    "thisWeek": {
+      "heading": "This week at the studio",
+      "soldOut": "Sold out",
+      "hasTicket": "You have a ticket",
+      "buy": "Get a ticket",
+      "allEvents": "See all events"
+    },
+    "attendance": {
+      "heading": "Your attendance",
+      "count": "times in the last eight weeks",
+      "countOne": "time in the last eight weeks",
+      "encouragement": "Keep it up."
+    },
+    "credit": {
+      "heading": "Credit & referrals",
+      "balanceLabel": "Your credit",
+      "offsetHint": "Automatically deducted from your next subscription payment. It cannot be paid out.",
+      "referralLabel": "Your referral code",
+      "referralHint": "Pass it on — as soon as someone books with it, you both get credit.",
+      "copy": "Copy",
+      "copied": "Code copied."
+    },
+    "noUpcoming": "You have no fixed class coming up right now.",
+    "toSchedule": "Go to the schedule"
   }
 }

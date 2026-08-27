@@ -51,7 +51,7 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
 }
 
 // The course catalog is paginated (PAGE_SIZE=12, "Mehr laden") — fixture

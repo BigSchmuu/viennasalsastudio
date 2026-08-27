@@ -92,7 +92,7 @@ Aufteilung in zwei Ausbaustufen entschieden (siehe Decision Log).
 - [ ] Angenommen ein Admin meldet sich an, wenn die Anmeldung erfolgreich ist, dann landet er unverändert auf `/admin`
 - [ ] Angenommen jemand ist nicht angemeldet, wenn er `/mein-bereich` aufruft, dann wird er zur Anmeldung geleitet und nach dem Login dorthin zurückgebracht
 - [ ] Angenommen ein Kunde ist angemeldet, wenn er die Navigation betrachtet, dann sieht er „Mein Bereich" und „Profil" als getrennte Einträge
-- [ ] Angenommen die Sprache steht auf Englisch, wenn der Kunde das Dashboard öffnet, dann sind alle Texte englisch und die Adresse lautet `/en/my-area`
+- [ ] Angenommen die Sprache steht auf Englisch, wenn der Kunde das Dashboard öffnet, dann sind alle Texte englisch und die Adresse lautet `/en/mein-bereich`
 
 ### Leerzustand (neu registriert, kein Abo, keine Buchung)
 
@@ -105,12 +105,14 @@ Aufteilung in zwei Ausbaustufen entschieden (siehe Decision Log).
 
 - [ ] Angenommen ein Kunde hat ein aktives Abo, wenn er das Dashboard öffnet, dann sieht er genau eine Karte mit dem zeitlich nächsten Kurstermin
 - [ ] Angenommen ein Kunde hat mehrere aktive Abos, wenn er das Dashboard öffnet, dann zeigt die Karte den zeitlich nächsten Termin über alle Abos hinweg und darunter eine Zeile „Danach: [Wochentag] [Uhrzeit] · [Kurs]"
+- [ ] Angenommen ein Kunde hat nur einen einzigen Kurs, wenn er das Dashboard öffnet, dann erscheint keine „Danach"-Zeile — derselbe Kurs eine Woche später ist keine Information
 - [ ] Angenommen ein Kunde hat einen nächsten Kurs, wenn er die Karte betrachtet, dann stehen dort Kursname, Wochentag, Datum, Uhrzeit von–bis, Raum und Standort
 - [ ] Angenommen der nächste Termin ist heute, wenn der Kunde die Karte betrachtet, dann steht dort „HEUTE" statt des Datums
 - [ ] Angenommen der nächste Termin ist morgen, wenn der Kunde die Karte betrachtet, dann steht dort „MORGEN"
 - [ ] Angenommen ein Kurstermin fällt in eine eingetragene Pause, wenn der nächste Termin ermittelt wird, dann wird dieser Termin übersprungen
 - [ ] Angenommen ein Kunde hat eine bestätigte Probestunde oder Drop-in-Buchung mit gewähltem Datum, wenn er das Dashboard öffnet, dann erscheint dieser Termin genauso in der Karte wie ein Abo-Termin
 - [ ] Angenommen ein Kunde hat ein pausiertes Abo, wenn er das Dashboard öffnet, dann erscheint dessen Kurs nicht als nächster Termin
+- [ ] Angenommen ein Kunde hat ausschließlich ein Flatrate-Abo ohne Kursbindung, wenn er das Dashboard öffnet, dann sieht er **nicht** den Neukunden-Bildschirm, sondern einen Hinweis auf den Stundenplan
 
 ### Einchecken
 
@@ -162,6 +164,11 @@ Aufteilung in zwei Ausbaustufen entschieden (siehe Decision Log).
 - **Kunde mit Abo, aber der Kurs hat keinen Stundenplan-Eintrag.** Es gibt
   keinen nächsten Termin. Der Abschnitt „Dein nächster Kurs" entfällt, das
   Abo bleibt auf `/profil` sichtbar.
+- **Flatrate-Abo ohne Kursbindung** (`course_id` ist null). Liefert ebenfalls
+  keinen Termin, macht seinen Inhaber aber zum zahlenden Mitglied. Die
+  Entscheidung „Neukunde oder nicht" hängt deshalb am vorhandenen Abo, nicht
+  am errechneten Termin. *Beim Bauen gefunden: die erste Fassung zeigte
+  diesen Kunden den Probestunden-Bildschirm.*
 - **Alle kommenden Termine liegen in Pausen** (z. B. Sommerpause). Es wird
   kein nächster Termin gefunden. Statt einer leeren Karte ein Hinweis, wann
   es weitergeht — oder der Abschnitt entfällt.
@@ -226,6 +233,8 @@ Aufteilung in zwei Ausbaustufen entschieden (siehe Decision Log).
 | Videolektionen als kompakte, direkt abspielbare Liste | Hält den Kunden auf dem Dashboard. Eine einzelne hervorgehobene „aktuelle" Lektion wurde verworfen: die Daten geben nicht her, welche Lektion dran ist. | 2026-08-27 |
 | Abschnitte ohne Inhalt verschwinden ganz | Ein Kästchen mit „nichts vorhanden" ist Platzverschwendung, besonders am Telefon. | 2026-08-27 |
 | Alle acht Abschnitte zum Start statt Kern zuerst | Entscheidung des Betreibers. Ich hatte zu „Kern zuerst, Rest danach" geraten, weil acht Abschnitte mit je eigenem Leerzustand in zwei Wochen samt QA knapp sind; der Betreiber hat sich bewusst dagegen entschieden. Das Risiko liegt im Zeitplan, nicht in der Sache. | 2026-08-27 |
+| Adresse bleibt in beiden Sprachen `/mein-bereich` | Das Projekt uebersetzt keine Pfade — `/en/kurse`, `/en/stundenplan`. Eine Sonderregelung nur fuer diese Seite braechte Maschinerie ohne Nutzen. (Korrigiert waehrend /frontend, 2026-08-27) | 2026-08-27 |
+| „Danach"-Zeile nur bei einem anderen Kurs | Bei nur einem Kurs wäre es derselbe eine Woche später — am selben Wochentag liest sich das als Widerspruch zu „HEUTE". (Beim Bauen bemerkt, 2026-08-27) | 2026-08-27 |
 | Verwaltendes bleibt auf `/profil` | Rechnungen, Stammdaten, Zahlungsweise und Benachrichtigungen sind seltene Vorgänge; sie gehören nicht auf die Seite, die täglich geöffnet wird. | 2026-08-27 |
 
 ### Technical Decisions

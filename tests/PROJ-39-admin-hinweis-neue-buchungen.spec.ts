@@ -57,7 +57,7 @@ async function login(page: Page, creds: { email: string; password: string }) {
   await page.getByLabel("E-Mail").fill(creds.email);
   await page.getByLabel("Passwort").fill(creds.password);
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 15000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 15000 });
 }
 
 /** Reads the counter off the Buchungen menu entry; 0 when no badge is shown. */

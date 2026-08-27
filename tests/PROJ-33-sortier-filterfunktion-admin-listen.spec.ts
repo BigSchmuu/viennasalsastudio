@@ -9,7 +9,7 @@ async function login(page: Page, creds: { email: string; password: string }) {
   await page.waitForTimeout(1500);
   await page.getByRole("button", { name: "Einloggen" }).click();
   // Admin lands on /admin after login, every other role on /profil.
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
 }
 
 test.describe("PROJ-33: Sortier- und Filterfunktion für Admin-Listen", () => {

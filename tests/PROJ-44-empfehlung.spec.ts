@@ -21,7 +21,7 @@ async function kundeMit(mail: string) {
   return data.users.find((u) => u.email === mail)!.id;
 }
 
-async function anmelden(page: import("@playwright/test").Page, mail: string, ziel = /\/(profil|admin)$/) {
+async function anmelden(page: import("@playwright/test").Page, mail: string, ziel = /\/(mein-bereich|profil|admin)$/) {
   await page.goto("/login");
   await page.waitForTimeout(1200);
   await page.getByLabel("E-Mail").fill(mail);

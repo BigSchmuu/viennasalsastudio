@@ -55,7 +55,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
       // `redirectTo` comes straight from a query parameter, so it must be
       // constrained to our own origin — otherwise a link to the real site
       // could bounce the user to a phishing page right after a genuine login.
-      const fallback = result.role === "admin" ? "/admin" : "/profil";
+      const fallback = result.role === "admin" ? "/admin" : "/mein-bereich";
       window.location.href = safeRedirectPath(redirectTo, fallback, window.location.origin);
     } finally {
       setLoading(false);

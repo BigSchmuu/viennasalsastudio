@@ -31,7 +31,7 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1200);
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 15000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 15000 });
 }
 
 async function openBookingDialog(page: Page) {

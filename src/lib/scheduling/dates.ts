@@ -103,7 +103,7 @@ function viennaOffsetMinutes(instant: Date): number {
 /** Converts a course_schedule `start_time`/`end_time` (Vienna wall-clock, e.g. "18:00:00")
  *  on a given date into the correct UTC instant — course times are entered and displayed
  *  as Vienna local time everywhere in the app, not UTC. */
-function viennaWallClockToDate(dateString: string, timeString: string): Date {
+export function viennaWallClockToDate(dateString: string, timeString: string): Date {
   const naiveUtc = new Date(`${dateString}T${timeString.slice(0, 5)}:00Z`);
   const offsetMinutes = viennaOffsetMinutes(naiveUtc);
   return new Date(naiveUtc.getTime() - offsetMinutes * 60000);

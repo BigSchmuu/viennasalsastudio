@@ -37,7 +37,7 @@ async function loginAsAdmin(page: Page) {
   await page.waitForTimeout(1500); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
   // Admin lands on /admin after login, every other role on /profil.
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
 }
 
 test.describe("PROJ-4: Admin — Kunden-/Mitgliederverwaltung", () => {
@@ -53,7 +53,7 @@ test.describe("PROJ-4: Admin — Kunden-/Mitgliederverwaltung", () => {
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: "Einloggen" }).click();
     // Admin lands on /admin after login, every other role on /profil.
-    await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+    await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
     await page.goto("/admin/kunden");
     await expect(page).toHaveURL("/");
 

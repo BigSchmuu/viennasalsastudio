@@ -18,7 +18,7 @@ test("PROJ-44: der Betreiber schreibt gut und zieht ab, ein Abzug ins Minus wird
   await page.getByLabel("Passwort").fill("CorrectPassword123!");
   await page.waitForTimeout(500);
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 15000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 15000 });
 
   await page.goto("/admin/kunden/" + kunde);
   await page.waitForTimeout(1500);
@@ -63,7 +63,7 @@ test("PROJ-44: der Kunde sieht Kontostand, Grund und den Hinweis auf die Verrech
   await page.getByLabel("Passwort").fill("CorrectPassword123!");
   await page.waitForTimeout(500);
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL(/\/profil$/, { timeout: 15000 });
+  await page.waitForURL(/\/(mein-bereich|profil)$/, { timeout: 15000 });
   await page.waitForTimeout(1200);
 
   await page.getByRole("button", { name: "Empfehlen und Guthaben" }).click();
@@ -94,7 +94,7 @@ test.describe("Guthaben englisch und Vorzeichen", () => {
     await page.getByLabel(/password|passwort/i).fill("CorrectPassword123!");
     await page.waitForTimeout(500);
     await page.getByRole("button", { name: /Log in|Einloggen/ }).click();
-    await page.waitForURL(/\/profil$/, { timeout: 15000 });
+    await page.waitForURL(/\/(mein-bereich|profil)$/, { timeout: 15000 });
     await page.waitForTimeout(1200);
     expect(page.url()).toContain("/en/");
 

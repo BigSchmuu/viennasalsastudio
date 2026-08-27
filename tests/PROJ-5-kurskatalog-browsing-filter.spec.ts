@@ -10,7 +10,7 @@ async function login(page: Page, email: string) {
   await page.waitForTimeout(1500); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
   // Admin lands on /admin after login, every other role on /profil.
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
 }
 
 // Scopes to the shadcn Card root (`.rounded-lg.border.bg-card`) containing

@@ -38,7 +38,7 @@ async function login(page: Page, { email, password }: { email: string; password:
   // Admin lands on /admin after login, every other role on /profil.
   // 20s rather than 10s: WebKit is noticeably slower than Chromium here and
   // the shorter budget made this flaky on the Mobile Safari project.
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 20000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 20000 });
 }
 
 /**

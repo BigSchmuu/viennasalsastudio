@@ -10,7 +10,8 @@
     "login": "Login",
     "openMenu": "Menü öffnen",
     "menu": "Menü",
-    "language": "Sprache"
+    "language": "Sprache",
+    "dashboard": "Mein Bereich"
   },
   "footer": {
     "copyright": "© {year} Vienna Salsa Studio by Lisa & Samuel OG",
@@ -307,5 +308,80 @@
     "copy": "Kopieren",
     "copied": "Kopiert",
     "balanceHeading": "Dein Guthaben"
+  },
+  "dashboard": {
+    "greeting": "Hallo, {name}!",
+    "greetingNoName": "Willkommen!",
+    "profileHint": "Rechnungen, Stammdaten und Einstellungen findest du in deinem Profil.",
+    "profileCta": "Zum Profil",
+    "openItems": {
+      "heading": "Zu erledigen",
+      "mandateTitle": "Zahlungsweise fehlt",
+      "mandateBody": "Ohne SEPA-Mandat kannst du kein Abo abschließen und nicht auf die Warteliste.",
+      "mandateCta": "Jetzt hinterlegen",
+      "bookingTitle": "Buchung wartet auf Bestätigung",
+      "bookingBody": "{course} — wir melden uns, sobald sie bestätigt ist.",
+      "bookingCta": "Buchung ansehen",
+      "waitlistTitle": "Du stehst auf der Warteliste",
+      "waitlistBody": "{course} — wir sagen dir Bescheid, sobald ein Platz frei wird.",
+      "waitlistCta": "Warteliste ansehen"
+    },
+    "nextCourse": {
+      "heading": "Dein nächster Kurs",
+      "today": "Heute",
+      "tomorrow": "Morgen",
+      "running": "läuft gerade",
+      "place": "{room} · {location}",
+      "roomOnly": "{room}",
+      "noPlace": "Ort wird noch bekanntgegeben",
+      "after": "Danach: {weekday}, {time} · {course}",
+      "checkinOpensAt": "Einchecken ab {time}",
+      "trialBadge": "Probestunde",
+      "dropinBadge": "Drop-in"
+    },
+    "checkin": {
+      "action": "Ich bin da",
+      "done": "Eingecheckt",
+      "successIn": "Eingecheckt!",
+      "successOut": "Check-in zurückgenommen."
+    },
+    "start": {
+      "trialTitle": "Komm zur Probestunde",
+      "trialBody": "Unverbindlich und einmalig gratis. Such dir einen Termin aus.",
+      "trialCta": "Termin wählen",
+      "suggestionsHeading": "Passend für den Anfang",
+      "allCourses": "Alle Kurse ansehen",
+      "nextStart": "Nächster Termin: {date}"
+    },
+    "practice": {
+      "heading": "Üben",
+      "subheading": "Videolektionen zu {course}",
+      "showAll": "Alle {count} Lektionen ansehen",
+      "close": "Video schließen"
+    },
+    "thisWeek": {
+      "heading": "Diese Woche im Studio",
+      "soldOut": "Ausgebucht",
+      "hasTicket": "Du hast ein Ticket",
+      "buy": "Ticket sichern",
+      "allEvents": "Alle Events ansehen"
+    },
+    "attendance": {
+      "heading": "Deine Anwesenheit",
+      "count": "Mal in den letzten acht Wochen",
+      "countOne": "Mal in den letzten acht Wochen",
+      "encouragement": "Weiter so."
+    },
+    "credit": {
+      "heading": "Guthaben & Empfehlung",
+      "balanceLabel": "Dein Guthaben",
+      "offsetHint": "Wird automatisch von deinem nächsten Abo-Beitrag abgezogen. Eine Auszahlung ist nicht möglich.",
+      "referralLabel": "Dein Empfehlungscode",
+      "referralHint": "Gib ihn weiter — sobald jemand damit bucht, bekommt ihr beide Guthaben.",
+      "copy": "Kopieren",
+      "copied": "Code kopiert."
+    },
+    "noUpcoming": "Für dich steht gerade kein fester Kurstermin an.",
+    "toSchedule": "Zum Stundenplan"
   }
 }

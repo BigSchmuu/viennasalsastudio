@@ -38,7 +38,7 @@ async function login(page: Page) {
   await page.getByLabel("Passwort").fill(ADMIN.password);
   await page.waitForTimeout(1500);
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
 }
 
 async function ensureCustomer(email: string): Promise<string> {

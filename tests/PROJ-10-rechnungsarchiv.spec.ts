@@ -39,7 +39,7 @@ async function login(page: Page, user: { email: string; password: string }) {
   await page.waitForTimeout(1000);
   await page.getByRole("button", { name: "Einloggen" }).click();
   // Admin lands on /admin after login, every other role on /profil.
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
 }
 
 // /profil's sections live behind a collapsed Accordion (Radix unmounts closed

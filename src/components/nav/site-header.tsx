@@ -51,7 +51,12 @@ export function SiteHeader({
     ...(isTeacher ? [{ href: "/lehrer", label: t("myCourses"), staff: true }] : []),
     ...(isAdmin || isTeacher ? [{ href: "/checkin", label: t("checkin"), staff: true }] : []),
     ...(isAdmin ? [{ href: "/admin", label: t("admin"), staff: true }] : []),
-    ...(isLoggedIn ? [{ href: "/profil", label: t("profile") }] : [{ href: "/login", label: t("login") }]),
+    ...(isLoggedIn
+      ? [
+          { href: "/mein-bereich", label: t("dashboard") },
+          { href: "/profil", label: t("profile") },
+        ]
+      : [{ href: "/login", label: t("login") }]),
   ];
 
   function isActive(href: string) {

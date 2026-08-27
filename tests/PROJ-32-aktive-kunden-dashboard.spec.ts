@@ -8,7 +8,7 @@ async function login(page: import("@playwright/test").Page, { email, password }:
   await page.getByLabel("E-Mail").fill(email);
   await page.getByLabel("Passwort").fill(password);
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForURL(/\/(profil|admin)$/, { timeout: 10000 });
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
 }
 
 test.describe("PROJ-32: Aktive-Kunden-Anzahl im Dashboard", () => {
