@@ -190,7 +190,14 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
     expect(response?.status()).toBe(404);
   });
 
-  test("AC8: CSV-Export enthält gefilterte Rechnungen mit korrekten Spalten", async ({ page }) => {
+  test("AC8: CSV-Export enthält gefilterte Rechnungen mit korrekten Spalten", async ({ page }, testInfo) => {
+    // Mobiles Safari kennt keinen Datei-Download im Sinne von Playwright —
+    // iOS öffnet die Datei stattdessen. Das Ereignis kommt dort also nie.
+    // Der Export ist ohnehin eine Verwaltungsfunktion am Rechner.
+    test.skip(
+      testInfo.project.name === "Mobile Safari",
+      "Datei-Downloads gibt es auf mobilem Safari nicht"
+    );
     await login(page, ADMIN);
     await page.goto("/admin/rechnungen");
     await page.waitForTimeout(400);

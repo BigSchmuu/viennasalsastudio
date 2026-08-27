@@ -44,6 +44,11 @@ async function login(page: Page, pfad = "/login") {
   await page.waitForTimeout(400);
   await page.getByRole("button", { name: /^(Einloggen|Log in)$/ }).click();
   await page.waitForURL(/\/(en\/)?(mein-bereich|profil|admin)$/, { timeout: 15000 });
+  // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
+  // dem Profil — und zwar in der Sprache, in der der Test gerade unterwegs ist.
+  if (page.url().includes("/mein-bereich")) {
+    await page.goto(page.url().includes("/en/") ? "/en/profil" : "/profil");
+  }
 }
 
 test.describe("PROJ-43: Englische Sprachvariante", () => {

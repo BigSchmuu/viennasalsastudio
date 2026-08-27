@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,6 +31,33 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
+
+  const formularRef = useRef<HTMLFormElement>(null);
+
+  /*
+   * Ein Passwortmanager füllt die Felder aus, sobald das HTML da ist — also
+   * bevor React hydriert hat. react-hook-form kennt diese Werte dann nicht:
+   * seine Vorgabe ist der Leerstring, und beim Absenden meldet es „E-Mail ist
+   * erforderlich" bei einem Feld, in dem sichtbar etwas steht.
+   *
+   * Deshalb nach dem Hydrieren einmal nachsehen, was wirklich in den Feldern
+   * steht, und es übernehmen. Ohne Abhängigkeiten: der Browser füllt genau
+   * einmal, vor diesem Zeitpunkt.
+   */
+  useEffect(() => {
+    const formular = formularRef.current;
+    if (!formular) return;
+
+    for (const feld of ["email", "password"] as const) {
+      const eingabe = formular.querySelector<HTMLInputElement>(`input[name="${feld}"]`);
+      const wert = eingabe?.value ?? "";
+      if (wert && wert !== form.getValues(feld)) {
+        form.setValue(feld, wert, { shouldValidate: false });
+      }
+    }
+    // Absichtlich nur einmal nach dem Hydrieren.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function onSubmit(values: LoginInput) {
     setLoading(true);
@@ -76,6 +103,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           (which would leak the password into the URL/history/server logs).
           Once hydrated, onSubmit's preventDefault takes over as usual. */}
       <form
+        ref={formularRef}
         action={async (formData) => {
           await signIn(formData);
         }}
