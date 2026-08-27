@@ -51,7 +51,20 @@ const prod = createClient(PROD_URL, PROD_KEY, { auth: { persistSession: false } 
 const test = createClient(TEST_URL, TEST_KEY, { auth: { persistSession: false } });
 
 const TEST_DOMAIN = "@viennasalsastudio.test";
-const PASSWORT = "CorrectPassword123!";
+
+/**
+ * Die Suite benutzt zwei Passwörter — die PROJ-11-Konten ein eigenes.
+ *
+ * In der Produktion liegen Passwörter nur als Prüfwert vor, kopieren geht
+ * also nicht; sie müssen hier gesetzt werden. Welches wohin gehört, steht in
+ * den Tests selbst. Ein einheitliches Passwort hat beim ersten Lauf fünf
+ * PROJ-11-Tests scheitern lassen: Die Anmeldung schlug fehl, die Seite zeigte
+ * dem nicht angemeldeten Besucher keine Videolektionen, und der Test meldete
+ * „Videolektionen nicht gefunden" — ein Datenproblem war es nicht.
+ */
+const PASSWORT_STANDARD = "CorrectPassword123!";
+const PASSWORT_PROJ11 = "TestPassword123!";
+const passwortFuer = (email) => (email.startsWith("e2e11-") ? PASSWORT_PROJ11 : PASSWORT_STANDARD);
 
 function log(...t) { console.log(...t); }
 
@@ -132,8 +145,14 @@ async function konten() {
 
   let angelegt = 0;
   for (const u of testKonten) {
+    // Den Bestätigungsstand mitnehmen: Ein Konto ist absichtlich
+    // unbestätigt, damit PROJ-2 den Hinweis „bitte E-Mail bestätigen"
+    // prüfen kann. Alle bestätigt anzulegen hat genau diesen Test gekippt.
     const { error } = await test.auth.admin.createUser({
-      id: u.id, email: u.email, password: PASSWORT, email_confirm: true,
+      id: u.id,
+      email: u.email,
+      password: passwortFuer(u.email),
+      email_confirm: Boolean(u.email_confirmed_at),
     });
     if (error) throw new Error(`Konto ${u.email}: ${error.message}`);
     angelegt++;
@@ -190,6 +209,29 @@ async function daten(erlaubteKunden) {
   await schreibe("tickets", ohneFremde(nurErlaubte(await alleZeilen(prod, "tickets")), "checked_in_by"));
   await schreibe("course_attendance", ohneFremde(nurErlaubte(await alleZeilen(prod, "course_attendance")), "marked_by"));
   await schreibe("course_session_notes", ohneFremde(await alleZeilen(prod, "course_session_notes"), "updated_by"));
+
+  /**
+   * Lastschriftläufe samt Rechnungen gehören mit.
+   *
+   * PROJ-10 legt einen festen Lauf zum 15.01.2028 an, aber nur, wenn es ihn
+   * noch nicht gibt — und PROJ-36 rechnet mit genau dessen drei Rechnungen.
+   * Ohne den Lauf im Seed legte ihn PROJ-10 neu an, und weil hier alle Abos
+   * und Mandate von Anfang an existieren, erfasste er acht statt drei
+   * Positionen. Die Summen im Buchhaltungsexport stimmten dann nicht mehr.
+   */
+  const laeufe = ohneFremde(await alleZeilen(prod, "sepa_collection_runs"), "created_by");
+  await schreibe("sepa_collection_runs", laeufe);
+  const positionen = nurErlaubte(await alleZeilen(prod, "sepa_collection_items"));
+  await schreibe("sepa_collection_items", positionen);
+  const erlaubtePositionen = new Set(positionen.map((z) => z.id));
+  const rechnungen = nurErlaubte(await alleZeilen(prod, "invoices")).filter(
+    (r) => r.collection_item_id === null || erlaubtePositionen.has(r.collection_item_id)
+  );
+  await schreibe("invoices", rechnungen);
+  // Der Zähler bestimmt die nächste Rechnungsnummer — ohne ihn liefe die
+  // Nummernfolge in bereits vergebene Nummern hinein.
+  await schreibe("invoice_number_counters", await alleZeilen(prod, "invoice_number_counters"));
+  await schreibe("customer_credits", nurErlaubte(await alleZeilen(prod, "customer_credits")));
   await schreibe("notification_preferences", nurErlaubte(await alleZeilen(prod, "notification_preferences")));
 
   log("Einstellungen…");

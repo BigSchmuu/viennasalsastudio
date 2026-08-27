@@ -273,7 +273,10 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
   test("AC14: Kunde ohne Admin-/Lehrer-Rolle wird von /checkin weggeleitet", async ({ page }) => {
     await login(page, CUSTOMER_NOMANDATE);
     await page.goto("/checkin");
-    await expect(page).toHaveURL("http://localhost:3000/");
+    // Relativ zur baseURL statt fest auf einen Port: Der Testserver laeuft
+    // auf 3100, damit er nie den Entwicklungsserver mit den Produktionsdaten
+    // uebernimmt.
+    await expect(page).toHaveURL(/\/$/);
   });
 
   test("Lehrer-Rolle darf ebenfalls einchecken (Zugriff auf /checkin)", async ({ page }) => {
