@@ -55,7 +55,7 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
   if (schedule) {
     const pauseDates = schedule.course_schedule_pauses.map((p) => p.pause_date);
     const todayDate = heuteInWien();
-    const isTodayOccurrence = jsDayToWeekday(new Date().getDay()) === schedule.weekday && !pauseDates.includes(todayDate);
+    const isTodayOccurrence = jsDayToWeekday(heuteAlsDatumInWien().getDay()) === schedule.weekday && !pauseDates.includes(todayDate);
 
     const past = pastOccurrences(schedule.weekday, { count: PAST_WINDOW, pauseDates });
     const chronologicalPast = [...past].reverse();

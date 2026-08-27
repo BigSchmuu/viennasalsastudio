@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
 import { jsDayToWeekday, formatDateLocal, selfCheckinWindow, upcomingOccurrences } from "@/lib/scheduling/dates";
+import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 import { readStudioPricing } from "@/lib/pricing";
 import { getTranslations } from "next-intl/server";
 import { getViewer } from "@/lib/auth/viewer";
@@ -8,7 +9,8 @@ import { getViewer } from "@/lib/auth/viewer";
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
 function currentWeekDates(): string[] {
-  const now = new Date();
+  // Der Wochentag muss der Wiener sein, nicht der des Servers (UTC).
+  const now = heuteAlsDatumInWien();
   const monday = new Date(now);
   monday.setDate(now.getDate() - jsDayToWeekday(now.getDay()));
   const dates: string[] = [];
@@ -76,7 +78,7 @@ export default async function StundenplanPage() {
   const myWaitlistCourseIds = new Set((myWaitlistRes.data ?? []).map((w) => w.course_id));
 
   const weekDates = currentWeekDates();
-  const todayDateString = formatDateLocal(new Date());
+  const todayDateString = heuteInWien();
   const entriesByWeekday: Record<number, ScheduleEntry[]> = {};
 
   for (const course of coursesRes.data ?? []) {
@@ -145,7 +147,7 @@ export default async function StundenplanPage() {
     entriesByWeekday[Number(weekday)].sort((a, b) => a.startTime.localeCompare(b.startTime));
   }
 
-  const todayWeekday = jsDayToWeekday(new Date().getDay());
+  const todayWeekday = jsDayToWeekday(heuteAlsDatumInWien().getDay());
 
   const texte = await getTranslations("schedule");
 

@@ -15,7 +15,7 @@ import {
   subscriptionStatusLabel,
   subscriptionStatusColor,
 } from "@/lib/constants/subscription-status";
-import { formatDateLocal } from "@/lib/scheduling/dates";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -167,7 +167,7 @@ export function SubscriptionManager({
             {subscriptions.map((subscription) => {
               const pendingLabel = pendingChangeLabel(subscription);
               const isDue = Boolean(
-                subscription.pendingEffectiveDate && subscription.pendingEffectiveDate <= formatDateLocal(new Date())
+                subscription.pendingEffectiveDate && subscription.pendingEffectiveDate <= heuteInWien()
               );
               return (
                 <TableRow key={subscription.id}>
@@ -277,7 +277,7 @@ function SubscriptionFormDialog({
       price: subscription?.price ?? 0,
       status: (subscription?.status as SubscriptionInput["status"]) ?? "active",
       course_id: subscription?.courseId ?? "",
-      cycle_anchor_date: subscription?.cycleAnchorDate ?? formatDateLocal(new Date()),
+      cycle_anchor_date: subscription?.cycleAnchorDate ?? heuteInWien(),
     },
   });
 

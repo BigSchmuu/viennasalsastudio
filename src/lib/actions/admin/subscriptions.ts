@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { subscriptionSchema } from "@/lib/validations/admin";
-import { formatDateLocal } from "@/lib/scheduling/dates";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import type { ActionResult } from "@/lib/actions/types";
 
 function parseSubscriptionFormData(formData: FormData) {
@@ -107,7 +107,7 @@ export async function applyPendingChange(id: string, customerId: string): Promis
   if (!subscription || !subscription.pending_status || !subscription.pending_effective_date) {
     return { error: "Keine geplante Änderung vorhanden." };
   }
-  if (subscription.pending_effective_date > formatDateLocal(new Date())) {
+  if (subscription.pending_effective_date > heuteInWien()) {
     return { error: "Das Wirksamkeitsdatum liegt noch in der Zukunft." };
   }
 
