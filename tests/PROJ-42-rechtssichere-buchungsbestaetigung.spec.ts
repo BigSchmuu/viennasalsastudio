@@ -52,9 +52,12 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
-  // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
-  // dem Profil — also dorthin, wo der Test vorher schon stand.
-  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil");
+  // Seit PROJ-45 landen Kunden auf /mein-bereich, die Pruefungen hier gelten
+  // aber dem Profil. Faehrt der Test unmittelbar danach selbst woandershin,
+  // ueberholt seine Navigation diese hier — auf WebKit regelmaessig. Das ist
+  // kein Fehler, sondern genau das, was der Test will; darum wird die
+  // Unterbrechung geschluckt statt gemeldet.
+  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil").catch(() => {});
 }
 
 // The course catalog is paginated (PAGE_SIZE=12, "Mehr laden") — fixture

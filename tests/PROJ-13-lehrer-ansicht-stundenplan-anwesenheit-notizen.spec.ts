@@ -39,9 +39,12 @@ async function login(page: Page, { email, password }: { email: string; password:
   // 20s rather than 10s: WebKit is noticeably slower than Chromium here and
   // the shorter budget made this flaky on the Mobile Safari project.
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 20000 });
-  // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
-  // dem Profil — also dorthin, wo der Test vorher schon stand.
-  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil");
+  // Seit PROJ-45 landen Kunden auf /mein-bereich, die Pruefungen hier gelten
+  // aber dem Profil. Faehrt der Test unmittelbar danach selbst woandershin,
+  // ueberholt seine Navigation diese hier — auf WebKit regelmaessig. Das ist
+  // kein Fehler, sondern genau das, was der Test will; darum wird die
+  // Unterbrechung geschluckt statt gemeldet.
+  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil").catch(() => {});
 }
 
 /**

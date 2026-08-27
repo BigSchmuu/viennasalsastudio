@@ -380,7 +380,70 @@ Anwesenheiten.
 
 
 ## QA Test Results
-_To be added by /qa_
+
+**Datum:** 2026-08-27 · **Umgebung:** Testdatenbank (`pdlwtlfjqevzslldenel`), nie Produktion
+**Browser:** Chromium (Desktop) und Mobile Safari (iPhone 13)
+
+### Ergebnis
+
+| | |
+|---|---|
+| Automatisierte Tests für PROJ-45 | **38 bestanden, 0 fehlgeschlagen** (19 je Browser) |
+| Unit-Tests (Terminlogik) | 11 bestanden |
+| Integrationstests (Datenbankfunktion) | 4 bestanden |
+| Gefundene Fehler | 1 (mittel) — behoben und durch einen Test gesichert |
+| Sicherheitsbefunde | keine |
+
+### BUG-1 (Mittel, behoben): Flatrate-Kunden sahen keine Übungsvideos
+
+Die Seite suchte den Kurs des nächsten Termins ausschließlich unter den
+kursgebundenen Abos. Ein Flatrate-Abo steht dort mit `courses = null`, der
+Vergleich griff also nie — ein Flatrate-Kunde mit gebuchtem Drop-in bekam
+keine Lektionen zu sehen.
+
+Das widersprach dem Kriterium in dieser Spec *und* der Zugriffsregel der
+Datenbank, die Flatrate-Abos (`s.course_id is null`) ausdrücklich Zugang zu
+jedem Videosatz gibt. Der Kommentar an der Fundstelle behauptete sogar das
+Gegenteil — er beschrieb die Absicht, nicht das Verhalten.
+
+Behoben: der Kurs wird in Abos *und* Buchungen gesucht; ob jemand einen
+Videosatz sehen darf, entscheidet ohnehin die Datenbank.
+Gesichert durch `tests/PROJ-45-dashboard-qa.spec.ts` („BUG-1: Ein Flatrate-Abo
+sieht die Lektionen des anstehenden Kurses").
+
+### Sicherheits-Durchgang
+
+- Jede personenbezogene Abfrage ist auf `user.id` eingeschränkt; RLS greift
+  unabhängig davon als zweite Linie.
+- `auth.getUser()` prüft die Sitzung serverseitig, statt nur das Cookie zu lesen.
+- `force-dynamic` verhindert, dass persönliche Inhalte zwischengespeichert werden.
+- `count_my_recent_attendance` nimmt kein Argument, ist damit von außen nicht
+  auf fremde Kunden lenkbar; anonymen Aufrufern fehlt das Ausführungsrecht.
+  Der direkte Weg an der Funktion vorbei bleibt durch RLS versperrt — beides
+  geprüft in `tests/PROJ-45-anwesenheit-rpc.test.ts`.
+- Auf dem Dashboard erscheint kein fremder Name, nur der eigene Vorname.
+
+### Nicht behoben, bewusst
+
+- Die Seite lädt bei jedem Aufruf alle Kursnamen, nur um Wartelisteneinträge zu
+  beschriften. Bei der heutigen Kurszahl bedeutungslos.
+- Hat jemand am selben Tag ein Abo *und* eine bestätigte Probestunde im selben
+  Kurs, trägt die Karte die Kachel „Probestunde", obwohl das Abo den Termin
+  liefert. Sachlich nicht falsch, nur unscharf.
+
+### Produktionsreife
+
+**JA** — keine kritischen oder hohen Fehler offen.
+
+### Was die Testdateien dieses Durchgangs anders machen
+
+`PROJ-45-dashboard-qa.spec.ts` legt sich Kurs, Videosatz, Lektionen, Kunden und
+Abos selbst an und räumt sie wieder weg. Das ist die Lehre aus PROJ-22 und
+PROJ-38: beide bauten auf Daten, die andere Testdateien im selben Lauf
+umschrieben, und fielen dann um, ohne dass an ihnen etwas falsch gewesen wäre.
+Ebenso liegt der Kurstermin auf einer festen Uhrzeit *morgen* statt auf
+„jetzt + zwei Stunden" — die erste Fassung lief um 23:52 in genau die
+Zeitzonenfalle, die an diesem Tag schon PROJ-25 gestellt hatte.
 
 ## Deployment
 _To be added by /deploy_

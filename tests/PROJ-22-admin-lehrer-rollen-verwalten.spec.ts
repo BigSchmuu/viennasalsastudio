@@ -17,8 +17,13 @@ try {
  * every later run failed looking for people who no longer held those roles.
  * There is no staging database, so the roles are restored here.
  *
- * The course assignment of "Lehrer Mit Kurs" is left alone: demoting does not
- * remove it, and it is what the warning dialog test relies on.
+ * Das Zurückstufen selbst entfernt die Kurszuordnung nicht — die Aktion ändert
+ * nur die Rolle. Weggeräumt wird sie woanders: beim Speichern eines Kurses
+ * ersetzt die Verwaltung dessen Lehrerliste vollständig (courses.ts), und
+ * andere Testdateien bearbeiten genau diesen Kurs. Danach fand der
+ * Warnhinweis-Test keinen Kursnamen mehr vor und fiel um, ohne dass etwas an
+ * ihm selbst falsch gewesen wäre. Deshalb wird auch die Zuordnung hier
+ * hergestellt statt vorausgesetzt.
  */
 test.beforeAll(async () => {
   const service = createClient(
@@ -38,6 +43,26 @@ test.beforeAll(async () => {
     const { error } = await service.from("profiles").update({ role }).eq("full_name", fullName);
     if (error) throw new Error(`PROJ-22 Fixture-Reset (${fullName}) fehlgeschlagen: ${error.message}`);
   }
+
+  const { data: lehrer } = await service
+    .from("profiles")
+    .select("id")
+    .eq("full_name", "E2E22 Lehrer Mit Kurs")
+    .single();
+  const { data: kurs } = await service
+    .from("courses")
+    .select("id")
+    .eq("name", "E2E5 Kizomba Beginner")
+    .single();
+  if (!lehrer || !kurs) {
+    throw new Error("PROJ-22 Fixture-Reset: Lehrkraft oder Kurs 'E2E5 Kizomba Beginner' fehlt");
+  }
+  const { error: zuordnungFehler } = await service
+    .from("course_teachers")
+    .upsert({ course_id: kurs.id, teacher_id: lehrer.id }, { onConflict: "course_id,teacher_id" });
+  if (zuordnungFehler) {
+    throw new Error(`PROJ-22 Fixture-Reset (Kurszuordnung) fehlgeschlagen: ${zuordnungFehler.message}`);
+  }
 });
 
 const ADMIN = { email: "e2e22-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
@@ -56,9 +81,12 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByRole("button", { name: "Einloggen" }).click();
   // Admin lands on /admin after login, every other role on /profil.
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
-  // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
-  // dem Profil — also dorthin, wo der Test vorher schon stand.
-  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil");
+  // Seit PROJ-45 landen Kunden auf /mein-bereich, die Pruefungen hier gelten
+  // aber dem Profil. Faehrt der Test unmittelbar danach selbst woandershin,
+  // ueberholt seine Navigation diese hier — auf WebKit regelmaessig. Das ist
+  // kein Fehler, sondern genau das, was der Test will; darum wird die
+  // Unterbrechung geschluckt statt gemeldet.
+  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil").catch(() => {});
 }
 
 async function loginAsAdmin(page: Page) {

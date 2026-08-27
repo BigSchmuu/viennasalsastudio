@@ -242,16 +242,26 @@ export default async function MeinBereichPage() {
   // --- Videolektionen --------------------------------------------------
 
   // Der Kurs des nächsten Termins bestimmt, welche Lektionen gezeigt werden.
-  // Bei einem Flatrate-Abo ohne Kursbezug ist das genau das gewünschte
-  // Verhalten: was als Nächstes ansteht, wird auch geübt.
-  const uebeKurs = naechste.length > 0 ? (
-    [...(abos ?? [])]
-      .map((a) => a.courses as KursBezug | null)
-      .find((k) => k?.id === naechste[0].kursId) ?? null
-  ) : null;
+  //
+  // Gesucht wird in Abos *und* Buchungen. Nur in den Abos zu suchen war ein
+  // Fehler: ein Flatrate-Abo steht dort mit `courses = null`, der Vergleich
+  // greift also nie — und ein Flatrate-Kunde mit gebuchtem Drop-in sah gar
+  // keine Videos, obwohl die Zugriffsregel der Datenbank sie ihm ausdrücklich
+  // gibt (PROJ-11: `s.course_id is null` zählt für jeden Videosatz).
+  //
+  // Wer welchen Satz sehen darf, entscheidet ohnehin die Datenbank. Hier
+  // genügt die Frage, ob überhaupt ein aktives Abo besteht — alles Weitere
+  // liefert die Abfrage von selbst leer zurück.
+  const uebeKurs = naechste.length > 0
+    ? [...(abos ?? []), ...(buchungen ?? [])]
+        .map((z) => z.courses as KursBezug | null)
+        .find((k) => k?.id === naechste[0].kursId) ?? null
+    : null;
+
+  const hatAktivesAbo = (abos ?? []).length > 0;
 
   let lektionen: Lektion[] = [];
-  if (uebeKurs?.video_set_id && aboEingaben.length > 0) {
+  if (uebeKurs?.video_set_id && hatAktivesAbo) {
     const { data: lektionRows } = await supabase
       .from("video_set_lessons")
       .select("id, title, customer_video_url, position")

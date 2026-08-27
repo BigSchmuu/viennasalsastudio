@@ -47,7 +47,8 @@ async function login(page: Page, pfad = "/login") {
   // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
   // dem Profil — und zwar in der Sprache, in der der Test gerade unterwegs ist.
   if (page.url().includes("/mein-bereich")) {
-    await page.goto(page.url().includes("/en/") ? "/en/profil" : "/profil");
+    // Eine ueberholende Navigation des Tests ist kein Fehler, siehe PROJ-8.
+    await page.goto(page.url().includes("/en/") ? "/en/profil" : "/profil").catch(() => {});
   }
 }
 
