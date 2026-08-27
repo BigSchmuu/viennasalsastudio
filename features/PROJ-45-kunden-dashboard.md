@@ -446,4 +446,44 @@ Ebenso liegt der Kurstermin auf einer festen Uhrzeit *morgen* statt auf
 Zeitzonenfalle, die an diesem Tag schon PROJ-25 gestellt hatte.
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://viennasalsastudio.vercel.app/mein-bereich
+**Ausgeliefert:** 2026-08-28 · **Tag:** `v1.45.0-PROJ-45`
+
+### Was mit ausgeliefert wurde
+
+Zwei Änderungen wirken über PROJ-45 hinaus:
+
+- **Die Landung nach dem Login** ist für Kunden jetzt `/mein-bereich` statt
+  `/profil`. Beides bleibt über die Navigation erreichbar.
+- **Der Autofill-Fehler im Login-Formular** ist behoben. Er betraf jeden
+  Login, nicht nur das Dashboard: Ein Passwortmanager füllt die Felder, bevor
+  React hydriert hat; react-hook-form kannte den Wert nicht und React setzte
+  ihn beim Hydrieren auf den Leerstring zurück. Der Kunde sah „E-Mail ist
+  erforderlich" bei einem Feld, in dem sichtbar etwas stand. Das ist die
+  folgenreichste Änderung dieses Deployments, obwohl sie nicht zum Feature
+  gehört.
+
+### Datenbank
+
+Migration `20260827154946_proj45_eigene_anwesenheit_zaehlen` in Produktion und
+Testdatenbank eingespielt. Beide: Funktionsrumpf zeichengleich (MD5), gleiche
+Rechte (`authenticated`, `service_role` — **nicht** `anon`), Index vorhanden.
+93 Migrationen in Ordner, Produktion und Testdatenbank.
+
+Der Sicherheits-Berater von Supabase listet `count_my_recent_attendance`
+erwartungsgemäß unter den für `authenticated` aufrufbaren
+SECURITY-DEFINER-Funktionen — und **nicht** unter den für `anon` aufrufbaren.
+Der Rechteentzug wirkt also nachweislich.
+
+### Prüfung in der Produktion
+
+| Adresse | Ergebnis |
+|---|---|
+| `/mein-bereich` (abgemeldet) | 307 → `/login?redirect=/mein-bereich` |
+| `/`, `/kurse`, `/stundenplan`, `/events`, `/login`, `/agb`, `/en` | 200 |
+
+### Offen
+
+Der Klick-Test durch den Betreiber steht aus: eingeloggt eine Vorschau öffnen
+und bestätigen, dass sie die Testdatenbank liest (43 Kurse statt 14).
