@@ -61,7 +61,7 @@
 | PROJ-43 | Englische Sprachvariante für den Kundenbereich | Deployed | [PROJ-43](../features/PROJ-43-englische-sprachvariante-kundenbereich.md) | 2026-08-24 |
 | PROJ-44 | Empfehlungsprogramm (Kunden werben Kunden) | Deployed | [PROJ-44](../features/PROJ-44-empfehlungsprogramm.md) | 2026-08-25 |
 
-| PROJ-45 | Kunden-Dashboard nach dem Login | Planned | [PROJ-45](../features/PROJ-45-kunden-dashboard.md) | 2026-08-27 |
+| PROJ-45 | Kunden-Dashboard nach dem Login | Architected | [PROJ-45](../features/PROJ-45-kunden-dashboard.md) | 2026-08-27 |
 
 <!-- Add features above this line -->
 

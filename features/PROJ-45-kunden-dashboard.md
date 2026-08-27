@@ -206,6 +206,10 @@ Aufteilung in zwei Ausbaustufen entschieden (siehe Decision Log).
 - [ ] Braucht der Leerzustand eine Unterscheidung zwischen „gerade registriert"
       und „Abo ausgelaufen, war früher mal da"? Zweiteres gibt es zum Start
       noch nicht.
+- [ ] Anwesenheitszähler: nur die Gesamtzahl, oder aufgeschlüsselt nach Kurs?
+      (Aus dem Architektur-Entwurf, 2026-08-27)
+- [ ] Kursvorschläge im Leerzustand: nach Level sortieren oder nach dem
+      nächsten Starttermin? (Aus dem Architektur-Entwurf, 2026-08-27)
 
 ## Decision Log
 
@@ -225,12 +229,146 @@ Aufteilung in zwei Ausbaustufen entschieden (siehe Decision Log).
 | Verwaltendes bleibt auf `/profil` | Rechnungen, Stammdaten, Zahlungsweise und Benachrichtigungen sind seltene Vorgänge; sie gehören nicht auf die Seite, die täglich geöffnet wird. | 2026-08-27 |
 
 ### Technical Decisions
-_To be added by /architecture_
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Seite laedt serverseitig in einem Zug, Abfragen gleichzeitig | Wird am Telefon kurz vor Kursbeginn geoeffnet. Nacheinander einspringende Abschnitte verschieben den Einchecken-Knopf genau dann, wenn es schnell gehen muss. | 2026-08-27 |
+| Bestehende Bausteine wiederverwenden statt nachbauen | Gleiches Verhalten an beiden Stellen (Stundenplan und Dashboard), und das Verhalten ist bereits geprueft. | 2026-08-27 |
+| Anwesenheitszaehler bekommt einen eigenen, eng gefassten Zugang | Anwesenheiten sind bewusst abgeschottet (RLS aktiv, keine Policies — jeder Zugriff ueber eine eigene Funktion). Diese Absicherung wird nicht gelockert; der Kunde bekommt genau eine Antwort ueber sich selbst. | 2026-08-27 |
+| Tagesberechnung ausschliesslich mit ausdruecklicher Wiener Zeitzone | Server und Datenbank laufen in UTC, der Browser in der Zeitzone des Kunden. Siehe docs/zeitzone.md. | 2026-08-27 |
+| Leerzustand entsteht aus fehlenden Daten, nicht aus einem Schalter | Er kann so nicht veralten, waehrend der eingerichtete Zustand gepflegt wird. | 2026-08-27 |
+| Abschnittsreihenfolge fest, nicht konfigurierbar | Aufwand ohne erkennbaren Nutzen zum Start. | 2026-08-27 |
+| Keine neuen Pakete | Alles Noetige ist im Projekt vorhanden. | 2026-08-27 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Aufbau der Seite
+
+Jeder Abschnitt erscheint nur, wenn er etwas zu sagen hat. Was in eckigen
+Klammern steht, existiert bereits und wird wiederverwendet.
+
+```
+Mein Bereich  (/mein-bereich)
+|
++-- Begruessung mit Vornamen
+|
++-- Offene Punkte                     nur wenn welche vorliegen
+|   +-- Kein Zahlungsmittel hinterlegt
+|   +-- Buchung wartet auf Bestaetigung
+|   +-- Platz auf der Warteliste
+|
++-- Dein naechster Kurs               nur mit Abo oder gebuchtem Termin
+|   +-- Terminkarte: Kurs, Tag, Uhrzeit, Raum, Standort
+|   +-- Einchecken                    [bestehender Einchecken-Knopf]
+|   +-- Zeile "Danach: ..."           nur bei mehreren Kursen
+|
++-- Einstieg                          nur ohne Abo und ohne Buchung
+|   +-- Aufruf zur Probestunde        [bestehender Buchungsdialog]
+|   +-- bis zu drei Anfaengerkurse
+|
++-- Ueben                             nur mit Abo und vorhandenem Videosatz
+|   +-- Liste der Lektionen
+|   +-- Abspielen                     [bestehende Video-Einbettung]
+|
++-- Diese Woche im Studio             nur wenn Events anstehen
+|   +-- Eventzeile mit Ticketkauf     [bestehende Eventkarte + Kaufdialog]
+|
++-- Anwesenheit                       nur wenn je anwesend
+|
++-- Guthaben & Empfehlungscode
+|   +-- Guthabenstand                 [bestehender Guthaben-Abschnitt, verkleinert]
+|   +-- Code zum Kopieren
+|
++-- Verweis auf das Profil
+```
+
+Der Leerzustand ist kein eigener Bildschirm, sondern ergibt sich: „Einstieg"
+erscheint, „Dein naechster Kurs" und „Ueben" erscheinen nicht.
+
+### B) Welche Informationen die Seite braucht
+
+Fast alles liegt bereits vor und ist fuer den Kunden lesbar:
+
+| Was die Seite zeigt | Woher es kommt | Vorhanden? |
+|---|---|---|
+| Vorname, Empfehlungscode | Profil des Kunden | ja |
+| Laufende Kurse | Abos des Kunden | ja |
+| Wann ein Kurs stattfindet | Stundenplan des Kurses samt eingetragener Pausen | ja |
+| Wo er stattfindet | Raum und Standort des Kurses | ja |
+| Einzeln gebuchte Termine | Buchungen des Kunden (Probestunde, Drop-in) | ja |
+| Habe ich heute eingecheckt | bestehende Abfrage der heutigen Anwesenheit | ja |
+| Uebungsvideos | Videosatz des Kurses, bestehende Zugriffsregel | ja |
+| Events der naechsten sieben Tage | Eventliste samt Belegung | ja |
+| Meine Tickets | Tickets des Kunden | ja |
+| Guthabenstand | bestehende Guthaben-Berechnung | ja |
+| Fehlendes Zahlungsmittel | Mandat des Kunden | ja |
+| Offene Buchung, Wartelistenplatz | Buchungen und Wartelisteneintraege | ja |
+| **Wie oft war ich in den letzten acht Wochen da** | Anwesenheiten | **nein — neu** |
+
+**Der einzige neue Baustein.** Anwesenheitsdaten sind heute bewusst
+abgeschottet: nur Lehrkraft und Betreiber kommen an sie heran, und zwar
+ausschliesslich ueber eigens dafuer gebaute Zugaenge. Statt diese Absicherung
+zu lockern, bekommt der Kunde einen eng gefassten eigenen Zugang, der genau
+eine Frage beantwortet — „wie oft war *ich* da" — und nichts sonst. Keine
+Namen anderer Kunden, keine Termine, keine Kursbelegung.
+
+### C) Technische Entscheidungen und warum
+
+**Die Seite laedt in einem Zug, nicht in acht Nachladevorgaengen.**
+Das Dashboard wird ueberwiegend am Telefon geoeffnet, oft im Studio kurz vor
+Kursbeginn, gelegentlich mit schlechtem Empfang. Wuerden die acht Abschnitte
+nacheinander einspringen, waere der Einchecken-Knopf mal oben, mal unten —
+genau dann, wenn es schnell gehen muss. Die Abfragen laufen deshalb
+gleichzeitig und die fertige Seite geht als Ganzes raus, so wie es die
+Profilseite heute bereits macht.
+
+**Bestehende Bausteine werden wiederverwendet, nicht nachgebaut.**
+Einchecken-Knopf, Video-Einbettung, Buchungsdialog, Eventkarte und
+Guthaben-Anzeige gibt es bereits. Das hat zwei Vorteile: das Verhalten ist an
+beiden Stellen identisch — ein Kunde, der im Stundenplan eingecheckt hat,
+findet denselben Knopf im Dashboard wieder —, und die Testarbeit halbiert
+sich, weil das Verhalten selbst schon geprueft ist.
+
+**„Welcher Tag ist heute" wird an einer Stelle beantwortet, mit ausdruecklicher
+Wiener Zeitzone.** Server und Datenbank laufen in UTC. Wuerde der naechste
+Termin im Browser berechnet, kaeme bei einem Kunden im Urlaub dessen Ortszeit
+heraus. Die Regel steht in `docs/zeitzone.md` und gilt hier ohne Ausnahme.
+
+**Der Leerzustand ist kein Sonderfall im Code, sondern die Abwesenheit von
+Daten.** Es gibt keine zweite Seite und keinen Schalter. Wer kein Abo hat,
+sieht „Einstieg"; wer eines hat, sieht „Dein naechster Kurs". Damit kann der
+Leerzustand nicht veralten, waehrend der eingerichtete Zustand gepflegt wird.
+
+**Die Reihenfolge der Abschnitte ist fest.** Sie fuer den Kunden umsortierbar
+zu machen, kostet Aufwand und Einstellungen, ohne dass zum Start jemand
+danach gefragt haette.
+
+**`/profil` bleibt unangetastet.** Kein Umzug von Inhalten, keine geaenderten
+Adressen, keine toten Lesezeichen. Wer heute einen Link auf sein Profil hat,
+landet weiterhin dort.
+
+### D) Neue Pakete
+
+**Keine.** Alles, was das Dashboard braucht, ist bereits im Projekt: die
+Oberflaechenbausteine, die Video-Einbettung, die Uebersetzungen und der
+Datenzugriff. Der einzige Zuwachs ist der eng gefasste Zugang zu den eigenen
+Anwesenheiten.
+
+### E) Aufwandseinschaetzung
+
+| Abschnitt | Aufwand | Begruendung |
+|---|---|---|
+| Dein naechster Kurs + Einchecken | mittel | Terminlogik ueber mehrere Abos und Buchungen hinweg, Pausen beruecksichtigen |
+| Einstieg / Leerzustand | mittel | eigener Aufruf, Kursauswahl, gestalterisch der wichtigste Bildschirm |
+| Ueben | klein | Liste plus bestehende Einbettung |
+| Offene Punkte | klein | drei Abfragen, alle vorhanden |
+| Diese Woche im Studio | klein | bestehende Eventkarte |
+| Guthaben & Empfehlungscode | klein | bestehender Abschnitt, verkleinert |
+| Anwesenheit | mittel | einziger neuer Backend-Baustein samt Rechtepruefung |
+| Zweisprachigkeit aller Texte | mittel | acht Abschnitte, jeder mit eigenem Leerzustand |
+
 
 ## QA Test Results
 _To be added by /qa_
