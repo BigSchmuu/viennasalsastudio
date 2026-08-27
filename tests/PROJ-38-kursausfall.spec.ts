@@ -28,12 +28,38 @@ async function fixtures() {
 }
 
 /** The pause and the bookings around it are exactly what these tests assert on,
- *  so each one rebuilds them instead of inheriting whatever ran before. */
+ *  so each one rebuilds them instead of inheriting whatever ran before.
+ *
+ *  Seit PROJ-45 gilt das auch fuer das Abo: Die Empfaengerzahl im Dialog
+ *  speist sich aus den aktiven Abos des Kurses. PROJ-8 kuendigt und pausiert
+ *  genau diese im selben Lauf, und da "PROJ-38" alphabetisch vor "PROJ-8"
+ *  liegt, hing das Ergebnis daran, was der *vorige* Lauf hinterlassen hatte.
+ *  E2E8 Kurs hatte zuletzt 50 Abos, davon null aktive -- der Dialog sagte
+ *  wahrheitsgemaess "niemand betroffen", und der Test fiel um. */
 async function resetFixtures() {
   const { kurs, scheduleId } = await fixtures();
   await service.from("course_schedule_pauses").delete().eq("schedule_id", scheduleId).eq("pause_date", AUSFALL);
   await service.from("course_bookings").delete().eq("course_id", kurs.id).in("chosen_date", [AUSFALL, ANDERER_TERMIN]);
   await service.from("notification_queue").delete().eq("event_type", "kursausfall");
+
+  const { data: kunde } = await service.from("profiles").select("id").eq("email", KUNDE.email).maybeSingle();
+  if (kunde) {
+    const { data: abo } = await service
+      .from("subscriptions")
+      .select("id")
+      .eq("course_id", kurs.id)
+      .eq("customer_id", kunde.id)
+      .limit(1)
+      .maybeSingle();
+    if (abo) {
+      await service.from("subscriptions").update({ status: "active" }).eq("id", abo.id);
+    } else {
+      await service
+        .from("subscriptions")
+        .insert({ customer_id: kunde.id, course_id: kurs.id, name: "PROJ-38 Fixture", price: 65, status: "active" });
+    }
+  }
+
   return { kurs, scheduleId };
 }
 

@@ -61,7 +61,11 @@ function addMinutes(date: Date, minutes: number): Date {
 // Self-check-in is by definition about *today's* occurrences, so instead of
 // pretending otherwise the suite states the boundary it needs.
 const EARLIEST_HOUR = 2; // needs 2h of elapsed day behind it
-const LATEST_HOUR = 21; // needs 3h of remaining day ahead of it
+// Der spaeteste Termin, den beforeAll setzt, ist "Pausiert Kurs" mit
+// +180/+240 Minuten -- also vier Stunden, nicht drei. Mit 21 lief der Aufbau
+// zwischen 20 und 21 Uhr in eine Endzeit nach Mitternacht, und die Datenbank
+// wies sie zurueck; sichtbar wurde nur ein "Could not reprime".
+const LATEST_HOUR = 20; // needs 4h of remaining day ahead of it
 
 test.beforeAll(async () => {
   const now = viennaNow();
@@ -69,7 +73,7 @@ test.beforeAll(async () => {
   test.skip(
     hour < EARLIEST_HOUR || hour >= LATEST_HOUR,
     `Self-Check-In prüft Kurse von heute. Zwischen ${LATEST_HOUR}:00 und ${EARLIEST_HOUR}:00 Uhr passen die ` +
-      `benötigten Zeitfenster (2h zurück bis 3h voraus) nicht in denselben Kalendertag. ` +
+      `benötigten Zeitfenster (2h zurück bis 4h voraus) nicht in denselben Kalendertag. ` +
       `Aktuell: ${hour}:${String(now.getMinutes()).padStart(2, "0")} Uhr Wiener Zeit.`
   );
 
@@ -99,13 +103,19 @@ test.beforeAll(async () => {
   // that's the actual behavior AC9 exercises.
   const { data: pausedCourse } = await service.from("courses").select("id").eq("name", "E2E25 Pausiert Kurs").single();
   if (!pausedCourse) throw new Error("PROJ-25 fixture course 'E2E25 Pausiert Kurs' not found");
-  const { data: pausedSchedule } = await service
+  const { data: pausedSchedule, error: pausedError } = await service
     .from("course_schedule")
     .update({ weekday: todayWeekday, start_time: timeString(addMinutes(now, 180)), end_time: timeString(addMinutes(now, 240)) })
     .eq("course_id", pausedCourse.id)
     .select("id")
     .single();
-  if (!pausedSchedule) throw new Error("Could not reprime 'E2E25 Pausiert Kurs' schedule");
+  if (!pausedSchedule) {
+    // Die Meldung der Datenbank mitgeben: ohne sie sah eine abgelehnte
+    // Zeitspanne wie ein fehlender Datensatz aus.
+    throw new Error(
+      `Could not reprime 'E2E25 Pausiert Kurs' schedule: ${pausedError?.message ?? "kein Datensatz"}`
+    );
+  }
   await service.from("course_schedule_pauses").update({ pause_date: today }).eq("schedule_id", pausedSchedule.id);
 
   // AC2/3 assumes CUSTOMER_WITH_ABO is NOT yet checked in for today's

@@ -59,6 +59,16 @@ test.describe("PROJ-45: Kunden-Dashboard", () => {
 
   test("Die Navigation führt weiterhin auch ins Profil", async ({ page }) => {
     await anmelden(page, "e2e13-abo-kunde@viennasalsastudio.test");
+
+    // Am Telefon liegt die Navigation hinter dem Menü-Knopf. Der Test soll
+    // prüfen, dass der Weg ins Profil bestehen bleibt — nicht, auf welcher
+    // Bildschirmbreite er sichtbar ist.
+    const menue = page.getByRole("button", { name: "Menü öffnen" });
+    if (await menue.isVisible()) {
+      await menue.click();
+      await page.waitForTimeout(500);
+    }
+
     await page.getByRole("link", { name: "Mein Profil" }).first().click();
     await page.waitForURL(/\/profil$/, { timeout: 15000 });
   });

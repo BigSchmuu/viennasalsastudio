@@ -38,7 +38,11 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
       // Seit PROJ-45 ist /mein-bereich der Rückfall für Kunden, nicht /profil.
       await expect(page).toHaveURL(/\/mein-bereich$/);
 
-      await page.getByRole("button", { name: "Logout" }).first().click();
+      // Zum Abmelden ins Profil: dort steht der Knopf auf der Seite selbst.
+      // Der in der Navigation liegt am Telefon hinter dem Menü.
+      await page.goto("/profil");
+      await page.waitForTimeout(800);
+      await page.getByRole("button", { name: "Logout" }).last().click();
       await page.waitForTimeout(1200);
     }
   });

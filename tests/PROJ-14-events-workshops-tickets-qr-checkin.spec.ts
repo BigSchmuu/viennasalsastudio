@@ -118,9 +118,6 @@ async function login(page: Page, { email, password }: { email: string; password:
   // it regularly arrived later, and the next page.goto() of the calling test
   // was then aborted with "interrupted by another navigation".
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
-  // Seit PROJ-45 landen Kunden auf /mein-bereich. Die Prüfungen hier gelten
-  // dem Profil — also dorthin, wo der Test vorher schon stand.
-  if (page.url().endsWith("/mein-bereich")) await page.goto("/profil");
 }
 
 // shadcn Card root: "rounded-lg border bg-card text-card-foreground shadow-sm"
@@ -304,12 +301,19 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await page.getByRole("alertdialog").getByRole("button", { name: "Absagen" }).click();
     await expect(page.getByText("Event abgesagt.")).toBeVisible();
 
+    // Nach der Absage laedt die Verwaltung sich selbst neu. Wer jetzt sofort
+    // woanders hin navigiert, faehrt dieser Navigation in die Parade
+    // ("interrupted by another navigation") -- auf WebKit regelmaessig.
+    await page.waitForLoadState("networkidle");
+
     await page.goto("/events");
     await expect(page.getByText("E2E14 Cancel Notify Event")).toHaveCount(0);
   });
 
   test("AC13: Deaktivierte Event-Tickets-Benachrichtigung lässt Ticket im Profil sichtbar", async ({ page }) => {
     await login(page, CUSTOMER_MANDATE);
+    // Seit PROJ-45 landet ein Kunde auf /mein-bereich; geprüft wird hier das Profil.
+    await page.goto("/profil");
     await page.getByRole("button", { name: "Benachrichtigungen" }).click();
     await page.waitForTimeout(400);
     await expect(page.getByText("Event-Tickets", { exact: true })).toBeVisible();
