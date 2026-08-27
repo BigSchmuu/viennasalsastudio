@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
-try { process.loadEnvFile(".env.local"); } catch {}
+import { ladeTestUmgebung } from "./env";
+ladeTestUmgebung();
 const SP = "/private/tmp/claude-501/-Users-samumamu-Documents-Programmieren-Vienna-Salsa-Studio-App/5c27567f-1050-4ac0-9f1c-beba9bd0759d/scratchpad";
 const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 test.use({ locale: "de-DE" });

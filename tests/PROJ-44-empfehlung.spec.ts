@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
-try { process.loadEnvFile(".env.local"); } catch {}
+import { ladeTestUmgebung } from "./env";
+ladeTestUmgebung();
 
 const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },

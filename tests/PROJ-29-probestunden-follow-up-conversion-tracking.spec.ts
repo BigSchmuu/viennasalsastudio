@@ -1,10 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import { ladeTestUmgebung } from "./env";
 
 // The Playwright runner (unlike `next dev`) doesn't auto-load .env.local, but
 // the fixture setup below needs SUPABASE_SERVICE_ROLE_KEY to seed/clean data.
 try {
-  process.loadEnvFile(".env.local");
+  ladeTestUmgebung();
 } catch {
   // Already loaded (e.g. CI env vars set directly) — safe to ignore.
 }
