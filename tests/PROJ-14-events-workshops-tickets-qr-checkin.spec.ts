@@ -108,7 +108,28 @@ const CUSTOMER_NOMANDATE = { email: "e2e14-customer-nomandate@viennasalsastudio.
 const ADMIN = { email: "e2e14-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const TEACHER = { email: "e2e14-teacher@viennasalsastudio.test", password: "CorrectPassword123!" };
 
+/**
+ * Navigieren, nachdem die Anwendung selbst navigiert hat.
+ *
+ * Ein Ticketkauf oder eine Absage laesst die Seite sich nachladen. Faehrt der
+ * Test im selben Moment woandershin, bricht Playwright eine der beiden
+ * Navigationen ab: "interrupted by another navigation". Auf WebKit passiert
+ * das regelmaessig, auf Chromium fast nie -- deshalb fiel es lange nicht auf.
+ *
+ * Die Wartezeit ist begrenzt, damit eine aus anderen Gruenden beschaeftigte
+ * Seite den Test nicht haengen laesst.
+ */
+async function gehZu(page: Page, pfad: string) {
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+  await page.goto(pfad);
+}
+
 async function login(page: Page, { email, password }: { email: string; password: string }, redirect?: string) {
+  // Mehrere Tests melden sich mitten im Ablauf als jemand anderes an, waehrend
+  // die Anwendung von der vorigen Aktion noch navigiert. Faengt der Login dann
+  // seine eigene Navigation an, bricht Playwright eine der beiden ab
+  // ("interrupted by another navigation") -- auf WebKit regelmaessig.
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
   await page.goto(redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : "/login");
   await page.getByLabel("E-Mail").fill(email);
   await page.getByLabel("Passwort").fill(password);
@@ -137,7 +158,7 @@ function guestRow(page: Page, name: string): Locator {
 
 test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
   test("AC1: Event-Übersicht zeigt kommende Events mit Termin, Preis und Kapazitäts-Hinweis", async ({ page }) => {
-    await page.goto("/events");
+    await gehZu(page, "/events");
     await expect(page.getByRole("heading", { name: "Events & Workshops" })).toBeVisible();
 
     const card = eventCard(page, "E2E14 Kaufen Event");
@@ -148,7 +169,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
   });
 
   test("AC2: Nicht eingeloggter Besucher wird beim Kaufversuch zum Login weitergeleitet", async ({ page }) => {
-    await page.goto("/events");
+    await gehZu(page, "/events");
     const loginLink = eventCard(page, "E2E14 Kaufen Event").getByRole("link", { name: "Zum Ticket-Kauf einloggen" });
     await expect(loginLink).toBeVisible();
     await loginLink.click();
@@ -157,7 +178,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
 
   test("AC3, AC7: Ticket-Kauf mit SEPA-Mandat wird sofort bestätigt und erscheint mit QR-Code im Profil", async ({ page }) => {
     await login(page, CUSTOMER_MANDATE);
-    await page.goto("/events");
+    await gehZu(page, "/events");
 
     await eventCard(page, "E2E14 Kaufen Event").getByRole("button", { name: "Ticket kaufen" }).click();
 
@@ -167,7 +188,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await page.getByRole("dialog").getByRole("button", { name: "Ticket kaufen" }).click();
     await expect(page.getByText("Ticket bestätigt! Du findest es mit QR-Code in deinem Profil.")).toBeVisible();
 
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.getByRole("button", { name: "Meine Tickets" }).click();
     await page.waitForTimeout(400);
     const row = ticketRow(page, "E2E14 Kaufen Event");
@@ -177,7 +198,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
 
   test("AC4: Kunde ohne SEPA-Mandat kann nur 'Vor Ort zahlen' wählen", async ({ page }) => {
     await login(page, CUSTOMER_NOMANDATE);
-    await page.goto("/events");
+    await gehZu(page, "/events");
 
     await eventCard(page, "E2E14 Kaufen Event").getByRole("button", { name: "Ticket kaufen" }).click();
 
@@ -188,7 +209,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
 
   test("AC5, AC10: 'Vor Ort zahlen' reserviert sofort, Stornierung gibt Kapazität sofort wieder frei", async ({ page }) => {
     await login(page, CUSTOMER_NOMANDATE);
-    await page.goto("/events");
+    await gehZu(page, "/events");
 
     const card = eventCard(page, "E2E14 Kaufen Event");
     const before = await card.getByText(/Noch \d+ Plätze frei/).innerText();
@@ -200,11 +221,11 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await page.getByRole("dialog").getByRole("button", { name: "Ticket kaufen" }).click();
     await expect(page.getByText("Ticket reserviert! Zahlung bitte vor Ort.")).toBeVisible();
 
-    await page.goto("/events");
+    await gehZu(page, "/events");
     const afterPurchase = await card.getByText(/Noch \d+ Plätze frei/).innerText();
     expect(Number(afterPurchase.match(/\d+/)![0])).toBe(beforeCount - 1);
 
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.getByRole("button", { name: "Meine Tickets" }).click();
     await page.waitForTimeout(400);
     const row = ticketRow(page, "E2E14 Kaufen Event");
@@ -219,14 +240,14 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     // visible proof the refresh landed.
     await expect(row.getByText("Reserviert")).toHaveCount(0);
 
-    await page.goto("/events");
+    await gehZu(page, "/events");
     const afterCancel = await card.getByText(/Noch \d+ Plätze frei/).innerText();
     expect(Number(afterCancel.match(/\d+/)![0])).toBe(beforeCount);
   });
 
   test("AC6: Ausgebuchtes Event zeigt 'Ausgebucht' und Kauf ist gesperrt", async ({ page }) => {
     await login(page, CUSTOMER_MANDATE);
-    await page.goto("/events");
+    await gehZu(page, "/events");
 
     const card = eventCard(page, "E2E14 Ausgebucht Event");
     await expect(card.getByText("Ausgebucht").first()).toBeVisible();
@@ -235,7 +256,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
 
   test("AC11: Stornieren ist nach Ablauf der Frist nicht mehr möglich (Button ausgeblendet)", async ({ page }) => {
     await login(page, CUSTOMER_NOMANDATE);
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.getByRole("button", { name: "Meine Tickets" }).click();
     await page.waitForTimeout(400);
 
@@ -246,7 +267,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
 
   test("AC8, AC9: Admin checkt Gast per Namenssuche ein; erneute Suche zeigt bereits eingecheckt", async ({ page }) => {
     await login(page, CUSTOMER_MANDATE);
-    await page.goto("/events");
+    await gehZu(page, "/events");
     await eventCard(page, "E2E14 Checkin Event").getByRole("button", { name: "Ticket kaufen" }).click();
     // PROJ-42: Ohne Zustimmung bleibt der Knopf gesperrt.
     await page.getByRole("dialog").getByRole("checkbox", { name: /AGB gelesen/ }).click();
@@ -254,7 +275,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await expect(page.getByText("Ticket bestätigt! Du findest es mit QR-Code in deinem Profil.")).toBeVisible();
 
     await login(page, ADMIN);
-    await page.goto("/checkin");
+    await gehZu(page, "/checkin");
     await page.getByRole("combobox").click();
     await page.getByRole("option", { name: "E2E14 Checkin Event" }).click();
 
@@ -272,7 +293,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
 
   test("AC14: Kunde ohne Admin-/Lehrer-Rolle wird von /checkin weggeleitet", async ({ page }) => {
     await login(page, CUSTOMER_NOMANDATE);
-    await page.goto("/checkin");
+    await gehZu(page, "/checkin");
     // Relativ zur baseURL statt fest auf einen Port: Der Testserver laeuft
     // auf 3100, damit er nie den Entwicklungsserver mit den Produktionsdaten
     // uebernimmt.
@@ -281,13 +302,13 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
 
   test("Lehrer-Rolle darf ebenfalls einchecken (Zugriff auf /checkin)", async ({ page }) => {
     await login(page, TEACHER);
-    await page.goto("/checkin");
+    await gehZu(page, "/checkin");
     await expect(page.getByRole("heading", { name: "Event-Check-in" })).toBeVisible();
   });
 
   test("AC12: Event-Absage entfernt es von /events und benachrichtigt Ticket-Inhaber", async ({ page }) => {
     await login(page, CUSTOMER_MANDATE);
-    await page.goto("/events");
+    await gehZu(page, "/events");
     await eventCard(page, "E2E14 Cancel Notify Event").getByRole("button", { name: "Ticket kaufen" }).click();
     // PROJ-42: Ohne Zustimmung bleibt der Knopf gesperrt.
     await page.getByRole("dialog").getByRole("checkbox", { name: /AGB gelesen/ }).click();
@@ -295,7 +316,7 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     await expect(page.getByText("Ticket bestätigt! Du findest es mit QR-Code in deinem Profil.")).toBeVisible();
 
     await login(page, ADMIN);
-    await page.goto("/admin/events");
+    await gehZu(page, "/admin/events");
     const row = page.getByRole("row", { name: /E2E14 Cancel Notify Event/ });
     await row.getByRole("button", { name: "Absagen" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Absagen" }).click();
@@ -306,14 +327,14 @@ test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
     // ("interrupted by another navigation") -- auf WebKit regelmaessig.
     await page.waitForLoadState("networkidle");
 
-    await page.goto("/events");
+    await gehZu(page, "/events");
     await expect(page.getByText("E2E14 Cancel Notify Event")).toHaveCount(0);
   });
 
   test("AC13: Deaktivierte Event-Tickets-Benachrichtigung lässt Ticket im Profil sichtbar", async ({ page }) => {
     await login(page, CUSTOMER_MANDATE);
     // Seit PROJ-45 landet ein Kunde auf /mein-bereich; geprüft wird hier das Profil.
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.getByRole("button", { name: "Benachrichtigungen" }).click();
     await page.waitForTimeout(400);
     await expect(page.getByText("Event-Tickets", { exact: true })).toBeVisible();

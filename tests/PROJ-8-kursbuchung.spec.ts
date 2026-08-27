@@ -82,6 +82,22 @@ async function login(page: Page, { email, password }: { email: string; password:
   if (page.url().endsWith("/mein-bereich")) await page.goto("/profil").catch(() => {});
 }
 
+/**
+ * Navigieren, nachdem die Anwendung selbst navigiert hat.
+ *
+ * Nach einer Buchung laedt die Seite sich nach (/kurse). Faehrt der Test im
+ * selben Moment woandershin, bricht Playwright die eine Navigation zugunsten
+ * der anderen ab: "interrupted by another navigation". Auf WebKit passiert
+ * das regelmaessig, auf Chromium fast nie -- deshalb fiel es lange nicht auf.
+ *
+ * Die Wartezeit ist begrenzt: bleibt die Seite aus anderen Gruenden
+ * beschaeftigt, soll der Test daran nicht haengen bleiben.
+ */
+async function gehZu(page: Page, pfad: string) {
+  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+  await page.goto(pfad);
+}
+
 // /profil's sections live behind a collapsed Accordion (Radix unmounts closed
 // content entirely) — must expand "Meine Buchungen" before any booking <li>
 // is in the DOM.
@@ -173,7 +189,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await submit.click();
     await page.waitForTimeout(800);
 
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
     await expect(page.getByText("Offen")).toBeVisible();
@@ -214,7 +230,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(800);
 
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
     await expect(bookingItems(page, "Probestunde").getByText("Bestätigt")).toBeVisible();
@@ -236,7 +252,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
     await page.waitForTimeout(800);
 
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
     await expect(bookingItems(page, "Drop-in").getByText(/15,00/)).toBeVisible();
@@ -257,7 +273,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await expect(row.getByText("Bestätigt")).toBeVisible();
 
     await login(page, CUSTOMER);
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
     await expect(bookingItems(page, "Buchungsanfrage").getByText("Bestätigt")).toBeVisible();
@@ -277,7 +293,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await expect(dropinRow.getByText("Abgelehnt")).toBeVisible({ timeout: 30000 });
 
     await login(page, CUSTOMER);
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
     await expect(bookingItems(page, "Drop-in").getByText("Abgelehnt")).toBeVisible();
@@ -285,7 +301,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
 
   test("Kunde bucht Probestunde um; alte Buchung storniert, neue mit neuem Termin", async ({ page }) => {
     await login(page, CUSTOMER);
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
     await bookingItems(page, "Probestunde").getByRole("button", { name: "Umbuchen" }).click();
@@ -312,7 +328,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
 
   test("Kunde storniert Probestunde; Status wechselt auf storniert", async ({ page }) => {
     await login(page, CUSTOMER);
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
     await bookingItems(page, "Probestunde")
@@ -334,7 +350,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     // which is a stronger guarantee than a click-then-reject flow and still
     // satisfies the spec's intent.
     await login(page, CUSTOMER_TODAY);
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
     const todayBookingItem = page.locator("li", { hasText: "Probestunde" }).filter({ hasText: "Bestätigt" });
