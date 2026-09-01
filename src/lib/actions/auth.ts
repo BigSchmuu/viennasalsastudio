@@ -56,6 +56,14 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   });
 
   if (error) {
+    // Mit eingeschaltetem Schutz gegen geleakte Passwörter weist Supabase
+    // kompromittierte Passwörter mit diesem Code ab. Ohne eigenen Zweig läse
+    // der Kunde „bitte versuche es erneut" — und derselbe Versuch schlüge
+    // wieder fehl, endlos. Der Code wird wie email_not_confirmed vom Formular
+    // übersetzt.
+    if (error.code === "weak_password") {
+      return { error: "weak_password" };
+    }
     return { error: "Registrierung fehlgeschlagen. Bitte versuche es erneut." };
   }
 
@@ -112,6 +120,12 @@ export async function resetPassword(formData: FormData): Promise<ActionResult> {
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
 
   if (error) {
+    // Vor der Link-Meldung prüfen: ein abgelehntes Passwort hat mit dem Link
+    // nichts zu tun, und „Link abgelaufen" schickt den Kunden auf die falsche
+    // Fährte.
+    if (error.code === "weak_password") {
+      return { error: "weak_password" };
+    }
     return { error: "Der Link ist abgelaufen oder wurde bereits verwendet. Bitte fordere einen neuen Link an." };
   }
 

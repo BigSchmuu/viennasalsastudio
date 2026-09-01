@@ -43,7 +43,9 @@ export function ResetPasswordForm() {
       const result = await resetPassword(formData);
 
       if ("error" in result) {
-        setFormError(result.error);
+        setFormError(
+          result.error === "weak_password" ? t("weakPassword") : result.error
+        );
         return;
       }
 

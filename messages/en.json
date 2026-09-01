@@ -286,7 +286,8 @@
     "resetTitle": "Set a new password",
     "resetSubtitle": "Choose a new password for your account.",
     "resetLinkInvalid": "This link is invalid or has expired.",
-    "requestNewLink": "Request a new link"
+    "requestNewLink": "Request a new link",
+    "weakPassword": "This password appears in known data breaches and is therefore unsafe. Please choose a different one."
   },
   "legal": {
     "termsTitle": "Terms and Conditions",
