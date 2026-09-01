@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { signIn, resendConfirmationEmail } from "@/lib/actions/auth";
 import { safeRedirectPath } from "@/lib/auth/safe-redirect";
+import { useAutofillUebernehmen } from "@/hooks/use-autofill-uebernehmen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -32,32 +33,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
     defaultValues: { email: "", password: "" },
   });
 
-  const formularRef = useRef<HTMLFormElement>(null);
-
-  /*
-   * Ein Passwortmanager füllt die Felder aus, sobald das HTML da ist — also
-   * bevor React hydriert hat. react-hook-form kennt diese Werte dann nicht:
-   * seine Vorgabe ist der Leerstring, und beim Absenden meldet es „E-Mail ist
-   * erforderlich" bei einem Feld, in dem sichtbar etwas steht.
-   *
-   * Deshalb nach dem Hydrieren einmal nachsehen, was wirklich in den Feldern
-   * steht, und es übernehmen. Ohne Abhängigkeiten: der Browser füllt genau
-   * einmal, vor diesem Zeitpunkt.
-   */
-  useEffect(() => {
-    const formular = formularRef.current;
-    if (!formular) return;
-
-    for (const feld of ["email", "password"] as const) {
-      const eingabe = formular.querySelector<HTMLInputElement>(`input[name="${feld}"]`);
-      const wert = eingabe?.value ?? "";
-      if (wert && wert !== form.getValues(feld)) {
-        form.setValue(feld, wert, { shouldValidate: false });
-      }
-    }
-    // Absichtlich nur einmal nach dem Hydrieren.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const formularRef = useAutofillUebernehmen(form, ["email", "password"]);
 
   async function onSubmit(values: LoginInput) {
     setLoading(true);

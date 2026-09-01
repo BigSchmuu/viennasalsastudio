@@ -190,9 +190,16 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     // alongside this page's own profile-card logout — .last() targets the
     // profile card's button specifically.
     await page.getByRole("button", { name: "Logout" }).last().click();
-    await expect(page).toHaveURL("/");
+
+    // Wohin es nach dem Abmelden geht, entscheidet ein Rennen: der Knopf will
+    // auf die Startseite, gleichzeitig lädt /profil nach und läuft dabei in
+    // den Zugangsschutz. Auf WebKit gewinnt regelmäßig das Nachladen. Beide
+    // Ausgänge belegen dasselbe — die Sitzung ist beendet —, und genau das
+    // ist es, was dieser Test laut seinem Namen prüfen soll. Den wirklichen
+    // Nachweis führt der Aufruf darunter.
+    await expect(page).toHaveURL(/(\/$|\/login\?redirect=)/);
 
     await page.goto("/profil");
-    await expect(page).toHaveURL(/\/login\?redirect=%2Fprofil/);
+    await expect(page).toHaveURL(/\/login\?redirect=(%2F|\/)profil/);
   });
 });

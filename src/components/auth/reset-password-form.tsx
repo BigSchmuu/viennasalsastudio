@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useAutofillUebernehmen } from "@/hooks/use-autofill-uebernehmen";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { resetPasswordSchema, type ResetPasswordInput } from "@/lib/validations/auth";
 import { resetPassword } from "@/lib/actions/auth";
@@ -29,6 +30,8 @@ export function ResetPasswordForm() {
     defaultValues: { password: "", confirmPassword: "" },
   });
 
+  const formularRef = useAutofillUebernehmen(form, ["password", "confirmPassword"]);
+
   async function onSubmit(values: ResetPasswordInput) {
     setLoading(true);
     setFormError(null);
@@ -55,6 +58,7 @@ export function ResetPasswordForm() {
       {/* action={resetPassword}: progressive-enhancement fallback so the new
           password can't leak into a native GET URL — see PROJ-2 QA BUG-1. */}
       <form
+        ref={formularRef}
         action={async (formData) => {
           await resetPassword(formData);
         }}

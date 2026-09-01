@@ -79,3 +79,46 @@ Drei Fallen, die alle schon zugeschlagen haben:
   Fenster mit Begründung, statt falsch rot zu sein.
 - **Feste Zeitstempel:** Fixture-Termine mit hart verdrahtetem Datum gehen still kaputt, sobald
   sie verstreichen. Termine relativ zu `now` setzen.
+
+## Mobiles Safari (WebKit)
+
+Die Suite läuft in zwei Browsern. WebKit ist dabei nicht nur „langsamer" — er verhält sich
+an einigen Stellen anders, und jede dieser Stellen hat schon einmal einen Test gekostet.
+
+- **Die Navigation liegt hinter dem Menü-Knopf.** Die Desktop-Leiste steht zwar im Markup,
+  ist aber per CSS ausgeblendet (`hidden md:flex`). Ein Klick darauf läuft in die
+  Zeitgrenze, statt zu sagen, was fehlt. Vor dem Zugriff auf Navigationslinks oder den
+  Sprachumschalter also erst „Menü öffnen" anklicken — siehe `navBereich()` in
+  `PROJ-43-englische-sprachvariante.spec.ts`.
+- **Zwei Navigationen gleichzeitig brechen einander ab.** Lädt die Anwendung nach einer
+  Aktion selbst nach (Buchung, Ticketkauf, Absage) und navigiert der Test im selben Moment,
+  meldet Playwright „interrupted by another navigation". Auf Chromium passiert das fast
+  nie. Abhilfe: `gehZu()` in PROJ-8 und PROJ-14 — vor der eigenen Navigation die laufende
+  abwarten.
+- **Zwischenablage-Rechte gibt es nicht.** `grantPermissions(["clipboard-read",
+  "clipboard-write"])` wirft auf WebKit. Sichtbarkeit und Rückmeldung lassen sich trotzdem
+  prüfen, nur das Rücklesen nicht.
+- **Datei-Downloads gibt es nicht.** iOS öffnet Dateien, statt sie zu speichern; das
+  `download`-Ereignis kommt nie. Der CSV-Export ist dort übersprungen.
+
+### Der Hydrations-Konflikt auf /events
+
+Ein Sonderfall, weil er **kein Testproblem ist, sondern ein Fehler der Anwendung**.
+
+`formatDateTime` in `src/lib/formatting.ts` benutzt `toLocaleString("de-AT", …)`. Node und
+WebKit sind sich über das Komma nach dem Wochentag nicht einig:
+
+```
+Server (Node, ICU 78):  Di., 08.09.2026, 15:38
+Browser (WebKit):       Di. 08.09.2026, 15:38
+```
+
+React wirft den Teilbaum daraufhin weg und baut ihn neu auf („Hydration failed because the
+server rendered text didn't match the client"). Ein Klick in diesem Moment landet auf einem
+Element, das gleich darauf ersetzt wird — genau daran scheiterte PROJ-14 AC2.
+
+Der Test wartet deshalb kurz, bevor er klickt. Das ist ein Pflaster: Solange die Ursache
+steht, baut jeder Safari-Besucher die Eventliste beim Laden zweimal auf. Behoben wäre sie,
+indem das Datum nicht der Landeseinstellung der jeweiligen Engine überlassen, sondern aus
+`formatToParts` selbst zusammengesetzt wird — dann liefern beide Seiten dieselbe
+Zeichenkette.

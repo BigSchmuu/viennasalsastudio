@@ -36,6 +36,27 @@ test.afterAll(async () => {
   if (course) await service.from("course_bookings").delete().eq("course_id", course.id);
 });
 
+/**
+ * Der Bereich, in dem die Navigation gerade wirklich bedienbar ist.
+ *
+ * Am Telefon liegen Links und Sprachumschalter hinter dem Menü-Knopf; die
+ * Desktop-Leiste steht zwar im Markup, ist aber per CSS ausgeblendet
+ * (`hidden md:flex`). Ein Klick darauf lief in die 30-Sekunden-Grenze,
+ * statt zu sagen, was fehlt.
+ *
+ * Nach jeder Navigation schließt sich das Menü wieder — der Helfer wird
+ * deshalb vor jedem Zugriff erneut aufgerufen, nicht einmal gespeichert.
+ */
+async function navBereich(page: Page) {
+  const menue = page.getByRole("button", { name: /Menü öffnen|Open menu/ });
+  if (await menue.isVisible().catch(() => false)) {
+    await menue.click();
+    await page.waitForTimeout(600);
+    return page.getByRole("dialog");
+  }
+  return page.locator("header");
+}
+
 async function login(page: Page, pfad = "/login") {
   await page.goto(pfad);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
@@ -76,7 +97,8 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
   test("Der Umschalter bleibt auf derselben Seite und überdauert den Besuch", async ({ page }) => {
     await page.goto("/stundenplan");
     await page.waitForTimeout(1200);
-    await page.getByRole("group", { name: /Sprache|Language/ }).getByRole("button", { name: "EN" }).click();
+    await (await navBereich(page)).getByRole("group", { name: /Sprache|Language/ })
+      .getByRole("button", { name: "EN" }).click();
     await page.waitForTimeout(2000);
     expect(new URL(page.url()).pathname).toBe("/en/stundenplan");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
@@ -90,7 +112,8 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
   test("Die Wahl eines eingeloggten Kunden landet am Konto", async ({ page }) => {
     await login(page);
     await page.waitForTimeout(800);
-    await page.getByRole("group", { name: /Sprache|Language/ }).getByRole("button", { name: "EN" }).click();
+    await (await navBereich(page)).getByRole("group", { name: /Sprache|Language/ })
+      .getByRole("button", { name: "EN" }).click();
     await page.waitForTimeout(2500);
 
     const { data } = await service.from("profiles").select("language").eq("id", await customerId()).single();
@@ -104,14 +127,15 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     // sofort auf /en zurück.
     await page.goto("/stundenplan");
     await page.waitForTimeout(1200);
-    const umschalter = () => page.getByRole("group", { name: /Sprache|Language/ });
+    const umschalter = async () =>
+      (await navBereich(page)).getByRole("group", { name: /Sprache|Language/ });
 
-    await umschalter().getByRole("button", { name: "EN" }).click();
+    (await umschalter()).getByRole("button", { name: "EN" }).click();
     await page.waitForTimeout(2500);
     expect(new URL(page.url()).pathname, "DE → EN").toBe("/en/stundenplan");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
-    await umschalter().getByRole("button", { name: "DE" }).click();
+    await (await umschalter()).getByRole("button", { name: "DE" }).click();
     await page.waitForTimeout(2500);
     expect(new URL(page.url()).pathname, "EN → DE").toBe("/stundenplan");
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
@@ -180,7 +204,7 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
 
     await page.goto("/en/kurse");
     await page.waitForTimeout(1500);
-    const navigation = page.getByRole("navigation").first();
+    const navigation = await navBereich(page);
     for (const [name, ziel] of [
       ["Admin", "/admin"],
       ["Check-in", "/checkin"],
@@ -261,7 +285,12 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     test("Profil ist englisch, inklusive Benachrichtigungs-Einstellungen", async ({ page }) => {
       await login(page, "/en/login");
       await page.waitForTimeout(1500);
-      await expect(page.getByText("My profile", { exact: true }).first()).toBeVisible();
+      // "My profile" steht zweimal im Markup: als Navigationslink und als
+      // Überschrift. Am Telefon ist der Link ausgeblendet — gemeint ist, was
+      // der Kunde tatsächlich sieht.
+      await expect(
+        page.getByText("My profile", { exact: true }).filter({ visible: true }).first()
+      ).toBeVisible();
       await expect(page.getByText("Payment method")).toBeVisible();
       await page.getByRole("button", { name: "Notifications" }).click();
       await page.waitForTimeout(900);

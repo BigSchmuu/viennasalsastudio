@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useForm } from "react-hook-form";
+import { useAutofillUebernehmen } from "@/hooks/use-autofill-uebernehmen";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterInput } from "@/lib/validations/auth";
 import { signUp } from "@/lib/actions/auth";
@@ -29,6 +30,8 @@ export function RegisterForm() {
     resolver: zodResolver(registerSchema),
     defaultValues: { email: "", password: "" },
   });
+
+  const formularRef = useAutofillUebernehmen(form, ["email", "password"]);
 
   async function onSubmit(values: RegisterInput) {
     setLoading(true);
@@ -67,6 +70,7 @@ export function RegisterForm() {
           click still POSTs via the real Server Action instead of leaking the
           password into a native GET URL — see PROJ-2 QA BUG-1. */}
       <form
+        ref={formularRef}
         action={async (formData) => {
           await signUp(formData);
         }}

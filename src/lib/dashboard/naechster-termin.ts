@@ -90,7 +90,11 @@ export function sammleTermine(
   for (const abo of abos) {
     // Zwei statt einem: der erste kann heute sein und bereits vorbei —
     // dann ist der übernächste der richtige.
-    for (const datum of upcomingOccurrences(abo.wochentag, { count: 2, pauseDates: abo.pausenTage })) {
+    for (const datum of upcomingOccurrences(abo.wochentag, {
+      count: 2,
+      pauseDates: abo.pausenTage,
+      jetzt,
+    })) {
       termine.push(
         bilde(abo.kursId, abo.kursName, datum, abo.startZeit, abo.endZeit, abo.raum, abo.standort, "abo")
       );

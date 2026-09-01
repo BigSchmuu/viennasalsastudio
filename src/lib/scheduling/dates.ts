@@ -19,12 +19,19 @@ export function formatDateLocal(date: Date): string {
 /** Next `count` upcoming dates (today or later) matching `weekday`, skipping any date in `pauseDates`. */
 export function upcomingOccurrences(
   weekday: number,
-  { count, pauseDates = [] }: { count: number; pauseDates?: string[] }
+  { count, pauseDates = [], jetzt }: { count: number; pauseDates?: string[]; jetzt?: Date }
 ): string[] {
   const pauseSet = new Set(pauseDates);
   // Der heutige Tag in Wien, als reiner Kalendertag. Vorher der Tag des
   // Servers — auf Vercel (UTC) nachts also der falsche.
-  const today = new Date(heuteInWien() + "T12:00:00Z");
+  //
+  // `jetzt` ist überschreibbar, damit Aufrufer, die selbst einen Zeitpunkt
+  // führen, nicht daneben noch die echte Uhr befragen. Ohne das war die
+  // Einsetzbarkeit in naechsteTermine() nur die halbe Wahrheit: gefiltert
+  // wurde nach dem übergebenen Zeitpunkt, die Termine kamen aber vom
+  // tatsächlichen Tag — was am selben Tag niemandem auffällt und am nächsten
+  // die Tests umwirft.
+  const today = new Date(heuteInWien(jetzt) + "T12:00:00Z");
 
   const todayWeekday = jsDayToWeekday(today.getDay());
   const daysUntilNext = (weekday - todayWeekday + 7) % 7;

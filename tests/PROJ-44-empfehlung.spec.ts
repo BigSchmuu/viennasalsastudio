@@ -40,8 +40,15 @@ async function anmelden(page: import("@playwright/test").Page, mail: string, zie
 test.describe("PROJ-44: Empfehlungsprogramm", () => {
   test.use({ locale: "de-DE" });
 
-  test("Der Kunde findet seinen Code im Profil und kann ihn kopieren", async ({ page, context }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  test("Der Kunde findet seinen Code im Profil und kann ihn kopieren", async ({ page, context }, testInfo) => {
+    // WebKit kennt die Rechte "clipboard-read"/"clipboard-write" nicht und
+    // wirft schon beim Erteilen. Sichtbarkeit des Codes und die Rueckmeldung
+    // "Kopiert" lassen sich dort trotzdem pruefen -- nur das Rueckelesen der
+    // Zwischenablage nicht.
+    const zwischenablageLesbar = testInfo.project.name !== "Mobile Safari";
+    if (zwischenablageLesbar) {
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    }
     const kunde = await kundeMit("e2e12-a@viennasalsastudio.test");
     const { data: p } = await svc.from("profiles").select("referral_code").eq("id", kunde).single();
     expect(p!.referral_code).toMatch(/^VSS-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
@@ -55,8 +62,10 @@ test.describe("PROJ-44: Empfehlungsprogramm", () => {
     await page.getByRole("button", { name: "Kopieren" }).click();
     await page.waitForTimeout(400);
     await expect(page.getByRole("button", { name: "Kopiert" })).toBeVisible();
-    const inZwischenablage = await page.evaluate(() => navigator.clipboard.readText());
-    expect(inZwischenablage).toBe(p!.referral_code);
+    if (zwischenablageLesbar) {
+      const inZwischenablage = await page.evaluate(() => navigator.clipboard.readText());
+      expect(inZwischenablage).toBe(p!.referral_code);
+    }
   });
 
   test("Zwei Kunden haben verschiedene, nicht erratbare Codes", async () => {
