@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
+import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
@@ -107,22 +108,6 @@ const CUSTOMER_MANDATE = { email: "e2e14-customer-mandate@viennasalsastudio.test
 const CUSTOMER_NOMANDATE = { email: "e2e14-customer-nomandate@viennasalsastudio.test", password: "CorrectPassword123!" };
 const ADMIN = { email: "e2e14-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const TEACHER = { email: "e2e14-teacher@viennasalsastudio.test", password: "CorrectPassword123!" };
-
-/**
- * Navigieren, nachdem die Anwendung selbst navigiert hat.
- *
- * Ein Ticketkauf oder eine Absage laesst die Seite sich nachladen. Faehrt der
- * Test im selben Moment woandershin, bricht Playwright eine der beiden
- * Navigationen ab: "interrupted by another navigation". Auf WebKit passiert
- * das regelmaessig, auf Chromium fast nie -- deshalb fiel es lange nicht auf.
- *
- * Die Wartezeit ist begrenzt, damit eine aus anderen Gruenden beschaeftigte
- * Seite den Test nicht haengen laesst.
- */
-async function gehZu(page: Page, pfad: string) {
-  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
-  await page.goto(pfad);
-}
 
 async function login(page: Page, { email, password }: { email: string; password: string }, redirect?: string) {
   // Mehrere Tests melden sich mitten im Ablauf als jemand anderes an, waehrend

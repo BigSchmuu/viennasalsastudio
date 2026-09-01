@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
@@ -80,22 +81,6 @@ async function login(page: Page, { email, password }: { email: string; password:
   // kein Fehler, sondern genau das, was der Test will; darum wird die
   // Unterbrechung geschluckt statt gemeldet.
   if (page.url().endsWith("/mein-bereich")) await page.goto("/profil").catch(() => {});
-}
-
-/**
- * Navigieren, nachdem die Anwendung selbst navigiert hat.
- *
- * Nach einer Buchung laedt die Seite sich nach (/kurse). Faehrt der Test im
- * selben Moment woandershin, bricht Playwright die eine Navigation zugunsten
- * der anderen ab: "interrupted by another navigation". Auf WebKit passiert
- * das regelmaessig, auf Chromium fast nie -- deshalb fiel es lange nicht auf.
- *
- * Die Wartezeit ist begrenzt: bleibt die Seite aus anderen Gruenden
- * beschaeftigt, soll der Test daran nicht haengen bleiben.
- */
-async function gehZu(page: Page, pfad: string) {
-  await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
-  await page.goto(pfad);
 }
 
 // /profil's sections live behind a collapsed Accordion (Radix unmounts closed

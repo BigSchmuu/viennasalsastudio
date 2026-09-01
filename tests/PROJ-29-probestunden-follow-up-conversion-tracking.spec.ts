@@ -163,8 +163,26 @@ test.describe("PROJ-29: Probestunden-Follow-up & Conversion-Tracking", () => {
     const to = daysAgo(9);
     await page.goto(`/admin/probestunden?from=${from}&to=${to}`);
     await expect(page.getByText("Conversion-Rate im Zeitraum")).toBeVisible();
-    await expect(page.getByText("1 / 1 Probestunden konvertiert")).toBeVisible();
-    await expect(page.getByText("100%")).toBeVisible();
+
+    // Die Kachel zählt *alle* Probestunden im Zeitraum, nicht nur die eigenen.
+    // Andere Suiten lassen welche liegen — „1 / 1" war deshalb eine Behauptung
+    // über den gesamten Datenbestand, und genau davor warnt
+    // docs/troubleshooting-tests.md. Geprüft wird jetzt das Verhalten der
+    // Kachel: Nenner gleich der Zahl der Probestunden im Fenster, eigene
+    // konvertierte Probestunde mitgezählt, Prozentwert stimmig gerundet.
+    const { count: imFenster } = await service
+      .from("course_bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("type", "trial")
+      .gte("chosen_date", from)
+      .lte("chosen_date", to);
+
+    const kachel = await page.getByText(/\d+ \/ \d+ Probestunden konvertiert/).innerText();
+    const [konvertiert, gesamt] = kachel.match(/(\d+) \/ (\d+)/)!.slice(1).map(Number);
+
+    expect(gesamt, "Nenner der Kachel").toBe(imFenster);
+    expect(konvertiert, "die eigene konvertierte Probestunde zählt mit").toBeGreaterThanOrEqual(1);
+    await expect(page.getByText(`${Math.round((konvertiert / gesamt) * 100)}%`)).toBeVisible();
   });
 
   test("AC5: Probestunde >14 Tage ohne Kontakt/Konvertierung wird als 'Follow-up überfällig' hervorgehoben", async ({ page }) => {

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
@@ -185,7 +186,7 @@ test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
     await page.getByRole("button", { name: "Auf Warteliste eintragen" }).click();
     await page.waitForTimeout(800);
 
-    await page.goto("/profil");
+    await gehZu(page, "/profil");
     await page.waitForTimeout(600);
     // /profil's sections live behind a collapsed Accordion (Radix unmounts
     // closed content entirely) — must expand "Meine Warteliste" first.
