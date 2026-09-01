@@ -42,23 +42,32 @@ async function resetFixtures() {
   await service.from("course_bookings").delete().eq("course_id", kurs.id).in("chosen_date", [AUSFALL, ANDERER_TERMIN]);
   await service.from("notification_queue").delete().eq("event_type", "kursausfall");
 
-  const { data: kunde } = await service.from("profiles").select("id").eq("email", KUNDE.email).maybeSingle();
-  if (kunde) {
-    const { data: abo } = await service
-      .from("subscriptions")
-      .select("id")
-      .eq("course_id", kurs.id)
-      .eq("customer_id", kunde.id)
-      .limit(1)
-      .maybeSingle();
-    if (abo) {
-      await service.from("subscriptions").update({ status: "active" }).eq("id", abo.id);
-    } else {
-      await service
+  // Die E-Mail-Adresse steht in auth.users, nicht in profiles. Der erste
+  // Versuch fragte profiles.email ab -- die Spalte gibt es nicht, die Abfrage
+  // lieferte null, und die Pruefung "if (kunde)" uebersprang alles
+  // stillschweigend. Die Reparatur sah aus wie eine und war keine. Deshalb
+  // hier: ueber die Verwaltungs-API suchen und bei jedem Schritt den
+  // Fehlerwert pruefen, statt ihn wegzuwerfen.
+  const { data: konten, error: kontenFehler } = await service.auth.admin.listUsers({ perPage: 400 });
+  if (kontenFehler) throw new Error(`PROJ-38 Fixture (Konten laden): ${kontenFehler.message}`);
+  const kunde = konten.users.find((u) => u.email === KUNDE.email);
+  if (!kunde) throw new Error(`PROJ-38 Fixture: Konto ${KUNDE.email} fehlt`);
+
+  const { data: abo, error: aboFehler } = await service
+    .from("subscriptions")
+    .select("id")
+    .eq("course_id", kurs.id)
+    .eq("customer_id", kunde.id)
+    .limit(1)
+    .maybeSingle();
+  if (aboFehler) throw new Error(`PROJ-38 Fixture (Abo suchen): ${aboFehler.message}`);
+
+  const { error: schreibFehler } = abo
+    ? await service.from("subscriptions").update({ status: "active" }).eq("id", abo.id)
+    : await service
         .from("subscriptions")
         .insert({ customer_id: kunde.id, course_id: kurs.id, name: "PROJ-38 Fixture", price: 65, status: "active" });
-    }
-  }
+  if (schreibFehler) throw new Error(`PROJ-38 Fixture (Abo aktivieren): ${schreibFehler.message}`);
 
   return { kurs, scheduleId };
 }
