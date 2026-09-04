@@ -34,6 +34,11 @@ const customerIds: Record<string, string> = {};
 
 async function login(page: Page) {
   await page.goto("/login");
+  // Erst hydrieren lassen. Die Felder sind über react-hook-form gesteuert;
+  // wird vor der Hydration gefüllt, setzt React den Wert zurück und das
+  // Formular meldet „ist erforderlich". Auf WebKit regelmäßig — siehe
+  // docs/troubleshooting-tests.md.
+  await page.waitForTimeout(1200);
   await page.getByLabel("E-Mail").fill(ADMIN.email);
   await page.getByLabel("Passwort").fill(ADMIN.password);
   await page.waitForTimeout(1500);

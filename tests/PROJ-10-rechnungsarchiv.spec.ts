@@ -34,6 +34,11 @@ const CUSTOMER_NO_INVOICES = { email: "e2e11-other@viennasalsastudio.test", pass
 
 async function login(page: Page, user: { email: string; password: string }) {
   await page.goto("/login");
+  // Erst hydrieren lassen. Die Felder sind über react-hook-form gesteuert;
+  // wird vor der Hydration gefüllt, setzt React den Wert zurück und das
+  // Formular meldet „ist erforderlich". Auf WebKit regelmäßig — siehe
+  // docs/troubleshooting-tests.md.
+  await page.waitForTimeout(1200);
   await page.getByLabel("E-Mail").fill(user.email);
   await page.getByLabel("Passwort").fill(user.password);
   await page.waitForTimeout(1000);

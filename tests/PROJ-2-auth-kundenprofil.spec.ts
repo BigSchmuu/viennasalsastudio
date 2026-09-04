@@ -14,6 +14,9 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.goto("/profil");
     await expect(page).toHaveURL(/\/login\?redirect=%2Fprofil/);
 
+    // Auch die Anmeldeseite, auf der man nach der Umleitung landet, muss erst
+    // hydrieren — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
@@ -28,6 +31,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
   test("Sicherheit: externes ?redirect=-Ziel wird nach dem Login ignoriert", async ({ page }) => {
     for (const payload of ["https://example.com/pwned", "//example.com/pwned", "/\\example.com"]) {
       await page.goto(`/login?redirect=${encodeURIComponent(payload)}`);
+      await page.waitForTimeout(1200);
       await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
       await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
       await page.waitForTimeout(1000);
@@ -49,6 +53,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
 
   test("Ein internes ?redirect=-Ziel funktioniert weiterhin", async ({ page }) => {
     await page.goto("/login?redirect=%2Fprofil");
+    // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
+    // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.waitForTimeout(1000);
@@ -58,6 +66,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
 
   test("Login mit falschem Passwort zeigt generische Fehlermeldung", async ({ page }) => {
     await page.goto("/login");
+    // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
+    // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill("FalschesPasswort!");
     await page.getByRole("button", { name: "Einloggen" }).click();
@@ -70,6 +82,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     page,
   }) => {
     await page.goto("/login");
+    // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
+    // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill("existiert-nicht@viennasalsastudio.test");
     await page.getByLabel("Passwort").fill("Irgendwas123");
     await page.getByRole("button", { name: "Einloggen" }).click();
@@ -79,6 +95,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
 
   test("Login mit unbestätigter E-Mail zeigt Bestätigungs-Hinweis mit Resend-Option", async ({ page }) => {
     await page.goto("/login");
+    // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
+    // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill(UNCONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
@@ -89,6 +109,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
 
   test("Registrierung mit zu kurzem Passwort zeigt Validierungsfehler ohne Absenden", async ({ page }) => {
     await page.goto("/registrieren");
+    // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
+    // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill("qa-neu@viennasalsastudio.test");
     await page.getByLabel("Passwort").fill("123");
     await page.getByRole("button", { name: "Registrieren" }).click();
@@ -98,6 +122,11 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
 
   test("Passwort vergessen zeigt neutrale Erfolgsmeldung", async ({ page }) => {
     await page.goto("/passwort-vergessen");
+    // Erst hydrieren lassen. Wird vorher gefüllt, setzt React den Wert beim
+    // Hydrieren zurück und das Formular meldet „E-Mail ist erforderlich" —
+    // auf WebKit regelmäßig. Dieselbe Wartezeit wie in den Nachbartests,
+    // siehe BUG-1 in den QA-Ergebnissen zu PROJ-2.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill("irgendeine-adresse@viennasalsastudio.test");
     await page.getByRole("button", { name: "Reset-Link anfordern" }).click();
 
@@ -110,6 +139,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     page,
   }) => {
     await page.goto("/login");
+    // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
+    // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
@@ -140,6 +173,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
   // backstop against a crafted request; this test covers the UI guarantee.
   test("Zukünftiges Geburtsdatum kann gar nicht erst ausgewählt werden", async ({ page }) => {
     await page.goto("/login");
+    // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
+    // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL_2);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
@@ -161,6 +198,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
   // renders that as a literal "0" next to the field.
   test("Leeres Geburtsdatum zeigt keine überflüssige '0' neben dem Feld", async ({ page }) => {
     await page.goto("/login");
+    // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
+    // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL_2);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
@@ -176,6 +217,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
 
   test("Logout beendet die Sitzung und /profil ist danach wieder geschützt", async ({ page }) => {
     await page.goto("/login");
+    // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
+    // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();

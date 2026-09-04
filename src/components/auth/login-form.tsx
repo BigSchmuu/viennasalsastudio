@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { signIn, resendConfirmationEmail } from "@/lib/actions/auth";
 import { safeRedirectPath } from "@/lib/auth/safe-redirect";
-import { useAutofillUebernehmen } from "@/hooks/use-autofill-uebernehmen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -33,7 +32,6 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
     defaultValues: { email: "", password: "" },
   });
 
-  const formularRef = useAutofillUebernehmen(form, ["email", "password"]);
 
   async function onSubmit(values: LoginInput) {
     setLoading(true);
@@ -79,7 +77,6 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           (which would leak the password into the URL/history/server logs).
           Once hydrated, onSubmit's preventDefault takes over as usual. */}
       <form
-        ref={formularRef}
         action={async (formData) => {
           await signIn(formData);
         }}

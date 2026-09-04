@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useForm } from "react-hook-form";
-import { useAutofillUebernehmen } from "@/hooks/use-autofill-uebernehmen";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { forgotPasswordSchema, type ForgotPasswordInput } from "@/lib/validations/auth";
 import { requestPasswordReset } from "@/lib/actions/auth";
@@ -31,7 +30,6 @@ export function ForgotPasswordForm() {
     defaultValues: { email: "" },
   });
 
-  const formularRef = useAutofillUebernehmen(form, ["email"]);
 
   async function onSubmit(values: ForgotPasswordInput) {
     setLoading(true);
@@ -68,7 +66,6 @@ export function ForgotPasswordForm() {
       {/* action={requestPasswordReset}: progressive-enhancement fallback —
           see PROJ-2 QA BUG-1. */}
       <form
-        ref={formularRef}
         action={async (formData) => {
           await requestPasswordReset(formData);
         }}

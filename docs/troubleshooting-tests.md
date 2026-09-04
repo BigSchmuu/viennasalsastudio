@@ -122,3 +122,32 @@ steht, baut jeder Safari-Besucher die Eventliste beim Laden zweimal auf. Behoben
 indem das Datum nicht der Landeseinstellung der jeweiligen Engine überlassen, sondern aus
 `formatToParts` selbst zusammengesetzt wird — dann liefern beide Seiten dieselbe
 Zeichenkette.
+
+### Formularfelder vor der Hydration
+
+Die Formulare des Kundenbereichs benutzen `react-hook-form` mit `Controller` —
+die Felder sind also gesteuert, ihr Wert kommt aus dem Formularzustand. Wird
+ein Feld befüllt, **bevor** React hydriert hat, setzt React es beim Hydrieren
+auf den Anfangswert zurück, und das Formular meldet „ist erforderlich" an
+einem Feld, in dem sichtbar etwas stand.
+
+Für Tests heißt das: **nach `goto` warten, bevor gefüllt wird.** Auf Chromium
+geht es meist auch ohne, auf WebKit nicht.
+
+**Nachgemessen in der Produktion** (mit dem nativen `value`-Setter, so wie ein
+echter Passwortmanager füllt — ein direkt gesetztes `input.value` ignoriert
+React grundsätzlich und misst deshalb nichts):
+
+| Wann gefüllt wird | Ergebnis |
+| --- | --- |
+| nach dem Laden, mit Ereignis | funktioniert |
+| getippt | funktioniert |
+| vor der Hydration | „ist erforderlich" |
+
+Für echte Kunden ist der Fehler damit eng: Passwortmanager füllen im
+Normalfall nach dem Laden. Ein Versuch, das Rennen mit einem Effekt zu
+schließen, der die Feldinhalte nach dem Hydrieren ausliest, **funktioniert
+nicht** — der Effekt läuft nach dem Commit, React hat den Wert da längst
+zurückgesetzt. Er wurde wieder entfernt. Wer das Rennen wirklich schließen
+will, muss die Werte sichern, *bevor* React hydriert (früh laufendes Skript im
+Layout).

@@ -5,6 +5,11 @@ const CUSTOMER = { email: "e2e8-customer@viennasalsastudio.test", password: "Cor
 
 async function login(page: Page, { email, password }: { email: string; password: string }) {
   await page.goto("/login");
+  // Erst hydrieren lassen. Die Felder sind über react-hook-form gesteuert;
+  // wird vor der Hydration gefüllt, setzt React den Wert zurück und das
+  // Formular meldet „ist erforderlich". Auf WebKit regelmäßig — siehe
+  // docs/troubleshooting-tests.md.
+  await page.waitForTimeout(1200);
   await page.getByLabel("E-Mail").fill(email);
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
