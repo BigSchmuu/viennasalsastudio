@@ -4,7 +4,9 @@ const ADMIN = { email: "e2e30-admin@viennasalsastudio.test", password: "CorrectP
 
 async function login(page: import("@playwright/test").Page, { email, password }: { email: string; password: string }) {
   await page.goto("/login");
-  await page.waitForTimeout(1000);
+  // 1200 statt 1000 wie in den uebrigen Dateien: unter Volllast reichte die
+  // kuerzere Frist gelegentlich nicht, und der Login lief in die Zeitgrenze.
+  await page.waitForTimeout(1200);
   await page.getByLabel("E-Mail").fill(email);
   await page.getByLabel("Passwort").fill(password);
   await page.getByRole("button", { name: "Einloggen" }).click();
