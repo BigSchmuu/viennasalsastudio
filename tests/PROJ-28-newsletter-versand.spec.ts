@@ -111,6 +111,11 @@ test.describe("PROJ-28: Newsletter-Versand mit Empfängergruppen", () => {
   test("AC1: Empfängerzahl aktualisiert sich bei Gruppenwahl", async ({ page }) => {
     await login(page);
     await page.goto("/admin/newsletter");
+    // Erst hydrieren lassen. Betreff und Text sind über react-hook-form
+    // gesteuert; wird vorher gefüllt, setzt React die Werte zurück, das
+    // Formular bleibt ungültig und „Senden" bleibt deaktiviert. Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await expect(page.getByRole("heading", { name: "Newsletter" })).toBeVisible();
 
     // "Alle"/"Aktive" only checked for a rendered count — never sent to during this suite.
@@ -130,6 +135,11 @@ test.describe("PROJ-28: Newsletter-Versand mit Empfängergruppen", () => {
   test("AC7 + AC8: Senden-Button deaktiviert bei leerem Formular, fehlendem Kurs und 0 Empfängern", async ({ page }) => {
     await login(page);
     await page.goto("/admin/newsletter");
+    // Erst hydrieren lassen. Betreff und Text sind über react-hook-form
+    // gesteuert; wird vorher gefüllt, setzt React die Werte zurück, das
+    // Formular bleibt ungültig und „Senden" bleibt deaktiviert. Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
     await expect(page.getByRole("button", { name: "Senden" })).toBeDisabled();
 
     await page.getByLabel("Betreff").fill("Test");
@@ -142,6 +152,11 @@ test.describe("PROJ-28: Newsletter-Versand mit Empfängergruppen", () => {
   test("AC2 + AC10: voller Versand-Flow (isolierter Testkurs, 1 Empfänger), Bestätigung, Historie", async ({ page }) => {
     await login(page);
     await page.goto("/admin/newsletter");
+    // Erst hydrieren lassen. Betreff und Text sind über react-hook-form
+    // gesteuert; wird vorher gefüllt, setzt React die Werte zurück, das
+    // Formular bleibt ungültig und „Senden" bleibt deaktiviert. Auf WebKit
+    // regelmäßig — siehe docs/troubleshooting-tests.md.
+    await page.waitForTimeout(1200);
 
     const subject = `E2E28 Test-Newsletter ${Date.now()}`;
     await page.getByLabel("Betreff").fill(subject);

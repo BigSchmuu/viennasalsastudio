@@ -151,3 +151,23 @@ nicht** — der Effekt läuft nach dem Commit, React hat den Wert da längst
 zurückgesetzt. Er wurde wieder entfernt. Wer das Rennen wirklich schließen
 will, muss die Werte sichern, *bevor* React hydriert (früh laufendes Skript im
 Layout).
+
+**Nicht nur Anmeldeformulare.** Die Regel gilt für *jedes* Formular, auch in
+der Verwaltung — PROJ-28 füllte Betreff und Text direkt nach dem Aufruf von
+`/admin/newsletter`, die Werte gingen verloren, das Formular blieb ungültig
+und „Senden" deaktiviert. Der Fehler zeigte sich als Zeitüberschreitung beim
+Klick, nicht als leeres Feld, was die Suche in die falsche Richtung lenkt.
+
+So findet man die verbliebenen Stellen — ein Fenster von zwei Zeilen reicht
+nicht, weil zwischen `goto` und `fill` oft noch eine Variablendeklaration
+steht:
+
+```python
+for i, l in enumerate(zeilen):
+    if not re.search(r'await page\.goto\(', l): continue
+    for j in range(i + 1, min(i + 10, len(zeilen))):
+        t = zeilen[j]
+        if re.search(r'waitFor(Timeout|LoadState|URL|Selector)|toBeVisible|toHaveURL', t): break
+        if ".fill(" in t: print(f"ungeschützt: {j+1}"); break
+        if "await page.goto(" in t: break
+```
