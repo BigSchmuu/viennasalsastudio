@@ -218,7 +218,7 @@
     "groupCourses": "My classes",
     "groupCoursesHint": "Subscription, bookings, waiting list and tickets",
     "groupPayments": "Payments",
-    "groupPaymentsHint": "Payment method, credit and invoices",
+    "groupPaymentsHint": "Direct debit, credit and invoices",
     "groupSettings": "Settings",
     "groupSettingsHint": "What you get notified about"
   },
