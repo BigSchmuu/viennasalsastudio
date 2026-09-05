@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -106,6 +107,7 @@ export function RegisterForm() {
               <FormControl>
                 <Input type="password" autoComplete="new-password" {...field} />
               </FormControl>
+              <FormDescription>{t("passwordHint")}</FormDescription>
               <FormMessage />
             </FormItem>
           )}

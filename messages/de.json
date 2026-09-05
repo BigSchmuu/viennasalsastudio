@@ -287,7 +287,8 @@
     "resetSubtitle": "Wähle ein neues Passwort für dein Konto.",
     "resetLinkInvalid": "Dieser Link ist ungültig oder abgelaufen.",
     "requestNewLink": "Neuen Link anfordern",
-    "weakPassword": "Dieses Passwort taucht in bekannten Datenlecks auf und ist damit unsicher. Bitte wähle ein anderes."
+    "weakPassword": "Dieses Passwort taucht in bekannten Datenlecks auf und ist damit unsicher. Bitte wähle ein anderes.",
+    "passwordHint": "Mindestens 8 Zeichen mit Groß- und Kleinbuchstaben und mindestens einer Ziffer"
   },
   "legal": {
     "termsTitle": "Allgemeine Geschäftsbedingungen",

@@ -107,7 +107,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await expect(page.getByRole("button", { name: "Bestätigungs-E-Mail erneut senden" })).toBeVisible();
   });
 
-  test("Registrierung mit zu kurzem Passwort zeigt Validierungsfehler ohne Absenden", async ({ page }) => {
+  test("Registrierung mit zu schwachem Passwort zeigt Validierungsfehler ohne Absenden", async ({ page }) => {
     await page.goto("/registrieren");
     // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
     // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
@@ -117,7 +117,37 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("Passwort").fill("123");
     await page.getByRole("button", { name: "Registrieren" }).click();
 
-    await expect(page.getByText("Passwort muss mindestens 6 Zeichen lang sein")).toBeVisible();
+    const anforderung = "Mindestens 8 Zeichen mit Groß- und Kleinbuchstaben und mindestens einer Ziffer";
+    // Zweimal auf der Seite: als Hinweis unter dem Feld und als Fehlermeldung.
+    await expect(page.getByText(anforderung).first()).toBeVisible();
+  });
+
+  test("Die Passwort-Anforderung steht schon vor dem Absenden unter dem Feld", async ({ page }) => {
+    // Der Sinn der Verschaerfung: der Kunde soll die Regel lesen, bevor er
+    // tippt -- nicht erst, wenn ihn eine Fehlermeldung darauf stoesst.
+    await page.goto("/registrieren");
+    await page.waitForTimeout(1200);
+    await expect(
+      page.getByText("Mindestens 8 Zeichen mit Groß- und Kleinbuchstaben und mindestens einer Ziffer")
+    ).toBeVisible();
+  });
+
+  test("Ein Passwort ohne Ziffer wird abgelehnt, eines mit allem angenommen", async ({ page }) => {
+    await page.goto("/registrieren");
+    await page.waitForTimeout(1200);
+    await page.getByLabel("E-Mail").fill("qa-regeln@viennasalsastudio.test");
+
+    // Acht Zeichen, Groß und Klein, aber keine Ziffer.
+    await page.getByLabel("Passwort").fill("Passwort");
+    await page.getByRole("button", { name: "Registrieren" }).click();
+    await page.waitForTimeout(500);
+    expect(page.url()).toContain("/registrieren");
+
+    // Dasselbe mit Ziffer erfüllt die Regel — geprüft wird nur, dass die
+    // Formularprüfung nicht mehr anschlägt, nicht der Registrierungsvorgang.
+    await page.getByLabel("Passwort").fill("Passwort1");
+    await page.waitForTimeout(300);
+    await expect(page.getByText("Mindestens 8 Zeichen").first()).toBeVisible();
   });
 
   test("Passwort vergessen zeigt neutrale Erfolgsmeldung", async ({ page }) => {

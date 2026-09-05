@@ -24,15 +24,50 @@ describe("loginSchema", () => {
   });
 });
 
+describe("loginSchema", () => {
+  // Bewusst unveraendert: Bestandskunden mit kuerzerem Passwort muessen sich
+  // weiterhin anmelden koennen. Die neue Regel gilt nur fuer *neue* Passwoerter.
+  it("nimmt ein kurzes Bestandspasswort beim Anmelden weiterhin an", () => {
+    const result = loginSchema.safeParse({ email: "a@b.com", password: "123456" });
+    expect(result.success).toBe(true);
+  });
+});
+
 describe("registerSchema", () => {
-  it("accepts a password with exactly 6 characters (Supabase minimum)", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", password: "123456" });
+  // Acht Zeichen aus drei Zeichenklassen. Dieselbe Regel muss im
+  // Supabase-Dashboard stehen, sonst sagt die App "passt" und der Dienst
+  // weist ab -- siehe den Kommentar in auth.ts.
+  it("nimmt ein Passwort an, das alle drei Zeichenklassen und 8 Zeichen hat", () => {
+    const result = registerSchema.safeParse({ email: "a@b.com", password: "Passwort1" });
     expect(result.success).toBe(true);
   });
 
-  it("rejects a password shorter than 6 characters", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", password: "12345" });
+  it("lehnt sieben Zeichen ab, auch wenn alle Klassen vorkommen", () => {
+    const result = registerSchema.safeParse({ email: "a@b.com", password: "Passw1r" });
     expect(result.success).toBe(false);
+  });
+
+  it("lehnt ein Passwort ohne Ziffer ab", () => {
+    const result = registerSchema.safeParse({ email: "a@b.com", password: "Passwortt" });
+    expect(result.success).toBe(false);
+  });
+
+  it("lehnt ein Passwort ohne Großbuchstaben ab", () => {
+    const result = registerSchema.safeParse({ email: "a@b.com", password: "passwort1" });
+    expect(result.success).toBe(false);
+  });
+
+  it("lehnt ein Passwort ohne Kleinbuchstaben ab", () => {
+    const result = registerSchema.safeParse({ email: "a@b.com", password: "PASSWORT1" });
+    expect(result.success).toBe(false);
+  });
+
+  it("nennt in der Meldung die vollständige Anforderung, nicht nur die Länge", () => {
+    const result = registerSchema.safeParse({ email: "a@b.com", password: "passwortt" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain("Ziffer");
+    }
   });
 });
 
@@ -46,8 +81,8 @@ describe("forgotPasswordSchema", () => {
 describe("resetPasswordSchema", () => {
   it("accepts matching passwords", () => {
     const result = resetPasswordSchema.safeParse({
-      password: "123456",
-      confirmPassword: "123456",
+      password: "Passwort1",
+      confirmPassword: "Passwort1",
     });
     expect(result.success).toBe(true);
   });

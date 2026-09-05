@@ -1,5 +1,34 @@
 import { z } from "zod";
 
+/**
+ * Anforderungen an ein *neues* Passwort.
+ *
+ * Acht Zeichen aus drei Zeichenklassen statt sechs beliebiger: Das sind rund
+ * 2^48 Rateversuche statt 2^27 -- der Unterschied zwischen "an einem Abend
+ * durchprobiert" und "nicht lohnend". Sonderzeichen bleiben bewusst
+ * freiwillig; sie erhoehen die Huerde beim Registrieren spuerbar und bringen
+ * daneben wenig.
+ *
+ * Dieselbe Regel muss im Supabase-Dashboard stehen (Authentication →
+ * Providers → Email: Mindestlaenge 8, "Lowercase, uppercase letters and
+ * digits"). Laufen die beiden auseinander, sagt die App "passt" und der
+ * Dienst weist ab -- der Kunde erfaehrt die Anforderung erst nach dem
+ * Absenden.
+ *
+ * Bewusst **nicht** in loginSchema: Bestandskunden mit kuerzerem Passwort
+ * muessen sich weiterhin anmelden koennen. Die Regel gilt nur, wenn ein
+ * Passwort neu gesetzt wird.
+ */
+const PASSWORT_HINWEIS =
+  "Mindestens 8 Zeichen mit Groß- und Kleinbuchstaben und mindestens einer Ziffer";
+
+const neuesPasswort = z
+  .string()
+  .min(8, PASSWORT_HINWEIS)
+  .regex(/[a-z]/, PASSWORT_HINWEIS)
+  .regex(/[A-Z]/, PASSWORT_HINWEIS)
+  .regex(/[0-9]/, PASSWORT_HINWEIS);
+
 export const loginSchema = z.object({
   email: z.string().min(1, "E-Mail ist erforderlich").email("Ungültige E-Mail-Adresse"),
   password: z.string().min(1, "Passwort ist erforderlich"),
@@ -9,7 +38,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 export const registerSchema = z.object({
   email: z.string().min(1, "E-Mail ist erforderlich").email("Ungültige E-Mail-Adresse"),
-  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
+  password: neuesPasswort,
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -22,7 +51,7 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
 export const resetPasswordSchema = z
   .object({
-    password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
+    password: neuesPasswort,
     confirmPassword: z.string().min(1, "Bitte bestätige dein Passwort"),
   })
   .refine((data) => data.password === data.confirmPassword, {
