@@ -25,7 +25,10 @@ async function login(page: import("@playwright/test").Page, email: string) {
   await page.getByLabel("E-Mail").fill(email);
   await page.getByLabel("Passwort").fill("CorrectPassword123!");
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForTimeout(1500);
+  // Auf die Umleitung warten statt auf eine feste Frist -- unter Last ist die
+  // Anmeldung danach sonst noch unterwegs, und die naechste Navigation des
+  // Tests bricht sie ab. Genau daran ist PROJ-27 im Volllauf gescheitert.
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 20000 });
 }
 
 async function openBooking(page: import("@playwright/test").Page, courseId: string) {

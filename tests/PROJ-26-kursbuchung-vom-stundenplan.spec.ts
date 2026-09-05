@@ -72,7 +72,10 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000);
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForTimeout(1500);
+  // Auf die Umleitung warten statt auf eine feste Frist -- unter Last ist die
+  // Anmeldung danach sonst noch unterwegs, und die naechste Navigation des
+  // Tests bricht sie ab. Genau daran ist PROJ-27 im Volllauf gescheitert.
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 20000 });
 }
 
 // shadcn Card root: "rounded-lg border ..."

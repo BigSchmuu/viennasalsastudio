@@ -14,7 +14,10 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForTimeout(1500);
+  // Auf die Umleitung warten statt auf eine feste Frist -- unter Last ist die
+  // Anmeldung danach sonst noch unterwegs, und die naechste Navigation des
+  // Tests bricht sie ab. Genau daran ist PROJ-27 im Volllauf gescheitert.
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 20000 });
 }
 
 test.describe("PROJ-17: Admin-Analytics-Dashboard", () => {
