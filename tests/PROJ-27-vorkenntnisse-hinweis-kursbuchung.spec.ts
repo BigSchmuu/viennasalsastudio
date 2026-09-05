@@ -61,7 +61,10 @@ async function login(page: import("@playwright/test").Page, email: string) {
   await page.getByLabel("Passwort").fill("CorrectPassword123!");
   await page.waitForTimeout(1000);
   await page.getByRole("button", { name: "Einloggen" }).click();
-  await page.waitForTimeout(1500);
+  // Auf die Umleitung warten statt auf eine feste Frist: unter Last war die
+  // Anmeldung nach 1500 ms noch unterwegs, und das folgende goto des Tests
+  // brach sie ab ("interrupted by another navigation").
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 20000 });
 }
 
 // /kurse paginates at 12 cards; the E2E27 fixtures sort near the end of the

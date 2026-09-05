@@ -201,6 +201,11 @@ test.describe("PROJ-38: Kursausfall-Benachrichtigung", () => {
   });
 
   test("AC6: Eine fehlgeschlagene Zustellung wird nicht als benachrichtigt vermerkt", async ({ page }) => {
+    // Dieser Test wartet bewusst 14,5 Sekunden auf den Versandversuch. Zusammen
+    // mit Anmeldung und Formular sprengt das im Volllauf die Standardgrenze von
+    // 30 Sekunden -- nicht weil etwas hakt, sondern weil die Wartezeiten selbst
+    // so lang sind.
+    test.setTimeout(60_000);
     const pauseId = await createPause();
     await login(page, ADMIN);
     await openCourseForm(page, KURS);
