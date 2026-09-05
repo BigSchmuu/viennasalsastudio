@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 ladeTestUmgebung();
@@ -22,7 +23,7 @@ async function kundeMit(mail: string) {
 }
 
 async function anmelden(page: import("@playwright/test").Page, mail: string, ziel = /\/(mein-bereich|profil|admin)$/) {
-  await page.goto("/login");
+  await gehZu(page, "/login");
   await page.waitForTimeout(1200);
   await page.getByLabel("E-Mail").fill(mail);
   await page.getByLabel("Passwort").fill("CorrectPassword123!");

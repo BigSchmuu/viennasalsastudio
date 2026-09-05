@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gehZu } from "./navigation";
 
 const ADMIN = { email: "e2e30-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 
@@ -31,7 +32,7 @@ function formatDayMonth(date: Date): string {
 }
 
 async function login(page: Page) {
-  await page.goto("/login");
+  await gehZu(page, "/login");
   // Erst hydrieren lassen. Die Felder sind über react-hook-form gesteuert;
   // wird vor der Hydration gefüllt, setzt React den Wert zurück und das
   // Formular meldet „ist erforderlich". Auf WebKit regelmäßig — siehe

@@ -214,7 +214,13 @@
     "sectionNotificationsHint": "Choose what you'd like to hear about by email and push",
     "day": "Day",
     "month": "Month",
-    "year": "Year"
+    "year": "Year",
+    "groupCourses": "My classes",
+    "groupCoursesHint": "Subscription, bookings, waiting list and tickets",
+    "groupPayments": "Payments",
+    "groupPaymentsHint": "Payment method, credit and invoices",
+    "groupSettings": "Settings",
+    "groupSettingsHint": "What you get notified about"
   },
   "notifications": {
     "event": "Event",

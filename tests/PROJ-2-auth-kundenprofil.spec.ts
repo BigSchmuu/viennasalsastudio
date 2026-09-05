@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gehZu } from "./navigation";
 
 const CONFIRMED_EMAIL = "qa-proj2-a@viennasalsastudio.test";
 const CONFIRMED_PASSWORD = "CorrectPassword123!";
@@ -65,7 +66,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
   });
 
   test("Login mit falschem Passwort zeigt generische Fehlermeldung", async ({ page }) => {
-    await page.goto("/login");
+    await gehZu(page, "/login");
     // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
     // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
     // regelmäßig — siehe docs/troubleshooting-tests.md.
@@ -81,7 +82,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
   test("Login mit unbekannter E-Mail zeigt dieselbe generische Fehlermeldung (kein Enumeration-Leak)", async ({
     page,
   }) => {
-    await page.goto("/login");
+    await gehZu(page, "/login");
     // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
     // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
     // regelmäßig — siehe docs/troubleshooting-tests.md.
@@ -94,7 +95,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
   });
 
   test("Login mit unbestätigter E-Mail zeigt Bestätigungs-Hinweis mit Resend-Option", async ({ page }) => {
-    await page.goto("/login");
+    await gehZu(page, "/login");
     // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
     // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
     // regelmäßig — siehe docs/troubleshooting-tests.md.
@@ -168,7 +169,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
   test("Profil bearbeiten und speichern zeigt aktualisierte Daten; Rollenfeld ist nicht vorhanden", async ({
     page,
   }) => {
-    await page.goto("/login");
+    await gehZu(page, "/login");
     // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
     // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
     // regelmäßig — siehe docs/troubleshooting-tests.md.
@@ -202,7 +203,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
   // "nicht in der Zukunft" rule still runs server-side in updateProfile as a
   // backstop against a crafted request; this test covers the UI guarantee.
   test("Zukünftiges Geburtsdatum kann gar nicht erst ausgewählt werden", async ({ page }) => {
-    await page.goto("/login");
+    await gehZu(page, "/login");
     // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
     // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
     // regelmäßig — siehe docs/troubleshooting-tests.md.
@@ -227,7 +228,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
   // year) && ...}`, which is the number 0 when nothing is picked — React
   // renders that as a literal "0" next to the field.
   test("Leeres Geburtsdatum zeigt keine überflüssige '0' neben dem Feld", async ({ page }) => {
-    await page.goto("/login");
+    await gehZu(page, "/login");
     // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
     // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
     // regelmäßig — siehe docs/troubleshooting-tests.md.
@@ -246,7 +247,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
   });
 
   test("Logout beendet die Sitzung und /profil ist danach wieder geschützt", async ({ page }) => {
-    await page.goto("/login");
+    await gehZu(page, "/login");
     // Erst hydrieren lassen: wird vorher gefüllt, setzt React den Wert beim
     // Hydrieren zurück und das Formular meldet „ist erforderlich". Auf WebKit
     // regelmäßig — siehe docs/troubleshooting-tests.md.

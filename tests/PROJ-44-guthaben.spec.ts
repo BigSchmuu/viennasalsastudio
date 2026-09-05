@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 ladeTestUmgebung();
@@ -12,7 +13,7 @@ test("PROJ-44: der Betreiber schreibt gut und zieht ab, ein Abzug ins Minus wird
   const kunde = users.users.find((u) => u.email === "e2e12-a@viennasalsastudio.test")!.id;
   await svc.from("customer_credits").delete().eq("customer_id", kunde);
 
-  await page.goto("/login");
+  await gehZu(page, "/login");
   await page.waitForTimeout(1200);
   await page.getByLabel("E-Mail").fill("e2e8-admin@viennasalsastudio.test");
   await page.getByLabel("Passwort").fill("CorrectPassword123!");
@@ -57,7 +58,7 @@ test("PROJ-44: der Kunde sieht Kontostand, Grund und den Hinweis auf die Verrech
   await svc.from("customer_credits").delete().eq("customer_id", kunde);
   await svc.from("customer_credits").insert({ customer_id: kunde, amount: 30, origin: "manual", reason: "Ausgleich Kursausfall 12.03." });
 
-  await page.goto("/login");
+  await gehZu(page, "/login");
   await page.waitForTimeout(1200);
   await page.getByLabel("E-Mail").fill("e2e12-a@viennasalsastudio.test");
   await page.getByLabel("Passwort").fill("CorrectPassword123!");

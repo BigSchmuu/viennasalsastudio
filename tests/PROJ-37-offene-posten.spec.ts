@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
@@ -42,7 +43,7 @@ test.afterAll(async () => {
 });
 
 async function login(page: Page, creds: { email: string; password: string }) {
-  await page.goto("/login");
+  await gehZu(page, "/login");
   await page.waitForTimeout(1200);
   await page.getByLabel("E-Mail").fill(creds.email);
   await page.getByLabel("Passwort").fill(creds.password);

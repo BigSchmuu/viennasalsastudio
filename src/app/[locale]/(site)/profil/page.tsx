@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ProfilGruppe, ProfilAbschnitt } from "@/components/profile/profil-gruppe";
 import { ProfileForm } from "@/components/auth/profile-form";
 import { LogoutButton } from "@/components/auth/logout-button";
 import type { MandateData } from "@/components/payments/payment-method-section";
@@ -209,7 +209,10 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-6">
+      {/* max-w-sm (384 px) stammte aus der Zeit, als hier eine einzelne
+          Karte stand. Mit Tabellen fuer Rechnungen und Benachrichtigungen
+          ist das zu eng; jede andere Kundenseite ist breiter. */}
+      <div className="w-full max-w-2xl space-y-6">
         <Card className="rounded-card shadow-soft">
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
@@ -219,134 +222,68 @@ export default async function ProfilePage() {
             <LogoutButton />
           </CardHeader>
           <CardContent>
-            <ProfileForm
-              defaultValues={{
-                full_name: profile?.full_name ?? "",
-                phone: profile?.phone ?? "",
-                birthdate: profile?.birthdate ?? "",
-                gender: (profile?.gender ?? "") as ProfileInput["gender"],
-              }}
-            />
+            {/* Die Karte ist seit der Verbreiterung 672 px breit. Eingabefelder
+                fuer Name und Telefon ueber die volle Breite zu ziehen, macht
+                sie nicht besser lesbar, sondern nur lang. */}
+            <div className="max-w-md">
+              <ProfileForm
+                defaultValues={{
+                  full_name: profile?.full_name ?? "",
+                  phone: profile?.phone ?? "",
+                  birthdate: profile?.birthdate ?? "",
+                  gender: (profile?.gender ?? "") as ProfileInput["gender"],
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="rounded-card shadow-soft">
-          <Accordion type="multiple" className="px-6">
-            <AccordionItem value="zahlungsmethode">
-              <AccordionTrigger>
-                <div className="text-left">
-                  <p className="font-heading font-semibold">{t("sectionPayment")}</p>
-                  <p className="text-sm font-normal text-muted-foreground">
-                    {t("sectionPaymentHint")}
-                  </p>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <PaymentMethodSection mandate={mandate} />
-              </AccordionContent>
-            </AccordionItem>
+        {/* Drei Gruppen statt einer Liste aus acht: Kurse, Zahlungen,
+            Einstellungen. Die Abschnitte selbst und ihre Beschriftungen
+            bleiben unveraendert — nur ihre Anordnung aendert sich. */}
+        <ProfilGruppe titel={t("groupCourses")} hinweis={t("groupCoursesHint")}>
+          <ProfilAbschnitt wert="abo" titel={t("sectionSubscription")} hinweis={t("sectionSubscriptionHint")}>
+            <MySubscriptionsSection subscriptions={subscriptions} courses={courses} />
+          </ProfilAbschnitt>
+          <ProfilAbschnitt wert="buchungen" titel={t("sectionBookings")} hinweis={t("sectionBookingsHint")}>
+            <MyBookingsSection bookings={bookings} />
+          </ProfilAbschnitt>
+          <ProfilAbschnitt wert="warteliste" titel={t("sectionWaitlist")} hinweis={t("sectionWaitlistHint")}>
+            <MyWaitlistSection entries={waitlistEntries} />
+          </ProfilAbschnitt>
+          <ProfilAbschnitt wert="tickets" titel={t("sectionTickets")} hinweis={t("sectionTicketsHint")} letzter>
+            <MyTicketsSection tickets={tickets} />
+          </ProfilAbschnitt>
+        </ProfilGruppe>
 
-            <AccordionItem value="abo">
-              <AccordionTrigger>
-                <div className="text-left">
-                  <p className="font-heading font-semibold">{t("sectionSubscription")}</p>
-                  <p className="text-sm font-normal text-muted-foreground">{t("sectionSubscriptionHint")}</p>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <MySubscriptionsSection subscriptions={subscriptions} courses={courses} />
-              </AccordionContent>
-            </AccordionItem>
+        <ProfilGruppe titel={t("groupPayments")} hinweis={t("groupPaymentsHint")}>
+          <ProfilAbschnitt wert="zahlungsmethode" titel={t("sectionPayment")} hinweis={t("sectionPaymentHint")}>
+            <PaymentMethodSection mandate={mandate} />
+          </ProfilAbschnitt>
+          <ProfilAbschnitt wert="guthaben" titel={tc("section")} hinweis={tc("sectionHint")}>
+            <MyCreditSection
+              balance={creditBalance}
+              entries={creditEntries}
+              referralCode={profile?.referral_code ?? null}
+              rewardReferrer={studioPricing.referral.referrer}
+              rewardReferee={studioPricing.referral.referee}
+            />
+          </ProfilAbschnitt>
+          <ProfilAbschnitt wert="rechnungen" titel={t("sectionInvoices")} hinweis={t("sectionInvoicesHint")} letzter>
+            <MyInvoicesSection invoices={invoices} />
+          </ProfilAbschnitt>
+        </ProfilGruppe>
 
-            <AccordionItem value="buchungen">
-              <AccordionTrigger>
-                <div className="text-left">
-                  <p className="font-heading font-semibold">{t("sectionBookings")}</p>
-                  <p className="text-sm font-normal text-muted-foreground">
-                    {t("sectionBookingsHint")}
-                  </p>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <MyBookingsSection bookings={bookings} />
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="warteliste">
-              <AccordionTrigger>
-                <div className="text-left">
-                  <p className="font-heading font-semibold">{t("sectionWaitlist")}</p>
-                  <p className="text-sm font-normal text-muted-foreground">
-                    {t("sectionWaitlistHint")}
-                  </p>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <MyWaitlistSection entries={waitlistEntries} />
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="tickets">
-              <AccordionTrigger>
-                <div className="text-left">
-                  <p className="font-heading font-semibold">{t("sectionTickets")}</p>
-                  <p className="text-sm font-normal text-muted-foreground">
-                    {t("sectionTicketsHint")}
-                  </p>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <MyTicketsSection tickets={tickets} />
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="guthaben">
-              <AccordionTrigger>
-                <div className="text-left">
-                  <p className="font-heading font-semibold">{tc("section")}</p>
-                  <p className="text-sm font-normal text-muted-foreground">{tc("sectionHint")}</p>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <MyCreditSection
-                  balance={creditBalance}
-                  entries={creditEntries}
-                  referralCode={profile?.referral_code ?? null}
-                  rewardReferrer={studioPricing.referral.referrer}
-                  rewardReferee={studioPricing.referral.referee}
-                />
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="rechnungen">
-              <AccordionTrigger>
-                <div className="text-left">
-                  <p className="font-heading font-semibold">{t("sectionInvoices")}</p>
-                  <p className="text-sm font-normal text-muted-foreground">
-                    {t("sectionInvoicesHint")}
-                  </p>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <MyInvoicesSection invoices={invoices} />
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="benachrichtigungen" className="border-b-0">
-              <AccordionTrigger>
-                <div className="text-left">
-                  <p className="font-heading font-semibold">{t("sectionNotifications")}</p>
-                  <p className="text-sm font-normal text-muted-foreground">
-                    {t("sectionNotificationsHint")}
-                  </p>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <NotificationSettingsSection preferences={notificationPreferences} />
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </Card>
+        <ProfilGruppe titel={t("groupSettings")} hinweis={t("groupSettingsHint")}>
+          <ProfilAbschnitt
+            wert="benachrichtigungen"
+            titel={t("sectionNotifications")}
+            hinweis={t("sectionNotificationsHint")}
+            letzter
+          >
+            <NotificationSettingsSection preferences={notificationPreferences} />
+          </ProfilAbschnitt>
+        </ProfilGruppe>
       </div>
     </div>
   );

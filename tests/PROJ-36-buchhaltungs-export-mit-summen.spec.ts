@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gehZu } from "./navigation";
 
 const ADMIN = { email: "e2e30-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const KUNDE = { email: "e2e8-customer@viennasalsastudio.test", password: "CorrectPassword123!" };
@@ -12,7 +13,7 @@ const FIXTURE_TO = "2028-01-31";
 const LEERER_ZEITRAUM = "from=2029-05-01&to=2029-05-31";
 
 async function login(page: Page, creds: { email: string; password: string }) {
-  await page.goto("/login");
+  await gehZu(page, "/login");
   await page.waitForTimeout(1200);
   await page.getByLabel("E-Mail").fill(creds.email);
   await page.getByLabel("Passwort").fill(creds.password);

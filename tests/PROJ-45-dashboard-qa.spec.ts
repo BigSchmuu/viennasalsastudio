@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gehZu } from "./navigation";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 ladeTestUmgebung();
@@ -59,7 +60,7 @@ async function kundeAnlegen(mail: string, name: string): Promise<string> {
 }
 
 async function anmelden(page: Page, mail: string) {
-  await page.goto("/login");
+  await gehZu(page, "/login");
   await page.waitForTimeout(1200);
   await page.getByLabel(/e-?mail/i).fill(mail);
   await page.getByLabel(/passwort|password/i).fill(PASSWORT);

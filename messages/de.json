@@ -214,7 +214,13 @@
     "sectionNotificationsHint": "Wähle, worüber du per E-Mail und Push informiert werden möchtest",
     "day": "Tag",
     "month": "Monat",
-    "year": "Jahr"
+    "year": "Jahr",
+    "groupCourses": "Meine Kurse",
+    "groupCoursesHint": "Abo, Buchungen, Warteliste und Tickets",
+    "groupPayments": "Zahlungen",
+    "groupPaymentsHint": "Zahlungsweise, Guthaben und Rechnungen",
+    "groupSettings": "Einstellungen",
+    "groupSettingsHint": "Wovon du benachrichtigt wirst"
   },
   "notifications": {
     "event": "Ereignis",

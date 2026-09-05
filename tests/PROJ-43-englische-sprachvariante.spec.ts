@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
@@ -194,7 +195,7 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     // Sie liegen außerhalb der Sprachebene: ein Link auf /en/admin führte ins
     // Leere. Der Betreiber sah in der englischen Fassung eine Seite, die es
     // nicht gibt.
-    await page.goto("/login");
+    await gehZu(page, "/login");
     await page.waitForTimeout(1000);
     await page.getByLabel(/^(E-Mail|Email)$/).fill("e2e8-admin@viennasalsastudio.test");
     await page.getByLabel(/^(Passwort|Password)$/).fill("CorrectPassword123!");
@@ -338,7 +339,7 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
   // Modullader von Playwright kommt mit der Importkette nicht zurecht.
 
   test("Der Betreiber pflegt beide Sprachfassungen einer Vorlage getrennt", async ({ page }) => {
-    await page.goto("/login");
+    await gehZu(page, "/login");
     await page.waitForTimeout(1000);
     await page.getByLabel("E-Mail").fill("e2e8-admin@viennasalsastudio.test");
     await page.getByLabel("Passwort").fill("CorrectPassword123!");
@@ -393,7 +394,7 @@ test.describe("Anmeldebereich auf Englisch", () => {
 test.describe("Deutsch bleibt unberührt", () => {
   test.use({ locale: "de-DE" });
   test("Deutsche Anmeldung unverändert, ohne Sprachpräfix", async ({ page }) => {
-    await page.goto("/login");
+    await gehZu(page, "/login");
     await page.waitForTimeout(800);
     await page.getByRole("link", { name: "Passwort vergessen?" }).click();
     await page.waitForURL(/passwort-vergessen/, { timeout: 10000 });

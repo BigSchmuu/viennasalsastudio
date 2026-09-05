@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gehZu } from "./navigation";
 
 // Permanente Fixtures (angelegt während /frontend und /qa von PROJ-11):
 // Videosatz "E2E11 Videosatz" mit 2 Lektionen (Lektion 1 hat ein Kunden-Video,
@@ -11,7 +12,7 @@ const PAUSED_EMAIL = "e2e11-paused@viennasalsastudio.test"; // pausiertes Abo au
 const OTHER_EMAIL = "e2e11-other@viennasalsastudio.test"; // aktives Abo auf einem anderen Kurs
 
 async function login(page: Page, email: string) {
-  await page.goto("/login");
+  await gehZu(page, "/login");
   // Erst hydrieren lassen. Die Felder sind über react-hook-form gesteuert;
   // wird vor der Hydration gefüllt, setzt React den Wert zurück und das
   // Formular meldet „ist erforderlich". Auf WebKit regelmäßig — siehe

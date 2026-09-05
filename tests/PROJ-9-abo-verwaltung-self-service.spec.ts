@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
@@ -19,7 +20,7 @@ const CUSTOMER_EMPTY = { email: "e2e7-customer-empty@viennasalsastudio.test", pa
 const CUSTOMER_DUE_ID = "024c4c0a-03f8-4a2d-bce5-5a85f07ca5e7";
 
 async function login(page: Page, { email, password }: { email: string; password: string }) {
-  await page.goto("/login");
+  await gehZu(page, "/login");
   // Erst hydrieren lassen. Die Felder sind über react-hook-form gesteuert;
   // wird vor der Hydration gefüllt, setzt React den Wert zurück und das
   // Formular meldet „ist erforderlich". Auf WebKit regelmäßig — siehe

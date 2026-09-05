@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
@@ -20,7 +21,7 @@ const ROLLEN_KURS_ID = "cdbbfdcf-8201-47d6-8cf3-0ee6a48a74ca";
 const KEIN_ROLLEN_KURS_ID = "e26b2df4-8a5d-4433-8025-4ae18f850f23";
 
 async function login(page: import("@playwright/test").Page, email: string) {
-  await page.goto("/login");
+  await gehZu(page, "/login");
   await page.waitForTimeout(1000);
   await page.getByLabel("E-Mail").fill(email);
   await page.getByLabel("Passwort").fill("CorrectPassword123!");
