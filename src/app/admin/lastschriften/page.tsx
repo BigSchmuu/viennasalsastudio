@@ -4,7 +4,8 @@ import {
   type CollectionRunRow,
   type CollectionRunStatus,
 } from "@/components/admin/sepa/collection-run-list";
-import { laufZustand } from "@/lib/sepa/laeufe";
+import { istUeberfaelligerEntwurf, laufZustand } from "@/lib/sepa/laeufe";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 
 const SORTABLE_COLUMNS = ["due_date", "total", "created_at"] as const;
 
@@ -21,6 +22,9 @@ export default async function LastschriftenPage({
     .select("id, due_date, created_at, released_at, sepa_collection_items(amount, bounced_at)")
     .order("due_date", { ascending: false });
 
+  // Einmal je Anfrage ermittelt, damit alle Zeilen denselben Tag vergleichen.
+  const heute = heuteInWien();
+
   let runs: CollectionRunRow[] = (data ?? []).map((run) => {
     const items = run.sepa_collection_items as { amount: number; bounced_at: string | null }[];
     const status: CollectionRunStatus = laufZustand(
@@ -34,6 +38,7 @@ export default async function LastschriftenPage({
       itemCount: items.length,
       total: items.reduce((sum, item) => sum + item.amount, 0),
       status,
+      ueberfaellig: istUeberfaelligerEntwurf(run.due_date, run.released_at, heute),
     };
   });
 

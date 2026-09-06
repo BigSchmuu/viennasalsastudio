@@ -34,6 +34,8 @@ const DATUM = {
   gesperrt: "2029-05-07",
   rechte: "2029-05-08",
   guthaben: "2029-05-09",
+  // Bewusst in der Vergangenheit: der vergessene Entwurf.
+  ueberfaellig: "2026-01-15",
 };
 const ALLE_DATEN = Object.values(DATUM);
 
@@ -504,6 +506,73 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
       .eq("id", id)
       .single();
     expect(lauf!.released_at).toBeNull();
+  });
+
+  test("Ein Entwurf mit verstrichener Fälligkeit wird gewarnt, aber nicht gesperrt", async ({
+    page,
+  }) => {
+    // Direkt angelegt statt über die Oberfläche: Ein Lauf mit vergangenem
+    // Datum ist genau der Fall, den niemand absichtlich erzeugt.
+    // Nicht einfach das erste Mandat: Nicht jeder Mandatsinhaber hat ein Abo,
+    // und eine Position braucht genau eine Quelle.
+    const { data: mandate } = await svc
+      .from("sepa_mandates")
+      .select("customer_id, iban, account_holder_name, mandate_reference")
+      .is("revoked_at", null);
+    const { data: abos } = await svc.from("subscriptions").select("id, price, customer_id");
+    const mandat = (mandate ?? []).find((m) =>
+      (abos ?? []).some((a) => a.customer_id === m.customer_id)
+    );
+    expect(mandat, "Kein Kunde mit Mandat und Abo in der Testdatenbank").toBeTruthy();
+    const abo = (abos ?? []).find((a) => a.customer_id === mandat!.customer_id)!;
+
+    const { data: lauf } = await svc
+      .from("sepa_collection_runs")
+      .insert({ due_date: DATUM.ueberfaellig })
+      .select("id")
+      .single();
+    await svc.from("sepa_collection_items").insert({
+      run_id: lauf!.id,
+      customer_id: mandat!.customer_id,
+      subscription_id: abo.id,
+      amount: Number(abo.price) || 45,
+      iban: mandat!.iban,
+      account_holder_name: mandat!.account_holder_name,
+      mandate_reference: mandat!.mandate_reference,
+    });
+
+    await login(page, ADMIN);
+
+    // In der Übersicht sichtbar — dort, wo jemand den vergessenen Entwurf
+    // überhaupt bemerken kann.
+    await page.goto("/admin/lastschriften?status=entwurf");
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(500);
+    await expect(page.getByText("Fälligkeit verstrichen").first()).toBeVisible();
+
+    await page.goto(`/admin/lastschriften/${lauf!.id}`);
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(500);
+    await expect(page.getByText("Das Fälligkeitsdatum dieses Entwurfs ist verstrichen")).toBeVisible();
+
+    // Gewarnt, nicht gesperrt: Alle Aktionen bleiben verfügbar.
+    await expect(page.getByRole("button", { name: "Lauf freigeben" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Position hinzufügen" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Entwurf verwerfen" })).toBeEnabled();
+
+    // Und die Freigabe geht wirklich durch.
+    await freigeben(page);
+    const { data: danach } = await svc
+      .from("sepa_collection_runs")
+      .select("released_at")
+      .eq("id", lauf!.id)
+      .single();
+    expect(danach!.released_at, "Ein überfälliger Entwurf muss freigebbar bleiben").not.toBeNull();
+
+    // Nach der Freigabe ist die Warnung fort — sie gilt nur für Entwürfe.
+    await expect(page.getByText("Das Fälligkeitsdatum dieses Entwurfs ist verstrichen")).toHaveCount(
+      0
+    );
   });
 
   test("Die Übersicht kennzeichnet Entwürfe und lässt nach ihnen filtern", async ({ page }) => {

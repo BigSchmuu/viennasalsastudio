@@ -89,12 +89,15 @@ export function CollectionRunDetail({
   freigegebenAm,
   freigegebenVon,
   offenePositionen,
+  ueberfaellig,
 }: {
   runId: string;
   items: CollectionItemRow[];
   freigegebenAm: string | null;
   freigegebenVon: string | null;
   offenePositionen: OffenePosition[];
+  /** Entwurf, dessen Fälligkeitsdatum verstrichen ist. */
+  ueberfaellig: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +215,18 @@ export function CollectionRunDetail({
           )}
         </div>
       </div>
+
+      {/* Ein vergessener Entwurf bucht nichts ab, und niemand merkt es. Nur
+          warnen, nicht sperren: Später einzuziehen kann Absicht sein. */}
+      {ueberfaellig && (
+        <Alert>
+          <AlertDescription>
+            Das Fälligkeitsdatum dieses Entwurfs ist verstrichen — es wurde nichts abgebucht. Gib
+            ihn frei, wenn der Einzug noch stattfinden soll, oder verwirf ihn und lege einen Lauf
+            mit aktuellem Datum an.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {hindernis === "keine_positionen" && (
         <Alert>

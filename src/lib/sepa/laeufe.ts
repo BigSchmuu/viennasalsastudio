@@ -96,3 +96,24 @@ export function freigabeHindernis(
 export function positionenSumme(positionen: { amount: number }[]): number {
   return positionen.reduce((summe, p) => summe + Number(p.amount), 0);
 }
+
+/**
+ * Ein Entwurf, dessen Fälligkeitsdatum verstrichen ist.
+ *
+ * Der Fall, der sonst durchrutscht: Wer einen Lauf anlegt und die Freigabe
+ * vergisst, hat nichts abgebucht — und niemand merkt es. Deshalb wird gewarnt,
+ * aber nicht gesperrt: Ein spätes Einziehen kann Absicht sein, und dem
+ * Betreiber die Arbeit zu verbieten, die er gerade tut, hilft niemandem.
+ *
+ * `heute` wird hereingereicht statt hier ermittelt — sonst hinge das Ergebnis
+ * an der Uhr des Rechners und die Prüfungen liefen am nächsten Tag anders.
+ * Verglichen wird der Wiener Kalendertag, nicht UTC.
+ */
+export function istUeberfaelligerEntwurf(
+  faelligkeitsdatum: string,
+  freigegebenAm: string | null,
+  heute: string
+): boolean {
+  if (freigegebenAm) return false;
+  return faelligkeitsdatum < heute;
+}

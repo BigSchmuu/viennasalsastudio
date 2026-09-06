@@ -4,6 +4,7 @@ import {
   betragAusEingabe,
   freigabeHindernis,
   istAenderbar,
+  istUeberfaelligerEntwurf,
   laufZustand,
   positionenSumme,
   pruefePositionsbetrag,
@@ -103,5 +104,26 @@ describe("PROJ-47: positionenSumme", () => {
 
   it("nimmt Beträge auch als Zeichenkette an — so liefert sie Postgres über PostgREST", () => {
     expect(positionenSumme([{ amount: "65.50" as unknown as number }])).toBe(65.5);
+  });
+});
+
+describe("PROJ-47: istUeberfaelligerEntwurf", () => {
+  it("warnt, wenn das Fälligkeitsdatum verstrichen ist", () => {
+    expect(istUeberfaelligerEntwurf("2026-09-01", null, "2026-09-06")).toBe(true);
+  });
+
+  it("warnt am Fälligkeitstag selbst noch nicht", () => {
+    // Der Tag gehört noch dem Betreiber — erst wenn er vorbei ist, ist etwas
+    // versäumt.
+    expect(istUeberfaelligerEntwurf("2026-09-06", null, "2026-09-06")).toBe(false);
+  });
+
+  it("warnt nicht bei einem Datum in der Zukunft", () => {
+    expect(istUeberfaelligerEntwurf("2026-10-01", null, "2026-09-06")).toBe(false);
+  });
+
+  it("warnt nie bei einem freigegebenen Lauf", () => {
+    // Der ist eingezogen; ein verstrichenes Datum ist dort das Normale.
+    expect(istUeberfaelligerEntwurf("2026-01-01", "2026-01-01T10:00:00Z", "2026-09-06")).toBe(false);
   });
 });

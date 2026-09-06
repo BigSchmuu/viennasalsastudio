@@ -54,6 +54,8 @@ export type CollectionRunRow = {
   itemCount: number;
   total: number;
   status: CollectionRunStatus;
+  /** Entwurf, dessen Fälligkeitsdatum verstrichen ist. */
+  ueberfaellig: boolean;
 };
 
 const ALL_STATUS = "__all__";
@@ -182,6 +184,12 @@ export function CollectionRunList({ runs, initialStatus }: { runs: CollectionRun
                   >
                     {collectionRunStatusLabel(run.status)}
                   </Badge>
+                  {/* Ein vergessener Entwurf bucht nichts ab. Die Warnung
+                      gehört hierher und nicht nur auf die Detailseite — wer
+                      ihn vergessen hat, öffnet ihn ja gerade nicht. */}
+                  {run.ueberfaellig && (
+                    <p className="mt-1 text-xs text-destructive">Fälligkeit verstrichen</p>
+                  )}
                 </TableCell>
                 <TableCell>{new Date(run.createdAt).toLocaleDateString("de-AT")}</TableCell>
                 <TableCell className="text-right">

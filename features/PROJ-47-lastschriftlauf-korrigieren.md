@@ -198,11 +198,14 @@ verlangt IBAN, Kontoinhaber und Mandatsreferenz.
       Zustandskennzeichen in der Liste zeigt ihn. Damit ist ein vergessener
       Entwurf mit einem Blick auffindbar, ohne dass es eine eigene Ansicht
       braucht. (2026-09-06, Architektur)
-- [ ] Was passiert mit einem Entwurf, dessen Fälligkeitsdatum verstrichen ist?
-      **Empfehlung:** warnen, nicht sperren. Ein verstrichenes Datum macht den
-      Lauf nicht falsch — der Betreiber kann bewusst später einziehen. Sperren
-      hieße, ihm die Arbeit wegzunehmen, die er gerade tut. Zu entscheiden vor
-      `/frontend`.
+- [x] Was passiert mit einem Entwurf, dessen Fälligkeitsdatum verstrichen ist?
+      → **Warnen, nicht sperren** (2026-09-06, Betreiber). Umgesetzt an zwei
+      Stellen: als Hinweis auf der Detailseite und als „Fälligkeit verstrichen"
+      in der Übersicht. Die Übersicht ist dabei die wichtigere — wer einen
+      Entwurf vergessen hat, öffnet ihn ja gerade nicht. Alle Aktionen bleiben
+      verfügbar, die Freigabe eingeschlossen: Später einzuziehen kann Absicht
+      sein. Am Fälligkeitstag selbst wird noch nicht gewarnt; der Tag gehört
+      noch dem Betreiber.
 - [ ] Braucht die Freigabe eine Vorschau der Bankdatei? **Empfehlung:** nein.
       Die Bestätigung nennt Anzahl und Summe, und die Positionsliste steht
       darüber — die Bankdatei enthält dieselben Zahlen in einer Form, die
@@ -606,3 +609,29 @@ Zustandsfilter „Entwurf" in der Übersicht ist genau dafür da.
 **Noch nicht am echten Betrieb erprobt:** In der Produktion gibt es null
 Läufe. Der vollständige Durchlauf lief gegen die Testdatenbank. Der erste
 echte Lauf ist damit zugleich die erste Anwendung dieses Ablaufs.
+
+### Nachtrag v1.47.1 — Warnung bei verstrichener Fälligkeit
+
+Die offene Frage aus der Spezifikation ist entschieden: warnen, nicht sperren.
+Ein Entwurf, dessen Fälligkeitsdatum vorbei ist, trägt in der Übersicht
+„Fälligkeit verstrichen" und auf der Detailseite einen Hinweis mit den beiden
+sinnvollen Auswegen — freigeben oder verwerfen und neu anlegen. Alle Aktionen
+bleiben verfügbar.
+
+Die Übersicht ist dabei die wichtigere der beiden Stellen: Wer einen Entwurf
+vergessen hat, öffnet ihn gerade nicht. Eine Warnung nur auf der Detailseite
+hätte genau den Fall verfehlt, für den sie gedacht ist.
+
+Keine Migration nötig — die Regel ergibt sich aus Fälligkeitsdatum und
+Freigabezeitpunkt. Verglichen wird der Wiener Kalendertag; der Tag wird der
+Regel hereingereicht statt in ihr ermittelt, sonst hinge das Ergebnis an der
+Uhr des Rechners und die Prüfungen liefen am nächsten Tag anders.
+
+Geprüft: 4 zusätzliche Unit-Tests (392 insgesamt) und eine E2E-Prüfung, die
+den überfälligen Entwurf in Übersicht **und** Detailseite findet, alle drei
+Aktionen als benutzbar nachweist, die Freigabe tatsächlich durchführt und
+zeigt, dass die Warnung danach verschwindet.
+
+Ein Aufbaufehler in dieser Prüfung fiel dabei auf: Sie nahm das erste Mandat,
+dessen Inhaber aber kein Abo hat — und eine Position braucht genau eine
+Quelle. Derselbe Fehler war schon in einer früheren Probe passiert.

@@ -8,7 +8,13 @@ import {
 import type { OffenePosition } from "@/components/admin/sepa/positions-dialoge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { LAUF_ZUSTAND_BESCHRIFTUNG, LAUF_ZUSTAND_FARBE, laufZustand } from "@/lib/sepa/laeufe";
+import {
+  LAUF_ZUSTAND_BESCHRIFTUNG,
+  LAUF_ZUSTAND_FARBE,
+  istUeberfaelligerEntwurf,
+  laufZustand,
+} from "@/lib/sepa/laeufe";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 
 /**
  * Was dieser Lauf übersehen hat.
@@ -141,6 +147,7 @@ export default async function LastschriftDetailPage({ params }: { params: Promis
         freigegebenAm={run.released_at}
         freigegebenVon={freigegebenVon}
         offenePositionen={offene}
+        ueberfaellig={istUeberfaelligerEntwurf(run.due_date, run.released_at, heuteInWien())}
       />
     </div>
   );
