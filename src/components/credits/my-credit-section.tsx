@@ -9,7 +9,7 @@ import { formatDate } from "@/lib/formatting";
 export type MyCreditEntry = {
   id: string;
   amount: number;
-  origin: "referral" | "manual" | "redeemed";
+  origin: "referral" | "manual" | "redeemed" | "storno";
   reason: string | null;
   createdAt: string;
 };

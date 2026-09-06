@@ -226,8 +226,10 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
     // Kodierungs-Kennung (BOM) — beides nötig, damit österreichisches Excel
     // Zahlen als Zahlen und Umlaute korrekt liest.
     expect(content.charCodeAt(0)).toBe(0xfeff);
+    // Seit PROJ-46 stehen Art und Bezug hinten dran — angehaengt, damit die
+    // bestehenden Spalten an ihrer Stelle bleiben.
     expect(content.split("\n")[0].slice(1)).toBe(
-      "Rechnungsnummer;Datum;Kunde;Netto;USt-Satz;USt-Betrag;Brutto;Status"
+      "Rechnungsnummer;Datum;Kunde;Netto;USt-Satz;USt-Betrag;Brutto;Status;Art;Bezug"
     );
     expect(content).toContain("E2E8 Kunde");
   });

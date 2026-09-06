@@ -28,7 +28,7 @@ export default async function AdminDashboardPage({
   const [invoicesRes, subscriptionsRes, occupancyRes, coursesRes, activeSubsRes, birthdatesRes] = await Promise.all([
     supabase
       .from("invoices")
-      .select("gross_amount, invoice_date")
+      .select("gross_amount, invoice_date, cancels_invoice_id")
       .is("bounced_at", null)
       .gte("invoice_date", trendWindow.from)
       .lte("invoice_date", trendWindow.to),
@@ -51,8 +51,29 @@ export default async function AdminDashboardPage({
     .select("id", { count: "exact", head: true })
     .eq("status", "paused");
 
-  const invoices = invoicesRes.data ?? [];
   const cancellations = subscriptionsRes.data ?? [];
+
+  // PROJ-46: Stornos und Gutschriften stehen als eigene Zeilen mit negativem
+  // Betrag und mindern den Umsatz dadurch von selbst — richtig so. Nur bei
+  // einer zurückgebuchten Rechnung nicht: die war nie im Umsatz enthalten, und
+  // ihr Storno würde ihn ein zweites Mal senken. Dieselbe Regel wie im
+  // Buchhaltungs-Export.
+  const roheRechnungen = invoicesRes.data ?? [];
+  const aufhebungsBezuege = [
+    ...new Set(roheRechnungen.map((i) => i.cancels_invoice_id).filter(Boolean)),
+  ] as string[];
+  const zurueckgebuchteBezuege = new Set<string>();
+  if (aufhebungsBezuege.length > 0) {
+    const { data: bezuege } = await supabase
+      .from("invoices")
+      .select("id")
+      .in("id", aufhebungsBezuege)
+      .not("bounced_at", "is", null);
+    for (const b of bezuege ?? []) zurueckgebuchteBezuege.add(b.id);
+  }
+  const invoices = roheRechnungen.filter(
+    (i) => !i.cancels_invoice_id || !zurueckgebuchteBezuege.has(i.cancels_invoice_id)
+  );
 
   const revenueTotal = invoices
     .filter((i) => i.invoice_date >= period.from && i.invoice_date <= period.to)

@@ -780,14 +780,17 @@ export type Database = {
         Row: {
           bounce_fee: number
           bounced_at: string | null
+          cancels_invoice_id: string | null
           collection_item_id: string | null
           created_at: string
           customer_id: string
           description: string
+          document_type: string
           gross_amount: number
           id: string
           invoice_date: string
           invoice_number: string
+          reason: string | null
           reminded_at: string | null
           settled_at: string | null
           vat_rate: number
@@ -795,14 +798,17 @@ export type Database = {
         Insert: {
           bounce_fee?: number
           bounced_at?: string | null
+          cancels_invoice_id?: string | null
           collection_item_id?: string | null
           created_at?: string
           customer_id: string
           description: string
+          document_type?: string
           gross_amount: number
           id?: string
           invoice_date: string
           invoice_number: string
+          reason?: string | null
           reminded_at?: string | null
           settled_at?: string | null
           vat_rate: number
@@ -810,19 +816,29 @@ export type Database = {
         Update: {
           bounce_fee?: number
           bounced_at?: string | null
+          cancels_invoice_id?: string | null
           collection_item_id?: string | null
           created_at?: string
           customer_id?: string
           description?: string
+          document_type?: string
           gross_amount?: number
           id?: string
           invoice_date?: string
           invoice_number?: string
+          reason?: string | null
           reminded_at?: string | null
           settled_at?: string | null
           vat_rate?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_cancels_invoice_id_fkey"
+            columns: ["cancels_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoices_collection_item_id_fkey"
             columns: ["collection_item_id"]
@@ -1689,6 +1705,38 @@ export type Database = {
       count_my_recent_attendance: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      create_invoice_document: {
+        Args: {
+          p_amount: number
+          p_document_type: string
+          p_invoice_id: string
+          p_reason: string
+        }
+        Returns: {
+          bounce_fee: number
+          bounced_at: string | null
+          cancels_invoice_id: string | null
+          collection_item_id: string | null
+          created_at: string
+          customer_id: string
+          description: string
+          document_type: string
+          gross_amount: number
+          id: string
+          invoice_date: string
+          invoice_number: string
+          reason: string | null
+          reminded_at: string | null
+          settled_at: string | null
+          vat_rate: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invoices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       create_invoices_for_collection_run: {
         Args: { p_run_id: string }

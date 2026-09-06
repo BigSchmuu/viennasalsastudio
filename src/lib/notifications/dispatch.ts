@@ -243,15 +243,22 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
       });
     }
     case "zahlungserinnerung": {
-      const { data } = await service
-        .from("invoices")
-        .select("invoice_number, gross_amount, bounce_fee")
-        .eq("id", payload.invoice_id as string)
-        .maybeSingle();
+      const invoiceId = payload.invoice_id as string;
+      const [{ data }, { data: aufhebungen }] = await Promise.all([
+        service
+          .from("invoices")
+          .select("invoice_number, gross_amount, bounce_fee")
+          .eq("id", invoiceId)
+          .maybeSingle(),
+        // PROJ-46: Eine Erinnerung über einen Betrag, den der Kunde teilweise
+        // schon gutgeschrieben bekommen hat, ist eine falsche Forderung.
+        service.from("invoices").select("gross_amount").eq("cancels_invoice_id", invoiceId),
+      ]);
       if (!data) return null;
+      const gutgeschrieben = (aufhebungen ?? []).reduce((s, a) => s - Number(a.gross_amount), 0);
       return buildNotificationContent("zahlungserinnerung", {
         invoiceNumber: data.invoice_number,
-        grossAmount: Number(data.gross_amount),
+        grossAmount: Number(data.gross_amount) - gutgeschrieben,
         bounceFee: Number(data.bounce_fee ?? 0),
       });
     }

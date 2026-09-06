@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   CSV_SEPARATOR,
+  belegFehlertext,
   betragAusEingabe,
   computeInvoiceAmounts,
+  istVollstaendigAufgehoben,
+  summiereAufhebungen,
   exportFileName,
   formatAmountDe,
   monthFromRange,
@@ -328,5 +331,87 @@ describe("pruefeGutschrift", () => {
   it("meldet bei ungültigem Betrag nicht zusätzlich 'zu hoch'", () => {
     // Sonst läse der Betreiber zwei widersprüchliche Hinweise.
     expect(pruefeGutschrift("-99", 65, "Grund")).toEqual(["betrag_ungueltig"]);
+  });
+});
+
+describe("PROJ-46: summiereAufhebungen", () => {
+  it("dreht das Vorzeichen um — aufhebende Belege stehen negativ in der Tabelle", () => {
+    const summen = summiereAufhebungen([{ cancels_invoice_id: "r1", gross_amount: -15 }]);
+    expect(summen.get("r1")).toBe(15);
+  });
+
+  it("addiert mehrere Gutschriften zur selben Rechnung", () => {
+    const summen = summiereAufhebungen([
+      { cancels_invoice_id: "r1", gross_amount: -15 },
+      { cancels_invoice_id: "r1", gross_amount: -20 },
+      { cancels_invoice_id: "r2", gross_amount: -5 },
+    ]);
+    expect(summen.get("r1")).toBe(35);
+    expect(summen.get("r2")).toBe(5);
+  });
+
+  it("übergeht Rechnungen — die heben nichts auf", () => {
+    const summen = summiereAufhebungen([
+      { cancels_invoice_id: null, gross_amount: 65 },
+      { cancels_invoice_id: "r1", gross_amount: -65 },
+    ]);
+    expect(summen.size).toBe(1);
+    expect(summen.get("r1")).toBe(65);
+  });
+
+  it("nimmt Beträge auch als Zeichenkette an — so liefert sie Postgres über PostgREST", () => {
+    const summen = summiereAufhebungen([{ cancels_invoice_id: "r1", gross_amount: "-12.50" }]);
+    expect(summen.get("r1")).toBe(12.5);
+  });
+
+  it("liefert eine leere Zuordnung, wenn es keine Belege gibt", () => {
+    expect(summiereAufhebungen([]).size).toBe(0);
+  });
+});
+
+describe("PROJ-46: istVollstaendigAufgehoben", () => {
+  it("gilt bei genau dem Rechnungsbetrag", () => {
+    expect(istVollstaendigAufgehoben(65, 65)).toBe(true);
+  });
+
+  it("gilt nicht bei einer Teilgutschrift", () => {
+    expect(istVollstaendigAufgehoben(65, 15)).toBe(false);
+  });
+
+  it("gilt nie bei einer Rechnung über 0,00 € — sonst wäre jede Nullrechnung storniert", () => {
+    expect(istVollstaendigAufgehoben(0, 0)).toBe(false);
+  });
+
+  it("gilt nicht ohne jede Aufhebung", () => {
+    expect(istVollstaendigAufgehoben(65, 0)).toBe(false);
+  });
+});
+
+describe("PROJ-46: belegFehlertext", () => {
+  it("übersetzt die Meldungen der Datenbank in Sätze", () => {
+    expect(belegFehlertext('… raise exception "amount exceeds remaining invoice total"')).toBe(
+      "Der Betrag übersteigt, was von dieser Rechnung noch offen ist."
+    );
+    expect(belegFehlertext("not authorized")).toBe(
+      "Nur Administrator:innen dürfen Belege erstellen."
+    );
+    expect(belegFehlertext("invoice already fully cancelled")).toBe(
+      "Diese Rechnung ist bereits vollständig aufgehoben."
+    );
+  });
+
+  it("unterscheidet 'invoice not found' von 'only invoices can be cancelled'", () => {
+    // Beide enthalten das Wort "invoice"; eine Zuordnung über Teilstrings darf
+    // sie nicht verwechseln.
+    expect(belegFehlertext("invoice not found")).toBe("Diese Rechnung gibt es nicht (mehr).");
+    expect(belegFehlertext("only invoices can be cancelled")).toBe(
+      "Ein Storno oder eine Gutschrift lässt sich nicht selbst wieder aufheben."
+    );
+  });
+
+  it("setzt einer unbekannten Datenbankmeldung keinen Rohtext vor", () => {
+    expect(belegFehlertext('duplicate key value violates unique constraint "x"')).toBe(
+      "Der Beleg konnte nicht erstellt werden."
+    );
   });
 });

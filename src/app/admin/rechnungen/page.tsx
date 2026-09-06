@@ -1,9 +1,17 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { InvoiceList, type InvoiceRow } from "@/components/admin/invoices/invoice-list";
+import { summiereAufhebungen } from "@/lib/invoices";
+import { InvoiceList, type BelegArt, type InvoiceRow } from "@/components/admin/invoices/invoice-list";
 import { Button } from "@/components/ui/button";
 
 const SORTABLE_COLUMNS = ["invoice_date", "gross_amount", "customer_name"] as const;
+
+/** Übersetzt die Belegart der Datenbank in die der Oberfläche. */
+function belegArt(documentType: string): BelegArt {
+  if (documentType === "cancellation") return "storno";
+  if (documentType === "credit_note") return "gutschrift";
+  return "rechnung";
+}
 
 export default async function RechnungenPage({
   searchParams,
@@ -20,7 +28,9 @@ export default async function RechnungenPage({
 
   let query = supabase
     .from("invoices")
-    .select("id, customer_id, invoice_number, invoice_date, description, gross_amount, bounced_at, profiles(full_name)");
+    .select(
+      "id, customer_id, invoice_number, invoice_date, description, gross_amount, bounced_at, document_type, cancels_invoice_id, profiles(full_name)"
+    );
 
   query =
     sortKey === "customer_name"
@@ -32,6 +42,29 @@ export default async function RechnungenPage({
 
   const { data } = await query;
 
+  // Stornos und Gutschriften separat holen, ohne Zeitraumfilter: eine Rechnung
+  // vom März kann im Mai storniert werden, und in der März-Ansicht muss sie
+  // trotzdem als aufgehoben zu erkennen sein. Die Menge ist klein — es sind
+  // nur die Belege, die überhaupt etwas aufheben.
+  const { data: belege } = await supabase
+    .from("invoices")
+    .select("cancels_invoice_id, gross_amount")
+    .not("cancels_invoice_id", "is", null);
+
+  const gutgeschriebenJeRechnung = summiereAufhebungen(belege ?? []);
+
+  // Die aufgehobene Rechnung kann ausserhalb des Zeitraums liegen, deshalb wird
+  // ihre Nummer eigens nachgeladen statt aus der gefilterten Liste gelesen.
+  const bezugsIds = [...new Set((data ?? []).map((i) => i.cancels_invoice_id).filter(Boolean))];
+  const nummerJeId = new Map<string, string>();
+  if (bezugsIds.length > 0) {
+    const { data: bezuege } = await supabase
+      .from("invoices")
+      .select("id, invoice_number")
+      .in("id", bezugsIds as string[]);
+    for (const b of bezuege ?? []) nummerJeId.set(b.id, b.invoice_number);
+  }
+
   let invoices: InvoiceRow[] = (data ?? []).map((i) => ({
     id: i.id,
     customerId: i.customer_id,
@@ -41,13 +74,11 @@ export default async function RechnungenPage({
     description: i.description,
     grossAmount: i.gross_amount,
     bounced: !!i.bounced_at,
-    // PROJ-46, noch ohne Datengrundlage: Belegart, Bezug und der bereits
-    // gutgeschriebene Betrag kommen erst mit den Spalten aus dem
-    // Backend-Schritt. Bis dahin ist jeder Beleg eine Rechnung ohne Bezug —
-    // was dem heutigen Stand entspricht, weil es noch keine Stornos gibt.
-    art: "rechnung" as const,
-    bezugsnummer: null,
-    gutgeschrieben: 0,
+    art: belegArt(i.document_type),
+    bezugsnummer: i.cancels_invoice_id
+      ? (nummerJeId.get(i.cancels_invoice_id) ?? null)
+      : null,
+    gutgeschrieben: gutgeschriebenJeRechnung.get(i.id) ?? 0,
   }));
 
   if (params.q) {

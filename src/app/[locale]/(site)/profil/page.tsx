@@ -10,6 +10,7 @@ import { MySubscriptionsSection, type MySubscriptionRow } from "@/components/sub
 import { MyInvoicesSection, type MyInvoiceRow } from "@/components/invoices/my-invoices-section";
 import { MyCreditSection, type MyCreditEntry } from "@/components/credits/my-credit-section";
 import { readStudioPricing } from "@/lib/pricing";
+import { istVollstaendigAufgehoben, summiereAufhebungen } from "@/lib/invoices";
 import { MyWaitlistSection, type MyWaitlistRow } from "@/components/waitlist/my-waitlist-section";
 import type { NotificationPreferenceRow } from "@/components/notifications/notification-settings-section";
 import type { MyTicketRow } from "@/components/tickets/my-tickets-section";
@@ -81,7 +82,9 @@ export default async function ProfilePage() {
     supabase.from("courses").select("id, name").order("name", { ascending: true }),
     supabase
       .from("invoices")
-      .select("id, invoice_number, invoice_date, description, gross_amount, bounced_at")
+      .select(
+        "id, invoice_number, invoice_date, description, gross_amount, bounced_at, document_type, cancels_invoice_id"
+      )
       .eq("customer_id", user.id)
       .order("invoice_date", { ascending: false }),
     supabase.rpc("list_my_waitlist"),
@@ -163,6 +166,13 @@ export default async function ProfilePage() {
     position: w.position,
   }));
 
+  // PROJ-46: Was der Kunde sieht, steht vollständig in seinen eigenen Zeilen —
+  // Stornos gehören demselben Kunden wie die Rechnung, die sie aufheben.
+  const rechnungsnummerJeId = new Map(
+    (invoiceRows ?? []).map((i) => [i.id, i.invoice_number] as const)
+  );
+  const aufgehobenJeRechnung = summiereAufhebungen(invoiceRows ?? []);
+
   const invoices: MyInvoiceRow[] = (invoiceRows ?? []).map((i) => ({
     id: i.id,
     invoiceNumber: i.invoice_number,
@@ -170,11 +180,18 @@ export default async function ProfilePage() {
     description: i.description,
     grossAmount: i.gross_amount,
     bounced: !!i.bounced_at,
-    // PROJ-46, noch ohne Datengrundlage — siehe die Rechnungsliste in der
-    // Verwaltung. Heute ist jeder Beleg eine Rechnung ohne Bezug.
-    art: "rechnung" as const,
-    bezugsnummer: null,
-    aufgehoben: false,
+    art:
+      i.document_type === "cancellation"
+        ? ("storno" as const)
+        : i.document_type === "credit_note"
+          ? ("gutschrift" as const)
+          : ("rechnung" as const),
+    bezugsnummer: i.cancels_invoice_id
+      ? (rechnungsnummerJeId.get(i.cancels_invoice_id) ?? null)
+      : null,
+    aufgehoben:
+      i.document_type === "invoice" &&
+      istVollstaendigAufgehoben(Number(i.gross_amount), aufgehobenJeRechnung.get(i.id) ?? 0),
   }));
 
   const notificationPreferences: NotificationPreferenceRow[] = (notificationPreferenceRows ?? []).map((p) => ({

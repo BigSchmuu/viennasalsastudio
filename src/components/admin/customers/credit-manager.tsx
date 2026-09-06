@@ -16,7 +16,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 export type CreditEntry = {
   id: string;
   amount: number;
-  origin: "referral" | "manual" | "redeemed";
+  origin: "referral" | "manual" | "redeemed" | "storno";
   reason: string | null;
   createdAt: string;
 };
@@ -25,6 +25,10 @@ const originLabel: Record<CreditEntry["origin"], string> = {
   referral: "Empfehlung",
   manual: "von Hand",
   redeemed: "verrechnet",
+  // PROJ-46: aus einem Storno oder einer Gutschrift entstanden. Eigene
+  // Herkunft, damit Monate später erkennbar bleibt, dass hier nicht von Hand
+  // etwas gutgeschrieben wurde, sondern eine Rechnung aufgehoben wurde.
+  storno: "Storno",
 };
 
 /**

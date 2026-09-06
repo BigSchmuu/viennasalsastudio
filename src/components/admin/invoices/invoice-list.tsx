@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
+import { erstelleGutschrift, storniereRechnung } from "@/lib/actions/admin/invoices";
+import { StornoDialog, GutschriftDialog } from "@/components/admin/invoices/beleg-dialoge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +40,15 @@ const ART_BESCHRIFTUNG: Record<BelegArt, string> = {
   gutschrift: "Gutschrift",
 };
 
+/**
+ * Was von einer Rechnung noch nicht aufgehoben ist. Maßgeblich prüft das die
+ * Datenbank; hier dient es dazu, gar nicht erst Schaltflächen anzubieten, die
+ * zu einer Absage führen würden.
+ */
+function restbetrag(invoice: InvoiceRow): number {
+  return invoice.grossAmount - invoice.gutgeschrieben;
+}
+
 function formatEUR(amount: number): string {
   return amount.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
 }
@@ -67,6 +79,12 @@ export function InvoiceList({
   // months: enough for "last year's figures" without a scroll marathon.
   const [years] = useState(() => recentYears(3));
   const [months] = useState(() => recentMonths(24));
+
+  // Welche Rechnung gerade aufgehoben wird, und wodurch. Ein Zustand für beide
+  // Dialoge, weil immer nur einer offen sein kann.
+  const [beleg, setBeleg] = useState<{ zeile: InvoiceRow; art: "storno" | "gutschrift" } | null>(
+    null
+  );
 
   // Derived, not stored: editing Von/Bis by hand immediately re-reads what the
   // dates actually say instead of leaving a label that no longer matches.
@@ -187,6 +205,7 @@ export function InvoiceList({
               <SortableHeader label="Kunde" sortKey="customer_name" />
               <SortableHeader label="Betrag" sortKey="gross_amount" />
               <TableHead>Status</TableHead>
+              <TableHead className="text-right">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -219,7 +238,9 @@ export function InvoiceList({
                 </TableCell>
                 <TableCell>{formatEUR(invoice.grossAmount)}</TableCell>
                 <TableCell>
-                  {invoice.art === "rechnung" && invoice.gutgeschrieben >= invoice.grossAmount ? (
+                  {invoice.art === "rechnung" &&
+                  invoice.grossAmount > 0 &&
+                  invoice.gutgeschrieben >= invoice.grossAmount ? (
                     // Eine vollstaendig aufgehobene Rechnung ist weder bezahlt
                     // noch offen — sie gilt nicht mehr.
                     <Badge variant="outline">Aufgehoben</Badge>
@@ -229,11 +250,63 @@ export function InvoiceList({
                     </Badge>
                   )}
                 </TableCell>
+                <TableCell className="text-right">
+                  {/* Nur Rechnungen lassen sich aufheben, und nur solange noch
+                      etwas offen ist. Ein Storno des Stornos gibt es nicht. */}
+                  {invoice.art === "rechnung" && restbetrag(invoice) > 0 && (
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBeleg({ zeile: invoice, art: "gutschrift" })}
+                      >
+                        Gutschrift
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBeleg({ zeile: invoice, art: "storno" })}
+                      >
+                        Stornieren
+                      </Button>
+                    </div>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       )}
+
+      <StornoDialog
+        offen={beleg?.art === "storno"}
+        onOffenChange={(offen) => !offen && setBeleg(null)}
+        rechnungsnummer={beleg?.zeile.invoiceNumber ?? ""}
+        betrag={beleg ? restbetrag(beleg.zeile) : 0}
+        onBestaetigen={async (grund) => {
+          const ergebnis = await storniereRechnung(beleg!.zeile.id, grund);
+          if ("success" in ergebnis) {
+            toast.success("Rechnung storniert");
+            router.refresh();
+          }
+          return ergebnis;
+        }}
+      />
+
+      <GutschriftDialog
+        offen={beleg?.art === "gutschrift"}
+        onOffenChange={(offen) => !offen && setBeleg(null)}
+        rechnungsnummer={beleg?.zeile.invoiceNumber ?? ""}
+        restbetrag={beleg ? restbetrag(beleg.zeile) : 0}
+        onBestaetigen={async (betrag, grund) => {
+          const ergebnis = await erstelleGutschrift(beleg!.zeile.id, betrag, grund);
+          if ("success" in ergebnis) {
+            toast.success("Gutschrift erstellt");
+            router.refresh();
+          }
+          return ergebnis;
+        }}
+      />
     </div>
   );
 }

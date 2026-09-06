@@ -9,13 +9,33 @@ import {
   toCsvRow,
 } from "@/lib/invoices";
 
-const COLUMN_COUNT = 8;
+// PROJ-46: "Art" und "Bezug" hängen bewusst hinten an, statt sich vorne
+// einzuschieben. Wer die Datei schon in eine Vorlage einliest, bekommt so neue
+// Spalten dazu und keine verschobenen.
+const COLUMN_COUNT = 10;
+
+const ART_BESCHRIFTUNG: Record<string, string> = {
+  invoice: "Rechnung",
+  cancellation: "Storno",
+  credit_note: "Gutschrift",
+};
 
 /** Places a summary label in the customer column and leaves the amount columns
  * to the caller — summary rows carry no invoice number, so they stay
  * recognisable after the accountant sorts or filters the sheet. */
 function summaryRow(label: string, net: number, vat: number, gross: number, note = ""): string {
-  return toCsvRow(["", "", label, formatAmountDe(net), note, formatAmountDe(vat), formatAmountDe(gross), ""]);
+  return toCsvRow([
+    "",
+    "",
+    label,
+    formatAmountDe(net),
+    note,
+    formatAmountDe(vat),
+    formatAmountDe(gross),
+    "",
+    "",
+    "",
+  ]);
 }
 
 export async function GET(request: NextRequest) {
@@ -28,7 +48,9 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("invoices")
-    .select("invoice_number, invoice_date, gross_amount, vat_rate, bounced_at, profiles(full_name)")
+    .select(
+      "id, invoice_number, invoice_date, gross_amount, vat_rate, bounced_at, document_type, cancels_invoice_id, reason, profiles(full_name)"
+    )
     .order("invoice_date", { ascending: false });
 
   if (from) query = query.gte("invoice_date", from);
@@ -42,6 +64,33 @@ export async function GET(request: NextRequest) {
     rows = rows.filter((r) => (r.profiles?.full_name ?? "").toLowerCase().includes(needle));
   }
 
+  // Die aufgehobene Rechnung kann ausserhalb des Zeitraums liegen. Ihre Nummer
+  // gehört trotzdem auf den Beleg — ein Storno ohne Bezug ist buchhalterisch
+  // wertlos — und ihr Rücklastschrift-Status entscheidet, in welchen der beiden
+  // Summenblöcke der Beleg gehört.
+  const bezugsIds = [...new Set(rows.map((r) => r.cancels_invoice_id).filter(Boolean))] as string[];
+  const bezugJeId = new Map<string, { nummer: string; bounced: boolean }>();
+  if (bezugsIds.length > 0) {
+    const { data: bezuege } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, bounced_at")
+      .in("id", bezugsIds);
+    for (const b of bezuege ?? []) {
+      bezugJeId.set(b.id, { nummer: b.invoice_number, bounced: Boolean(b.bounced_at) });
+    }
+  }
+
+  /**
+   * In welchen Block ein Beleg gehört. Ein Storno folgt der Rechnung, die es
+   * aufhebt: Wird eine zurückgebuchte Lastschrift storniert, darf der Beleg
+   * nicht die eingegangenen Einnahmen mindern — dieses Geld war nie da.
+   */
+  function alsRuecklastschrift(row: (typeof rows)[number]): boolean {
+    if (row.bounced_at) return true;
+    if (row.cancels_invoice_id) return bezugJeId.get(row.cancels_invoice_id)?.bounced ?? false;
+    return false;
+  }
+
   const header = toCsvRow([
     "Rechnungsnummer",
     "Datum",
@@ -51,10 +100,13 @@ export async function GET(request: NextRequest) {
     "USt-Betrag",
     "Brutto",
     "Status",
+    "Art",
+    "Bezug",
   ]);
 
   const lines = rows.map((r) => {
     const { netAmount, vatAmount } = computeInvoiceAmounts(r.gross_amount, r.vat_rate);
+    const istRechnung = r.document_type === "invoice";
     return toCsvRow([
       r.invoice_number,
       r.invoice_date,
@@ -63,7 +115,10 @@ export async function GET(request: NextRequest) {
       `${r.vat_rate}%`,
       formatAmountDe(vatAmount),
       formatAmountDe(r.gross_amount),
-      r.bounced_at ? "Rücklastschrift" : "Bezahlt",
+      // Ein Storno ist weder bezahlt noch zurückgebucht — es hebt auf.
+      istRechnung ? (r.bounced_at ? "Rücklastschrift" : "Bezahlt") : "Aufhebung",
+      ART_BESCHRIFTUNG[r.document_type] ?? r.document_type,
+      r.cancels_invoice_id ? (bezugJeId.get(r.cancels_invoice_id)?.nummer ?? "") : "",
     ]);
   });
 
@@ -71,7 +126,7 @@ export async function GET(request: NextRequest) {
     rows.map((r) => ({
       grossAmount: r.gross_amount,
       vatRatePercent: r.vat_rate,
-      bounced: Boolean(r.bounced_at),
+      bounced: alsRuecklastschrift(r),
     }))
   );
 
@@ -108,7 +163,9 @@ export async function GET(request: NextRequest) {
     toCsvRow([
       "",
       "",
-      "Hinweis: Diese Datei enthält ausschließlich Einnahmen aus SEPA-Lastschriften. Vor-Ort- und Barzahlungen werden separat erfasst.",
+      "Hinweis: Diese Datei enthält ausschließlich Einnahmen aus SEPA-Lastschriften. Vor-Ort- und Barzahlungen werden separat erfasst. Stornos und Gutschriften stehen als eigene Zeilen mit negativem Betrag und sind in den Summen bereits verrechnet.",
+      "",
+      "",
       "",
       "",
       "",

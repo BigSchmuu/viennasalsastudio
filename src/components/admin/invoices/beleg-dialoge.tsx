@@ -40,6 +40,7 @@ export function StornoDialog({
   offen: boolean;
   onOffenChange: (offen: boolean) => void;
   rechnungsnummer: string;
+  /** Der noch offene Betrag — nach einer Teilgutschrift weniger als die Rechnung. */
   betrag: number;
   onBestaetigen: (grund: string) => Promise<BelegErgebnis>;
 }) {
@@ -71,8 +72,9 @@ export function StornoDialog({
         <DialogHeader>
           <DialogTitle className="font-heading">Rechnung stornieren</DialogTitle>
           <DialogDescription>
-            {rechnungsnummer} über {euro(betrag)} wird durch einen eigenen Beleg aufgehoben. Die
-            Rechnung selbst bleibt unverändert bestehen — das verlangt die Buchhaltung.
+            Von {rechnungsnummer} werden {euro(betrag)} durch einen eigenen Beleg aufgehoben — was
+            von dieser Rechnung noch offen ist. Die Rechnung selbst bleibt unverändert bestehen; das
+            verlangt die Buchhaltung.
           </DialogDescription>
         </DialogHeader>
 

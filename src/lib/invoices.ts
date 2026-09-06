@@ -293,3 +293,71 @@ export function pruefeGutschrift(
 
   return fehler;
 }
+
+/* ------------------------------------------------------------------------ *
+ * PROJ-46: Storno und Gutschrift
+ * ------------------------------------------------------------------------ */
+
+/** Die Belegarten, wie sie in der Datenbank stehen. */
+export type Belegart = "invoice" | "cancellation" | "credit_note";
+
+/**
+ * Summiert je Rechnung, was durch Stornos und Gutschriften bereits aufgehoben
+ * ist.
+ *
+ * Aufhebende Belege sind negativ gespeichert — das ist die Eigenschaft, an der
+ * der Buchhaltungs-Export hängt. Hier interessiert der Betrag, also wird das
+ * Vorzeichen umgedreht. Genau diese Umdrehung ist die Stelle, an der man sich
+ * vertut, deshalb steht sie an einem Ort statt an fünf.
+ */
+export function summiereAufhebungen(
+  belege: { cancels_invoice_id: string | null; gross_amount: number | string }[]
+): Map<string, number> {
+  const summen = new Map<string, number>();
+  for (const beleg of belege) {
+    if (!beleg.cancels_invoice_id) continue;
+    const bisher = summen.get(beleg.cancels_invoice_id) ?? 0;
+    summen.set(beleg.cancels_invoice_id, bisher - Number(beleg.gross_amount));
+  }
+  return summen;
+}
+
+/**
+ * Ist eine Rechnung vollständig aufgehoben?
+ *
+ * Eine Rechnung über 0,00 € ist es nie — sonst gälte jede Nullrechnung als
+ * storniert, weil 0 ≥ 0 ist.
+ */
+export function istVollstaendigAufgehoben(bruttobetrag: number, aufgehoben: number): boolean {
+  return bruttobetrag > 0 && aufgehoben >= bruttobetrag;
+}
+
+/**
+ * Die Meldungen von `create_invoice_document` in Sätzen.
+ *
+ * Alles, was hier nicht steht, ist kein vorgesehener Ausgang, sondern ein
+ * Fehler — und bekommt eine allgemeine Meldung statt einer Datenbankzeile.
+ */
+const BELEG_FEHLER: [string, string][] = [
+  ["not authorized", "Nur Administrator:innen dürfen Belege erstellen."],
+  ["invalid document type", "Unbekannte Belegart."],
+  ["reason required", "Bitte gib einen Grund an."],
+  ["invoice not found", "Diese Rechnung gibt es nicht (mehr)."],
+  [
+    "only invoices can be cancelled",
+    "Ein Storno oder eine Gutschrift lässt sich nicht selbst wieder aufheben.",
+  ],
+  ["invoice already fully cancelled", "Diese Rechnung ist bereits vollständig aufgehoben."],
+  ["amount must be positive", "Der Betrag muss größer als null sein."],
+  [
+    "amount exceeds remaining invoice total",
+    "Der Betrag übersteigt, was von dieser Rechnung noch offen ist.",
+  ],
+];
+
+export function belegFehlertext(meldung: string): string {
+  for (const [kennung, text] of BELEG_FEHLER) {
+    if (meldung.includes(kennung)) return text;
+  }
+  return "Der Beleg konnte nicht erstellt werden.";
+}

@@ -18,6 +18,8 @@ export type OpenItemRow = {
   bouncedAt: string;
   grossAmount: number;
   bounceFee: number;
+  /** PROJ-46: was von dieser Rechnung bereits gutgeschrieben wurde. */
+  gutgeschrieben: number;
   remindedAt: string | null;
   settledAt: string | null;
   hasEmail: boolean;
@@ -68,7 +70,11 @@ export function OpenItemsList({ items, showSettled }: { items: OpenItemRow[]; sh
   const open = items.filter((i) => !i.settledAt);
   // The tile answers "how much is missing" — the fee was really paid to the
   // bank, so leaving it out would understate the gap.
-  const totalOwed = open.reduce((sum, i) => sum + i.grossAmount + i.bounceFee, 0);
+  // Was tatsächlich noch aussteht: die Rechnung abzüglich dessen, was bereits
+  // gutgeschrieben wurde, plus die Rücklastschriftgebühr. Ein Vollstorno hakt
+  // den Posten ohnehin ab; hier geht es um die Teilgutschrift.
+  const offenerBetrag = (i: OpenItemRow) => i.grossAmount - i.gutgeschrieben;
+  const totalOwed = open.reduce((sum, i) => sum + offenerBetrag(i) + i.bounceFee, 0);
 
   return (
     <div className="space-y-6">
@@ -134,7 +140,15 @@ export function OpenItemsList({ items, showSettled }: { items: OpenItemRow[]; sh
                     {daysOpen(item.bouncedAt) === 1 ? "seit 1 Tag" : `seit ${daysOpen(item.bouncedAt)} Tagen`}
                   </span>
                 </TableCell>
-                <TableCell className="text-right tabular-nums">{formatEUR(item.grossAmount)}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {formatEUR(offenerBetrag(item))}
+                  {item.gutgeschrieben > 0 && (
+                    <p className="text-xs font-normal text-muted-foreground">
+                      von {formatEUR(item.grossAmount)}, {formatEUR(item.gutgeschrieben)}{" "}
+                      gutgeschrieben
+                    </p>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <Input
                     aria-label={`Gebühr für Rechnung ${item.invoiceNumber}`}
@@ -155,7 +169,7 @@ export function OpenItemsList({ items, showSettled }: { items: OpenItemRow[]; sh
                   />
                 </TableCell>
                 <TableCell className="text-right font-medium tabular-nums">
-                  {formatEUR(item.grossAmount + item.bounceFee)}
+                  {formatEUR(offenerBetrag(item) + item.bounceFee)}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {item.remindedAt ? formatDate(item.remindedAt) : "—"}

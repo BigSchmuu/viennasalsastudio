@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { computeInvoiceAmounts } from "@/lib/invoices";
+import { computeInvoiceAmounts, istVollstaendigAufgehoben } from "@/lib/invoices";
 import { Badge } from "@/components/ui/badge";
 import { PrintButton } from "@/components/invoices/print-button";
 import { getViewer } from "@/lib/auth/viewer";
@@ -28,7 +28,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const [{ data: invoice }, { data: settings }] = await Promise.all([
     supabase
       .from("invoices")
-      .select("invoice_number, invoice_date, description, gross_amount, vat_rate, bounced_at, profiles(full_name)")
+      .select(
+        "invoice_number, invoice_date, description, gross_amount, vat_rate, bounced_at, document_type, cancels_invoice_id, reason, profiles(full_name)"
+      )
       .eq("id", id)
       .single(),
     supabase.from("invoice_settings").select("company_name, address, uid_number").limit(1).single(),
@@ -38,8 +40,40 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
+  const istRechnung = invoice.document_type === "invoice";
+
+  // PROJ-46: Ein Storno muss die aufgehobene Rechnung benennen — ein Beleg über
+  // minus 50 € ohne Bezug ist für die Buchhaltung wertlos. Umgekehrt soll auf
+  // einer aufgehobenen Rechnung stehen, dass sie nicht mehr gilt.
+  const [{ data: bezug }, { data: aufhebungen }] = await Promise.all([
+    invoice.cancels_invoice_id
+      ? supabase
+          .from("invoices")
+          .select("invoice_number, invoice_date")
+          .eq("id", invoice.cancels_invoice_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    istRechnung
+      ? supabase
+          .from("invoices")
+          .select("invoice_number, gross_amount, document_type")
+          .eq("cancels_invoice_id", id)
+          .order("invoice_number", { ascending: true })
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const aufgehobenerBetrag = (aufhebungen ?? []).reduce((summe, a) => summe - Number(a.gross_amount), 0);
+  const vollstaendigAufgehoben =
+    istRechnung && istVollstaendigAufgehoben(Number(invoice.gross_amount), aufgehobenerBetrag);
+
   const { netAmount, vatAmount } = computeInvoiceAmounts(invoice.gross_amount, invoice.vat_rate);
   const customerName = invoice.profiles?.full_name ?? "—";
+  const belegBezeichnung =
+    invoice.document_type === "cancellation"
+      ? "Storno"
+      : invoice.document_type === "credit_note"
+        ? "Gutschrift"
+        : "Rechnung";
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
@@ -58,20 +92,33 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
         <div className="flex flex-wrap justify-between gap-4 text-sm">
           <div>
-            <p className="font-medium">Rechnungsempfänger</p>
+            <p className="font-medium">{istRechnung ? "Rechnungsempfänger" : "Empfänger"}</p>
             <p>{customerName}</p>
           </div>
           <div className="text-right space-y-1">
+            <p className="font-heading font-bold">{belegBezeichnung}</p>
             <p>
-              <span className="text-muted-foreground">Rechnungsnummer: </span>
+              <span className="text-muted-foreground">
+                {istRechnung ? "Rechnungsnummer" : "Belegnummer"}:{" "}
+              </span>
               {invoice.invoice_number}
             </p>
             <p>
-              <span className="text-muted-foreground">Rechnungsdatum: </span>
+              <span className="text-muted-foreground">
+                {istRechnung ? "Rechnungsdatum" : "Belegdatum"}:{" "}
+              </span>
               {formatDate(invoice.invoice_date)}
             </p>
           </div>
         </div>
+
+        {/* Pflichtangabe: welche Rechnung dieser Beleg aufhebt. */}
+        {!istRechnung && bezug && (
+          <p className="text-sm">
+            {belegBezeichnung} zu Rechnung {bezug.invoice_number} vom {formatDate(bezug.invoice_date)}
+            {invoice.reason && <> — {invoice.reason}</>}
+          </p>
+        )}
 
         <table className="w-full text-sm">
           <thead>
@@ -99,13 +146,37 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           <p className="font-medium">{formatEUR(invoice.gross_amount)}</p>
         </div>
 
-        <div>
-          <Badge variant={invoice.bounced_at ? "destructive" : "default"}>
-            {invoice.bounced_at ? "Rücklastschrift" : "Bezahlt"}
-          </Badge>
+        <div className="space-y-2">
+          {istRechnung ? (
+            vollstaendigAufgehoben ? (
+              <Badge variant="outline">Aufgehoben</Badge>
+            ) : (
+              <Badge variant={invoice.bounced_at ? "destructive" : "default"}>
+                {invoice.bounced_at ? "Rücklastschrift" : "Bezahlt"}
+              </Badge>
+            )
+          ) : (
+            <Badge variant="secondary">{belegBezeichnung}</Badge>
+          )}
+
+          {/* Auf der aufgehobenen Rechnung selbst steht, wodurch sie aufgehoben
+              wurde. Ohne diesen Hinweis liest sich eine stornierte Rechnung wie
+              eine offene Forderung. */}
+          {istRechnung && (aufhebungen ?? []).length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Aufgehoben durch{" "}
+              {(aufhebungen ?? [])
+                .map(
+                  (a) =>
+                    `${a.document_type === "cancellation" ? "Storno" : "Gutschrift"} ${a.invoice_number} (${formatEUR(Number(a.gross_amount))})`
+                )
+                .join(", ")}
+              .
+            </p>
+          )}
         </div>
 
-        {netAmount + vatAmount <= 400 && (
+        {istRechnung && netAmount + vatAmount <= 400 && (
           <p className="text-xs text-muted-foreground">
             Kleinbetragsrechnung gemäß § 11 Abs. 6 UStG.
           </p>
