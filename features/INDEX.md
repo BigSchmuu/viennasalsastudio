@@ -65,6 +65,8 @@
 
 | PROJ-46 | Rechnungen stornieren und gutschreiben | Deployed | [PROJ-46](../features/PROJ-46-rechnungen-stornieren-gutschreiben.md) | 2026-09-06 |
 
+| PROJ-47 | Lastschriftlauf vor dem Bankupload korrigieren | Planned | [PROJ-47](../features/PROJ-47-lastschriftlauf-korrigieren.md) | 2026-09-06 |
+
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-47
+## Next Available ID: PROJ-48
