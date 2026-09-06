@@ -1,6 +1,6 @@
 # PROJ-46: Rechnungen stornieren und gutschreiben
 
-## Status: Planned
+## Status: Approved
 **Created:** 2026-09-06
 **Last Updated:** 2026-09-06
 
@@ -157,11 +157,16 @@ nicht in der Nummer.
 
 - [ ] Soll der Kunde bei einem Storno benachrichtigt werden (E-Mail), oder
       genügt der Beleg im Archiv? Betrifft PROJ-16.
-- [ ] Braucht der Beleg einen eigenen Ausdruck, oder reicht die vorhandene
-      Rechnungsdetailseite mit anderer Überschrift?
-- [ ] Soll die Rechnungsliste in der Verwaltung Stornos standardmäßig zeigen
-      oder ausblenden? (Aus dem Architektur-Entwurf: „alle Rechnungen" ist ab
-      jetzt eine Frage, keine Selbstverständlichkeit.)
+- [x] Braucht der Beleg einen eigenen Ausdruck, oder reicht die vorhandene
+      Rechnungsdetailseite mit anderer Überschrift? → Dieselbe Seite. Sie trägt
+      jetzt die Belegart als Überschrift, „Belegnummer"/„Belegdatum" statt
+      „Rechnungs-", den Verweis auf die aufgehobene Rechnung mit Datum und den
+      Grund. Ein zweites Layout hätte dieselben Stammdaten ein zweites Mal
+      pflegen müssen. (2026-09-06)
+- [x] Soll die Rechnungsliste in der Verwaltung Stornos standardmäßig zeigen
+      oder ausblenden? → Zeigen. Eine Spalte „Art" und der Bezug darunter
+      machen sie unterscheidbar; ausgeblendet würden die Summen der Liste nicht
+      mehr zu denen des Exports passen. (2026-09-06)
 - [ ] Der Zähler steht bei 875 für 2026, obwohl **null** echte Rechnungen
       existieren (Rückstand aus Testläufen, deren Rechnungen gelöscht wurden).
       Die erste echte Rechnung hieße `2026-0876`. Vor dem Start
@@ -189,7 +194,10 @@ nicht in der Nummer.
 | Eigener Herkunftswert im Guthabenkonto statt „manuell" | Sonst sieht weder Kunde noch Betreiber spaeter, woher das Guthaben stammt. | 2026-09-06 |
 | Beleg und Guthaben entstehen gemeinsam oder gar nicht | Ein Beleg ohne Gutschrift waere eine Forderung, die der Kunde nie zurueckbekommt; eine Gutschrift ohne Beleg waere Geld ohne Grund. | 2026-09-06 |
 | Unveraenderlichkeit in der Datenbank, nicht in der Oberflaeche | Eine Buchhaltung, die sich auf eine ausgeblendete Schaltflaeche verlaesst, ist keine. | 2026-09-06 |
-| Offene Posten schliessen sich beim Storno selbst | Sonst mahnt das System eine Forderung an, die aufgehoben ist. Das ist die einzige Auswertung, die der neue Belegtyp zwingend aendert. | 2026-09-06 |
+| Offene Posten schliessen sich beim Storno selbst | Sonst mahnt das System eine Forderung an, die aufgehoben ist. | 2026-09-06 |
+| Korrektur zum Entwurf: die offenen Posten sind **nicht** die einzige betroffene Auswertung | Im Backend-Schritt zeigte sich, dass ein negativer Beleg auch Buchhaltungs-Export, Umsatzkennzahl, Zahlungserinnerung und Guthaben-Verlauf beruehrt. Der Entwurf hatte das zu eng gefasst. | 2026-09-06 |
+| Ein Storno folgt dem Schicksal der Rechnung, die es aufhebt | Wird eine zurueckgebuchte Rechnung storniert, gehoert der Beleg in den Ruecklastschrift-Block, nicht in die eingegangenen Einnahmen: dieses Geld war nie da, und der Beleg wuerde die Summe sonst ein zweites Mal senken. | 2026-09-06 |
+| Neue Export-Spalten hinten angehaengt statt vorne eingeschoben | Wer die Datei in eine Vorlage einliest, bekommt so zusaetzliche Spalten und keine verschobenen. | 2026-09-06 |
 | Keine neuen Pakete | Nummernvergabe, Belegdruck, Guthabenkonto, Export und Rechtepruefung sind vorhanden. | 2026-09-06 |
 
 ---
@@ -332,8 +340,199 @@ nicht auslösen. Die Prüfregeln der Gutschrift sind der Teil, der eigenständig
 prüfbar ist — deshalb liegen sie als eigene Funktion vor und nicht im Dialog
 eingebettet.
 
+## Implementierungsnotizen (Backend)
+
+### Migrationen
+
+Zwei Dateien, beide auf Test- und Produktionsdatenbank angewendet und
+byte-genau gegen die tatsächlich ausgeführten Anweisungen geprüft (MD5 und
+Länge stimmen überein):
+
+- `20260906093831_proj46_storno_und_gutschrift.sql` — drei Spalten auf
+  `invoices` (`document_type`, `cancels_invoice_id`, `reason`), zwei
+  CHECK-Regeln (Form und Vorzeichen), Teilindex, der Trigger
+  `invoices_unveraenderlich`, sowie `customer_credits.origin` um `'storno'`
+  erweitert mit Begründungspflicht.
+- `20260906093853_proj46_storno_funktionen.sql` — `create_invoice_document`.
+
+Die Funktionskörper in beiden Datenbanken sind identisch (gleicher
+normalisierter MD5, genau eine Überladung).
+
+### Wo die Regeln sitzen
+
+In der Datenbank, nicht in der Oberfläche:
+
+- **Restbetrag und Sperre.** `create_invoice_document` sperrt die Rechnung
+  (`for update`), bevor es den bereits gutgeschriebenen Betrag summiert. Zwei
+  gleichzeitige Gutschriften können die Rechnungssumme dadurch nicht
+  gemeinsam übersteigen.
+- **Betrag beim Vollstorno.** Nicht wählbar — die Funktion setzt ihn auf den
+  Restbetrag. Deshalb hat `storniereRechnung` keinen Betragsparameter und der
+  Storno-Dialog kein Eingabefeld.
+- **Unveränderlichkeit.** Ein Trigger, keine ausgeblendete Schaltfläche.
+  Belege lassen sich weder ändern noch löschen; an einer Rechnung sind Nummer,
+  Datum, Kunde, Betrag, Steuersatz und Belegart eingefroren. Änderbar bleibt
+  nur, was den Zahlungsstand betrifft (`settled_at`, `reminded_at`,
+  `bounce_fee`, `bounced_at`) — sonst hätten die offenen Posten aufgehört zu
+  funktionieren.
+- **Beleg und Guthaben entstehen gemeinsam.** Ein Aufruf, eine Transaktion.
+
+### Was ausserhalb der Storno-Funktion angepasst werden musste
+
+Die Änderung endet nicht bei der Rechnungsliste. Ein negativer Beleg in
+derselben Tabelle wirkt überall dorthin, wo bisher jede Zeile eine Rechnung
+war:
+
+- **Buchhaltungs-Export** — neue Spalten `Art` und `Bezug`, hinten angehängt
+  statt vorne eingeschoben, damit bestehende Spaltenpositionen bleiben. Ein
+  Storno einer *zurückgebuchten* Rechnung zählt in den
+  Rücklastschrift-Block, nicht in die eingegangenen Einnahmen: dieses Geld war
+  nie da, und der Beleg dürfte die Summe nicht ein zweites Mal senken.
+- **Umsatzkennzahl im Admin-Dashboard** — dieselbe Regel.
+- **Offene Posten** — nur noch echte Rechnungen; eine teilweise gutgeschriebene
+  Forderung erscheint mit dem tatsächlich offenen Betrag und dem Hinweis, wie
+  viel davon gutgeschrieben ist.
+- **Zahlungserinnerung** — nennt den offenen Betrag abzüglich Gutschriften. Eine
+  Mahnung über Geld, das der Kunde zurückbekommen hat, wäre eine falsche
+  Forderung.
+- **Guthaben-Verlauf** — Herkunft `storno` in Kunden- und Verwaltungsansicht;
+  der Kunde sieht Belegnummer und Grund.
+- **Belegansicht/Druck** — Belegart in der Überschrift, Verweis auf die
+  aufgehobene Rechnung mit Datum, der Grund, und auf der Rechnung selbst der
+  Hinweis, wodurch sie aufgehoben wurde. Der Vermerk zur
+  Kleinbetragsrechnung erscheint nur noch auf Rechnungen.
+
+### Geteilte Logik statt vierfacher Handarbeit
+
+Die Umkehrung des Vorzeichens (Belege stehen negativ, gefragt ist der Betrag)
+kam an vier Stellen vor. Sie liegt jetzt einmal in `src/lib/invoices.ts` als
+`summiereAufhebungen`, zusammen mit `istVollstaendigAufgehoben` und
+`belegFehlertext`. Zwölf zusätzliche Unit-Tests, insgesamt 370.
+
+`istVollstaendigAufgehoben` behandelt einen Fall, den die naive Prüfung
+`aufgehoben >= betrag` falsch beantwortet: eine Rechnung über 0,00 € gälte
+sonst immer als storniert.
+
+### Aufgelöste Randfälle
+
+- **Kunde inzwischen gelöscht.** Kann nicht eintreten: `invoices.customer_id`
+  verweist ohne `ON DELETE` auf `profiles`, ein Kunde mit Rechnungen lässt
+  sich also gar nicht löschen. Die Verwaltung meldet das bereits über
+  `isForeignKeyRestrictError`.
+- **Zurückgebuchte Rechnung storniert.** Die Funktion setzt `settled_at` und
+  nimmt die Rücklastschriftgebühr zurück; der offene Posten verschwindet.
+  Bei einer Teilgutschrift bleibt die Gebühr stehen.
+
+### Gegen die Testdatenbank geprüft
+
+Neun Prüfungen mit Probedaten (danach restlos entfernt, verifiziert):
+Auswahl der neuen Spalten, `eq("cancels_invoice_id", …)`, `not(… is null)`
+und `in("id", …)` liefern das Erwartete; ein positiver Gutschriftsbetrag und
+eine Gutschrift ohne Grund werden abgewiesen; ein Beleg lässt sich nicht
+ändern; der Zahlungsstand einer Rechnung bleibt änderbar.
+
+Die Funktion selbst war zuvor am echten Datenbestand geprüft: Teilgutschrift
+über 15 €, danach Vollstorno über den **Restbetrag** von 50 € statt der vollen
+65 €, Summe aus Rechnung und Belegen exakt 0,00 €, zwei Guthabenzeilen mit
+Herkunft `storno`, und drei unzulässige Versuche ohne jede Zeile als Folge.
+
 ## QA Test Results
-_To be added by /qa_
+
+**Geprüft:** 2026-09-06
+**Umgebung:** localhost:3100 gegen die Testdatenbank
+**Browser:** Chromium und Mobile Safari (iPhone 13)
+
+### Akzeptanzkriterien
+
+Zwölf E2E-Prüfungen in `tests/PROJ-46-rechnungen-stornieren-gutschreiben.spec.ts`,
+alle grün — Chromium 12/12, Mobile Safari 11/12 (der CSV-Export ist dort
+übersprungen, iOS kennt keinen Datei-Download im Sinne von Playwright).
+
+| Bereich | Abgedeckt |
+|---|---|
+| Storno | Aktion sichtbar, Grund ist Pflicht (Knopf gesperrt), Beleg mit nächster Nummer, negativem Betrag, Verweis und Grund; Rechnung bleibt unverändert |
+| Storno | Aufgehobene Rechnung ist gekennzeichnet, beide Aktionen verschwinden |
+| Gutschrift | Betrag über der Rechnungssumme und Betrag 0 werden abgewiesen, ohne Grund kein Absenden, keine Zeile bleibt zurück |
+| Gutschrift | Serverseitig: 50 + 20 auf eine Rechnung über 65 scheitert, genau der Rest (15) ist erlaubt, danach ist nichts mehr offen |
+| Guthaben | Betrag steht dem Kunden mit Belegnummer und Grund im Profil |
+| Kundensicht | Beide Belege im Archiv, „Aufgehoben"-Kennzeichnung, Belegausdruck mit Belegart, Bezug und Grund; auf der Rechnung steht, wodurch sie aufgehoben wurde |
+| Buchhaltung | Storno als eigene Zeile mit negativem Betrag, Spalten „Art" und „Bezug", GESAMT verrechnet ihn |
+| Rechte | Kunde und Lehrkraft werden am RPC abgewiesen (`not authorized`), keine Zeile entsteht |
+| Unveränderlichkeit | Der Admin — die einzige Rolle mit UPDATE-Recht — kann Beleg und Rechnungsbetrag nicht ändern; der Zahlungsstand bleibt änderbar |
+
+### Randfälle
+
+- **Vollstorno nach Teilgutschrift** hebt nur den Restbetrag auf: 15 + 50 = 65,
+  Rechnung und Belege verrechnen sich exakt auf null. ✔
+- **Storno einer zurückgebuchten Rechnung** schließt den offenen Posten und
+  setzt die Rücklastschriftgebühr auf 0. ✔
+- **Summe mehrerer Gutschriften trifft genau die Rechnungssumme** — erlaubt,
+  erst darüber hinaus abgewiesen. ✔
+- **Rechnung über 0,00 €** gilt nicht als aufgehoben (Unit-Test). ✔
+
+### Sicherheitsprüfung
+
+- Kunde und Lehrkraft am RPC: abgewiesen, keine Nebenwirkung.
+- Der Kunde hat auf `invoices` gar keine UPDATE-Regel — RLS greift noch vor dem
+  Trigger. Die Prüfung wurde deshalb auf den Admin-Weg umgestellt: dort greift
+  der Trigger, und das ist der Weg, auf dem ein Versehen tatsächlich passieren
+  würde.
+- Keine DELETE-Regel auf `invoices` für irgendeine Anwendungsrolle.
+- `reason` wird überall als Text gerendert (React escaped) — kein XSS-Weg.
+- `/admin/rechnungen` hängt am Admin-Layout mit `requireAdmin()`.
+
+### Gefundene Fehler
+
+#### BUG-1: Der Trigger sperrte das Zurücksetzen der Testdatenbank
+
+- **Schwere:** High
+- **Gefunden bei:** Vorbereitung der E2E-Prüfungen
+- **Beschreibung:** `scripts/seed-testdb.mjs` leert `invoices` über den
+  Dienstschlüssel. Der Unveränderlichkeits-Trigger wies das ab, sobald ein
+  einziger Storno existierte — die Testdatenbank hätte sich nie wieder
+  aufbauen lassen.
+- **Behoben:** Migration `20260906120000_proj46_belege_loeschen_fuer_dienstschluessel`.
+  Löschen ist für `service_role`/`postgres` erlaubt, für `authenticated` und
+  `anon` weiterhin gesperrt. Ändern bleibt für **alle** Rollen gesperrt.
+  Die Ausnahme kostet keinen echten Schutz — wer den Dienstschlüssel hat,
+  umgeht ohnehin jede RLS-Regel —, und sie schützt weiterhin genau den Weg,
+  auf dem Fehler passieren.
+- **Nachgewiesen:** Beleg über den Dienstschlüssel löschbar, über den
+  Admin-Weg weiterhin nicht; auf beiden Datenbanken angewendet, gleicher
+  normalisierter MD5, genau eine Überladung.
+
+Keine weiteren Fehler. Zwei Fehlschläge im ersten Lauf waren Fehler in den
+Prüfungen selbst, nicht im Produkt: mehrdeutige Textsuchen und ein geschütztes
+Leerzeichen zwischen `€` und Betrag. Ein dritter — die GESAMT-Zeile mit einer
+festen Zahl zu vergleichen — war eine Behauptung über den gesamten
+Datenbestand und wird jetzt aus der Datenbank abgeleitet.
+
+### Regressionsprüfung
+
+61 E2E-Prüfungen über alle Bereiche, die dieses Feature berührt — alle grün.
+
+| Suite | Ergebnis | Warum betroffen |
+|---|---|---|
+| PROJ-46 Storno und Gutschrift | 12/12 | neu |
+| PROJ-10 Rechnungsarchiv | 12/12 | Belegart in Liste und Ausdruck |
+| PROJ-36 Buchhaltungs-Export | 14/14 | zwei neue Spalten, Summenbildung |
+| PROJ-37 Offene Posten | 9/9 | Filter auf echte Rechnungen, Restbetrag |
+| PROJ-44 Guthaben | 3/3 | neue Herkunft `storno` |
+| PROJ-17 Admin-Dashboard | 8/8 | Umsatzkennzahl |
+| PROJ-16 Benachrichtigungen | 3/3 | Zahlungserinnerung nennt den offenen Betrag |
+| Unit-Tests (Vitest) | 370/370 | |
+
+Die drei Vorgaberechnungen aus dem Seed liegen in 2028 und tragen die Summen,
+auf die PROJ-36 prüft. Diese Datei legt deshalb eigene Rechnungen an und räumt
+sie hinterher restlos weg — nachgewiesen: nach dem Lauf stehen wieder genau die
+drei Vorgabezeilen, null Belege, null Storno-Guthaben.
+
+### Ergebnis
+
+- **Akzeptanzkriterien:** alle abgedeckt und grün
+- **Fehler:** 1 (High) — gefunden und behoben
+- **Sicherheit:** bestanden
+- **Produktionsreif:** ja
 
 ## Deployment
 _To be added by /deploy_
