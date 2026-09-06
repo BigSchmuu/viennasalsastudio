@@ -1,6 +1,6 @@
 # PROJ-48: Buchungen nach Status filtern und stapelweise bearbeiten
 
-## Status: Planned
+## Status: Architected
 
 **Priorität:** P1 — spart täglich Klicks, bewegt aber kein Geld ohne Zutun
 **Erstellt:** 2026-09-06
@@ -180,12 +180,20 @@ eigenen Abo, und eine veraltete Zeile darf zwanzig gute nicht blockieren.
 
 ## Open Questions
 
-- [ ] Soll es eine Obergrenze für die Stapelgröße geben? **Empfehlung:** ja,
-      als Schutz vor einem versehentlichen „alle auswählen" über hunderte
-      Zeilen. Die Zahl ist vor `/frontend` zu wählen.
-- [ ] Soll das Ergebnis eines Stapels irgendwo nachlesbar bleiben, oder genügt
-      die Meldung direkt danach? **Empfehlung:** die Meldung genügt — was
-      geschehen ist, steht anschließend in der Liste selbst.
+- [x] Soll es eine Obergrenze für die Stapelgröße geben? → Ja, **50**. Ein
+      Wochenende bringt bestenfalls zwanzig Anmeldungen; 50 lässt jeden echten
+      Fall zu und fängt das versehentliche „alle auswählen" über eine Liste ab,
+      die nach zwei Jahren mehrere hundert Zeilen hat. Wird sie überschritten,
+      sagt die Oberfläche das, bevor etwas geschieht. (2026-09-06, Architektur)
+- [x] Soll das Ergebnis eines Stapels nachlesbar bleiben? → Nein, die Meldung
+      genügt. Was geschehen ist, steht anschließend in der Liste selbst; ein
+      zweites Protokoll wäre eine zweite Wahrheit. (2026-09-06, Architektur)
+- [ ] Beim stapelweisen Ablehnen rückt die Warteliste je betroffenem Kurs nach.
+      Werden mehrere Anfragen **desselben** Kurses abgelehnt, geschieht das
+      mehrfach hintereinander. Ob das genügt oder je Kurs einmal am Ende
+      laufen sollte, ist in `/backend` am tatsächlichen Verhalten zu
+      entscheiden — die Nachrückfunktion ist vorhanden und wird hier nicht
+      geändert.
 
 ## Decision Log
 
@@ -203,10 +211,145 @@ eigenen Abo, und eine veraltete Zeile darf zwanzig gute nicht blockieren.
 
 ### Technical Decisions
 
-_Wird von `/architecture` ergänzt._
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Kein neues Feld, keine Migration | Der Status steht bereits an der Buchung, der Preisvorschlag wird berechnet. Was nichts speichert, kann nicht auseinanderlaufen. | 2026-09-06 |
+| Der Statusfilter steht in der Adresszeile | Art, Sortierung und Richtung stehen dort schon. Die Ansicht bleibt verlinkbar, uebersteht das Neuladen, und Sortieren verliert den Filter nicht. | 2026-09-06 |
+| Fehlt der Filter, gilt "Offen" -- "Alle" ist ein ausdruecklicher Wert | Der schlichte Aufruf der Seite zeigt damit die wartende Arbeit. Die Asymmetrie zur Art ist gewollt: Bei der Art bedeutet keine Auswahl "alle", weil keine Art fuer sich Arbeit bedeutet. | 2026-09-06 |
+| Der Stapel fuehrt den Einzelweg je Buchung aus, statt einen eigenen Vorgang ueber alle zu sein | Der ehrliche Bericht ergibt sich von selbst, ein veralteter Bildschirm ueberschreibt keine fremde Arbeit, und es gibt keinen zweiten Ort mit denselben Regeln. | 2026-09-06 |
+| Die Oberflaeche schickt Name und Preis mit, der Server rechnet sie nicht neu | Rechnete er neu, koennte zwischen Ansehen und Bestaetigen ein Gutschein ablaufen -- und es entstuende ein Abo zu einem Preis, den niemand gesehen hat. Geprueft werden die Werte trotzdem, mit derselben Obergrenze wie im Einzeldialog. | 2026-09-06 |
+| Nachrichten werden eingereiht statt sofort verschickt | Der sofortige Weg ist im Code ausdruecklich als nicht fuer Stapel geeignet gekennzeichnet: Zwanzig E-Mail-Versuche nacheinander liessen die Anfrage auflaufen. Der Cron-Lauf leert die Warteschlange ohnehin. | 2026-09-06 |
+| Die Auswahl wird beim Filterwechsel ausdruecklich geleert, nicht der Navigation ueberlassen | Die Oberflaeche kann ihren Zustand ueber eine Navigation hinweg behalten. Eine unsichtbare Auswahl auf einer anderen Menge waere genau die Falle, die dieses Vorhaben vermeiden soll. | 2026-09-06 |
+| Obergrenze 50 je Stapel | Ein Wochenende bringt bestenfalls zwanzig Anmeldungen. 50 laesst jeden echten Fall zu und faengt das versehentliche "alle auswaehlen" ueber eine Liste ab, die nach zwei Jahren mehrere hundert Zeilen hat. | 2026-09-06 |
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Der tragende Gedanke
+
+Dieses Vorhaben speichert **nichts Neues**. Der Status steht längst an jeder
+Buchung, und der Preisvorschlag wird berechnet, nicht abgelegt. Was
+dazukommt, ist ein zweiter Filter, eine Auswahl und ein Vorgang, der den
+vorhandenen Einzelweg wiederholt ausführt.
+
+Das ist auch die wichtigste Entscheidung: **Der Stapel ist kein eigener
+Vorgang über alle, sondern derselbe Vorgang je Buchung, hintereinander.** Eine
+Sammelbestätigung, die ihre eigene Logik mitbringt, wäre ein zweiter Weg mit
+denselben Regeln — und zwei Wege mit denselben Regeln laufen auseinander.
+
+### A) Aufbau der Oberfläche
+
+```
+Buchungen (Seite)
+├── Preisliste                             (unverändert)
+└── Buchungsverwaltung
+    ├── Filterzeile
+    │   ├── Art                            (vorhanden)
+    │   ├── Status                         ← neu, Vorgabe „Offen"
+    │   └── Filter zurücksetzen
+    │
+    ├── Stapelleiste                       ← neu, erscheint erst bei Auswahl
+    │   └── „3 gewählt"  [Bestätigen] [Ablehnen] [Auswahl aufheben]
+    │
+    ├── Tabelle
+    │   ├── Kopfzeile: Auswahlkästchen „alle angezeigten"   ← neu
+    │   └── je Zeile:  Auswahlkästchen, nur bei „Offen"     ← neu
+    │       └── Einzelaktionen Bestätigen/Ablehnen  (unverändert)
+    │
+    ├── Hinweiszeile                       ← neu
+    │       „3 von 47 Buchungen — Filter: Offen"
+    │
+    ├── Vorschau „Diese Abos entstehen"    ← neu
+    ├── Rückfrage „N Buchungen ablehnen?"  ← neu
+    └── Ergebnismeldung                    ← neu
+```
+
+Im ganzen Verwaltungsbereich gibt es bisher **keine Stapel-Auswahl**. Diese
+wäre die erste — das Auswahlkästchen als Baustein ist vorhanden, das Muster
+darüber nicht.
+
+### B) Welche Informationen dazukommen
+
+**Keine.** Weder an der Buchung noch sonstwo entsteht ein neues Feld, und es
+gibt keine Migration.
+
+- Der **Status** steht bereits an der Buchung, mit denselben vier Werten, die
+  die Anzeige schon benutzt.
+- Der **Vorschlag** für Abo-Name und Preis wird aus dem berechnet, was die
+  Zeile ohnehin mitbringt: Kursname, der bei der Anfrage gezeigte Preis, und
+  ein Gutschein, sofern er noch gilt. Genau diese Rechnung macht der
+  Einzeldialog heute schon.
+- Das **Ergebnis** eines Stapels wird gemeldet, nicht abgelegt. Was geschehen
+  ist, steht anschließend in der Liste selbst.
+
+### C) Technische Entscheidungen und warum
+
+**Der Statusfilter gehört in die Adresszeile, nicht in den Bildschirmzustand.**
+Art, Sortierung und Richtung stehen dort bereits. Damit bleibt eine gefilterte
+Ansicht verlinkbar, übersteht das Neuladen, und das Sortieren verliert den
+Filter nicht — das war bei PROJ-33 schon der Grund.
+
+**Fehlt der Filter in der Adresse, gilt „Offen".**
+Der schlichte Aufruf der Seite zeigt damit die Arbeit, die wartet. „Alle" ist
+ein ausdrücklicher Wert, kein Weglassen. Die Asymmetrie zur Art — dort heißt
+Weglassen „alle" — ist gewollt: Bei der Art gibt es keine, die Arbeit
+bedeutet, beim Status schon.
+
+**Der Stapel führt den Einzelweg je Buchung aus.**
+Er prüft für jede einzeln, ob sie noch offen ist, und behandelt sie nach ihrer
+Art. Das kostet mehr Schritte als ein Vorgang über alle, bringt aber drei
+Dinge mit: Der ehrliche Bericht ergibt sich von selbst, ein veralteter
+Bildschirm überschreibt keine fremde Arbeit, und es gibt keinen zweiten Ort,
+an dem dieselben Regeln stehen.
+
+**Was in der Vorschau steht, wird auch ausgeführt.**
+Die Oberfläche schickt Name und Preis mit, statt den Server neu rechnen zu
+lassen. Rechnete er neu, könnte zwischen Ansehen und Bestätigen ein Gutschein
+ablaufen — und es entstünde ein Abo zu einem Preis, den niemand gesehen hat.
+Geprüft werden die Werte trotzdem, mit derselben Obergrenze wie im
+Einzeldialog.
+
+**Die Nachrichten werden eingereiht, nicht sofort verschickt.**
+Der Einzelweg verschickt sofort, damit der eine Kunde seine Bestätigung gleich
+bekommt. Für einen Stapel ist dieser Weg im Code ausdrücklich als ungeeignet
+gekennzeichnet: Zwanzig E-Mail-Versuche nacheinander ließen die Anfrage
+auflaufen. Der Stapel reiht ein; der bestehende Cron-Lauf leert die
+Warteschlange wie bei den Lastschrift-Ankündigungen.
+
+**Die Auswahl wird beim Filterwechsel ausdrücklich geleert.**
+Ein Filterwechsel ist eine Navigation, aber darauf allein sollte man sich
+nicht verlassen — die Oberfläche kann ihren Zustand über eine solche
+Navigation hinweg behalten. Eine unsichtbare Auswahl auf einer anderen Menge
+wäre genau die Falle, die dieses Vorhaben vermeiden soll.
+
+**Eine Obergrenze für die Stapelgröße.**
+Vorschlag: **50**. Ein Wochenende bringt bestenfalls zwanzig Anmeldungen; 50
+lässt jeden echten Fall zu und fängt trotzdem das versehentliche „alle
+auswählen" über eine Liste ab, die nach zwei Jahren mehrere hundert Zeilen
+hat. Wird die Grenze überschritten, sagt die Oberfläche das, bevor etwas
+geschieht.
+
+**Der Einzelweg bleibt unverändert.**
+Wer einen abweichenden Preis braucht, bestätigt wie bisher einzeln. Der Stapel
+ist eine Abkürzung für den Regelfall, kein Ersatz.
+
+### D) Neue Pakete
+
+Keine. Auswahlkästchen, Tabelle, Dialog, Rückfrage, Meldung und die
+Filtermechanik über die Adresszeile sind vorhanden.
+
+### E) Aufwandseinschätzung
+
+| Teil | Größe |
+|---|---|
+| Statusfilter samt Vorgabe „Offen" und Hinweiszeile | klein |
+| Auswahl in der Tabelle, Stapelleiste | mittel |
+| Vorschau vor dem Bestätigen | mittel |
+| Stapelvorgänge samt ehrlichem Bericht | mittel |
+| Umstellung des Versands auf den einreihenden Weg | klein |
+
+Der heikelste Teil ist nicht der größte: Es ist die Vorschau. Sie ist die
+einzige Stelle, an der der Betreiber sieht, welche monatlichen Abbuchungen er
+gleich anlegt — was dort steht, muss stimmen.
 
 ## QA Test Results
 _To be added by /qa_
