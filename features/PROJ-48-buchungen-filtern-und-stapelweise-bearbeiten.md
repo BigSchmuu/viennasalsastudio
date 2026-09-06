@@ -1,6 +1,6 @@
 # PROJ-48: Buchungen nach Status filtern und stapelweise bearbeiten
 
-## Status: Approved
+## Status: Deployed
 
 **Priorität:** P1 — spart täglich Klicks, bewegt aber kein Geld ohne Zutun
 **Erstellt:** 2026-09-06
@@ -470,4 +470,43 @@ Alle fünf ersten Fehlschläge lagen in den Tests, keiner im Produkt:
 - **Produktionsreif:** ja
 
 ## Deployment
-_To be added by /deploy_
+
+**Ausgeliefert:** 2026-09-06
+**Produktion:** https://viennasalsastudio.vercel.app
+**Stand:** `d03b033`
+**Tag:** `v1.48.0-PROJ-48`
+
+### Vorabprüfungen
+
+`npm run lint` sauber, `npm run build` erfolgreich, 413 Unit-Tests und 126
+E2E-Prüfungen über elf Suiten grün, Arbeitsbaum sauber, QA freigegeben ohne
+offene Fehler.
+
+**Keine Migration** — dieses Vorhaben speichert nichts Neues.
+
+### Nachprüfung in Produktion
+
+- `/`, `/kurse`, `/login`, `/en` laden mit 200; `/admin/buchungen` leitet
+  unangemeldet korrekt zur Anmeldung.
+- Ausgelieferter Stand entspricht dem lokalen.
+
+### Was sich im Betrieb ändert
+
+**Die Buchungsseite öffnet gefiltert auf „Offen".** Bisher zeigte sie alles.
+Wer Bestätigtes, Abgelehntes oder Storniertes sucht, stellt den Statusfilter um
+oder wählt „Alle"; die Hinweiszeile unter der Liste nennt jederzeit die
+Gesamtzahl und den aktiven Filter.
+
+**In der Produktion stehen derzeit 5 Buchungen, davon 0 offene.** Die Seite
+zeigt beim ersten Öffnen also eine leere Liste mit dem Hinweis „0 von 5
+Buchungen — Filter: Offen". Das ist der beabsichtigte Zustand, kann aber
+überraschen.
+
+**Nach einer Bestätigung oder Ablehnung verschwindet die Zeile** aus der
+Ansicht — sie ist dann nicht mehr offen. Der Ausgang steht in der
+Kurzmeldung; wer nachsehen will, wechselt den Filter.
+
+**Noch nicht am echten Betrieb erprobt:** Die Stapelbestätigung legt Abos an,
+die monatlich abbuchen. Geprüft ist sie ausschließlich gegen die
+Testdatenbank. Beim ersten echten Stapel lohnt der Blick auf die Vorschau —
+dafür ist sie da.
