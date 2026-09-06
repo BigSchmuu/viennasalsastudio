@@ -312,6 +312,26 @@ Beleg dazu und zwei Dialoge in der Verwaltung.
 | Buchhaltungs-Export | **keiner** | funktioniert durch die negative Zeile von selbst |
 
 
+## Implementierungsnotizen (Frontend)
+
+**Was steht:** die beiden Dialoge (`beleg-dialoge.tsx`), die Prüfregeln als
+eigene Funktion in `src/lib/invoices.ts` mit neun Unit-Tests, die Belegart in
+der Rechnungsliste der Verwaltung und im Kundenarchiv.
+
+**Was fehlt und im Backend-Schritt dazukommt:** Die drei Angaben — Belegart,
+Bezug, bereits gutgeschriebener Betrag — haben noch keine Datengrundlage. In
+`src/app/admin/rechnungen/page.tsx` und der Profilseite stehen sie als
+benannte Platzhalter mit Kommentar, nicht als stille Standardwerte. Heute ist
+jeder Beleg eine Rechnung ohne Bezug, was dem tatsächlichen Stand entspricht
+— es gibt noch keine Stornos.
+
+**Anmerkung zur Reihenfolge:** Bei diesem Feature trägt die Trennung
+Frontend/Backend weniger gut als sonst. Die beiden Dialoge sind im Kern
+Datenbankvorgänge; ohne Spalten und Aktionen lassen sie sich anzeigen, aber
+nicht auslösen. Die Prüfregeln der Gutschrift sind der Teil, der eigenständig
+prüfbar ist — deshalb liegen sie als eigene Funktion vor und nicht im Dialog
+eingebettet.
+
 ## QA Test Results
 _To be added by /qa_
 

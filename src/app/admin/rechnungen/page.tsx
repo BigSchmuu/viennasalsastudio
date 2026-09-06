@@ -41,6 +41,13 @@ export default async function RechnungenPage({
     description: i.description,
     grossAmount: i.gross_amount,
     bounced: !!i.bounced_at,
+    // PROJ-46, noch ohne Datengrundlage: Belegart, Bezug und der bereits
+    // gutgeschriebene Betrag kommen erst mit den Spalten aus dem
+    // Backend-Schritt. Bis dahin ist jeder Beleg eine Rechnung ohne Bezug —
+    // was dem heutigen Stand entspricht, weil es noch keine Stornos gibt.
+    art: "rechnung" as const,
+    bezugsnummer: null,
+    gutgeschrieben: 0,
   }));
 
   if (params.q) {

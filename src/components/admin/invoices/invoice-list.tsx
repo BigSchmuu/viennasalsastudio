@@ -12,6 +12,9 @@ import { SortableHeader } from "@/components/admin/sortable-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CUSTOM_RANGE, rangeFromSelection, recentMonths, recentYears, selectionFromRange } from "@/lib/invoices";
 
+/** Rechnung, Storno oder Gutschrift — seit PROJ-46 steht in dieser Liste beides. */
+export type BelegArt = "rechnung" | "storno" | "gutschrift";
+
 export type InvoiceRow = {
   id: string;
   customerId: string;
@@ -21,6 +24,17 @@ export type InvoiceRow = {
   description: string;
   grossAmount: number;
   bounced: boolean;
+  art: BelegArt;
+  /** Bei Storno und Gutschrift: die Nummer der Rechnung, auf die sie sich beziehen. */
+  bezugsnummer: string | null;
+  /** Bei Rechnungen: was davon bereits gutgeschrieben oder storniert ist. */
+  gutgeschrieben: number;
+};
+
+const ART_BESCHRIFTUNG: Record<BelegArt, string> = {
+  rechnung: "Rechnung",
+  storno: "Storno",
+  gutschrift: "Gutschrift",
 };
 
 function formatEUR(amount: number): string {
@@ -168,6 +182,7 @@ export function InvoiceList({
           <TableHeader>
             <TableRow>
               <TableHead>Nummer</TableHead>
+              <TableHead>Art</TableHead>
               <SortableHeader label="Datum" sortKey="invoice_date" />
               <SortableHeader label="Kunde" sortKey="customer_name" />
               <SortableHeader label="Betrag" sortKey="gross_amount" />
@@ -182,6 +197,20 @@ export function InvoiceList({
                     {invoice.invoiceNumber}
                   </Link>
                 </TableCell>
+                <TableCell>
+                  {invoice.art === "rechnung" ? (
+                    <span className="text-muted-foreground">Rechnung</span>
+                  ) : (
+                    <div>
+                      <Badge variant="secondary">{ART_BESCHRIFTUNG[invoice.art]}</Badge>
+                      {invoice.bezugsnummer && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          zu {invoice.bezugsnummer}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
                 <TableCell>
                   <Link href={`/admin/kunden/${invoice.customerId}`} className="hover:underline">
@@ -190,9 +219,15 @@ export function InvoiceList({
                 </TableCell>
                 <TableCell>{formatEUR(invoice.grossAmount)}</TableCell>
                 <TableCell>
-                  <Badge variant={invoice.bounced ? "destructive" : "default"}>
-                    {invoice.bounced ? "Rücklastschrift" : "Bezahlt"}
-                  </Badge>
+                  {invoice.art === "rechnung" && invoice.gutgeschrieben >= invoice.grossAmount ? (
+                    // Eine vollstaendig aufgehobene Rechnung ist weder bezahlt
+                    // noch offen — sie gilt nicht mehr.
+                    <Badge variant="outline">Aufgehoben</Badge>
+                  ) : (
+                    <Badge variant={invoice.bounced ? "destructive" : "default"}>
+                      {invoice.bounced ? "Rücklastschrift" : "Bezahlt"}
+                    </Badge>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

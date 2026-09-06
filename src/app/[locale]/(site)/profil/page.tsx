@@ -170,6 +170,11 @@ export default async function ProfilePage() {
     description: i.description,
     grossAmount: i.gross_amount,
     bounced: !!i.bounced_at,
+    // PROJ-46, noch ohne Datengrundlage — siehe die Rechnungsliste in der
+    // Verwaltung. Heute ist jeder Beleg eine Rechnung ohne Bezug.
+    art: "rechnung" as const,
+    bezugsnummer: null,
+    aufgehoben: false,
   }));
 
   const notificationPreferences: NotificationPreferenceRow[] = (notificationPreferenceRows ?? []).map((p) => ({

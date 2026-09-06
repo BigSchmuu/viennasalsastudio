@@ -1,5 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { computeInvoiceAmounts, toCsvField, toCsvRow, monthRange, monthFromRange, monthLabel, recentMonths, summarizeInvoices, exportFileName, formatAmountDe, CSV_SEPARATOR, yearRange, yearFromRange, recentYears, selectionFromRange, rangeFromSelection } from "./invoices";
+import {
+  CSV_SEPARATOR,
+  betragAusEingabe,
+  computeInvoiceAmounts,
+  exportFileName,
+  formatAmountDe,
+  monthFromRange,
+  monthLabel,
+  monthRange,
+  pruefeGutschrift,
+  rangeFromSelection,
+  recentMonths,
+  recentYears,
+  selectionFromRange,
+  summarizeInvoices,
+  toCsvField,
+  toCsvRow,
+  yearFromRange,
+  yearRange,
+} from "./invoices";
 
 describe("computeInvoiceAmounts", () => {
   it("splits a gross amount into net + VAT at 20%", () => {
@@ -259,5 +278,55 @@ describe("Jahresauswahl für den Export (PROJ-36)", () => {
 
   it("benennt eine Jahresdatei nach dem Jahr", () => {
     expect(exportFileName("2026-01-01", "2026-12-31")).toBe("rechnungsjournal-2026.csv");
+  });
+});
+
+describe("betragAusEingabe", () => {
+  it("nimmt Komma wie Punkt", () => {
+    expect(betragAusEingabe("12,50")).toBe(12.5);
+    expect(betragAusEingabe("12.50")).toBe(12.5);
+  });
+
+  it("übergeht Leerzeichen am Rand", () => {
+    expect(betragAusEingabe("  30 ")).toBe(30);
+  });
+
+  it("liefert NaN für Unsinn, statt still 0 anzunehmen", () => {
+    expect(Number.isNaN(betragAusEingabe("abc"))).toBe(true);
+  });
+});
+
+describe("pruefeGutschrift", () => {
+  it("lässt einen Betrag unter der Restsumme durch", () => {
+    expect(pruefeGutschrift("15", 65, "Anteilige Erstattung")).toEqual([]);
+  });
+
+  it("lässt genau die Restsumme durch — erst darüber hinaus nicht mehr", () => {
+    expect(pruefeGutschrift("65", 65, "Kurs entfallen")).toEqual([]);
+    expect(pruefeGutschrift("65,01", 65, "Kurs entfallen")).toEqual(["betrag_zu_hoch"]);
+  });
+
+  it("lehnt null und negative Beträge ab", () => {
+    expect(pruefeGutschrift("0", 65, "Grund")).toEqual(["betrag_ungueltig"]);
+    expect(pruefeGutschrift("-5", 65, "Grund")).toEqual(["betrag_ungueltig"]);
+  });
+
+  it("lehnt eine unlesbare Eingabe ab", () => {
+    expect(pruefeGutschrift("", 65, "Grund")).toEqual(["betrag_ungueltig"]);
+    expect(pruefeGutschrift("dreißig", 65, "Grund")).toEqual(["betrag_ungueltig"]);
+  });
+
+  it("verlangt einen Grund", () => {
+    expect(pruefeGutschrift("15", 65, "")).toEqual(["grund_fehlt"]);
+    expect(pruefeGutschrift("15", 65, "   ")).toEqual(["grund_fehlt"]);
+  });
+
+  it("nennt alle Fehler auf einmal, nicht nur den ersten", () => {
+    expect(pruefeGutschrift("0", 65, "")).toEqual(["betrag_ungueltig", "grund_fehlt"]);
+  });
+
+  it("meldet bei ungültigem Betrag nicht zusätzlich 'zu hoch'", () => {
+    // Sonst läse der Betreiber zwei widersprüchliche Hinweise.
+    expect(pruefeGutschrift("-99", 65, "Grund")).toEqual(["betrag_ungueltig"]);
   });
 });

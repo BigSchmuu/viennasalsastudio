@@ -220,7 +220,11 @@
     "groupPayments": "Payments",
     "groupPaymentsHint": "Direct debit, credit and invoices",
     "groupSettings": "Settings",
-    "groupSettingsHint": "What you get notified about"
+    "groupSettingsHint": "What you get notified about",
+    "invoiceCancelled": "Cancelled",
+    "documentStorno": "Cancellation",
+    "documentCredit": "Credit note",
+    "documentFor": "for {number}"
   },
   "notifications": {
     "event": "Event",

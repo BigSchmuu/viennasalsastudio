@@ -253,3 +253,43 @@ export function rangeFromSelection(value: string): { from: string; to: string } 
   if (value === CUSTOM_RANGE) return { from: "", to: "" };
   return yearRange(value) ?? monthRange(value);
 }
+
+/**
+ * Prüfregeln für eine Gutschrift (PROJ-46).
+ *
+ * Sie stehen hier und nicht im Dialog, weil vier Akzeptanzkriterien daran
+ * hängen und sich Rechenregeln ohne Browser prüfen lassen. Die verbindliche
+ * Prüfung sitzt zusätzlich auf dem Server — der Dialog ist nicht der einzige
+ * Weg dorthin.
+ */
+export type GutschriftFehler = "betrag_ungueltig" | "betrag_zu_hoch" | "grund_fehlt";
+
+/**
+ * Wandelt eine Eingabe in einen Betrag. Akzeptiert Komma wie Punkt — in
+ * Österreich schreibt man 12,50, die Tastatur liefert oft 12.50.
+ */
+export function betragAusEingabe(eingabe: string): number {
+  return Number(eingabe.trim().replace(",", "."));
+}
+
+export function pruefeGutschrift(
+  eingabe: string,
+  restbetrag: number,
+  grund: string
+): GutschriftFehler[] {
+  const fehler: GutschriftFehler[] = [];
+  const betrag = betragAusEingabe(eingabe);
+
+  if (!Number.isFinite(betrag) || betrag <= 0) {
+    fehler.push("betrag_ungueltig");
+  } else if (betrag > restbetrag) {
+    // Genau der Restbetrag ist erlaubt, erst darüber hinaus nicht mehr.
+    fehler.push("betrag_zu_hoch");
+  }
+
+  if (grund.trim().length === 0) {
+    fehler.push("grund_fehlt");
+  }
+
+  return fehler;
+}

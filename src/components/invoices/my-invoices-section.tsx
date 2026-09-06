@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useLocale, useTranslations } from "next-intl";
 
+/** Seit PROJ-46 stehen im Archiv auch Storno- und Gutschriftsbelege. */
 export type MyInvoiceRow = {
   id: string;
   invoiceNumber: string;
@@ -9,6 +10,11 @@ export type MyInvoiceRow = {
   description: string;
   grossAmount: number;
   bounced: boolean;
+  art: "rechnung" | "storno" | "gutschrift";
+  /** Bei Storno und Gutschrift: die Nummer der aufgehobenen Rechnung. */
+  bezugsnummer: string | null;
+  /** Bei Rechnungen: vollständig aufgehoben? */
+  aufgehoben: boolean;
 };
 
 function formatEUR(amount: number): string {
@@ -38,13 +44,24 @@ export function MyInvoicesSection({ invoices }: { invoices: MyInvoiceRow[] }) {
               <p className="font-medium">{invoice.description}</p>
               <p className="text-muted-foreground">
                 {formatDate(invoice.invoiceDate)} · {invoice.invoiceNumber}
+                {invoice.bezugsnummer && ` · ${t("documentFor", { number: invoice.bezugsnummer })}`}
               </p>
             </div>
             <div className="flex items-center gap-3">
               <span className="font-medium">{formatEUR(invoice.grossAmount)}</span>
-              <Badge variant={invoice.bounced ? "destructive" : "default"}>
-                {invoice.bounced ? t("invoiceBounced") : t("invoicePaid")}
-              </Badge>
+              {invoice.art !== "rechnung" ? (
+                <Badge variant="secondary">
+                  {invoice.art === "storno" ? t("documentStorno") : t("documentCredit")}
+                </Badge>
+              ) : invoice.aufgehoben ? (
+                // Eine aufgehobene Rechnung ist weder bezahlt noch offen —
+                // der Kunde soll sehen, dass sie erledigt ist.
+                <Badge variant="outline">{t("invoiceCancelled")}</Badge>
+              ) : (
+                <Badge variant={invoice.bounced ? "destructive" : "default"}>
+                  {invoice.bounced ? t("invoiceBounced") : t("invoicePaid")}
+                </Badge>
+              )}
             </div>
           </Link>
         </li>
