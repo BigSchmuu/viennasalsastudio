@@ -1,6 +1,6 @@
 # PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren
 
-## Status: Approved
+## Status: Deployed
 
 **Priorität:** P0 — bewegt echtes Geld, muss vor dem Start stehen
 **Erstellt:** 2026-09-06
@@ -553,4 +553,56 @@ Rechnungen, keine Guthabenzeilen, kein Entwurf.
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Ausgeliefert:** 2026-09-06
+**Produktion:** https://viennasalsastudio.vercel.app
+**Stand:** `4bfe583`
+**Tag:** `v1.47.0-PROJ-47`
+
+### Vorabprüfungen
+
+`npm run lint` sauber, `npm run build` erfolgreich, 388 Unit-Tests und 72
+E2E-Prüfungen grün, Arbeitsbaum sauber, keine `.env` in den Commits, QA
+freigegeben ohne offene Fehler.
+
+### Migrationen
+
+Fünf, alle auf Produktion und Testdatenbank, alle byte-genau gegen die
+ausgeführten Anweisungen geprüft:
+
+| Version | Name |
+|---|---|
+| 20260906154446 | proj47_lauf_freigabe_zustand |
+| 20260906154814 | proj47_guthaben_rueckgabe |
+| 20260906155952 | proj47_freigabe_und_sperre |
+| 20260906160305 | proj47_position_darf_null_sein |
+| 20260906171739 | proj47_entwuerfe_loeschbar |
+
+### Nachprüfung in Produktion
+
+- `/`, `/kurse`, `/login`, `/en` laden mit 200; `/admin/lastschriften` und
+  `/admin/rechnungen` leiten unangemeldet korrekt zur Anmeldung.
+- Spalten `released_at` und `released_by` vorhanden, Wächter auf den
+  Positionen aktiv, beide DELETE-Regeln gesetzt, Betragsregel steht auf
+  `>= 0`.
+- Ausführungsrechte auf `release_collection_run`: `authenticated`, `postgres`,
+  `service_role` — `anon` und `PUBLIC` nicht.
+- Null Läufe, null Entwürfe: die Auslieferung hat nichts erzeugt.
+
+### Was sich im Betrieb ändert
+
+**Ein Lastschriftlauf ist nach dem Anlegen nicht mehr fertig.** Bisher
+entstanden Rechnungen und Vorabankündigungen sofort; der XML-Download war nur
+ein Ausdruck. Ab jetzt gilt:
+
+1. **Lauf anlegen** → Entwurf. Positionen prüfen, Beträge korrigieren,
+   Positionen entfernen oder ergänzen — folgenlos, niemand erfährt davon.
+2. **Lauf freigeben** → erst hier entstehen Rechnungen und gehen die
+   Ankündigungen raus, und erst hier gibt es die Bankdatei.
+
+Wer nach Schritt 1 aufhört, hat nichts abgebucht — und niemand merkt es. Der
+Zustandsfilter „Entwurf" in der Übersicht ist genau dafür da.
+
+**Noch nicht am echten Betrieb erprobt:** In der Produktion gibt es null
+Läufe. Der vollständige Durchlauf lief gegen die Testdatenbank. Der erste
+echte Lauf ist damit zugleich die erste Anwendung dieses Ablaufs.
