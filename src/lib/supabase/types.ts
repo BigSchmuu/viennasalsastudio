@@ -1223,18 +1223,24 @@ export type Database = {
           created_by: string | null
           due_date: string
           id: string
+          released_at: string | null
+          released_by: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           due_date: string
           id?: string
+          released_at?: string | null
+          released_by?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
           due_date?: string
           id?: string
+          released_at?: string | null
+          released_by?: string | null
         }
         Relationships: [
           {
@@ -1996,6 +2002,27 @@ export type Database = {
           p_customer_id: string
           p_max_amount: number
         }
+        Returns: number
+      }
+      release_collection_run: {
+        Args: { p_run_id: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+          released_at: string | null
+          released_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "sepa_collection_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      return_collection_item_credit: {
+        Args: { p_collection_item_id: string }
         Returns: number
       }
       require_dance_role: {

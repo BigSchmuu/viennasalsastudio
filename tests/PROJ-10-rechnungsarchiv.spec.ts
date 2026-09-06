@@ -99,6 +99,14 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
     await page.getByRole("button", { name: "Lauf erstellen" }).click();
     await page.waitForTimeout(1000);
     await expect(page).toHaveURL(/\/admin\/lastschriften\/.+/);
+
+    // Seit PROJ-47 entsteht der Lauf als Entwurf: Rechnungen und
+    // Vorabankündigung gibt es erst mit der Freigabe. Alles, was diese Datei
+    // danach prüft, setzt die Rechnungen voraus.
+    await page.getByRole("button", { name: "Lauf freigeben" }).click();
+    await page.getByRole("button", { name: "Freigeben" }).click();
+    await page.waitForTimeout(2500);
+    await expect(page.getByRole("button", { name: "SEPA-XML herunterladen" })).toBeVisible();
   });
 
   test("AC1: Lastschriftlauf erzeugt automatisch fortlaufend nummerierte Rechnungen", async ({ page }) => {

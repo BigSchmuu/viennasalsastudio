@@ -4,6 +4,11 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createCollectionRun } from "@/lib/actions/admin/sepa-collections";
+import {
+  LAUF_ZUSTAND_BESCHRIFTUNG,
+  LAUF_ZUSTAND_FARBE,
+  type LaufZustand,
+} from "@/lib/sepa/laeufe";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,19 +28,23 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 
-export type CollectionRunStatus = "complete" | "bounced";
+// PROJ-47: „Entwurf" ist der dritte Zustand. Er steht vorn, weil er der
+// einzige ist, der noch Arbeit verlangt — ein Entwurf, den niemand freigibt,
+// bucht nichts ab, und genau das soll auffallen.
+export type CollectionRunStatus = LaufZustand;
 
 export const collectionRunStatusOptions: { value: CollectionRunStatus; label: string; color: string }[] = [
-  { value: "complete", label: "Vollständig eingezogen", color: "#2a9d8f" },
-  { value: "bounced", label: "Mit Rückbuchungen", color: "#e63946" },
+  { value: "entwurf", label: LAUF_ZUSTAND_BESCHRIFTUNG.entwurf, color: LAUF_ZUSTAND_FARBE.entwurf },
+  { value: "eingezogen", label: LAUF_ZUSTAND_BESCHRIFTUNG.eingezogen, color: LAUF_ZUSTAND_FARBE.eingezogen },
+  { value: "rueckgebucht", label: LAUF_ZUSTAND_BESCHRIFTUNG.rueckgebucht, color: LAUF_ZUSTAND_FARBE.rueckgebucht },
 ];
 
 function collectionRunStatusLabel(status: CollectionRunStatus): string {
-  return collectionRunStatusOptions.find((o) => o.value === status)?.label ?? "—";
+  return LAUF_ZUSTAND_BESCHRIFTUNG[status] ?? "—";
 }
 
 function collectionRunStatusColor(status: CollectionRunStatus): string {
-  return collectionRunStatusOptions.find((o) => o.value === status)?.color ?? "#94a3b8";
+  return LAUF_ZUSTAND_FARBE[status] ?? "#94a3b8";
 }
 
 export type CollectionRunRow = {

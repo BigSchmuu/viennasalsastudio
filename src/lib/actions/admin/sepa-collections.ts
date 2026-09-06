@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { enqueueNotification } from "@/lib/notifications/dispatch";
 import { collectionRunSchema } from "@/lib/validations/sepa";
 import { generateSepaDirectDebitXml, type SepaXmlItem } from "@/lib/sepa/xml";
+import { POSITION_BETRAG_MAX } from "@/lib/sepa/laeufe";
 import type { ActionResult } from "@/lib/actions/types";
 
 type CreateRunResult =
@@ -93,6 +94,8 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     return { error: "Keine Kunden für diesen Lauf gefunden." };
   }
 
+  // PROJ-47: Der Lauf entsteht als Entwurf. Rechnungen und Vorabankuendigung
+  // gibt es erst mit der Freigabe -- bis dahin ist eine Korrektur folgenlos.
   const { data: run, error: runError } = await supabase
     .from("sepa_collection_runs")
     .insert({ due_date: dueDate, created_by: user.id })
@@ -126,15 +129,6 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     console.error("grant_pending_referral_rewards failed", belohnungFehler);
   }
 
-  // Was angekündigt wird, führt diese Liste — die Verrechnung darunter senkt
-  // einzelne Beträge, und die Ankündigung muss den gesenkten nennen.
-  const angekuendigt = (angelegtePositionen ?? []).map((position) => ({
-    customerId: position.customer_id,
-    subscriptionId: position.subscription_id,
-    eventTicketId: position.event_ticket_id,
-    amount: position.amount as number,
-  }));
-
   // PROJ-44: Guthaben mindert den abzubuchenden Betrag — es entsteht keine
   // zweite Buchung, denn eine negative Lastschrift gibt es nicht.
   //
@@ -144,7 +138,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   //
   // Nur Abo-Positionen. Tickets werden nicht regelmäßig eingezogen; dort hätte
   // eine Verrechnung keinen natürlichen Zeitpunkt.
-  for (const [index, position] of (angelegtePositionen ?? []).entries()) {
+  for (const position of angelegtePositionen ?? []) {
     if (!position.subscription_id || position.amount <= 0) continue;
     const { data: verrechnet } = await supabase.rpc("redeem_customer_credit", {
       p_customer_id: position.customer_id,
@@ -153,44 +147,33 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     });
     if (verrechnet && verrechnet > 0) {
       const gemindert = position.amount - verrechnet;
-      await supabase
+      const { error: senkFehler } = await supabase
         .from("sepa_collection_items")
         .update({ amount: gemindert })
         .eq("id", position.id);
-      angekuendigt[index].amount = gemindert;
+      if (senkFehler) {
+        // Das darf nicht stillschweigend danebengehen: Die Guthabenzeile ist
+        // dann schon geschrieben, und ein unveraendert stehender Betrag
+        // buchte den vollen Beitrag ab, obwohl das Guthaben verbraucht ist.
+        console.error("Betrag nach Guthabenverrechnung nicht gesenkt", senkFehler);
+        await supabase.rpc("return_collection_item_credit", {
+          p_collection_item_id: position.id,
+        });
+        return {
+          error:
+            "Die Guthabenverrechnung ist fehlgeschlagen. Der Lauf wurde angelegt, aber ein Betrag stimmt nicht — bitte den Entwurf verwerfen und neu anlegen.",
+        };
+      }
     }
   }
 
-  const { error: invoiceError } = await supabase.rpc("create_invoices_for_collection_run", {
-    p_run_id: run.id,
-  });
-  if (invoiceError) {
-    // Der Lastschriftlauf selbst ist bereits gespeichert; nur die Rechnungserstellung
-    // ist fehlgeschlagen und müsste ggf. nachträglich untersucht werden.
-    console.error("create_invoices_for_collection_run failed", invoiceError);
-  }
-
-  // Queue-only, not enqueueAndDispatch: with many customers, waiting on a
-  // synchronous email+push attempt per item here risked the admin's request
-  // timing out even though the run/invoices already saved successfully. The
-  // cron drain sends these. Keyed by run.id (not due_date) so a correction
-  // run for the same due date still gets its own announcement per item.
-  //
-  // Der angekündigte Betrag ist der nach der Guthabenverrechnung — eine
-  // Vorabankündigung, die mehr nennt als abgebucht wird, ist keine.
-  await Promise.all(
-    angekuendigt.map((item) =>
-      enqueueNotification({
-        customerId: item.customerId,
-        eventType: "sepa_ankuendigung",
-        payload: { amount: item.amount, due_date: dueDate },
-        dedupeKey: `sepa_item:${item.subscriptionId ?? item.eventTicketId}:${run.id}`,
-      })
-    )
-  );
-
   // Nur der Werbende wird benachrichtigt. Der Geworbene sieht sein Guthaben
-  // ohnehin auf der Rechnung, die dieser Lauf gerade erzeugt hat.
+  // ohnehin auf der Rechnung, die mit der Freigabe entsteht.
+  //
+  // Diese Nachricht bleibt beim Anlegen, obwohl sie nach aussen geht: Sie
+  // gehoert nicht zu diesem Lauf, sondern zu einer Empfehlung, deren erste
+  // Lastschrift laengst durchgegangen ist. Ob dieser Entwurf freigegeben oder
+  // verworfen wird, aendert daran nichts.
   await Promise.all(
     (belohnungen ?? [])
       .filter((b) => Number(b.referrer_amount) > 0)
@@ -209,7 +192,6 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   );
 
   revalidatePath("/admin/lastschriften");
-  revalidatePath("/admin/rechnungen");
   return { success: true, runId: run.id, itemCount: items.length };
 }
 
@@ -327,6 +309,293 @@ export async function markItemBounced(itemId: string, bounced: boolean): Promise
 
   await supabase.from("invoices").update({ bounced_at: bouncedAt }).eq("collection_item_id", itemId);
 
+  revalidatePath("/admin/lastschriften");
+  revalidatePath("/admin/rechnungen");
+  return { success: true };
+}
+
+/* ------------------------------------------------------------------------ *
+ * PROJ-47: Korrekturen am Entwurf
+ *
+ * Alle fuenf pruefen zuerst, ob der Lauf ueberhaupt noch ein Entwurf ist. Die
+ * Oberflaeche bietet die Schaltflaechen zwar gar nicht erst an, aber sie ist
+ * nicht der einzige Weg hierher -- und bei einem Vorgang, der Geld bewegt,
+ * genuegt eine ausgeblendete Schaltflaeche nicht.
+ *
+ * Die verbindliche Sperre kommt im Backend-Schritt als Waechter in die
+ * Datenbank. Diese Pruefungen hier bleiben trotzdem: Sie liefern dem
+ * Betreiber einen Satz statt einer Datenbankmeldung.
+ * ------------------------------------------------------------------------ */
+
+/** Der Lauf zu einer Position, oder eine Absage. */
+async function entwurfsLauf(
+  supabase: Awaited<ReturnType<typeof requireAdmin>>["supabase"],
+  runId: string
+): Promise<{ error: string } | { ok: true }> {
+  const { data: run, error } = await supabase
+    .from("sepa_collection_runs")
+    .select("id, released_at")
+    .eq("id", runId)
+    .maybeSingle();
+
+  if (error) return { error: "Der Lastschriftlauf konnte nicht gelesen werden." };
+  if (!run) return { error: "Diesen Lastschriftlauf gibt es nicht (mehr)." };
+  if (run.released_at) {
+    return {
+      error:
+        "Dieser Lauf ist bereits freigegeben und lässt sich nicht mehr ändern. Eine Korrektur läuft jetzt über Storno oder Gutschrift.",
+    };
+  }
+  return { ok: true };
+}
+
+export async function aendereLaufPositionsbetrag(
+  itemId: string,
+  betrag: number
+): Promise<ActionResult> {
+  if (!Number.isFinite(betrag) || betrag <= 0) {
+    return { error: "Der Betrag muss größer als null sein." };
+  }
+  if (betrag > POSITION_BETRAG_MAX) {
+    return { error: `Höchstens ${POSITION_BETRAG_MAX} €. Das sieht nach einem Vertipper aus.` };
+  }
+
+  const { supabase } = await requireAdmin();
+
+  const { data: position, error: leseFehler } = await supabase
+    .from("sepa_collection_items")
+    .select("id, run_id")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (leseFehler) return { error: "Die Position konnte nicht gelesen werden." };
+  if (!position) return { error: "Diese Position gibt es nicht (mehr)." };
+
+  const zustand = await entwurfsLauf(supabase, position.run_id);
+  if ("error" in zustand) return zustand;
+
+  // Guthaben zuerst zurueckgeben, dann gegen den neuen Betrag neu verrechnen.
+  // Die Differenz anzupassen ginge bei kleinen Aenderungen gut und bei der
+  // einen, auf die es ankommt, schief: unter das bereits verrechnete Guthaben
+  // gesenkt muesste die Position negativ werden.
+  const { error: rueckgabeFehler } = await supabase.rpc("return_collection_item_credit", {
+    p_collection_item_id: itemId,
+  });
+  if (rueckgabeFehler) {
+    return { error: "Das verrechnete Guthaben konnte nicht zurückgegeben werden." };
+  }
+
+  const { error: schreibFehler } = await supabase
+    .from("sepa_collection_items")
+    .update({ amount: betrag })
+    .eq("id", itemId);
+  if (schreibFehler) return { error: "Der Betrag konnte nicht gespeichert werden." };
+
+  await verrechneGuthabenNeu(supabase, itemId);
+
+  revalidatePath(`/admin/lastschriften/${position.run_id}`);
+  revalidatePath("/admin/lastschriften");
+  return { success: true };
+}
+
+export async function entferneLaufPosition(itemId: string): Promise<ActionResult> {
+  const { supabase } = await requireAdmin();
+
+  const { data: position, error: leseFehler } = await supabase
+    .from("sepa_collection_items")
+    .select("id, run_id")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (leseFehler) return { error: "Die Position konnte nicht gelesen werden." };
+  if (!position) return { error: "Diese Position gibt es nicht (mehr)." };
+
+  const zustand = await entwurfsLauf(supabase, position.run_id);
+  if ("error" in zustand) return zustand;
+
+  const { error: rueckgabeFehler } = await supabase.rpc("return_collection_item_credit", {
+    p_collection_item_id: itemId,
+  });
+  if (rueckgabeFehler) {
+    return { error: "Das verrechnete Guthaben konnte nicht zurückgegeben werden." };
+  }
+
+  const { error } = await supabase.from("sepa_collection_items").delete().eq("id", itemId);
+  if (error) return { error: "Die Position konnte nicht entfernt werden." };
+
+  revalidatePath(`/admin/lastschriften/${position.run_id}`);
+  revalidatePath("/admin/lastschriften");
+  return { success: true };
+}
+
+/**
+ * Verrechnet vorhandenes Guthaben gegen eine Position und senkt ihren Betrag.
+ *
+ * Dieselben zwei Schritte wie beim Anlegen eines Laufs. Sie stehen hier
+ * gesondert, weil jede Korrektur sie wiederholt — und weil sie zusammen
+ * gehoeren: Eine Verrechnung ohne Senkung buchte das Guthaben ab, ohne dass es
+ * jemandem zugutekaeme.
+ */
+async function verrechneGuthabenNeu(
+  supabase: Awaited<ReturnType<typeof requireAdmin>>["supabase"],
+  itemId: string
+): Promise<void> {
+  const { data: position } = await supabase
+    .from("sepa_collection_items")
+    .select("id, customer_id, subscription_id, amount")
+    .eq("id", itemId)
+    .maybeSingle();
+
+  // Nur Abo-Positionen. Tickets werden nicht regelmaessig eingezogen; dort
+  // haette eine Verrechnung keinen natuerlichen Zeitpunkt.
+  if (!position || !position.subscription_id || position.amount <= 0) return;
+
+  const { data: verrechnet } = await supabase.rpc("redeem_customer_credit", {
+    p_customer_id: position.customer_id,
+    p_collection_item_id: position.id,
+    p_max_amount: position.amount,
+  });
+
+  if (verrechnet && verrechnet > 0) {
+    const { error } = await supabase
+      .from("sepa_collection_items")
+      .update({ amount: position.amount - verrechnet })
+      .eq("id", position.id);
+    if (error) {
+      // Siehe createCollectionRun: ein stiller Fehlschlag hier kostet den
+      // Kunden sein Guthaben und bucht trotzdem voll ab.
+      console.error("Betrag nach Guthabenverrechnung nicht gesenkt", error);
+      await supabase.rpc("return_collection_item_credit", { p_collection_item_id: position.id });
+    }
+  }
+}
+
+export async function fuegeLaufPositionHinzu(
+  runId: string,
+  auswahl: { id: string; art: "abo" | "ticket" },
+  betrag: number
+): Promise<ActionResult> {
+  if (!Number.isFinite(betrag) || betrag <= 0) {
+    return { error: "Der Betrag muss größer als null sein." };
+  }
+  if (betrag > POSITION_BETRAG_MAX) {
+    return { error: `Höchstens ${POSITION_BETRAG_MAX} €. Das sieht nach einem Vertipper aus.` };
+  }
+
+  const { supabase } = await requireAdmin();
+
+  const zustand = await entwurfsLauf(supabase, runId);
+  if ("error" in zustand) return zustand;
+
+  // Kunde und Mandat kommen aus der Quelle, nicht aus der Eingabe: Sonst
+  // koennte eine Position gegen ein fremdes Konto entstehen.
+  const { data: quelle } =
+    auswahl.art === "abo"
+      ? await supabase
+          .from("subscriptions")
+          .select("id, customer_id, status")
+          .eq("id", auswahl.id)
+          .maybeSingle()
+      : await supabase
+          .from("tickets")
+          .select("id, customer_id, status")
+          .eq("id", auswahl.id)
+          .maybeSingle();
+
+  if (!quelle) return { error: "Dieses Abo oder Ticket gibt es nicht (mehr)." };
+
+  const { data: mandat } = await supabase
+    .from("sepa_mandates")
+    .select("iban, account_holder_name, mandate_reference")
+    .eq("customer_id", quelle.customer_id)
+    .is("revoked_at", null)
+    .maybeSingle();
+
+  if (!mandat) {
+    return { error: "Für diesen Kunden gibt es kein gültiges SEPA-Mandat mehr." };
+  }
+
+  const { data: neu, error } = await supabase
+    .from("sepa_collection_items")
+    .insert({
+      run_id: runId,
+      customer_id: quelle.customer_id,
+      subscription_id: auswahl.art === "abo" ? auswahl.id : null,
+      event_ticket_id: auswahl.art === "ticket" ? auswahl.id : null,
+      amount: betrag,
+      iban: mandat.iban,
+      account_holder_name: mandat.account_holder_name,
+      mandate_reference: mandat.mandate_reference,
+    })
+    .select("id")
+    .single();
+
+  if (error || !neu) return { error: "Die Position konnte nicht hinzugefügt werden." };
+
+  await verrechneGuthabenNeu(supabase, neu.id);
+
+  revalidatePath(`/admin/lastschriften/${runId}`);
+  revalidatePath("/admin/lastschriften");
+  return { success: true };
+}
+
+export async function verwirfLaufEntwurf(runId: string): Promise<ActionResult> {
+  const { supabase } = await requireAdmin();
+
+  const zustand = await entwurfsLauf(supabase, runId);
+  if ("error" in zustand) return zustand;
+
+  const { data: positionen } = await supabase
+    .from("sepa_collection_items")
+    .select("id")
+    .eq("run_id", runId);
+
+  // Guthaben zuerst zurueck, dann loeschen: Nach dem Loeschen gaebe es keinen
+  // Bezug mehr, an dem die Verrechnung haengt.
+  for (const position of positionen ?? []) {
+    const { error } = await supabase.rpc("return_collection_item_credit", {
+      p_collection_item_id: position.id,
+    });
+    if (error) return { error: "Das verrechnete Guthaben konnte nicht zurückgegeben werden." };
+  }
+
+  const { error: positionsFehler } = await supabase
+    .from("sepa_collection_items")
+    .delete()
+    .eq("run_id", runId);
+  if (positionsFehler) return { error: "Die Positionen konnten nicht entfernt werden." };
+
+  const { error } = await supabase.from("sepa_collection_runs").delete().eq("id", runId);
+  if (error) return { error: "Der Entwurf konnte nicht verworfen werden." };
+
+  revalidatePath("/admin/lastschriften");
+  return { success: true };
+}
+
+/**
+ * Die Freigabe.
+ *
+ * Der eigentliche Vorgang liegt in der Datenbank, weil Rechnungen,
+ * Ankuendigungen und Sperre gemeinsam oder gar nicht passieren muessen — und
+ * weil zwei gleichzeitige Freigaben sonst zwei Rechnungssaetze erzeugen
+ * koennten. Hier bleibt nur, die Meldung in einen Satz zu uebersetzen.
+ */
+const FREIGABE_FEHLER: [string, string][] = [
+  ["not authorized", "Nur Administrator:innen dürfen einen Lauf freigeben."],
+  ["collection run not found", "Diesen Lastschriftlauf gibt es nicht (mehr)."],
+  ["already released", "Dieser Lauf ist bereits freigegeben."],
+  ["has no items", "Ein Lauf ohne Positionen lässt sich nicht freigeben."],
+];
+
+export async function gibLaufFrei(runId: string): Promise<ActionResult> {
+  const { supabase } = await requireAdmin();
+
+  const { error } = await supabase.rpc("release_collection_run", { p_run_id: runId });
+
+  if (error) {
+    const treffer = FREIGABE_FEHLER.find(([kennung]) => error.message.includes(kennung));
+    return { error: treffer?.[1] ?? "Der Lauf konnte nicht freigegeben werden." };
+  }
+
+  revalidatePath(`/admin/lastschriften/${runId}`);
   revalidatePath("/admin/lastschriften");
   revalidatePath("/admin/rechnungen");
   return { success: true };

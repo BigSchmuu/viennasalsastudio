@@ -4,6 +4,7 @@ import {
   type CollectionRunRow,
   type CollectionRunStatus,
 } from "@/components/admin/sepa/collection-run-list";
+import { laufZustand } from "@/lib/sepa/laeufe";
 
 const SORTABLE_COLUMNS = ["due_date", "total", "created_at"] as const;
 
@@ -17,12 +18,15 @@ export default async function LastschriftenPage({
 
   const { data } = await supabase
     .from("sepa_collection_runs")
-    .select("id, due_date, created_at, sepa_collection_items(amount, bounced_at)")
+    .select("id, due_date, created_at, released_at, sepa_collection_items(amount, bounced_at)")
     .order("due_date", { ascending: false });
 
   let runs: CollectionRunRow[] = (data ?? []).map((run) => {
     const items = run.sepa_collection_items as { amount: number; bounced_at: string | null }[];
-    const status: CollectionRunStatus = items.some((item) => item.bounced_at !== null) ? "bounced" : "complete";
+    const status: CollectionRunStatus = laufZustand(
+      run.released_at,
+      items.some((item) => item.bounced_at !== null)
+    );
     return {
       id: run.id,
       dueDate: run.due_date,
@@ -33,7 +37,10 @@ export default async function LastschriftenPage({
     };
   });
 
-  const isValidStatus = params.status === "complete" || params.status === "bounced";
+  const isValidStatus =
+    params.status === "entwurf" ||
+    params.status === "eingezogen" ||
+    params.status === "rueckgebucht";
   if (isValidStatus) {
     runs = runs.filter((run) => run.status === params.status);
   }

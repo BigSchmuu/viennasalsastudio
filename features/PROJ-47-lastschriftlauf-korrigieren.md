@@ -1,6 +1,6 @@
 # PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren
 
-## Status: Architected
+## Status: In Progress
 
 **Priorität:** P0 — bewegt echtes Geld, muss vor dem Start stehen
 **Erstellt:** 2026-09-06
@@ -361,6 +361,90 @@ Rechnungserstellung und die Ankündigung sitzen mitten in einem gewachsenen
 Ablauf, der auch Empfehlungsprämien und Guthabenverrechnung erledigt. Diesen
 Ablauf sauber in zwei Hälften zu teilen, ohne die Reihenfolge zu verletzen, ist
 die eigentliche Arbeit.
+
+## Implementierungsnotizen (Frontend + Backend)
+
+### Zur Reihenfolge: die Trennung hat hier nicht getragen
+
+Der Frontend-Schritt endete nach der prüfbaren Logik und den Dialogen an einer
+Wand: Jede einzelne Bedienung dieses Bildschirms ist ein Datenbankvorgang. Ich
+habe zuerst das Schema vorgezogen, damit die Detailseite überhaupt eine
+Grundlage für ihre zwei Gesichter hat — und bin dann beim Schreiben der
+Korrekturvorgänge gemerkt, dass ich Backend-Arbeit als Frontend ausgebe. Der
+Betreiber hat entschieden, durchzuziehen statt einen unerreichbaren Bildschirm
+abzuliefern.
+
+Dasselbe war schon bei PROJ-46 aufgefallen und dort notiert worden. Bei
+Vorhaben, deren Oberfläche nur eine Hülle um Datenbankvorgänge ist, sollten
+`/frontend` und `/backend` von vornherein zusammen laufen.
+
+### Migrationen
+
+Fünf, alle auf Test- und Produktionsdatenbank angewendet und byte-genau gegen
+die ausgeführten Anweisungen geprüft. Die drei Funktionen haben in beiden
+Datenbanken denselben normalisierten MD5.
+
+| Version | Name |
+|---|---|
+| 20260906154446 | proj47_lauf_freigabe_zustand |
+| 20260906154814 | proj47_guthaben_rueckgabe |
+| 20260906155952 | proj47_freigabe_und_sperre |
+| 20260906160305 | proj47_position_darf_null_sein |
+
+### Was verschoben wurde
+
+Aus `createCollectionRun` sind die Rechnungserstellung und die
+Vorabankündigung herausgenommen; beides sitzt jetzt in
+`release_collection_run`. **Geblieben** sind die Empfehlungsprämien und die
+Guthabenverrechnung — die Prämie gehört zu einer früheren Lastschrift, nicht zu
+diesem Lauf, und ihr Guthaben muss diesen Entwurf noch mindern. Die
+Benachrichtigung über eine Prämie bleibt aus demselben Grund beim Anlegen: Ob
+dieser Entwurf freigegeben oder verworfen wird, ändert an der Prämie nichts.
+
+Die Freigabe ist ein einziger Datenbankvorgang. Möglich, weil die
+Benachrichtigungs-Warteschlange nur Empfänger, Anlass und Bezug speichert — der
+Text entsteht erst beim Versand.
+
+### Zwei Fehler, beide älter als dieses Vorhaben
+
+**Der stille Guthaben-Verlust.** Deckt das Guthaben den Beitrag vollständig,
+senkt die Verrechnung den Positionsbetrag auf 0. Die Bedingung `amount > 0`
+wies das ab — und die Anwendung prüfte den Fehler nicht. Die Guthabenzeile war
+geschrieben, der Betrag blieb voll stehen: Der Kunde verlor sein Guthaben und
+wurde trotzdem voll abgebucht.
+
+Dass 0-€-Positionen vorgesehen waren, steht im Code selbst: `generateRunXml`
+filtert sie aus der Bankdatei heraus („eine Lastschrift über 0 € weist die Bank
+ab") und lässt sie in der Rechnung stehen, wo sie erklären, warum nichts
+abgebucht wurde. Dieser Filter konnte nie etwas tun. **PROJ-46 macht den Fall
+häufig:** ein Storno über 65 € erzeugt genau das Guthaben, das die nächste
+65-€-Position auf null bringt. Bedingung auf `>= 0` gelockert, Fehlerprüfung an
+beiden Stellen ergänzt — schlägt die Senkung doch fehl, wird das Guthaben
+zurückgegeben statt es verfallen zu lassen.
+
+**Funktionen an eine Client-Komponente gereicht.** Die fünf Vorgänge liefen
+zuerst über ein Objekt, das die Seite hereinreichte. Inline erzeugte
+Pfeilfunktionen sind aber keine Server Actions; Next.js weist das zur Laufzeit
+ab. Typecheck und Build waren grün — erst der E2E-Lauf hat es gezeigt. Die
+Umleitung ist entfernt, der Baustein importiert die Vorgänge selbst.
+
+### Nebenbei behoben
+
+Die Detailseite las nur den Abo-Namen. Eine Ticketposition zeigte deshalb einen
+Strich, obwohl sie einen Bezug hat.
+
+### Geprüft
+
+21 Prüfungen gegen die Testdatenbank, alle bestanden, Probedaten restlos
+entfernt: Freigabe erzeugt genau eine Rechnung, die Ankündigung nennt den
+korrigierten Betrag (45 statt 65), Betrag nach Freigabe gesperrt,
+Rücklastschrift weiterhin markierbar, zweite Freigabe und leerer Lauf
+abgewiesen, Kunde weder freigabe- noch rückgabeberechtigt, Betrag darf auf 0
+sinken, negativ bleibt ausgeschlossen.
+
+Dazu 18 neue Unit-Tests (388 insgesamt) und 53 E2E-Prüfungen der berührten
+Suiten. PROJ-10 musste nachziehen: Der Fixture-Lauf wird jetzt freigegeben,
+sonst gäbe es keine Rechnungen.
 
 ## QA Test Results
 _To be added by /qa_
