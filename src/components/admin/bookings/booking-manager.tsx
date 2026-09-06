@@ -3,12 +3,19 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { confirmRegularBooking, confirmDropinBooking, rejectBooking } from "@/lib/actions/admin/bookings";
+import {
+  bestaetigeBuchungenStapel,
+  confirmDropinBooking,
+  confirmRegularBooking,
+  lehneBuchungenAbStapel,
+  rejectBooking,
+} from "@/lib/actions/admin/bookings";
 import {
   bookingTypeValues,
   bookingTypeLabel,
   bookingStatusLabel,
   bookingStatusColor,
+  bookingStatusOptions,
   desiredPlanLabel,
 } from "@/lib/constants/booking";
 import { Button } from "@/components/ui/button";
@@ -27,8 +34,29 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { formatPrice } from "@/lib/pricing";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  STAPEL_MAX,
+  istAuswaehlbar,
+  rabattierterPreis,
+  stapelBericht,
+  stapelHindernis,
+  vorschlagFuer,
+} from "@/lib/bookings/stapel";
+import { toast } from "sonner";
 
 const ALL_TYPES = "__all__";
+const ALLE_STATUS = "__alle__";
 
 function formatDate(date: string): string {
   return new Date(date).toLocaleDateString("de-AT");
@@ -58,26 +86,18 @@ function formatDiscount(coupon: NonNullable<AdminBookingRow["coupon"]>): string 
   return coupon.discountType === "percent" ? `${coupon.discountAmount}%` : formatPrice(coupon.discountAmount);
 }
 
-/** Suggests the discounted price for the confirm dialog.
- *
- *  Bis PROJ-41 ging das nur bei „Nur diesen Kurs": die Flatrate hatte keinen
- *  Preis, von dem sich rabattieren liesse. Jetzt hat sie einen, also gilt ein
- *  Gutschein fuer beide Abo-Arten. Ueberschreiben kann der Betreiber weiterhin
- *  jederzeit. */
-function discountedPrice(basePrice: number, coupon: NonNullable<AdminBookingRow["coupon"]>): number {
-  const result =
-    coupon.discountType === "percent"
-      ? basePrice * (1 - coupon.discountAmount / 100)
-      : basePrice - coupon.discountAmount;
-  return Math.max(0, Math.round(result * 100) / 100);
-}
-
 export function BookingManager({
   bookings: initialBookings,
   initialType,
+  initialStatus,
+  gesamtzahl,
 }: {
   bookings: AdminBookingRow[];
   initialType: string;
+  /** Leerer String heißt „Alle" — die Vorgabe „Offen" setzt die Seite. */
+  initialStatus: string;
+  /** Alle Buchungen ohne Filter, für den Hinweis unter der Liste. */
+  gesamtzahl: number;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -95,11 +115,59 @@ export function BookingManager({
   const [subName, setSubName] = useState("");
   const [subPrice, setSubPrice] = useState("");
 
-  function applyTypeFilter(type: string) {
+  // PROJ-48: die Stapelauswahl.
+  const [gewaehlt, setGewaehlt] = useState<Set<string>>(new Set());
+  const [vorschauOffen, setVorschauOffen] = useState(false);
+  const [ablehnenOffen, setAblehnenOffen] = useState(false);
+  const [stapelLaeuft, setStapelLaeuft] = useState(false);
+  const [uebersprungen, setUebersprungen] = useState<
+    { buchungId: string; kundenname: string; grund: string }[]
+  >([]);
+
+  // Eine Auswahl auf einer anderen Menge wäre unsichtbar und gefährlich.
+  // Der Wechsel des Filters ist eine Navigation, aber darauf allein sollte
+  // man sich nicht verlassen: Dieser Baustein bleibt dabei eingehängt.
+  useEffect(() => {
+    setGewaehlt(new Set());
+    setUebersprungen([]);
+  }, [initialType, initialStatus]);
+
+  const auswaehlbare = bookings.filter(istAuswaehlbar);
+  const gewaehlteBuchungen = auswaehlbare.filter((b) => gewaehlt.has(b.id));
+  const vorschlaege = gewaehlteBuchungen.map((b) => ({
+    buchung: b,
+    vorschlag: vorschlagFuer(b),
+  }));
+  const ohnePreis = vorschlaege.filter(
+    ({ buchung, vorschlag }) => buchung.type === "regular" && vorschlag.preis === null
+  );
+  const hindernis = stapelHindernis({
+    anzahl: gewaehlteBuchungen.length,
+    ohnePreis: ohnePreis.length,
+  });
+
+  function umschalten(id: string, an: boolean) {
+    setGewaehlt((vorher) => {
+      const naechste = new Set(vorher);
+      if (an) naechste.add(id);
+      else naechste.delete(id);
+      return naechste;
+    });
+  }
+
+  function alleUmschalten(an: boolean) {
+    setGewaehlt(an ? new Set(auswaehlbare.map((b) => b.id)) : new Set());
+  }
+
+  function setzeFilter(name: "type" | "status", wert: string) {
     const params = new URLSearchParams(searchParams.toString());
-    if (type) params.set("type", type);
-    else params.delete("type");
+    if (wert) params.set(name, wert);
+    else params.delete(name);
     router.push(`/admin/buchungen${params.toString() ? `?${params.toString()}` : ""}`);
+  }
+
+  function applyTypeFilter(type: string) {
+    setzeFilter("type", type);
   }
 
   function updateStatus(id: string, status: string) {
@@ -156,6 +224,50 @@ export function BookingManager({
     }
   }
 
+  async function stapelBestaetigen() {
+    setStapelLaeuft(true);
+    setError(null);
+    try {
+      const ergebnis = await bestaetigeBuchungenStapel(
+        vorschlaege.map(({ vorschlag }) => ({
+          buchungId: vorschlag.buchungId,
+          aboName: vorschlag.aboName,
+          preis: vorschlag.preis ?? 0,
+        }))
+      );
+      if ("error" in ergebnis) {
+        setError(ergebnis.error);
+        return;
+      }
+      setUebersprungen(ergebnis.uebersprungen);
+      toast.success(stapelBericht(ergebnis, "bestätigt"));
+      setVorschauOffen(false);
+      setGewaehlt(new Set());
+      router.refresh();
+    } finally {
+      setStapelLaeuft(false);
+    }
+  }
+
+  async function stapelAblehnen() {
+    setStapelLaeuft(true);
+    setError(null);
+    try {
+      const ergebnis = await lehneBuchungenAbStapel(gewaehlteBuchungen.map((b) => b.id));
+      if ("error" in ergebnis) {
+        setError(ergebnis.error);
+        return;
+      }
+      setUebersprungen(ergebnis.uebersprungen);
+      toast.success(stapelBericht(ergebnis, "abgelehnt"));
+      setAblehnenOffen(false);
+      setGewaehlt(new Set());
+      router.refresh();
+    } finally {
+      setStapelLaeuft(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {error && (
@@ -184,12 +296,105 @@ export function BookingManager({
             </SelectContent>
           </Select>
         </div>
-        {initialType && (
-          <Button type="button" variant="outline" size="sm" onClick={() => applyTypeFilter("")}>
+        <div className="space-y-1">
+          <Label htmlFor="booking-status-filter">Status</Label>
+          <Select
+            value={initialStatus || ALLE_STATUS}
+            onValueChange={(wert) => setzeFilter("status", wert === ALLE_STATUS ? "alle" : wert)}
+          >
+            <SelectTrigger id="booking-status-filter" className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALLE_STATUS}>Alle</SelectItem>
+              {bookingStatusOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {(initialType || initialStatus !== "open") && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete("type");
+              params.delete("status");
+              router.push(`/admin/buchungen${params.toString() ? `?${params.toString()}` : ""}`);
+            }}
+          >
             Filter zurücksetzen
           </Button>
         )}
       </div>
+
+      {gewaehlteBuchungen.length > 0 && (
+        <div
+          role="group"
+          aria-label="Stapelaktionen"
+          className="flex flex-wrap items-center gap-3 rounded-card bg-muted/60 px-4 py-3"
+        >
+          <p className="text-sm font-medium">
+            {gewaehlteBuchungen.length}{" "}
+            {gewaehlteBuchungen.length === 1 ? "Buchung" : "Buchungen"} gewählt
+          </p>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => setGewaehlt(new Set())}>
+              Auswahl aufheben
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={stapelLaeuft}
+              onClick={() => setAblehnenOffen(true)}
+            >
+              Ablehnen
+            </Button>
+            <Button
+              size="sm"
+              disabled={stapelLaeuft || hindernis !== null}
+              onClick={() => setVorschauOffen(true)}
+            >
+              Bestätigen
+            </Button>
+          </div>
+          {hindernis === "zu_gross" && (
+            <p className="w-full text-sm text-destructive">
+              Höchstens {STAPEL_MAX} Buchungen auf einmal.
+            </p>
+          )}
+          {hindernis === "preis_fehlt" && (
+            <p className="w-full text-sm text-destructive">
+              {ohnePreis.length === 1 ? "Einer Buchung" : `${ohnePreis.length} Buchungen`} in der
+              Auswahl fehlt ein Preis (
+              {ohnePreis.map(({ buchung }) => buchung.customerName).join(", ")}). Diese einzeln
+              bestätigen — ein Abo über 0 € fiele niemandem auf.
+            </p>
+          )}
+        </div>
+      )}
+
+      {uebersprungen.length > 0 && (
+        <Alert>
+          <AlertDescription>
+            <p className="font-medium">
+              {uebersprungen.length}{" "}
+              {uebersprungen.length === 1 ? "Buchung wurde" : "Buchungen wurden"} übersprungen:
+            </p>
+            <ul className="mt-1 list-inside list-disc text-sm">
+              {uebersprungen.map((u) => (
+                <li key={u.buchungId}>
+                  {u.kundenname} — {u.grund}
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {bookings.length === 0 ? (
         <p className="text-sm text-muted-foreground py-8 text-center">
@@ -199,6 +404,18 @@ export function BookingManager({
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-10">
+              {auswaehlbare.length > 0 && (
+                <Checkbox
+                  aria-label="Alle angezeigten auswählen"
+                  checked={
+                    gewaehlteBuchungen.length > 0 &&
+                    gewaehlteBuchungen.length === auswaehlbare.length
+                  }
+                  onCheckedChange={(an) => alleUmschalten(an === true)}
+                />
+              )}
+            </TableHead>
             <SortableHeader label="Kunde" sortKey="customer_name" />
             <SortableHeader label="Kurs" sortKey="course_name" />
             <TableHead>Art</TableHead>
@@ -212,6 +429,17 @@ export function BookingManager({
         <TableBody>
           {bookings.map((booking) => (
             <TableRow key={booking.id}>
+              <TableCell>
+                {/* Nur Offenes ist auswählbar — eine Auswahl, die nichts
+                    bewirkt, wäre eine Falle. */}
+                {istAuswaehlbar(booking) && (
+                  <Checkbox
+                    aria-label={`${booking.customerName} auswählen`}
+                    checked={gewaehlt.has(booking.id)}
+                    onCheckedChange={(an) => umschalten(booking.id, an === true)}
+                  />
+                )}
+              </TableCell>
               <TableCell className="font-medium">
                 <Link href={`/admin/kunden/${booking.customerId}`} className="hover:underline">
                   {booking.customerName}
@@ -259,7 +487,7 @@ export function BookingManager({
                           // Anfragen von vor dieser Aenderung.
                           const base = booking.price ?? booking.coursePrice;
                           const suggested =
-                            base != null && booking.coupon ? discountedPrice(base, booking.coupon) : base;
+                            base != null && booking.coupon ? rabattierterPreis(base, booking.coupon) : base;
                           setSubPrice(suggested != null ? String(suggested) : "");
                           setError(null);
                         } else {
@@ -285,6 +513,90 @@ export function BookingManager({
         </TableBody>
       </Table>
       )}
+
+      {/* Damit niemand glaubt, es gäbe nur diese. */}
+      <p className="text-sm text-muted-foreground">
+        {bookings.length} von {gesamtzahl} Buchungen
+        {initialStatus && ` — Filter: ${bookingStatusLabel(initialStatus)}`}
+        {initialType && ` · ${bookingTypeLabel[initialType as keyof typeof bookingTypeLabel]}`}
+      </p>
+
+      <Dialog open={vorschauOffen} onOpenChange={setVorschauOffen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading">
+              {gewaehlteBuchungen.length}{" "}
+              {gewaehlteBuchungen.length === 1 ? "Buchung" : "Buchungen"} bestätigen
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-1">
+            {vorschlaege.map(({ buchung, vorschlag }) => (
+              <div
+                key={buchung.id}
+                className="flex items-baseline justify-between gap-3 border-b py-2 text-sm last:border-b-0"
+              >
+                <span>
+                  <span className="block font-medium">{buchung.customerName}</span>
+                  <span className="block text-muted-foreground">
+                    {buchung.type === "regular" ? vorschlag.aboName : bookingTypeLabel.dropin}
+                    {vorschlag.gutscheinCode && ` · Gutschein ${vorschlag.gutscheinCode}`}
+                  </span>
+                </span>
+                <span className="tabular-nums whitespace-nowrap">
+                  {buchung.type === "regular" && vorschlag.preis !== null
+                    ? formatPrice(vorschlag.preis)
+                    : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Was hier steht, bucht jeden Monat ab. Deshalb steht es hier. */}
+          <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+            {vorschlaege.filter(({ buchung }) => buchung.type === "regular").length > 0 ? (
+              <>
+                Es entstehen{" "}
+                {vorschlaege.filter(({ buchung }) => buchung.type === "regular").length} Abos mit
+                diesen Namen und Preisen, die monatlich abgebucht werden. Für einen abweichenden
+                Preis die Buchung einzeln bestätigen.
+              </>
+            ) : (
+              <>Drop-ins werden nur bestätigt — es entsteht kein Abo.</>
+            )}
+          </p>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVorschauOffen(false)} disabled={stapelLaeuft}>
+              Abbrechen
+            </Button>
+            <Button onClick={stapelBestaetigen} disabled={stapelLaeuft || hindernis !== null}>
+              {stapelLaeuft ? "Wird bestätigt…" : "Bestätigen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={ablehnenOffen} onOpenChange={setAblehnenOffen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-heading">
+              {gewaehlteBuchungen.length}{" "}
+              {gewaehlteBuchungen.length === 1 ? "Buchung" : "Buchungen"} ablehnen?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Jede betroffene Person bekommt eine Nachricht. Bei Buchungsanfragen rückt die
+              Warteliste des Kurses nach.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={stapelLaeuft}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={stapelAblehnen} disabled={stapelLaeuft}>
+              Ablehnen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={confirmTarget !== null} onOpenChange={(open) => !open && setConfirmTarget(null)}>
         <DialogContent>

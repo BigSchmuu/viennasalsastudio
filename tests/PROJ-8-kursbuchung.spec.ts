@@ -260,6 +260,14 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.locator("#sub-price").fill("40");
     await page.getByRole("dialog").getByRole("button", { name: "Bestätigen" }).click();
     await page.waitForTimeout(800);
+    // Seit PROJ-48 zeigt die Seite nur Offenes. Die Oberfläche setzt den
+    // Status zwar sofort lokal, aber `revalidatePath` schiebt gleich darauf
+    // frische Serverdaten nach — und dann verschwindet die Zeile. Ein Blick
+    // auf das Statuszeichen wäre ein Wettlauf; die Bestätigung steht ohnehin
+    // gleich darunter im Profil des Kunden.
+    await page.goto("/admin/buchungen?status=confirmed");
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(400);
     await expect(row.getByText("Bestätigt")).toBeVisible();
 
     await login(page, CUSTOMER);
@@ -277,9 +285,14 @@ test.describe("PROJ-8: Kursbuchung", () => {
     // own Drop-in rows in this shared admin table.
     const dropinRow = page.locator("tr", { hasText: "E2E8 Kunde" }).filter({ hasText: "Drop-in" });
     await dropinRow.getByRole("button", { name: "Ablehnen" }).click();
+    await page.waitForTimeout(2500);
     // rejectBooking sends the rejection email synchronously and the fixture
     // accounts' ".test" domain makes that SMTP call run into a timeout, so the
     // status flip can take a while — wait for it rather than a fixed delay.
+    // Dieselbe Überlegung wie oben: In der Offen-Ansicht fällt die abgelehnte
+    // Zeile heraus, sobald die Serverdaten nachkommen.
+    await page.goto("/admin/buchungen?status=rejected");
+    await page.waitForLoadState("networkidle");
     await expect(dropinRow.getByText("Abgelehnt")).toBeVisible({ timeout: 30000 });
 
     await login(page, CUSTOMER);

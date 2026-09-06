@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BookingManager, type AdminBookingRow } from "@/components/admin/bookings/booking-manager";
 import { PricingForm } from "@/components/admin/bookings/pricing-form";
 import { readStudioPricing } from "@/lib/pricing";
-import { bookingTypeValues } from "@/lib/constants/booking";
+import { bookingTypeValues, bookingStatusValues } from "@/lib/constants/booking";
 import { heuteInWien } from "@/lib/constants/zeitzone";
 
 const SORTABLE_COLUMNS = ["customer_name", "course_name", "chosen_date"] as const;
@@ -10,7 +10,7 @@ const SORTABLE_COLUMNS = ["customer_name", "course_name", "chosen_date"] as cons
 export default async function BuchungenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ type?: string; status?: string; sort?: string; dir?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -37,9 +37,24 @@ export default async function BuchungenPage({
   const isValidType = (bookingTypeValues as readonly string[]).includes(params.type ?? "");
   if (isValidType) query = query.eq("type", params.type!);
 
-  const [bookingsRes, pricingRes] = await Promise.all([
+  // PROJ-48: Fehlt der Statusfilter, gilt „Offen" — der schlichte Aufruf der
+  // Seite zeigt damit die Arbeit, die wartet. „Alle" ist ein ausdrücklicher
+  // Wert, kein Weglassen. Bei der Art ist es umgekehrt: Dort bedeutet keine
+  // Auswahl „alle", weil keine Art für sich Arbeit bedeutet.
+  const statusFilter =
+    params.status === "alle"
+      ? ""
+      : (bookingStatusValues as readonly string[]).includes(params.status ?? "")
+        ? params.status!
+        : "open";
+  if (statusFilter) query = query.eq("status", statusFilter);
+
+  const [bookingsRes, pricingRes, gesamtRes] = await Promise.all([
     query,
     supabase.from("dropin_pricing").select("*").limit(1).single(),
+    // Ohne jeden Filter — damit der Hinweis unter der Liste sagen kann, wie
+    // viel gerade ausgeblendet ist.
+    supabase.from("course_bookings").select("id", { count: "exact", head: true }),
   ]);
 
   // PROJ-15: recomputed on every page load rather than trusted from the
@@ -89,7 +104,12 @@ export default async function BuchungenPage({
         <p className="text-sm text-muted-foreground">Buchungsanfragen, Probestunden und Drop-ins verwalten</p>
       </div>
       <PricingForm pricing={readStudioPricing(pricingRes.data)} />
-      <BookingManager bookings={bookings} initialType={isValidType ? params.type! : ""} />
+      <BookingManager
+        bookings={bookings}
+        initialType={isValidType ? params.type! : ""}
+        initialStatus={statusFilter}
+        gesamtzahl={gesamtRes.count ?? bookings.length}
+      />
     </div>
   );
 }

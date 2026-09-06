@@ -71,6 +71,12 @@ const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.
 
 const CHOSEN_DATE = "2026-09-07";
 
+// Auf Modulebene, weil AC6 sie braucht: Seit PROJ-48 taugt die Liste nicht
+// mehr als Anhaltspunkt für den Ausgang einer Ablehnung.
+let holder2Id = "";
+let nachrueckerId2 = "";
+let nachrueckKursId = "";
+
 test.beforeAll(async () => {
   // AC6 rejects Holder2's request, which promotes Nachruecker off the
   // waitlist into a real booking — consuming the very waitlist entry AC8
@@ -86,8 +92,10 @@ test.beforeAll(async () => {
   const { data: users } = await service.auth.admin.listUsers({ perPage: 200 });
   const idFor = (email: string) => users?.users.find((u) => u.email === email)?.id;
   const preischeckId = idFor("e2e12-preischeck@viennasalsastudio.test");
-  const holder2Id = idFor("e2e12-holder2@viennasalsastudio.test");
+  holder2Id = idFor("e2e12-holder2@viennasalsastudio.test") ?? "";
+  nachrueckKursId = nachrueckKurs.id;
   const nachrueckerId = idFor("e2e12-nachruecker@viennasalsastudio.test");
+  nachrueckerId2 = nachrueckerId ?? "";
   if (!preischeckId || !holder2Id || !nachrueckerId) throw new Error("PROJ-12 fixture customers not found");
 
   const courseIds = [kurs.id, nachrueckKurs.id];
@@ -242,9 +250,38 @@ test.describe("PROJ-12: Warteliste & automatische Nachrückung", () => {
     // rejectBooking sends the customer's rejection email *synchronously*
     // before it promotes the waitlist, and the fixture accounts' ".test"
     // domain makes that SMTP call run into a timeout — so a fixed short wait
-    // races the action. Wait for the status badge instead: it only flips once
-    // the server action has actually returned, i.e. after the promotion ran.
-    await expect(row.getByText("Abgelehnt")).toBeVisible({ timeout: 30000 });
+    // races the action.
+    //
+    // Seit PROJ-48 taugt das Statuszeichen in der Liste nicht mehr als
+    // Anhaltspunkt: Die Seite zeigt nur Offenes, und `revalidatePath` schiebt
+    // nach der Ablehnung frische Serverdaten nach — die Zeile verschwindet
+    // also, statt „Abgelehnt" zu zeigen.
+    //
+    // Gewartet wird auf die **nachgerückte Buchung**, nicht auf den Status der
+    // abgelehnten. `rejectBooking` setzt den Status zuerst, verschickt dann die
+    // Mail — die beim Test-Postfach in den Timeout läuft — und rückt erst
+    // danach nach. Auf den Status zu warten wäre also zu früh fertig.
+    await expect
+      .poll(
+        async () => {
+          const { count } = await service
+            .from("course_bookings")
+            .select("id", { count: "exact", head: true })
+            .eq("customer_id", nachrueckerId2)
+            .eq("course_id", nachrueckKursId);
+          return count ?? 0;
+        },
+        { timeout: 30000 }
+      )
+      .toBeGreaterThan(0);
+
+    const { data: abgelehnt } = await service
+      .from("course_bookings")
+      .select("status")
+      .eq("customer_id", holder2Id)
+      .eq("course_id", nachrueckKursId)
+      .maybeSingle();
+    expect(abgelehnt!.status).toBe("rejected");
 
     await page.reload();
     await page.waitForTimeout(600);

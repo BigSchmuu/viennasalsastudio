@@ -1,6 +1,6 @@
 # PROJ-48: Buchungen nach Status filtern und stapelweise bearbeiten
 
-## Status: Architected
+## Status: Approved
 
 **Priorität:** P1 — spart täglich Klicks, bewegt aber kein Geld ohne Zutun
 **Erstellt:** 2026-09-06
@@ -188,12 +188,10 @@ eigenen Abo, und eine veraltete Zeile darf zwanzig gute nicht blockieren.
 - [x] Soll das Ergebnis eines Stapels nachlesbar bleiben? → Nein, die Meldung
       genügt. Was geschehen ist, steht anschließend in der Liste selbst; ein
       zweites Protokoll wäre eine zweite Wahrheit. (2026-09-06, Architektur)
-- [ ] Beim stapelweisen Ablehnen rückt die Warteliste je betroffenem Kurs nach.
-      Werden mehrere Anfragen **desselben** Kurses abgelehnt, geschieht das
-      mehrfach hintereinander. Ob das genügt oder je Kurs einmal am Ende
-      laufen sollte, ist in `/backend` am tatsächlichen Verhalten zu
-      entscheiden — die Nachrückfunktion ist vorhanden und wird hier nicht
-      geändert.
+- [x] Beim stapelweisen Ablehnen rückt die Warteliste je betroffenem Kurs nach.
+      → **Einmal je Kurs**, am Ende des Stapels. Werden fünf Anfragen desselben
+      Kurses abgelehnt, füllt ein Lauf die frei gewordenen Plätze; fünf Läufe
+      hintereinander täten dasselbe, nur langsamer. (2026-09-06)
 
 ## Decision Log
 
@@ -351,8 +349,125 @@ Der heikelste Teil ist nicht der größte: Es ist die Vorschau. Sie ist die
 einzige Stelle, an der der Betreiber sieht, welche monatlichen Abbuchungen er
 gleich anlegt — was dort steht, muss stimmen.
 
+## Implementierungsnotizen
+
+Frontend und Backend zusammen gebaut — wie bei PROJ-46 und PROJ-47 ist die
+Oberfläche hier fast nur eine Hülle um Datenbankvorgänge.
+
+**Keine Migration.** Wie im Entwurf angekündigt kommt kein Feld dazu.
+
+**Die Rabattrechnung lag im Bildschirm** und ist jetzt in `src/lib/bookings/
+stapel.ts` geteilt. Sie ist ab sofort an zwei Stellen maßgeblich — Vorschau und
+Ausführung — und auseinandergelaufen hieße hier: ein Abo zu einem Preis, den
+niemand gesehen hat. 21 Unit-Tests, insgesamt 413.
+
+**Ein fehlender Preis blockiert den Stapel**, statt still zu einer Null zu
+werden. Ein Abo über 0 € bucht jeden Monat nichts ab und fällt niemandem auf.
+Die Stapelleiste nennt die betroffenen Kunden namentlich und verweist auf den
+Einzelweg.
+
+**Die Warteliste rückt einmal je Kurs nach, nicht je Buchung** — das war die
+offene Frage aus dem Entwurf. Werden fünf Anfragen desselben Kurses abgelehnt,
+füllt ein Lauf die frei gewordenen Plätze; fünf Läufe täten dasselbe, nur
+langsamer.
+
+**Die Stapelleiste trägt eine eigene Kennung** (`role="group"`,
+`aria-label="Stapelaktionen"`). „Bestätigen" und „Ablehnen" stehen auch in
+jeder Zeile — ohne diese Eingrenzung trifft eine Suche ein Dutzend Knöpfe. Das
+hilft auch der Bedienung mit Hilfsmitteln.
+
 ## QA Test Results
-_To be added by /qa_
+
+**Geprüft:** 2026-09-06
+**Umgebung:** localhost:3100 gegen die Testdatenbank
+**Browser:** Chromium und Mobile Safari (iPhone 13)
+
+### Ergebnis
+
+Neun E2E-Prüfungen in `tests/PROJ-48-buchungen-stapel.spec.ts` — **Chromium
+9/9, Mobile Safari 9/9**. Der Abschlusslauf über elf Suiten: **126/126**. Dazu
+413 Unit-Tests.
+
+| Bereich | Abgedeckt |
+|---|---|
+| Filter | Seite öffnet auf „Offen", Hinweiszeile nennt Gesamtzahl und Filter, jeder Status zeigt ausschließlich diesen, „Alle" zeigt alles |
+| Auswahl | Nur Offenes wählbar, „alle angezeigten" wählt genau die offenen, Filterwechsel leert die Auswahl |
+| Vorschau | Kunde, Abo-Name und Preis je Buchung; solange sie offen ist, hat sich nichts geändert |
+| Bestätigen | Abo mit den gezeigten Werten, Drop-in ohne Abo, je eine eingereihte Nachricht |
+| Ablehnen | Rückfrage mit Anzahl, danach Statuswechsel und Nachricht für jeden |
+| Preis fehlt | Stapel gesperrt, Kunden namentlich genannt, Buchung unberührt |
+| Fremde Arbeit | Eine inzwischen bearbeitete Buchung wird übersprungen; die fremde Änderung bleibt stehen, die andere wird bestätigt; beide Meldungen erscheinen |
+| Rechte | Kunde und Lehrkraft erreichen die Verwaltung nicht |
+
+### Ein Mechanismus, den dieses Vorhaben einführt
+
+Nach jeder Aktion setzt die Oberfläche den Status lokal, aber `revalidatePath`
+schiebt sofort frische Serverdaten nach — und in der Offen-Ansicht
+**verschwindet die Zeile dann**. Jede Prüfung, die danach ein Statuszeichen in
+der Liste erwartet, ist ein Wettlauf.
+
+Drei bestehende Prüfungen hingen daran: PROJ-12 AC6 hat den Wettlauf verloren,
+PROJ-8 zweimal zufällig gewonnen. Alle drei prüfen jetzt dort, wo der Zustand
+stabil ist — im Statusfilter der jeweiligen Ansicht oder in der Datenbank.
+
+Bei PROJ-12 AC6 kam eine zweite Falle dazu: `rejectBooking` setzt den Status
+zuerst, verschickt dann die Mail (die beim Test-Postfach in den Timeout läuft)
+und rückt **erst danach** nach. Auf den Status zu warten ist deshalb zu früh
+fertig; gewartet wird jetzt auf die nachgerückte Buchung. Genau davor hatte der
+ursprüngliche Kommentar gewarnt — er wurde beim Umstellen mitsamt seiner
+Begründung ersetzt.
+
+### Zwei Regressionen aus PROJ-47, hier gefunden
+
+Beide standen seit der Auslieferung von PROJ-47 rot:
+
+- **PROJ-33 AC7** erwartete `status=complete` für den Lastschrift-Filter. Seit
+  PROJ-47 heißen die Werte `entwurf`/`eingezogen`/`rueckgebucht`.
+- **PROJ-44-empfehlung** erwartete die Vorabankündigung direkt nach dem
+  Anlegen eines Laufs. Seit PROJ-47 entsteht sie erst mit der Freigabe.
+
+Ursache in beiden Fällen: Die Regression zu PROJ-47 wurde nach Thema und
+Dateinamen ausgewählt statt danach, wer den geänderten Code anfasst. PROJ-33
+heißt „Sortier- und Filterfunktion" und prüft quer über alle Listen; von
+PROJ-44 gibt es zwei Dateien, und nur eine wurde gesehen. Beide sind
+nachgezogen.
+
+### Fehler in den Prüfungen dieser Runde
+
+Alle fünf ersten Fehlschläge lagen in den Tests, keiner im Produkt:
+
+- „Bestätigen" gibt es 14-mal auf der Seite — behoben über die Kennung der
+  Stapelleiste.
+- Die Prüfungen häuften ihre Buchungen an, weil nur am Ende aufgeräumt wurde.
+  Jetzt vor **jeder** Prüfung.
+- `„Offen"` mit geradem Schlusszeichen beendet die Zeichenkette.
+- Die Suche nach „übersprungen" traf zwei Stellen — die Kurzmeldung *und* die
+  Liste mit Namen und Grund. Beide sind gewollt; beide werden jetzt einzeln
+  geprüft.
+- **Die Testkunden waren falsch gewählt.** Zuerst die E2E12-Konten, mit der
+  Bemerkung, sie seien unbeteiligt — es sind PROJ-12s Wartelisten-Fixtures,
+  benutzt in fünf Dateien. Der Ersatz „E2E16 Customer" war ebenfalls falsch:
+  Sein Name kam in keiner Datei vor, aber PROJ-16 spricht das Konto über die
+  E-Mail an. Jetzt drei echte Füllkonten, geprüft nach Name **und** E-Mail,
+  namentlich aufgezählt statt über ein Muster.
+
+### Sicherheitsprüfung
+
+- Kunde und Lehrkraft erreichen `/admin/buchungen` nicht; die Stapelleiste
+  erscheint dort nicht.
+- Die Prüfung „ist noch offen" sitzt an jeder einzelnen Buchung und zusätzlich
+  als Bedingung im Schreibvorgang — ein veralteter Bildschirm überschreibt
+  keine fremde Arbeit.
+- Preis und Abo-Name aus der Vorschau werden serverseitig geprüft, mit
+  derselben Obergrenze wie im Einzeldialog.
+- Obergrenze 50 je Stapel, serverseitig durchgesetzt.
+
+### Ergebnis
+
+- **Akzeptanzkriterien:** alle abgedeckt und grün
+- **Fehler im Produkt:** keine
+- **Sicherheit:** bestanden
+- **Produktionsreif:** ja
 
 ## Deployment
 _To be added by /deploy_

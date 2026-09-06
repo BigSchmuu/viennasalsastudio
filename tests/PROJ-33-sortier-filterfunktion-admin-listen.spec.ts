@@ -82,10 +82,15 @@ test.describe("PROJ-33: Sortier- und Filterfunktion für Admin-Listen", () => {
 
   test("AC5: Buchungsliste — Typ-Filter zeigt nur passenden Buchungstyp, Spalte ist sortierbar", async ({ page }) => {
     await login(page, ADMIN);
-    await page.goto("/admin/buchungen");
+    // Seit PROJ-48 oeffnet die Seite gefiltert auf „Offen". Probestunden
+    // entstehen bereits bestaetigt, sind also nie offen — ohne „alle" waere die
+    // Liste leer, und eine leere Liste zeigt den Leerzustand statt der Tabelle.
+    // Geprueft wird hier der Art-Filter, nicht die Vorgabe.
+    await page.goto("/admin/buchungen?status=alle");
     await page.getByLabel("Art").click();
     await page.getByRole("option", { name: "Probestunde", exact: true }).click();
     await expect(page).toHaveURL(/type=trial/);
+    await expect(page).toHaveURL(/status=alle/);
     const rows = page.locator("table tbody tr");
     const count = await rows.count();
     if (count > 0) {
@@ -129,7 +134,10 @@ test.describe("PROJ-33: Sortier- und Filterfunktion für Admin-Listen", () => {
 
     await page.getByLabel("Status").click();
     await page.getByRole("option", { name: "Vollständig eingezogen", exact: true }).click();
-    await expect(page).toHaveURL(/status=complete/);
+    // Seit PROJ-47 heisst der Wert „eingezogen": Der Zustand eines Laufs
+    // unterscheidet jetzt zusaetzlich den Entwurf, und die drei Werte sind
+    // danach benannt. Die Beschriftung ist unveraendert.
+    await expect(page).toHaveURL(/status=eingezogen/);
     const rows = page.locator("table tbody tr");
     const count = await rows.count();
     if (count > 0) {
