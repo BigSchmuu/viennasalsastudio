@@ -155,8 +155,12 @@ nicht in der Nummer.
 
 ## Open Questions
 
-- [ ] Soll der Kunde bei einem Storno benachrichtigt werden (E-Mail), oder
-      genügt der Beleg im Archiv? Betrifft PROJ-16.
+- [x] Soll der Kunde bei einem Storno benachrichtigt werden (E-Mail), oder
+      genügt der Beleg im Archiv? → Das Archiv genügt. Der Beleg steht dort mit
+      Grund und Bezug, und das Guthaben erscheint im Profil — beides ohne
+      Zutun. Eine zusätzliche E-Mail hätte einen eigenen Text, eine eigene
+      Einstellung und einen eigenen Weg gebraucht, für eine Nachricht, die der
+      Kunde in aller Regel ohnehin erwartet. (2026-09-06, Betreiber)
 - [x] Braucht der Beleg einen eigenen Ausdruck, oder reicht die vorhandene
       Rechnungsdetailseite mit anderer Überschrift? → Dieselbe Seite. Sie trägt
       jetzt die Belegart als Überschrift, „Belegnummer"/„Belegdatum" statt
@@ -167,10 +171,18 @@ nicht in der Nummer.
       oder ausblenden? → Zeigen. Eine Spalte „Art" und der Bezug darunter
       machen sie unterscheidbar; ausgeblendet würden die Summen der Liste nicht
       mehr zu denen des Exports passen. (2026-09-06)
-- [ ] Der Zähler steht bei 875 für 2026, obwohl **null** echte Rechnungen
+- [x] Der Zähler steht bei 875 für 2026, obwohl **null** echte Rechnungen
       existieren (Rückstand aus Testläufen, deren Rechnungen gelöscht wurden).
       Die erste echte Rechnung hieße `2026-0876`. Vor dem Start
-      zurücksetzen? Betrifft nicht dieses Feature, wurde aber hier gefunden.
+      zurücksetzen? → Ja, am 2026-09-06 zurückgesetzt. Alle drei Zählerzeilen
+      der Produktion entfernt (2026=875, 2027=1, 2028=3) — alle drei waren
+      Reste aus Testläufen gegen die Produktion, bevor es die Testdatenbank
+      gab. Ohne Zeile beginnt jedes Jahr bei 1; die erste echte Rechnung heißt
+      damit `2026-0001`. Vorher geprüft: 0 Rechnungen, 0 Lastschriftläufe,
+      0 Lastschriftpositionen in der Produktion, also keine Kollision mit
+      bereits vergebenen Nummern. Die Testdatenbank blieb unberührt — ihre
+      Zähler kommen beim nächsten Seed ohnehin aus der Produktion, und die
+      Rechnungs-Fixtures legt PROJ-10 selbst an.
 
 ## Decision Log
 
