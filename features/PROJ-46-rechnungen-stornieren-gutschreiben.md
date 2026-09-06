@@ -1,6 +1,6 @@
 # PROJ-46: Rechnungen stornieren und gutschreiben
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-09-06
 **Last Updated:** 2026-09-06
 
@@ -535,4 +535,43 @@ drei Vorgabezeilen, null Belege, null Storno-Guthaben.
 - **Produktionsreif:** ja
 
 ## Deployment
-_To be added by /deploy_
+
+**Ausgeliefert:** 2026-09-06
+**Produktion:** https://viennasalsastudio.vercel.app
+**Stand:** `ebcd102`
+**Tag:** `v1.46.0-PROJ-46`
+
+### Vorabprüfungen
+
+`npm run lint` sauber, `npm run build` erfolgreich, 370 Unit-Tests und 61
+E2E-Prüfungen grün, keine `.env`-Datei im Commit, QA freigegeben ohne offene
+Fehler.
+
+### Migrationen
+
+Alle drei auf Produktion und Testdatenbank angewendet, genau eine Überladung
+von `create_invoice_document`, Trigger aktiv:
+
+| Version | Name |
+|---|---|
+| 20260906093831 | proj46_storno_und_gutschrift |
+| 20260906093853 | proj46_storno_funktionen |
+| 20260906100411 | proj46_belege_loeschen_fuer_dienstschluessel |
+
+Beim Ausliefern fiel auf, dass die dritte Datei unter einer erfundenen Version
+(`20260906120000`) im Repo lag, während sie als `20260906100411` angewendet
+worden war. Datei umbenannt; der MD5 stimmt weiterhin byte-genau mit den
+ausgeführten Anweisungen überein.
+
+### Nachprüfung in Produktion
+
+- `/`, `/kurse`, `/login`, `/en` laden mit 200.
+- `/admin/rechnungen` und `/profil` leiten unangemeldet korrekt zur Anmeldung.
+- Ausführungsrechte auf `create_invoice_document`: `authenticated`, `postgres`,
+  `service_role` — `anon` und `PUBLIC` sind nicht dabei.
+- Die Auslieferung hat keine Daten erzeugt: 0 Belege, 0 Storno-Guthaben.
+
+**Einschränkung:** In der Produktion stehen **null Rechnungen**. Die Funktion
+ist dort strukturell nachgewiesen — Schema, Rechte, Trigger, ausgelieferter
+Stand —, aber noch nicht an echten Daten benutzt worden. Das geht erst, wenn
+der erste Lastschriftlauf Rechnungen erzeugt hat.
