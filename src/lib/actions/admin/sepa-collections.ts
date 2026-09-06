@@ -418,8 +418,19 @@ export async function entferneLaufPosition(itemId: string): Promise<ActionResult
     return { error: "Das verrechnete Guthaben konnte nicht zurückgegeben werden." };
   }
 
-  const { error } = await supabase.from("sepa_collection_items").delete().eq("id", itemId);
+  // `.select()` liefert die geloeschten Zeilen zurueck. Ohne das koennte hier
+  // ein Loeschvorgang ohne Treffer als Erfolg durchgehen -- PostgREST meldet
+  // das nicht als Fehler, und der Betreiber saehe eine Bestaetigung fuer
+  // etwas, das nicht geschehen ist.
+  const { data: entfernt, error } = await supabase
+    .from("sepa_collection_items")
+    .delete()
+    .eq("id", itemId)
+    .select("id");
   if (error) return { error: "Die Position konnte nicht entfernt werden." };
+  if (!entfernt || entfernt.length === 0) {
+    return { error: "Die Position wurde nicht entfernt. Bitte lade die Seite neu." };
+  }
 
   revalidatePath(`/admin/lastschriften/${position.run_id}`);
   revalidatePath("/admin/lastschriften");
@@ -557,14 +568,25 @@ export async function verwirfLaufEntwurf(runId: string): Promise<ActionResult> {
     if (error) return { error: "Das verrechnete Guthaben konnte nicht zurückgegeben werden." };
   }
 
-  const { error: positionsFehler } = await supabase
+  const { data: entferntePositionen, error: positionsFehler } = await supabase
     .from("sepa_collection_items")
     .delete()
-    .eq("run_id", runId);
+    .eq("run_id", runId)
+    .select("id");
   if (positionsFehler) return { error: "Die Positionen konnten nicht entfernt werden." };
+  if ((positionen ?? []).length > 0 && (entferntePositionen ?? []).length === 0) {
+    return { error: "Der Entwurf wurde nicht verworfen. Bitte lade die Seite neu." };
+  }
 
-  const { error } = await supabase.from("sepa_collection_runs").delete().eq("id", runId);
+  const { data: entfernterLauf, error } = await supabase
+    .from("sepa_collection_runs")
+    .delete()
+    .eq("id", runId)
+    .select("id");
   if (error) return { error: "Der Entwurf konnte nicht verworfen werden." };
+  if (!entfernterLauf || entfernterLauf.length === 0) {
+    return { error: "Der Entwurf wurde nicht verworfen. Bitte lade die Seite neu." };
+  }
 
   revalidatePath("/admin/lastschriften");
   return { success: true };

@@ -1,6 +1,6 @@
 # PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren
 
-## Status: In Progress
+## Status: Approved
 
 **Priorität:** P0 — bewegt echtes Geld, muss vor dem Start stehen
 **Erstellt:** 2026-09-06
@@ -447,7 +447,110 @@ Suiten. PROJ-10 musste nachziehen: Der Fixture-Lauf wird jetzt freigegeben,
 sonst gäbe es keine Rechnungen.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Geprüft:** 2026-09-06
+**Umgebung:** localhost:3100 gegen die Testdatenbank
+**Browser:** Chromium und Mobile Safari (iPhone 13)
+
+### Ergebnis
+
+Zehn E2E-Prüfungen in `tests/PROJ-47-lastschriftlauf-korrigieren.spec.ts` —
+**Chromium 10/10, Mobile Safari 10/10**. Dazu 62 Prüfungen der berührten
+Suiten und 388 Unit-Tests.
+
+| Bereich | Abgedeckt |
+|---|---|
+| Entwurf | Neuer Lauf ist Entwurf; keine Rechnung, keine Nachricht, keine Bankdatei, keine Rücklastschrift-Markierung; die drei Korrekturaktionen sind da |
+| Betrag ändern | Neuer Wert steht in Liste und Datenbank; 0 und der Vertipper 4500 statt 45,00 sind nicht abschickbar |
+| Position entfernen | Verschwindet aus Liste und Zählung |
+| Position hinzufügen | Auswahl zeigt genau das zuvor Entfernte; Betrag vorbelegt und überschreibbar; Bezug bleibt erhalten |
+| Entwurf verwerfen | Lauf und Positionen sind weg |
+| Freigabe | Bestätigung nennt Anzahl und Summe; danach genau eine Rechnung je Position, ebenso viele Ankündigungen, Freigeber vermerkt, Bankdatei da, alle Korrekturen fort |
+| Sperre | Betrag über die Schnittstelle nicht mehr änderbar, zweite Freigabe abgewiesen, Rücklastschrift weiterhin markierbar |
+| Guthaben | Deckt es den Beitrag, sinkt der Betrag auf 0; beim Entfernen kommt es vollständig zurück |
+| Rechte | Kunde und Lehrkraft werden bei Freigabe und Guthaben-Rückgabe abgewiesen, der Lauf bleibt unberührt |
+| Übersicht | Entwürfe sind gekennzeichnet und filterbar; freigegebene Läufe erscheinen im Entwurfsfilter nicht |
+
+### Gefundene Fehler
+
+#### BUG-1: Löschen meldete Erfolg und tat nichts
+
+- **Schwere:** Critical
+- **Wo:** `entferneLaufPosition` und `verwirfLaufEntwurf`
+- **Beschreibung:** Auf `sepa_collection_runs` und `sepa_collection_items` gab
+  es **keine DELETE-Regel**. Beide Aktionen löschten über den RLS-gebundenen
+  Client und trafen damit null Zeilen — PostgREST meldet einen Löschvorgang
+  ohne Treffer nicht als Fehler. Der Betreiber sah die Bestätigung, die
+  Ansicht wurde neu geladen, und die Position stand weiter da. Wer sich darauf
+  verlässt, gibt den Lauf frei und bucht bei jemandem ab, den er ausschließen
+  wollte.
+- **Warum es durchrutschte:** Typecheck, Lint und Build waren grün. Erst der
+  E2E-Lauf hat es gezeigt — fünf von zehn Prüfungen scheiterten, und alle fünf
+  gingen durch eine Löschung.
+- **Behoben, zweifach:**
+  1. Migration `20260906171739_proj47_entwuerfe_loeschbar` — DELETE-Regeln
+     ausdrücklich nur für Entwürfe. Damit gilt die Grenze zweimal: in der
+     Regel und im Wächter.
+  2. Beide Aktionen prüfen über `.select()`, ob wirklich Zeilen verschwunden
+     sind, und melden sonst einen Fehler statt Erfolg. Das ist der wichtigere
+     Teil — die Regel behebt diesen Fall, die Prüfung fängt den nächsten.
+- **Nachgewiesen:** Die drei zuvor roten Löschprüfungen sind grün.
+
+**Weitere Suche:** 15 andere Stellen im Projekt löschen ebenso über den
+RLS-Client. Alle 15 Tabellen haben ihre DELETE-Regel — die Lücke bestand nur
+bei den beiden SEPA-Tabellen, weil vor PROJ-47 nie etwas daraus gelöscht
+wurde. Kein weiterer Fund.
+
+### Zwei Fehler in den Prüfungen selbst
+
+Beide wären als Produktfehler durchgegangen, wenn ich sie nicht nachgelesen
+hätte:
+
+- Die Gesamtsumme steht zweimal auf der Seite (Kopf und Bestätigungsdialog) —
+  mehrdeutige Textsuche.
+- **`hasText: "0,00"` trifft als Teilzeichenkette auch „€ 30,00".** Der Test
+  entfernte dadurch die Position eines fremden Kunden und meldete zu Recht,
+  dass kein Guthaben zurückkam. Der Fehlerbericht der Testausgabe nannte die
+  tatsächlich gewählte Zeile. Die Auswahl läuft jetzt über den Kundennamen.
+
+### Sicherheitsprüfung
+
+- Kunde und Lehrkraft am RPC `release_collection_run` und
+  `return_collection_item_credit`: abgewiesen, keine Nebenwirkung, der Lauf
+  bleibt Entwurf.
+- Ausführungsrechte auf beiden Funktionen: `authenticated`, `postgres`,
+  `service_role` — `anon` und `PUBLIC` nicht.
+- Nach der Freigabe greift der Wächter auch beim Admin, der einzigen Rolle mit
+  Schreibrecht auf die Positionen.
+- Die neuen DELETE-Regeln gelten ausdrücklich nur für Entwürfe.
+- `/admin/lastschriften` hängt am Admin-Layout mit `requireAdmin()`.
+
+### Regressionsprüfung
+
+| Suite | Ergebnis |
+|---|---|
+| PROJ-47 | 10/10 Chromium, 10/10 Mobile Safari |
+| PROJ-10 Rechnungsarchiv | 12/12 |
+| PROJ-36 Buchhaltungs-Export | 14/14 |
+| PROJ-37 Offene Posten | 9/9 |
+| PROJ-46 Storno und Gutschrift | 12/12 |
+| PROJ-44 Guthaben | 3/3 |
+| PROJ-14 Events und Tickets | 12/12 |
+| Unit-Tests (Vitest) | 388/388 |
+
+PROJ-10 musste angepasst werden: Der Fixture-Lauf wird jetzt freigegeben,
+sonst entstünden keine Rechnungen.
+
+Die Testdatenbank steht danach wieder auf dem Ausgangsstand: ein Lauf, drei
+Rechnungen, keine Guthabenzeilen, kein Entwurf.
+
+### Ergebnis
+
+- **Akzeptanzkriterien:** alle abgedeckt und grün
+- **Fehler:** 1 (Critical) — gefunden und behoben
+- **Sicherheit:** bestanden
+- **Produktionsreif:** ja
+
 
 ## Deployment
 _To be added by /deploy_
