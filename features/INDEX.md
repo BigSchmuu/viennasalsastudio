@@ -67,6 +67,8 @@
 
 | PROJ-47 | Lastschriftlauf vor dem Bankupload korrigieren | Deployed | [PROJ-47](../features/PROJ-47-lastschriftlauf-korrigieren.md) | 2026-09-06 |
 
+| PROJ-48 | Buchungen nach Status filtern und stapelweise bearbeiten | Planned | [PROJ-48](../features/PROJ-48-buchungen-filtern-und-stapelweise-bearbeiten.md) | 2026-09-06 |
+
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-48
+## Next Available ID: PROJ-49
