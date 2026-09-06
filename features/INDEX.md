@@ -63,6 +63,8 @@
 
 | PROJ-45 | Kunden-Dashboard nach dem Login | Deployed | [PROJ-45](../features/PROJ-45-kunden-dashboard.md) | 2026-08-28 |
 
+| PROJ-46 | Rechnungen stornieren und gutschreiben | Planned | [PROJ-46](../features/PROJ-46-rechnungen-stornieren-gutschreiben.md) | 2026-09-06 |
+
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-46
+## Next Available ID: PROJ-47
