@@ -1,0 +1,21 @@
+-- Gefunden bei der Startvorbereitung: `customer_credit_balance` konnte von
+-- jedem nicht angemeldeten Aufrufer benutzt werden. Mit dem oeffentlichen
+-- anon-Schluessel -- der bauartbedingt im Browser liegt -- und einer
+-- Kundenkennung kam der Guthabenstand zurueck. Das ist eine
+-- Finanzinformation zu einer benannten Person.
+--
+-- Der Entzug muss `public` einschliessen: Die Funktion hatte EXECUTE an
+-- PUBLIC, und solange das steht, hilft ein Entzug fuer `anon` allein nichts.
+--
+-- Ohne funktionale Folgen, nachgesehen statt angenommen:
+--   * In der Anwendung ruft sie nur eine Admin-Server-Aktion auf; die laeuft
+--     als `authenticated` und behaelt das Recht.
+--   * In SQL rufen sie grant_customer_credit, redeem_customer_credit und
+--     grant_pending_referral_rewards auf. Alle drei sind SECURITY DEFINER,
+--     laufen also als Eigentuemer und sind vom Entzug nicht betroffen.
+--   * In keiner RLS-Regel benutzt.
+--
+-- Der Kunde sieht seinen Kontostand weiterhin: Das Profil summiert die Zeilen
+-- aus customer_credits, die ihm RLS ohnehin zeigt.
+revoke execute on function public.customer_credit_balance(uuid) from public, anon;
+grant execute on function public.customer_credit_balance(uuid) to authenticated, service_role;
