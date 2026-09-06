@@ -159,6 +159,9 @@ nicht in der Nummer.
       genügt der Beleg im Archiv? Betrifft PROJ-16.
 - [ ] Braucht der Beleg einen eigenen Ausdruck, oder reicht die vorhandene
       Rechnungsdetailseite mit anderer Überschrift?
+- [ ] Soll die Rechnungsliste in der Verwaltung Stornos standardmäßig zeigen
+      oder ausblenden? (Aus dem Architektur-Entwurf: „alle Rechnungen" ist ab
+      jetzt eine Frage, keine Selbstverständlichkeit.)
 - [ ] Der Zähler steht bei 875 für 2026, obwohl **null** echte Rechnungen
       existieren (Rückstand aus Testläufen, deren Rechnungen gelöscht wurden).
       Die erste echte Rechnung hieße `2026-0876`. Vor dem Start
@@ -178,12 +181,136 @@ nicht in der Nummer.
 | Kein Storno eines Stornos | Kein betrieblicher Anlass, und es öffnet eine Kette, die niemand mehr überblickt. | 2026-09-06 |
 
 ### Technical Decisions
-_To be added by /architecture_
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Storno und Gutschrift sind Belege in derselben Liste wie Rechnungen, mit negativem Betrag | Kundenarchiv, Buchhaltungs-Export und Nummernvergabe funktionieren dadurch unveraendert. Eine eigene Tabelle haette alle drei Stellen betroffen und die Summenbildung an zwei Orten richtig zu halten verlangt. | 2026-09-06 |
+| Die urspruengliche Rechnung wird nicht veraendert | Ob sie aufgehoben ist, ergibt sich aus dem Verweis des Stornos. Ein zusaetzliches Feld an der Rechnung waere eine zweite Wahrheit, die auseinanderlaufen kann. | 2026-09-06 |
+| Eigener Herkunftswert im Guthabenkonto statt „manuell" | Sonst sieht weder Kunde noch Betreiber spaeter, woher das Guthaben stammt. | 2026-09-06 |
+| Beleg und Guthaben entstehen gemeinsam oder gar nicht | Ein Beleg ohne Gutschrift waere eine Forderung, die der Kunde nie zurueckbekommt; eine Gutschrift ohne Beleg waere Geld ohne Grund. | 2026-09-06 |
+| Unveraenderlichkeit in der Datenbank, nicht in der Oberflaeche | Eine Buchhaltung, die sich auf eine ausgeblendete Schaltflaeche verlaesst, ist keine. | 2026-09-06 |
+| Offene Posten schliessen sich beim Storno selbst | Sonst mahnt das System eine Forderung an, die aufgehoben ist. Das ist die einzige Auswertung, die der neue Belegtyp zwingend aendert. | 2026-09-06 |
+| Keine neuen Pakete | Nummernvergabe, Belegdruck, Guthabenkonto, Export und Rechtepruefung sind vorhanden. | 2026-09-06 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Der tragende Gedanke
+
+**Ein Storno ist selbst eine Rechnung — mit negativem Betrag.**
+
+Das klingt nach einem Detail, entscheidet aber über den halben Aufwand. Drei
+Dinge lesen heute die Rechnungsliste: das Kundenarchiv, der
+Buchhaltungs-Export und die offenen Posten. Steht der Storno als Zeile in
+derselben Liste, funktionieren alle drei **ohne Änderung**:
+
+- Der Export summiert Netto, USt und Brutto über alle Zeilen. Eine Zeile mit
+  −65 € verrechnet sich von selbst, auch in der GESAMT-Zeile und in der
+  Zwischensumme des passenden USt-Satzes.
+- Das Kundenarchiv zeigt alle Belege des Kunden. Der Storno erscheint dort
+  ohne Zutun.
+- Die Nummernvergabe läuft weiter wie bisher, inklusive ihrer Absicherung
+  gegen gleichzeitige Zugriffe.
+
+Die Alternative — eine eigene Tabelle für Storno-Belege — hieße, alle drei
+Stellen anzufassen und die Summenbildung an zwei Orten richtig zu halten.
+
+### A) Aufbau
+
+```
+Verwaltung → Rechnungen
+|
++-- Rechnungsliste                        [bestehend]
+|   +-- Zeile je Beleg
+|       +-- Art: Rechnung / Storno / Gutschrift      NEU
+|       +-- bei Rechnungen: [Stornieren] [Gutschrift]  NEU
+|
++-- Dialog "Stornieren"                                NEU
+|   +-- zeigt Rechnung und vollen Betrag (nicht änderbar)
+|   +-- Grund (Pflichtfeld)
+|   +-- Hinweis: Betrag geht als Guthaben an den Kunden
+|
++-- Dialog "Gutschrift"                                NEU
+|   +-- Betrag (höchstens die Restsumme der Rechnung)
+|   +-- Grund (Pflichtfeld)
+|
++-- Belegdetailseite                       [bestehend, erweitert]
+    +-- bei Storno/Gutschrift: Verweis auf die ursprüngliche Rechnung
+    +-- bei stornierter Rechnung: Verweis auf den aufhebenden Beleg
+
+Kundenbereich → Profil → Meine Rechnungen  [bestehend]
+    +-- Storno und Gutschrift erscheinen als eigene Zeilen
+    +-- stornierte Rechnung ist als aufgehoben gekennzeichnet
+```
+
+### B) Welche Informationen dazukommen
+
+An einem Beleg fehlen heute drei Angaben:
+
+| Was | Wofür |
+|---|---|
+| **Art des Belegs** | Rechnung, Storno oder Gutschrift — heute ist jede Zeile eine Rechnung |
+| **Bezug** | auf welche Rechnung sich ein Storno bezieht |
+| **Grund** | warum aufgehoben wurde; steht auf dem Beleg und ist Pflicht |
+
+Alles Übrige ist vorhanden: Nummer, Datum, Kunde, Betrag, USt-Satz,
+Beschreibung.
+
+**Beim Guthaben** kommt ein neuer Herkunftswert dazu. Heute kennt das Konto
+„Empfehlung", „manuell" und „verrechnet". Ein Storno-Guthaben unter
+„manuell" zu führen wäre bequem, aber der Kunde sähe dann nicht, woher es
+kommt — und der Betreiber später auch nicht.
+
+### C) Technische Entscheidungen und warum
+
+**Der Storno steht in derselben Liste wie die Rechnungen.**
+Begründung oben. Der Preis dafür: Jede Auswertung, die „alle Rechnungen"
+meint, muss künftig sagen, ob sie Stornos einschließt. Das betrifft heute
+genau eine Stelle — die offenen Posten.
+
+**Die ursprüngliche Rechnung wird nicht angefasst.**
+Sie behält Betrag, Nummer und Datum. Ob sie aufgehoben ist, ergibt sich
+daraus, dass ein Storno auf sie verweist. Ein Feld „storniert: ja" an der
+Rechnung wäre eine zweite Wahrheit, die mit der ersten auseinanderlaufen kann.
+
+**Offene Posten schließen sich selbst.**
+Die Mahnliste zeigt zurückgebuchte, unbeglichene Rechnungen. Wird eine davon
+storniert, gibt es die Forderung nicht mehr — sie muss verschwinden, sonst
+mahnt das System etwas an, das aufgehoben ist. Das ist die eine Stelle, die
+der neue Belegtyp zwingend ändert.
+
+**Belege sind unveränderlich, und zwar in der Datenbank.**
+Nicht nur der Knopf fehlt, sondern das Recht. Eine Buchhaltung, die sich auf
+eine ausgeblendete Schaltfläche verlässt, ist keine.
+
+**Nur Admins, serverseitig geprüft.**
+Wie bei jedem anderen Verwaltungsvorgang: Die Prüfung sitzt dort, wo der
+Vorgang ausgeführt wird, nicht in der Oberfläche.
+
+**Storno und Guthaben entstehen gemeinsam oder gar nicht.**
+Ein Beleg ohne Gutschrift wäre eine Forderung, die der Kunde nie
+zurückbekommt; eine Gutschrift ohne Beleg wäre Geld ohne Grund. Beides
+zusammen oder nichts.
+
+### D) Neue Pakete
+
+**Keine.** Nummernvergabe, Belegdruck, Guthabenkonto, Export und
+Rechteprüfung sind alle vorhanden. Es kommen Angaben an einem bestehenden
+Beleg dazu und zwei Dialoge in der Verwaltung.
+
+### E) Aufwandseinschätzung
+
+| Teil | Aufwand | Begründung |
+|---|---|---|
+| Belegart, Bezug und Grund | klein | drei Angaben an einer bestehenden Tabelle |
+| Storno erzeugen (Beleg + Guthaben gemeinsam) | mittel | muss geschlossen ablaufen, sonst entsteht Geld ohne Beleg |
+| Gutschrift mit Betragsprüfung | mittel | Summe aller Gutschriften darf die Rechnung nicht übersteigen |
+| Zwei Dialoge in der Verwaltung | klein | vorhandene Bausteine |
+| Offene Posten anpassen | klein | eine Abfrage |
+| Kundenansicht und Belegdruck | klein | zwei Zeilen mehr Information |
+| Buchhaltungs-Export | **keiner** | funktioniert durch die negative Zeile von selbst |
+
 
 ## QA Test Results
 _To be added by /qa_
