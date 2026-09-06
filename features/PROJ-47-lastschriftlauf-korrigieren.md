@@ -1,6 +1,6 @@
 # PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren
 
-## Status: Planned
+## Status: Architected
 
 **Priorität:** P0 — bewegt echtes Geld, muss vor dem Start stehen
 **Erstellt:** 2026-09-06
@@ -193,13 +193,22 @@ verlangt IBAN, Kontoinhaber und Mandatsreferenz.
 
 ## Open Questions
 
-- [ ] Soll die Übersicht der Läufe Entwürfe hervorheben, damit ein vergessener
-      Entwurf auffällt? Ein Lauf, der nie freigegeben wird, bucht nichts ab —
-      und niemand merkt es.
+- [x] Soll die Übersicht der Läufe Entwürfe hervorheben? → Ja. Der bestehende
+      Zustandsfilter bekommt „Entwurf" als dritten Wert, und das
+      Zustandskennzeichen in der Liste zeigt ihn. Damit ist ein vergessener
+      Entwurf mit einem Blick auffindbar, ohne dass es eine eigene Ansicht
+      braucht. (2026-09-06, Architektur)
 - [ ] Was passiert mit einem Entwurf, dessen Fälligkeitsdatum verstrichen ist?
-      Warnen, sperren, oder ignorieren?
-- [ ] Braucht die Freigabe eine Trockenübung — eine Vorschau der Bankdatei,
-      bevor sie verbindlich wird?
+      **Empfehlung:** warnen, nicht sperren. Ein verstrichenes Datum macht den
+      Lauf nicht falsch — der Betreiber kann bewusst später einziehen. Sperren
+      hieße, ihm die Arbeit wegzunehmen, die er gerade tut. Zu entscheiden vor
+      `/frontend`.
+- [ ] Braucht die Freigabe eine Vorschau der Bankdatei? **Empfehlung:** nein.
+      Die Bestätigung nennt Anzahl und Summe, und die Positionsliste steht
+      darüber — die Bankdatei enthält dieselben Zahlen in einer Form, die
+      niemand liest. Eine herunterladbare Vorschau wäre außerdem genau die
+      Datei, die versehentlich bei der Bank landen könnte, und damit gegen die
+      Entscheidung „keine Bankdatei im Entwurf".
 
 ## Decision Log
 
@@ -217,10 +226,141 @@ verlangt IBAN, Kontoinhaber und Mandatsreferenz.
 
 ### Technical Decisions
 
-_Wird von `/architecture` ergänzt._
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Der Zustand steht als Zeitpunkt am Lauf, nicht als Ableitung aus vorhandenen Rechnungen | Eine Ableitung waere eine zweite Wahrheit: schlaegt die Rechnungserstellung fehl, gaelte der Lauf wieder als Entwurf, obwohl die Kunden schon benachrichtigt sind. Ein eigener Zeitpunkt kann mit sich selbst nicht uneins werden. | 2026-09-06 |
+| Die Sperre sitzt als Waechter in der Datenbank | Dieselbe Ueberlegung wie bei PROJ-46: fehlt nur der Knopf, ist nichts gesperrt. Der Waechter greift unabhaengig davon, welcher Weg die Aenderung ausloest. | 2026-09-06 |
+| Freigabe als ein einziger Datenbankvorgang statt als Ablauf aus Schritten | Rechnungen, Ankuendigungen und Stempel gemeinsam oder gar nicht. Moeglich, weil die Benachrichtigungs-Warteschlange nur Empfaenger, Anlass und Bezug speichert -- der Text entsteht erst beim Versand. Verhindert zugleich, dass zwei gleichzeitige Freigaben zwei Rechnungssaetze erzeugen. | 2026-09-06 |
+| Guthaben wird zurueckgegeben und neu verrechnet, nicht nachgerechnet | Die Differenz anzupassen geht bei kleinen Aenderungen gut und bei der einen, auf die es ankommt, schief: unter das bereits verrechnete Guthaben gesenkt, muesste die Position negativ werden. | 2026-09-06 |
+| Die Auswahl beim Hinzufuegen folgt derselben Regel wie das Anlegen | Eine zweite, eigene Regel wuerde irgendwann von der ersten abweichen, und dann waere unklar, welche stimmt. | 2026-09-06 |
+| Obergrenze fuer den Positionsbetrag, analog zur Ruecklastschriftgebuehr in PROJ-37 | Ein Vertipper ist bei einer Abbuchung teurer als bei einer Gebuehr, nicht billiger. | 2026-09-06 |
+| Bestehende Laeufe gelten als freigegeben, ohne Umzug | In der Produktion gibt es null Laeufe. Aeltere Laeufe sind freigegeben -- das ist keine Annahme, sondern ihr Zustand. | 2026-09-06 |
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Der tragende Gedanke
+
+Der Lauf bekommt einen Zeitpunkt, an dem er verbindlich wird. Alles, was heute
+beim Anlegen passiert und nicht rückgängig zu machen ist — Rechnungen und die
+Nachricht an den Kunden — wandert an diesen Zeitpunkt. Davor ist der Lauf eine
+Arbeitsliste, danach ein Dokument.
+
+Das ist die ganze Änderung. Die Positionen, die Guthabenverrechnung, die
+Bankdatei und die Rücklastschriften bleiben, wie sie sind — sie wechseln nur
+die Seite der Linie.
+
+### A) Aufbau der Oberfläche
+
+```
+Lastschriftläufe (Übersicht)
+├── Neuen Lauf anlegen
+├── Filter „Zustand"                    ← bekommt „Entwurf" dazu
+└── Liste der Läufe
+    └── je Zeile: Datum · Anzahl · Summe · Zustand
+                                         ↑ Entwurf | Eingezogen | Mit Rückbuchungen
+
+Lauf-Detailseite
+├── Kopf: Fälligkeitsdatum · Zustand · Gesamtsumme
+│
+├── WENN ENTWURF
+│   ├── Positionsliste
+│   │   └── je Zeile: Kunde · Bezug · Betrag
+│   │       ├── Betrag ändern            (Feld an Ort und Stelle)
+│   │       └── Position entfernen       (mit Rückfrage)
+│   ├── Position hinzufügen              → Auswahl offener Abos und Tickets
+│   ├── Entwurf verwerfen                (mit Rückfrage)
+│   └── Lauf freigeben                   → Bestätigung mit Anzahl und Summe
+│
+└── WENN FREIGEGEBEN
+    ├── Positionsliste (nur lesen)
+    │   └── je Zeile: Rücklastschrift markieren
+    ├── Bankdatei herunterladen          (beliebig oft)
+    └── Vermerk: freigegeben am … von …
+```
+
+Zwei bestehende Bausteine ändern sich, keiner verschwindet: die Übersichtsliste
+lernt einen dritten Zustand, die Detailseite bekommt zwei Gesichter statt einem.
+Neu ist nur die Auswahl zum Hinzufügen.
+
+### B) Welche Informationen dazukommen
+
+**Am Lauf** zwei Angaben: *wann freigegeben* und *von wem*. Sind sie leer, ist
+der Lauf ein Entwurf. Mehr braucht es nicht — der Zustand ergibt sich daraus,
+er wird nicht getrennt gepflegt.
+
+**An der Position** nichts. Sie trägt bereits alles Nötige.
+
+**Beim Guthaben** fehlt bisher der Rückweg. Es gibt einen Vorgang, der Guthaben
+gegen eine Position verrechnet, aber keinen, der das rückgängig macht. Den
+braucht jede der vier Korrekturen.
+
+### C) Technische Entscheidungen und warum
+
+**Der Zustand steht am Lauf, nicht in einer Ableitung.**
+Man könnte „freigegeben" auch daran erkennen, dass es Rechnungen zu diesem Lauf
+gibt. Das wäre eine zweite Wahrheit: schlägt die Rechnungserstellung fehl, gilt
+der Lauf plötzlich wieder als Entwurf, obwohl die Kunden schon benachrichtigt
+sind. Ein eigener Zeitpunkt kann nicht mit sich selbst uneins werden.
+
+**Die Sperre sitzt in der Datenbank, nicht in der Oberfläche.**
+Dieselbe Überlegung wie bei PROJ-46: Wenn nur der Knopf fehlt, ist nichts
+gesperrt. Ein Wächter auf den Positionen weist jede Änderung ab, sobald der
+zugehörige Lauf freigegeben ist — unabhängig davon, welcher Weg sie auslöst.
+
+**Die Freigabe ist ein einziger Vorgang, kein Ablauf aus Schritten.**
+Rechnungen erzeugen, Ankündigungen einreihen und den Lauf stempeln passiert
+gemeinsam oder gar nicht. Das geht, weil die Warteschlange für
+Benachrichtigungen nur Empfänger, Anlass und Bezug speichert — der Text
+entsteht erst beim Versand. Ein halb freigegebener Lauf, bei dem Rechnungen
+existieren und Kunden nichts wissen, kann so nicht entstehen.
+
+Derselbe Vorgang prüft zuerst, ob der Lauf noch ein Entwurf ist. Zwei Betreiber,
+die gleichzeitig freigeben, erzeugen daher keine zwei Rechnungssätze.
+
+**Guthaben wird immer zurückgegeben und neu verrechnet, nie nachgerechnet.**
+Die naheliegende Abkürzung wäre, bei einer Betragsänderung nur die Differenz
+anzupassen. Das geht bei kleinen Änderungen gut und bei der einen, auf die es
+ankommt, schief: Wird ein Betrag unter das bereits verrechnete Guthaben
+gesenkt, müsste die Position negativ werden. Zurückgeben und neu verrechnen
+kennt diesen Fall nicht.
+
+**Die Auswahl beim Hinzufügen folgt derselben Regel wie das Anlegen.**
+Wer beim Anlegen erfasst wird — aktives Abo oder SEPA-Ticket, gültiges Mandat,
+nicht schon eingezogen —, ist genau der Kreis, aus dem nachgetragen wird,
+abzüglich derer, die im Lauf schon stehen. Eine zweite, eigene Regel würde
+irgendwann von der ersten abweichen, und dann wäre unklar, welche stimmt.
+
+**Der Betrag bekommt eine Obergrenze.**
+Wie die Rücklastschriftgebühr in PROJ-37. Ein Vertipper ist bei einer
+Abbuchung teurer als bei einer Gebühr, nicht billiger.
+
+**Bestehende Läufe brauchen keine Behandlung.**
+In der Produktion gibt es null Läufe. Ältere Läufe gelten schlicht als
+freigegeben — was sie sind.
+
+### D) Neue Pakete
+
+Keine. Nummernvergabe, Rechnungserstellung, Guthabenkonto, Benachrichtigungen,
+Bankdatei und Rechteprüfung sind vorhanden. Das Bestätigungsfenster gibt es als
+Baustein bereits (es warnt heute vor doppelten Läufen).
+
+### E) Aufwandseinschätzung
+
+| Teil | Größe |
+|---|---|
+| Zustand am Lauf, Wächter auf den Positionen | klein |
+| Guthaben-Rückgabe | klein |
+| Freigabe als ein Vorgang (Umzug von Rechnungen und Ankündigungen) | mittel |
+| Detailseite mit zwei Gesichtern | mittel |
+| Betrag ändern, Position entfernen, Entwurf verwerfen | mittel |
+| Position hinzufügen samt Auswahl | mittel |
+| Übersicht: dritter Zustand | klein |
+
+Der größte Einzelposten ist nicht das Bauen, sondern das Verschieben: die
+Rechnungserstellung und die Ankündigung sitzen mitten in einem gewachsenen
+Ablauf, der auch Empfehlungsprämien und Guthabenverrechnung erledigt. Diesen
+Ablauf sauber in zwei Hälften zu teilen, ohne die Reihenfolge zu verletzen, ist
+die eigentliche Arbeit.
 
 ## QA Test Results
 _To be added by /qa_
