@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
 import { routing } from "@/i18n/routing";
 import { updateSession } from "@/lib/supabase/middleware";
+import { umleitungsZiel } from "@/lib/domain/umleitung";
 
 const handleI18n = createIntlMiddleware(routing);
 
@@ -18,6 +19,14 @@ const handleI18n = createIntlMiddleware(routing);
  * unten ausgenommen: sie haben keine Sprachebene, brauchen aber die Sitzung.
  */
 export async function middleware(request: NextRequest) {
+  // Vor allem anderen: Wer noch die alte vercel.app-Adresse aufruft, wird auf
+  // die eigene Domain geschickt — mit Pfad und Abfrage, damit die QR-Codes auf
+  // bereits ausgestellten Tickets weiterhin am richtigen Ziel ankommen.
+  const ziel = umleitungsZiel(request.nextUrl, request.headers.get("host"));
+  if (ziel) {
+    return NextResponse.redirect(ziel, 308);
+  }
+
   const { pathname } = request.nextUrl;
   const ohneSprachebene =
     pathname.startsWith("/admin") ||
