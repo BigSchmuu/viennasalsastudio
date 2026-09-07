@@ -183,7 +183,10 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
       "Der geänderte Betrag steht nicht in der Datenbank"
     ).toBe(true);
 
-    await expect(page.getByText("12,34")).toBeVisible();
+    // Auf die Zelle eingegrenzt: getByText sucht Teiltexte, und die Summenzeile
+    // darüber endete im Volllauf schon einmal auf € 312,34 — zwei Treffer,
+    // Strict-Mode-Verstoß, obwohl die Änderung angekommen war.
+    await expect(page.getByRole("cell", { name: "€ 12,34" }).first()).toBeVisible();
   });
 
   test("AC Entfernen: die Position verschwindet aus Liste und Summe", async ({ page }) => {

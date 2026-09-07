@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 /**
  * Navigieren, nachdem die Anwendung selbst navigiert hat.
@@ -25,4 +25,18 @@ export async function gehZu(page: Page, pfad: string, versuche = 3): Promise<voi
       await page.waitForTimeout(700);
     }
   }
+}
+
+/**
+ * Die Preisliste auf /admin/buchungen aufklappen.
+ *
+ * Sie ist zugeklappt, weil sie sonst die halbe Verwaltungsseite einnimmt; die
+ * eingestellten Preise stehen als Zeile in der Kopfzeile. Wer ein Preisfeld
+ * anfassen will, muss vorher hier vorbei.
+ */
+export async function oeffnePreise(page: Page): Promise<void> {
+  const erstesFeld = page.locator("#normal-price");
+  if (await erstesFeld.isVisible()) return;
+  await page.getByRole("button", { name: /^Preise/ }).click();
+  await expect(erstesFeld).toBeVisible();
 }

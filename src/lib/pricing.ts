@@ -119,3 +119,49 @@ export function formatPrice(price: number, locale: string = "de"): string {
     currency: "EUR",
   });
 }
+
+/**
+ * Die Preisliste in einer Zeile, für die zugeklappte Kopfzeile.
+ *
+ * Sie soll den häufigsten Grund erledigen, überhaupt aufzuklappen: nachsehen,
+ * was gerade eingestellt ist. Deshalb steht sie neben dem Aufklapper und nicht
+ * darin.
+ *
+ * `null` heißt „noch nicht gepflegt" und wird als solches genannt — ein
+ * ausgelassener Eintrag sähe aus wie ein vergessener, und „0 €" wäre schlicht
+ * falsch. Bei den Empfehlungsbeträgen ist 0 dagegen eine Aussage: das
+ * Programm ist aus.
+ */
+/**
+ * Eingabe für {@link preisUeberblick}: wie {@link StudioPricing}, nur darf
+ * überall `null` stehen. Das Formular zeigt die Übersicht aus den Feldern, die
+ * gerade darin stehen — und ein geleertes Feld hat noch keine Zahl.
+ */
+export type PreisUeberblickEingabe = {
+  dropin: { normal: number | null; student: number | null };
+  course: { normal: number | null; student: number | null };
+  flatrate: { normal: number | null; student: number | null };
+  referral: { referrer: number | null; referee: number | null };
+};
+
+export function preisUeberblick(preise: PreisUeberblickEingabe, locale: string = "de"): string {
+  const paar = (normal: number | null, student: number | null): string =>
+    normal === null && student === null
+      ? "nicht gepflegt"
+      : `${normal === null ? "\u2014" : formatPrice(normal, locale)} / ${
+          student === null ? "\u2014" : formatPrice(student, locale)
+        }`;
+
+  const teile = [
+    `Drop-in ${paar(preise.dropin.normal, preise.dropin.student)}`,
+    `Kursabo ${paar(preise.course.normal, preise.course.student)}`,
+    `Flatrate ${paar(preise.flatrate.normal, preise.flatrate.student)}`,
+    // Beide auf 0 heißt: das Empfehlungsprogramm ist abgeschaltet. Das gehört in
+    // die Übersicht, sonst sucht man den Schalter, den es nicht gibt.
+    preise.referral.referrer === 0 && preise.referral.referee === 0
+      ? "Empfehlung aus"
+      : `Empfehlung ${paar(preise.referral.referrer, preise.referral.referee)}`,
+  ];
+
+  return teile.join(" \u00b7 ");
+}

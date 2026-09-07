@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { gehZu } from "./navigation";
+import { gehZu, oeffnePreise } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
@@ -126,6 +126,7 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
     await login(page, ADMIN);
     await page.goto("/admin/buchungen");
     await page.waitForTimeout(800);
+    await oeffnePreise(page);
     await expect(page.locator("#course-price")).toHaveValue("65");
     await expect(page.locator("#course-student-price")).toHaveValue("45");
     await expect(page.locator("#flatrate-price")).toHaveValue("145");
@@ -139,6 +140,7 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
     await login(page, ADMIN);
     await page.goto("/admin/buchungen");
     await page.waitForTimeout(800);
+    await oeffnePreise(page);
     await page.locator("#course-price").fill("70");
     await page.getByRole("button", { name: "Speichern" }).click();
     await expect(page.getByText("Preise gespeichert.")).toBeVisible({ timeout: 10000 });
@@ -154,6 +156,7 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
     await login(page, ADMIN);
     await page.goto("/admin/buchungen");
     await page.waitForTimeout(800);
+    await oeffnePreise(page);
 
     await page.locator("#course-price").fill("-5");
     await page.getByRole("button", { name: "Speichern" }).click();
@@ -383,6 +386,7 @@ test.describe("PROJ-41: Preise bei der Kursbuchung", () => {
     await login(page, ADMIN);
     await page.goto("/admin/buchungen");
     await page.waitForTimeout(800);
+    await oeffnePreise(page);
     await page.locator("#course-student-price").fill("99");
     await page.getByRole("button", { name: "Speichern" }).click();
     await page.waitForTimeout(1000);

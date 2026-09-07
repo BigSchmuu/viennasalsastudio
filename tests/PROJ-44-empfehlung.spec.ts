@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { gehZu } from "./navigation";
+import { gehZu, oeffnePreise } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 ladeTestUmgebung();
@@ -150,6 +150,7 @@ test.describe("PROJ-44: Empfehlungsprogramm", () => {
     await anmelden(page, "e2e8-admin@viennasalsastudio.test");
     await page.goto("/admin/buchungen");
     await page.waitForTimeout(1500);
+    await oeffnePreise(page);
     await expect(page.getByText("Empfehlungsguthaben", { exact: true })).toBeVisible();
     await expect(page.locator("#referral-reward-referrer")).toHaveValue("15");
     await expect(page.locator("#referral-reward-referee")).toHaveValue("15");

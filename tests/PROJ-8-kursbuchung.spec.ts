@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { gehZu } from "./navigation";
+import { gehZu, oeffnePreise } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
@@ -365,6 +365,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await login(page, ADMIN);
     await page.goto("/admin/buchungen");
     await page.waitForTimeout(600);
+    await oeffnePreise(page);
     await page.locator("#normal-price").fill("25");
     await page.locator("#student-price").fill("18");
     await page.getByRole("button", { name: "Speichern" }).click();
@@ -383,6 +384,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await login(page, ADMIN);
     await page.goto("/admin/buchungen");
     await page.waitForTimeout(600);
+    await oeffnePreise(page);
     await page.locator("#normal-price").fill("20");
     await page.locator("#student-price").fill("15");
     await page.getByRole("button", { name: "Speichern" }).click();

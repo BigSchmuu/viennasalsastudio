@@ -91,6 +91,8 @@
 | Der Abo-Preis wird beim Abschluss ins Abo geschrieben und danach nicht mehr angefasst | Nur so bleibt ein laufender Vertrag von Preisänderungen unberührt | 2026-08-23 |
 | Fehlender Standardpreis zeigt einen Hinweis statt „0,00 €" | Eine Null wäre eine Preisaussage, die niemand getroffen hat | 2026-08-23 |
 | Obergrenze und Vorzeichenprüfung wie bei den bestehenden Preisfeldern | Ein Zahlendreher (650 statt 65) darf nicht stillschweigend zu einem Vertragsangebot werden | 2026-08-23 |
+| Die Preisliste ist zugeklappt, mit den eingestellten Preisen als Zeile in der Kopfzeile | Acht Preisfelder nahmen die halbe Verwaltungsseite ein, obwohl Preise selten geändert werden. Die Zeile erledigt den häufigsten Grund aufzuklappen — nachsehen, was eingestellt ist — ohne einen Klick | 2026-09-07 |
+| Die Kopfzeile zeigt die Felder, nicht den gespeicherten Stand, und weist auf Ungespeichertes hin | Zeigte sie den Serverstand, widerspräche die zugeklappte Zeile den Feldern darunter, sobald jemand etwas geändert und noch nicht gespeichert hat | 2026-09-07 |
 | Der gezeigte Preis wird auf der Anfrage eingefroren, nicht beim Bestätigen neu gerechnet | Schützt vor einem untergeschobenen Betrag und hält die Zusage stabil, wenn sich der Standardpreis dazwischen ändert | 2026-08-23 |
 | Gutschein-Rabatt gilt jetzt auch für die Flatrate | Der Grund für die Einschränkung aus PROJ-15 (die Flatrate hatte keinen Preis) ist mit diesem Feature weggefallen — vom Betreiber entschieden | 2026-08-23 |
 | Preis beim Nachrücken von der Warteliste, nicht beim Eintragen | Der Wartelisten-Eintrag hält keinen Studierendenwunsch fest, und zwischen Eintrag und Nachrücken können Monate liegen | 2026-08-23 |
