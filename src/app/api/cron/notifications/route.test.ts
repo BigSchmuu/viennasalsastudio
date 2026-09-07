@@ -5,9 +5,13 @@ const runDailyChecks = vi.fn();
 const runFollowupChecks = vi.fn();
 const runEveningChecks = vi.fn();
 const drainPendingQueue = vi.fn();
+const vollzieheFaelligeAenderungen = vi.fn();
 
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: vi.fn(() => ({})),
+}));
+vi.mock("@/lib/subscriptions/faellige-aenderungen", () => ({
+  vollzieheFaelligeAenderungen: (...args: unknown[]) => vollzieheFaelligeAenderungen(...args),
 }));
 vi.mock("@/lib/notifications/dispatch", () => ({
   runDailyChecks: (...args: unknown[]) => runDailyChecks(...args),
@@ -23,6 +27,9 @@ describe("GET /api/cron/notifications", () => {
     runFollowupChecks.mockReset().mockResolvedValue({ followup: 1 });
     runEveningChecks.mockReset().mockResolvedValue({ evening: 4 });
     drainPendingQueue.mockReset().mockResolvedValue({ processed: 3 });
+    vollzieheFaelligeAenderungen
+      .mockReset()
+      .mockResolvedValue({ vollzogen: 2, gekuendigt: 1, freigewordeneKurse: [] });
     process.env.CRON_SECRET = "test-secret";
   });
 
@@ -56,7 +63,18 @@ describe("GET /api/cron/notifications", () => {
     expect(runFollowupChecks).toHaveBeenCalledTimes(1);
     expect(runEveningChecks).not.toHaveBeenCalled();
     expect(drainPendingQueue).toHaveBeenCalledTimes(1);
-    expect(body).toEqual({ reminders: 2, effective: 1, followup: 1, processed: 3 });
+    // Der Morgenlauf vollzieht faellige Abo-Aenderungen; die freigewordenen
+    // Kurse gehoeren in die Nachrueckung, nicht in die Antwort.
+    expect(vollzieheFaelligeAenderungen).toHaveBeenCalledTimes(1);
+    expect(body).toEqual({
+      reminders: 2,
+      effective: 1,
+      followup: 1,
+      vollzogen: 2,
+      gekuendigt: 1,
+      freigewordeneKurse: [],
+      processed: 3,
+    });
   });
 
   it("runs only the PROJ-29 evening check when ?run=evening, not the morning checks", async () => {
@@ -72,7 +90,10 @@ describe("GET /api/cron/notifications", () => {
     expect(runDailyChecks).not.toHaveBeenCalled();
     expect(runFollowupChecks).not.toHaveBeenCalled();
     expect(drainPendingQueue).toHaveBeenCalledTimes(1);
-    expect(body).toEqual({ evening: 4, processed: 3 });
+    // Der Abendlauf vollzieht nichts: Ein Stichtag gehoert an den Tagesanfang,
+    // und zweimal taeglich braucht es nicht.
+    expect(vollzieheFaelligeAenderungen).not.toHaveBeenCalled();
+    expect(body).toEqual({ evening: 4, vollzogen: 0, gekuendigt: 0, processed: 3 });
   });
 
   it("still requires the bearer token on the evening run", async () => {

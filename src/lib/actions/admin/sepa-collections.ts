@@ -617,6 +617,12 @@ export async function gibLaufFrei(runId: string): Promise<ActionResult> {
     return { error: treffer?.[1] ?? "Der Lauf konnte nicht freigegeben werden." };
   }
 
+  // Hier stand kurzzeitig ein drainPendingQueue(), damit die Ankuendigung
+  // sofort rausgeht. Das war falsch: Es baut genau das wieder ein, was der
+  // Entwurf zu PROJ-47 ausdruecklich vermeiden wollte -- ein Versandversuch je
+  // Position, nacheinander, waehrend der Betreiber wartet. Bei zwanzig Kunden
+  // laeuft die Anfrage auf. Die Warteschlange bleibt Sache des Cron-Laufs; die
+  // Oberflaeche sagt nach der Freigabe, wann die Ankuendigungen rausgehen.
   revalidatePath(`/admin/lastschriften/${runId}`);
   revalidatePath("/admin/lastschriften");
   revalidatePath("/admin/rechnungen");

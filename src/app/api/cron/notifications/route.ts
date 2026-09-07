@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { runDailyChecks, runFollowupChecks, runEveningChecks, drainPendingQueue } from "@/lib/notifications/dispatch";
+import { vollzieheFaelligeAenderungen } from "@/lib/subscriptions/faellige-aenderungen";
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -19,7 +20,18 @@ export async function GET(request: NextRequest) {
     ? await runEveningChecks(service)
     : { ...(await runDailyChecks(service)), ...(await runFollowupChecks(service)) };
 
+  // Geplante Abo-Aenderungen vollziehen, deren Stichtag erreicht ist. Bis
+  // hierher war das Handarbeit -- der Lauf verschickte am Stichtag nur eine
+  // Nachricht. Blieb der Vollzug aus, war das Abo formal weiter aktiv und
+  // `cancelled_at` leer; die Kuendigung fehlte damit in der Auswertung.
+  //
+  // Nur im Morgenlauf: Zweimal taeglich braucht es nicht, und ein Stichtag
+  // gehoert an den Tagesanfang.
+  const vollzug = isEveningRun
+    ? { vollzogen: 0, gekuendigt: 0 }
+    : await vollzieheFaelligeAenderungen(service);
+
   const drained = await drainPendingQueue(service);
 
-  return NextResponse.json({ ...checks, ...drained });
+  return NextResponse.json({ ...checks, ...vollzug, ...drained });
 }

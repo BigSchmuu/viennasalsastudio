@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { subscriptionSchema } from "@/lib/validations/admin";
 import { heuteInWien } from "@/lib/constants/zeitzone";
-import type { ActionResult } from "@/lib/actions/types";
+import { isForeignKeyRestrictError, type ActionResult } from "@/lib/actions/types";
 
 function parseSubscriptionFormData(formData: FormData) {
   const priceRaw = formData.get("price");
@@ -153,10 +153,31 @@ export async function deleteSubscription(id: string, customerId: string): Promis
     .eq("id", id)
     .single();
 
-  const { error } = await supabase.from("subscriptions").delete().eq("id", id);
+  const { data: geloescht, error } = await supabase
+    .from("subscriptions")
+    .delete()
+    .eq("id", id)
+    .select("id");
 
   if (error) {
+    // Ein Abo, das in einem Lastschriftlauf steht, laesst sich nicht loeschen:
+    // Der Lauf ist ein Buchhaltungsbeleg und muss seinen Bezug behalten. Das
+    // ist richtig so -- aber der Betreiber muss erfahren, was er stattdessen
+    // tun kann, statt vor "hat nicht geklappt" zu stehen.
+    if (isForeignKeyRestrictError(error)) {
+      return {
+        error:
+          "Dieses Abo steht bereits in einem Lastschriftlauf und lässt sich deshalb nicht löschen — der Lauf muss seinen Bezug behalten. Kündige es stattdessen: Dann wird es künftig nicht mehr eingezogen.",
+      };
+    }
     return { error: "Abo konnte nicht gelöscht werden." };
+  }
+
+  // Ein Loeschvorgang ohne Treffer meldet in PostgREST keinen Fehler. Ohne
+  // diese Pruefung saehe der Betreiber eine Bestaetigung fuer etwas, das nicht
+  // geschehen ist.
+  if (!geloescht || geloescht.length === 0) {
+    return { error: "Das Abo wurde nicht gelöscht. Bitte lade die Seite neu." };
   }
 
   if (before?.status === "active" && before.course_id) {

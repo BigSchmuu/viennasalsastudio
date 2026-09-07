@@ -393,9 +393,13 @@ export function CollectionRunDetail({
                   </span>
                 </p>
                 <p>
-                  Damit werden die Rechnungen erstellt und die Vorabankündigungen an die Kunden
-                  verschickt. Anschließend lässt sich am Lauf nichts mehr ändern — erst danach gibt
-                  es die Bankdatei.
+                  Damit werden die Rechnungen erstellt. Anschließend lässt sich am Lauf nichts mehr
+                  ändern — erst danach gibt es die Bankdatei.
+                </p>
+                <p>
+                  Die Vorabankündigungen werden eingereiht und gehen mit dem nächsten Versandlauf
+                  raus, morgens um 6 und abends um 18 Uhr. Nicht sofort: Bei vielen Kunden würde
+                  das Warten auf jede einzelne E-Mail diese Seite blockieren.
                 </p>
                 <p>Prüf die Beträge oben noch einmal, bevor du fortfährst.</p>
               </div>
@@ -404,7 +408,13 @@ export function CollectionRunDetail({
           <AlertDialogFooter>
             <AlertDialogCancel>Zurück zur Liste</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => ausfuehren("freigeben", () => gibLaufFrei(runId), "Lauf freigegeben")}
+              onClick={() =>
+                ausfuehren(
+                  "freigeben",
+                  () => gibLaufFrei(runId),
+                  "Lauf freigegeben. Die Ankündigungen gehen mit dem nächsten Versandlauf raus."
+                )
+              }
             >
               Freigeben
             </AlertDialogAction>

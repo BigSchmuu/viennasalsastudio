@@ -395,10 +395,24 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
       .select("customer_id, price")
       .eq("status", "active")
       .not("price", "is", null);
-    const treffer = (abos ?? []).find((a) =>
-      (mandate ?? []).some((m) => m.customer_id === a.customer_id)
-    );
-    expect(treffer, "Kein Kunde mit Abo und Mandat in der Testdatenbank").toBeTruthy();
+
+    // Genau ein aktives Abo, nicht irgendeines: E2E7 Multi Kunde hat zwei und
+    // bekommt damit zwei Positionen im Lauf — die Abfrage unten liest die
+    // Position mit `.single()` und bekaeme null. Ohne feste Reihenfolge haengt
+    // es an der Zeilenfolge der Datenbank, welcher Kunde gewaehlt wird; der
+    // Test war dadurch launisch.
+    const aboZahlJeKunde = new Map<string, number>();
+    for (const a of abos ?? []) {
+      aboZahlJeKunde.set(a.customer_id, (aboZahlJeKunde.get(a.customer_id) ?? 0) + 1);
+    }
+    const mitMandat = new Set((mandate ?? []).map((m) => m.customer_id));
+    const treffer = (abos ?? [])
+      .filter((a) => mitMandat.has(a.customer_id) && aboZahlJeKunde.get(a.customer_id) === 1)
+      .sort((a, b) => a.customer_id.localeCompare(b.customer_id))[0];
+    expect(
+      treffer,
+      "Kein Kunde mit genau einem Abo und Mandat in der Testdatenbank"
+    ).toBeTruthy();
 
     const { data: guthaben } = await svc
       .from("customer_credits")
