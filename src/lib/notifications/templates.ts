@@ -56,10 +56,20 @@ function emailShell(title: string, bodyHtml: string): string {
         kennt kein Flexbox. Eine zweispaltige Tabelle stellen alle Programme
         gleich dar.
 
-        Das Logo steht neben der Wortmarke, nicht an ihrer Stelle. Die meisten
-        Mailprogramme laden entfernte Bilder erst auf Klick — bliebe nur das
-        Bild, wäre die Kopfzeile bei den meisten Empfängern leer. So trägt der
-        Text die Marke, und das Logo kommt dazu, wenn es geladen wird.
+        Wortmarke links, Logo rechts. Das Logo steht neben dem Text, nicht an
+        seiner Stelle: Die meisten Mailprogramme laden entfernte Bilder erst
+        auf Klick — bliebe nur das Bild, wäre die Kopfzeile bei den meisten
+        Empfängern leer. So trägt der Text die Marke, und das Logo kommt dazu,
+        wenn es geladen wird.
+
+        Das Logo ist die weiße Menü-Fassung von viennasalsastudio.at, auf die
+        Flügel beschnitten. Die Originaldatei trägt darunter denselben
+        Schriftzug, der links schon als Text steht; bei dieser Höhe wäre er
+        unlesbar und stünde doppelt.
+
+        Es gibt die Marke auch in Schwarz. Sie wäre nötig, falls die Kopfzeile
+        einmal einen hellen Grund bekommt — auf dem Verlauf hier ist Weiß
+        richtig.
 
         Der Verlauf steht zusätzlich als einfache Hintergrundfarbe: Outlook
         ignoriert Farbverläufe, und ein weißes Logo auf weißem Grund wäre
@@ -68,12 +78,12 @@ function emailShell(title: string, bodyHtml: string): string {
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
              style="background-color: #ff3b30; background: linear-gradient(135deg, #ff3b30, #ffb000); border-radius: 12px 12px 0 0;">
         <tr>
-          <td style="padding: 14px 12px 14px 20px; width: 44px;" valign="middle">
-            <img src="${SITE_URL}/logo-mail.png" width="40" height="40" alt=""
-                 style="display: block; width: 40px; height: 40px; border: 0;" />
-          </td>
-          <td style="padding: 14px 20px 14px 0;" valign="middle">
+          <td style="padding: 14px 12px 14px 20px;" valign="middle" align="left">
             <span style="color: #fff; font-weight: 700; font-size: 16px;">Vienna Salsa Studio</span>
+          </td>
+          <td style="padding: 14px 20px 14px 0; width: 66px;" valign="middle" align="right">
+            <img src="${SITE_URL}/logo-mail.png" width="66" height="36" alt=""
+                 style="display: block; width: 66px; height: 36px; border: 0;" />
           </td>
         </tr>
       </table>
