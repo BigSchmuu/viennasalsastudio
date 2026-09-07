@@ -56,11 +56,17 @@ function emailShell(title: string, bodyHtml: string): string {
         kennt kein Flexbox. Eine zweispaltige Tabelle stellen alle Programme
         gleich dar.
 
-        Beide Teile stammen aus der Menü-Fassung von viennasalsastudio.at, an
-        der leeren Zeile zwischen Flügeln und Schrift getrennt und danach eng
-        beschnitten. Genommen wurde die weiße Datei und auf Schwarz umgefärbt,
-        weil sie mehr Auflösung hat als die schwarze (221x120 statt 176x96);
-        die Form trägt ohnehin nur der Alphakanal.
+        Beide Teile stammen aus der Vektorvorlage des Logos (PDF), gerendert mit
+        2400 Pixeln Breite und an der leeren Zeile zwischen Flügeln und Schrift
+        getrennt. Die Deckkraft kommt aus der Helligkeit der Vorlage, damit die
+        Kantenglättung erhalten bleibt statt an einer harten Schwelle
+        auszufransen.
+
+        Gespeichert in dreifacher Anzeigegröße — scharf auf hochauflösenden
+        Bildschirmen, ohne die Mail unnötig schwer zu machen. Die Breiten sind
+        aus dem Seitenverhältnis der Vorlage gerechnet, nicht gesetzt: Der
+        Schriftzug hat ein Verhältnis von 21,6, und eine runde Zahl daneben
+        staucht ihn sichtbar.
 
         Schwarz statt Weiß: Auf dem hellen Verlauf hat die feine Linienzeichnung
         so deutlich mehr Kontrast.
@@ -78,9 +84,9 @@ function emailShell(title: string, bodyHtml: string): string {
              style="background-color: #ff3b30; background: linear-gradient(135deg, #ff3b30, #ffb000); border-radius: 12px 12px 0 0;">
         <tr>
           <td style="padding: 14px 12px 14px 20px;" valign="middle" align="left">
-            <img src="${SITE_URL}/logo-mail-schriftzug.png" width="240" height="12"
+            <img src="${SITE_URL}/logo-mail-schriftzug.png" width="259" height="12"
                  alt="Vienna Salsa Studio"
-                 style="display: block; width: 240px; height: 12px; border: 0;
+                 style="display: block; width: 259px; height: 12px; border: 0;
                         color: #1a1a1a; font-weight: 700; font-size: 15px; font-family: Arial, sans-serif;" />
           </td>
           <td style="padding: 14px 20px 14px 0; width: 66px;" valign="middle" align="right">
