@@ -56,20 +56,19 @@ function emailShell(title: string, bodyHtml: string): string {
         kennt kein Flexbox. Eine zweispaltige Tabelle stellen alle Programme
         gleich dar.
 
-        Wortmarke links, Logo rechts. Das Logo steht neben dem Text, nicht an
-        seiner Stelle: Die meisten Mailprogramme laden entfernte Bilder erst
-        auf Klick — bliebe nur das Bild, wäre die Kopfzeile bei den meisten
-        Empfängern leer. So trägt der Text die Marke, und das Logo kommt dazu,
-        wenn es geladen wird.
+        Beide Teile stammen aus der Menü-Fassung von viennasalsastudio.at, an
+        der leeren Zeile zwischen Flügeln und Schrift getrennt und danach eng
+        beschnitten. Genommen wurde die weiße Datei und auf Schwarz umgefärbt,
+        weil sie mehr Auflösung hat als die schwarze (221x120 statt 176x96);
+        die Form trägt ohnehin nur der Alphakanal.
 
-        Das Logo ist die weiße Menü-Fassung von viennasalsastudio.at, auf die
-        Flügel beschnitten. Die Originaldatei trägt darunter denselben
-        Schriftzug, der links schon als Text steht; bei dieser Höhe wäre er
-        unlesbar und stünde doppelt.
+        Schwarz statt Weiß: Auf dem hellen Verlauf hat die feine Linienzeichnung
+        so deutlich mehr Kontrast.
 
-        Es gibt die Marke auch in Schwarz. Sie wäre nötig, falls die Kopfzeile
-        einmal einen hellen Grund bekommt — auf dem Verlauf hier ist Weiß
-        richtig.
+        Weil beide Teile Bilder sind, wäre die Kopfzeile bei blockierten Bildern
+        leer — und die meisten Mailprogramme laden entfernte Bilder erst auf
+        Klick. Der Schriftzug trägt deshalb den Alternativtext samt Farbe und
+        Schriftschnitt: Fehlt das Bild, steht dort trotzdem der Studioname.
 
         Der Verlauf steht zusätzlich als einfache Hintergrundfarbe: Outlook
         ignoriert Farbverläufe, und ein weißes Logo auf weißem Grund wäre
@@ -79,7 +78,10 @@ function emailShell(title: string, bodyHtml: string): string {
              style="background-color: #ff3b30; background: linear-gradient(135deg, #ff3b30, #ffb000); border-radius: 12px 12px 0 0;">
         <tr>
           <td style="padding: 14px 12px 14px 20px;" valign="middle" align="left">
-            <span style="color: #fff; font-weight: 700; font-size: 16px;">Vienna Salsa Studio</span>
+            <img src="${SITE_URL}/logo-mail-schriftzug.png" width="240" height="12"
+                 alt="Vienna Salsa Studio"
+                 style="display: block; width: 240px; height: 12px; border: 0;
+                        color: #1a1a1a; font-weight: 700; font-size: 15px; font-family: Arial, sans-serif;" />
           </td>
           <td style="padding: 14px 20px 14px 0; width: 66px;" valign="middle" align="right">
             <img src="${SITE_URL}/logo-mail.png" width="66" height="36" alt=""
