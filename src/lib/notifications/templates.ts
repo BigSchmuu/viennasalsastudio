@@ -79,17 +79,28 @@ function emailShell(title: string, bodyHtml: string): string {
         Der Verlauf steht zusätzlich als einfache Hintergrundfarbe: Outlook
         ignoriert Farbverläufe, und ein weißes Logo auf weißem Grund wäre
         unsichtbar.
+
+        Der Schriftzug skaliert mit (width 100%, max-width 259px, height auto).
+        Mit fester Breite brauchte die Kopfzeile mindestens 377 Pixel und ragte
+        auf schmalen Geräten über den Kasten darunter hinaus — auf einem
+        iPhone 13 um 35 Pixel, auf einem SE um 105. Die Attribute width und
+        height bleiben trotzdem stehen: Outlook am Rechner ignoriert die
+        Stilangaben, hat dort aber ohnehin die volle Breite.
+
+        Die Flügel behalten ihre feste Breite. Sie sind schmal genug, und ein
+        mitskalierendes Logo neben einem mitskalierenden Schriftzug ergäbe auf
+        engen Geräten zwei winzige Elemente statt eines lesbaren.
       -->
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
              style="background-color: #ff3b30; background: linear-gradient(135deg, #ff3b30, #ffb000); border-radius: 12px 12px 0 0;">
         <tr>
-          <td style="padding: 14px 12px 14px 20px;" valign="middle" align="left">
+          <td style="padding: 14px 8px 14px 16px;" valign="middle" align="left">
             <img src="${SITE_URL}/logo-mail-schriftzug.png" width="259" height="12"
                  alt="Vienna Salsa Studio"
-                 style="display: block; width: 259px; height: 12px; border: 0;
+                 style="display: block; width: 100%; max-width: 259px; height: auto; border: 0;
                         color: #1a1a1a; font-weight: 700; font-size: 15px; font-family: Arial, sans-serif;" />
           </td>
-          <td style="padding: 14px 20px 14px 0; width: 66px;" valign="middle" align="right">
+          <td style="padding: 14px 16px 14px 0; width: 66px;" valign="middle" align="right">
             <img src="${SITE_URL}/logo-mail.png" width="66" height="36" alt=""
                  style="display: block; width: 66px; height: 36px; border: 0;" />
           </td>
