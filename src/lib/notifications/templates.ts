@@ -16,7 +16,7 @@ export type NotificationContent = {
   url: string;
 };
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://viennasalsastudio.vercel.app";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://app.viennasalsastudio.at";
 
 function formatDate(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString("de-AT", {
