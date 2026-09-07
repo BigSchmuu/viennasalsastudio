@@ -1,6 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { buildNotificationContent } from "./templates";
 
+/**
+ * Der Mailkopf trägt seit dem Logo ein eigenes Bild.
+ *
+ * Die Prüfungen unten wollen wissen, ob **fremder** Text — Kurs- und
+ * Veranstaltungsnamen aus der Verwaltung — maskiert wird. Sie schneiden
+ * deshalb die Kopfzeile weg, statt die Zusicherung aufzuweichen: Ein Bild,
+ * das aus einem Kursnamen stammt, muss weiterhin auffallen.
+ */
+function ohneKopfzeile(html: string): string {
+  const ende = html.indexOf("</table>");
+  return ende === -1 ? html : html.slice(ende);
+}
+
 describe("buildNotificationContent", () => {
   it("builds a confirmation message for buchungsstatus", () => {
     const content = buildNotificationContent("buchungsstatus", {
@@ -78,7 +91,7 @@ describe("buildNotificationContent", () => {
       courseName: '<img src=x onerror=alert(1)>"Salsa"',
       newStatus: "confirmed",
     });
-    expect(content.emailHtml).not.toContain("<img");
+    expect(ohneKopfzeile(content.emailHtml)).not.toContain("<img");
     expect(content.emailHtml).toContain("&lt;img");
   });
 
@@ -127,7 +140,7 @@ describe("buildNotificationContent", () => {
       startsAt: "2026-09-01T20:00:00Z",
       ticketStatus: "confirmed",
     });
-    expect(content.emailHtml).not.toContain("<img");
+    expect(ohneKopfzeile(content.emailHtml)).not.toContain("<img");
     expect(content.emailHtml).toContain("&lt;img");
   });
 
@@ -165,7 +178,7 @@ describe("buildNotificationContent", () => {
       courseName: '<img src=x onerror=alert(1)>"Cubana"',
       courseId: "course-123",
     });
-    expect(content.emailHtml).not.toContain("<img");
+    expect(ohneKopfzeile(content.emailHtml)).not.toContain("<img");
     expect(content.emailHtml).toContain("&lt;img");
   });
 
@@ -192,7 +205,7 @@ describe("buildNotificationContent", () => {
       subject: '<img src=x onerror=alert(1)> Angebot',
       body: '<script>alert("xss")</script>',
     });
-    expect(content.emailHtml).not.toContain("<img");
+    expect(ohneKopfzeile(content.emailHtml)).not.toContain("<img");
     expect(content.emailHtml).not.toContain("<script>");
     expect(content.emailHtml).toContain("&lt;script&gt;");
   });
@@ -242,7 +255,7 @@ describe("buildNotificationContent", () => {
       courseName: "Salsa Beginner 2",
       bookingType: "regular",
     });
-    expect(content.emailHtml).not.toContain("<img");
+    expect(ohneKopfzeile(content.emailHtml)).not.toContain("<img");
     expect(content.emailHtml).toContain("&lt;img");
   });
 });

@@ -51,9 +51,32 @@ function escapeHtml(text: string): string {
 function emailShell(title: string, bodyHtml: string): string {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-      <div style="background: linear-gradient(135deg, #ff3b30, #ffb000); padding: 16px 20px; border-radius: 12px 12px 0 0;">
-        <span style="color: #fff; font-weight: 700; font-size: 16px;">Vienna Salsa Studio</span>
-      </div>
+      <!--
+        Kopfzeile als Tabelle, nicht als Flexbox: Outlook rendert mit Word und
+        kennt kein Flexbox. Eine zweispaltige Tabelle stellen alle Programme
+        gleich dar.
+
+        Das Logo steht neben der Wortmarke, nicht an ihrer Stelle. Die meisten
+        Mailprogramme laden entfernte Bilder erst auf Klick — bliebe nur das
+        Bild, wäre die Kopfzeile bei den meisten Empfängern leer. So trägt der
+        Text die Marke, und das Logo kommt dazu, wenn es geladen wird.
+
+        Der Verlauf steht zusätzlich als einfache Hintergrundfarbe: Outlook
+        ignoriert Farbverläufe, und ein weißes Logo auf weißem Grund wäre
+        unsichtbar.
+      -->
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+             style="background-color: #ff3b30; background: linear-gradient(135deg, #ff3b30, #ffb000); border-radius: 12px 12px 0 0;">
+        <tr>
+          <td style="padding: 14px 12px 14px 20px; width: 44px;" valign="middle">
+            <img src="${SITE_URL}/logo-mail.png" width="40" height="40" alt=""
+                 style="display: block; width: 40px; height: 40px; border: 0;" />
+          </td>
+          <td style="padding: 14px 20px 14px 0;" valign="middle">
+            <span style="color: #fff; font-weight: 700; font-size: 16px;">Vienna Salsa Studio</span>
+          </td>
+        </tr>
+      </table>
       <div style="border: 1px solid #eee; border-top: none; border-radius: 0 0 12px 12px; padding: 24px 20px;">
         <h1 style="font-size: 18px; margin: 0 0 12px; color: #0b1020;">${escapeHtml(title)}</h1>
         ${bodyHtml}
