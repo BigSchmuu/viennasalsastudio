@@ -52,6 +52,29 @@ All features tracked in `features/INDEX.md`. Every skill reads it at start and u
 - **Human-in-the-loop:** All workflows have user approval checkpoints
 - **Tests:** Unit tests co-located next to source files (`useHook.test.ts` next to `useHook.ts`). E2E tests in `tests/`.
 
+## Datenschutz & Produktionsdaten (MANDATORY)
+
+Alles, was ein Tool zurückgibt, wird Teil der Konversation und damit an Anthropic
+übertragen. Bei Kundendaten ist das eine Auftragsverarbeitung nach Art. 28 DSGVO.
+Deshalb gilt für Claude:
+
+- **Zwei getrennte Supabase-Projekte:** Produktion und Test. Der MCP-Zugang ist per
+  `project_ref` auf das **Testprojekt** begrenzt — die Produktion ist über MCP nicht
+  erreichbar und darf auch nicht über Umwege angesprochen werden.
+- **Keine personenbezogenen Daten in die Konversation holen.** Keine Abfragen, die
+  Klarnamen, E-Mail-Adressen, Telefonnummern, Geburtsdaten oder IBANs zurückgeben.
+  Stattdessen `count(*)`, IDs, Aggregate. Wird ein Einzelfall gebraucht, fragt Claude
+  nach der ID; der Betreiber führt die Abfrage selbst aus und liefert das Ergebnis
+  anonymisiert.
+- **Produktionsmigrationen laufen über den Betreiber.** Claude schreibt die
+  Migrationsdatei nach `supabase/migrations/` und übergibt das SQL; eingespielt wird
+  es im Supabase-SQL-Editor. Eine Schemaänderung in Produktion verdient einen
+  Menschen davor.
+- **Keine echten Kundendaten in die Testdatenbank** kopieren — die Testfixtures sind
+  erfunden (E2E…-Namen) und bleiben es.
+- **Keine Produktionsabzüge im Projektordner.** `produktion-sicherung-*.json` ist zwar
+  gitignored, liegt aber unverschlüsselt auf der Platte.
+
 ## Build & Test Commands
 
 ```bash
