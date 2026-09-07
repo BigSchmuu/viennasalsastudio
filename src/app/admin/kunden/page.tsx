@@ -17,10 +17,17 @@ export default async function CustomersPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const [profilesRes, emailsRes, subscriptionsRes] = await Promise.all([
-    supabase.from("profiles").select("id, full_name, created_at").eq("role", "customer"),
+  const [profilesRes, emailsRes, subscriptionsRes, mandatesRes] = await Promise.all([
+    // Nicht mehr nur `role = 'customer'`.
+    //
+    // Eine Lehrkraft mit Flatrate-Abo tauchte hier nicht auf — und damit war
+    // ihr Abo weder änderbar noch kündbar, obwohl es monatlich abgebucht wird.
+    // Wen der Betrieb abrechnet, den muss er auch verwalten können. Gefiltert
+    // wird deshalb unten nach Zugehörigkeit, nicht in der Abfrage.
+    supabase.from("profiles").select("id, full_name, created_at, role"),
     supabase.rpc("admin_list_customer_emails"),
     supabase.from("subscriptions").select("customer_id, status"),
+    supabase.from("sepa_mandates").select("customer_id").is("revoked_at", null),
   ]);
 
   const emailById = new Map((emailsRes.data ?? []).map((e) => [e.id, e.email]));
@@ -34,14 +41,29 @@ export default async function CustomersPage({
     statusesById.set(s.customer_id, list);
   }
 
-  let customers: CustomerRow[] = (profilesRes.data ?? []).map((p) => ({
-    id: p.id,
-    name: p.full_name || "Unbenannt",
-    email: emailById.get(p.id) ?? "—",
-    subscriptionCount: subscriptionCountById.get(p.id) ?? 0,
-    status: deriveStatus(statusesById.get(p.id) ?? []),
-    createdAt: p.created_at,
-  }));
+  const mitMandat = new Set((mandatesRes.data ?? []).map((m) => m.customer_id));
+
+  let customers: CustomerRow[] = (profilesRes.data ?? [])
+    // Kunden immer — dazu jeder, der ein Abo oder ein gültiges Mandat hat.
+    // Reine Lehrkräfte ohne Zahlungsbeziehung bleiben draußen; die Liste soll
+    // die Abrechnung abbilden, nicht das Personal.
+    .filter(
+      (p) =>
+        p.role === "customer" ||
+        (subscriptionCountById.get(p.id) ?? 0) > 0 ||
+        mitMandat.has(p.id)
+    )
+    .map((p) => ({
+      id: p.id,
+      name: p.full_name || "Unbenannt",
+      email: emailById.get(p.id) ?? "—",
+      subscriptionCount: subscriptionCountById.get(p.id) ?? 0,
+      status: deriveStatus(statusesById.get(p.id) ?? []),
+      createdAt: p.created_at,
+      // Nur gesetzt, wenn es nicht die Vorgabe ist — sonst stünde an jeder
+      // Zeile ein Wort, das nichts sagt.
+      rolle: p.role === "customer" ? null : p.role,
+    }));
 
   const q = params.q?.trim().toLowerCase() ?? "";
   if (q) {

@@ -238,6 +238,15 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
     // text match is ambiguous — the assertion is "the amount is shown", not
     // "it appears exactly once".
     await expect(page.getByText("30,00").first()).toBeVisible();
+
+    // Seit PROJ-47 entsteht der Lauf als Entwurf. Eine Rücklastschrift gibt es
+    // erst, wenn eingezogen wurde — die Markierung erscheint deshalb erst nach
+    // der Freigabe. Die Betraege stehen schon im Entwurf, darum steht die
+    // Pruefung darauf oben.
+    await page.getByRole("button", { name: "Lauf freigeben" }).click();
+    await page.getByRole("button", { name: "Freigeben" }).click();
+    await page.waitForTimeout(3000);
+
     await page.getByRole("button", { name: "Als rückgebucht markieren" }).first().click();
     await page.waitForTimeout(600);
     await expect(page.getByText("Rückgebucht").first()).toBeVisible();

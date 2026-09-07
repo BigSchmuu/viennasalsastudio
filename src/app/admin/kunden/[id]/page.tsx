@@ -16,11 +16,15 @@ export default async function CustomerDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
+  // Ohne Rollenfilter: Eine Lehrkraft mit Abo war hier nicht erreichbar, auch
+  // nicht über die Adresszeile — ihr Abo liess sich also weder ändern noch
+  // kündigen, obwohl es monatlich abgebucht wird. Die Seite ist ohnehin nur
+  // für Administrator:innen erreichbar; der Rollenfilter hat hier nichts
+  // geschützt, sondern nur etwas versteckt.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, birthdate, gender, referral_code, referred_by, referral_rewarded_at")
+    .select("id, full_name, phone, birthdate, gender, role, referral_code, referred_by, referral_rewarded_at")
     .eq("id", id)
-    .eq("role", "customer")
     .single();
 
   if (!profile) {
@@ -107,7 +111,16 @@ export default async function CustomerDetailPage({
         <Button variant="link" className="px-0" asChild>
           <Link href="/admin/kunden">← Zurück zu Kunden</Link>
         </Button>
-        <h2 className="font-heading text-xl font-bold">{profile.full_name || "Unbenannt"}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="font-heading text-xl font-bold">{profile.full_name || "Unbenannt"}</h2>
+          {/* Wer hier keine Kundenrolle hat, steht trotzdem in dieser Akte —
+              weil er abgerechnet wird. Das soll man sehen. */}
+          {profile.role !== "customer" && (
+            <Badge variant="secondary" className="font-normal">
+              {profile.role === "teacher" ? "Lehrkraft" : profile.role === "admin" ? "Verwaltung" : profile.role}
+            </Badge>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground">{email}</p>
         <div className="mt-2">
           {mandate ? (

@@ -32,6 +32,18 @@ export type CustomerRow = {
   subscriptionCount: number;
   status: CustomerStatus;
   createdAt: string;
+  /**
+   * Die Rolle, falls es nicht „Kunde" ist.
+   *
+   * Eine Lehrkraft mit Abo gehört in diese Liste — sie wird abgerechnet. Aber
+   * der Betreiber soll sehen, warum sie hier steht, statt sich zu wundern.
+   */
+  rolle: string | null;
+};
+
+const ROLLEN_BESCHRIFTUNG: Record<string, string> = {
+  teacher: "Lehrkraft",
+  admin: "Verwaltung",
 };
 
 const ALL_STATUS = "__all__";
@@ -132,6 +144,11 @@ export function CustomerList({
                   <Link href={`/admin/kunden/${customer.id}`} className="hover:underline">
                     {customer.name}
                   </Link>
+                  {customer.rolle && (
+                    <Badge variant="secondary" className="ml-2 font-normal">
+                      {ROLLEN_BESCHRIFTUNG[customer.rolle] ?? customer.rolle}
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell>{customer.email}</TableCell>
                 <TableCell>
