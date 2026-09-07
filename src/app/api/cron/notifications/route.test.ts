@@ -103,4 +103,64 @@ describe("GET /api/cron/notifications", () => {
     expect(response.status).toBe(401);
     expect(runEveningChecks).not.toHaveBeenCalled();
   });
+  // Bis September 2026 lief der Tageslauf ungeschuetzt durch: warf ein Schritt,
+  // blieb alles danach ungetan -- auch der Vollzug faelliger Kuendigungen, und
+  // das heisst im Klartext, dass weiter abgebucht wird.
+  it("laesst den Rest des Laufs weiterlaufen, wenn der Tageslauf ausfaellt", async () => {
+    runDailyChecks.mockRejectedValue(new Error("Verbindung abgebrochen"));
+    const { GET } = await import("./route");
+    const request = new NextRequest("http://localhost/api/cron/notifications", {
+      headers: { authorization: "Bearer test-secret" },
+    });
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(runFollowupChecks).toHaveBeenCalledTimes(1);
+    expect(vollzieheFaelligeAenderungen).toHaveBeenCalledTimes(1);
+    expect(drainPendingQueue).toHaveBeenCalledTimes(1);
+    expect(body.vollzogen).toBe(2);
+    expect(body.processed).toBe(3);
+    expect(body.fehler).toEqual(["tageslauf: Verbindung abgebrochen"]);
+  });
+
+  it("meldet einen ausgefallenen Schritt mit Statuscode 500", async () => {
+    // Vercel zeigt in der Cron-Uebersicht nur den Statuscode -- ein halb
+    // gelungener Lauf darf dort nicht wie ein gelungener aussehen.
+    drainPendingQueue.mockRejectedValue(new Error("Warteschlange klemmt"));
+    const { GET } = await import("./route");
+    const request = new NextRequest("http://localhost/api/cron/notifications", {
+      headers: { authorization: "Bearer test-secret" },
+    });
+    const response = await GET(request);
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).fehler).toEqual(["warteschlange: Warteschlange klemmt"]);
+  });
+
+  it("haelt die Warteschlange am Laufen, wenn der Abo-Vollzug ausfaellt", async () => {
+    vollzieheFaelligeAenderungen.mockRejectedValue(new Error("Sperre"));
+    const { GET } = await import("./route");
+    const request = new NextRequest("http://localhost/api/cron/notifications", {
+      headers: { authorization: "Bearer test-secret" },
+    });
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(drainPendingQueue).toHaveBeenCalledTimes(1);
+    expect(body.processed).toBe(3);
+    expect(body.vollzogen).toBe(0);
+    expect(body.fehler).toEqual(["abo-vollzug: Sperre"]);
+  });
+
+  it("nennt jeden ausgefallenen Schritt, nicht nur den ersten", async () => {
+    runFollowupChecks.mockRejectedValue(new Error("eins"));
+    drainPendingQueue.mockRejectedValue(new Error("zwei"));
+    const { GET } = await import("./route");
+    const request = new NextRequest("http://localhost/api/cron/notifications", {
+      headers: { authorization: "Bearer test-secret" },
+    });
+    const body = await (await GET(request)).json();
+
+    expect(body.fehler).toEqual(["nachfassen: eins", "warteschlange: zwei"]);
+  });
 });
