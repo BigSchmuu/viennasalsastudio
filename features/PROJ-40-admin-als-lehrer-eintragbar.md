@@ -340,3 +340,36 @@ Ein Admin-Konto wurde auf der Live-Seite testweise einem Kurs zugewiesen und dan
 - **Die elf technischen Admin-Konten** stehen jetzt in der Lehrer-Auswahl. Öffentlich erscheinen
   sie nicht; ob sie aufgeräumt werden, ist eine eigene Entscheidung
 
+---
+
+## BUG-1 (High), gefunden am 2026-09-08 — behoben
+
+**Meldung des Betreibers:** „Ich als Admin habe momentan keinen Zugang auf die Videos und
+kann mich als Lehrer auswählen für den Kurs, es wird aber nicht gespeichert."
+
+**Ursache:** Diese Funktion hat die Auswahlliste im Kursformular auf
+`in("role", ["teacher", "admin"])` erweitert (`src/app/admin/kurse/page.tsx`), die
+Gegenprüfung in der Server Action aber auf `eq("role", "teacher")` stehen lassen
+(`syncTeachers` in `src/lib/actions/admin/courses.ts`). Ein Admin wurde also angeboten
+und beim Speichern mit „Einer der ausgewählten Lehrer ist ungültig." abgelehnt.
+
+**Der fehlende Videozugang war die Folge, kein zweites Problem:** Ohne Zuweisung
+erscheint der Kurs nicht unter „Meine Kurse", und `/lehrer` leitet einen Admin ganz ohne
+Zuweisung weg (AC8). Die Leseberechtigung selbst war nie das Hindernis — die Regel aus
+PROJ-23 erlaubt Admins den Zugriff auf Videosätze ausdrücklich.
+
+**Warum die zwölf bestehenden Tests es nicht gefunden haben:** Sie schreiben ihre
+Zuweisungen alle direkt in die Datenbank (`assign()`). Geprüft war, dass der Admin in
+der Liste *auftaucht* (AC1) — nie, dass das Speichern durchgeht. Der Weg durch das
+Formular war unbetreten.
+
+**Behoben:** `syncTeachers` lässt jetzt `teacher` und `admin` zu. Kunden bleiben
+ausgeschlossen; genau dafür ist diese Prüfung da. Die beiden anderen Stellen, die auf
+`role = 'teacher'` filtern, wurden geprüft und bleiben unverändert: die Lehrerverwaltung
+(`/admin/lehrer`) und `demoteToCustomer` sollen Admins gerade nicht erfassen.
+
+**Neuer Test:** `AC1b: Ein über das Formular ausgewählter Admin wird auch gespeichert` —
+geht durch das Formular statt an ihm vorbei und prüft danach die Datenbank. Gegenprobe
+gemacht: Mit zurückgenommenem Fix scheitert er an der Ablehnungsmeldung, ist also kein
+Test, der sich selbst bestätigt.
+

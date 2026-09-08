@@ -216,4 +216,57 @@ test.describe("PROJ-40: Admin auch als Lehrer eintragbar", () => {
       await service.from("course_teachers").delete().eq("teacher_id", kunde!.id).eq("course_id", c.id);
     }
   });
+  // Regression vom 2026-09-08, vom Betreiber gemeldet: „kann mich als Lehrer
+  // auswählen für den Kurs, es wird aber nicht gespeichert."
+  //
+  // PROJ-40 hatte die Auswahlliste auf ['teacher','admin'] erweitert, die
+  // Prüfung in der Server Action blieb aber auf role = 'teacher'. Der Admin
+  // wurde angeboten und beim Speichern abgelehnt. Die bisherigen Tests hier
+  // haben Zuweisungen immer direkt in die Datenbank geschrieben (`assign()`),
+  // nie über das Formular — genau die Lücke, durch die es gefallen ist.
+  test("AC1b: Ein über das Formular ausgewählter Admin wird auch gespeichert", async ({ page }) => {
+    const admin = await adminProfile();
+    const c = await kurs();
+
+    await login(page, ADMIN);
+    await page.goto("/admin/kurse");
+    await page.waitForLoadState("networkidle");
+
+    await page
+      .locator("tr", { hasText: KURS_NAME })
+      .first()
+      .getByRole("button", { name: "Bearbeiten" })
+      .click();
+    await page.waitForTimeout(900);
+
+    // Der Auswähler ist eine combobox, kein button — und seine Beschriftung
+    // steckt im Text, nicht im zugänglichen Namen.
+    await page
+      .getByRole("dialog")
+      .getByText(/Lehrer (ausgewählt|auswählen)/)
+      .click();
+    await page.waitForTimeout(600);
+    await page.getByRole("option", { name: ADMIN_NAME }).click();
+    await page.keyboard.press("Escape");
+
+    await page.getByRole("button", { name: "Speichern" }).click();
+    await page.waitForTimeout(2500);
+
+    await expect(
+      page.getByText("Einer der ausgewählten Lehrer ist ungültig."),
+      "Der Admin darf nicht als ungueltiger Lehrer abgelehnt werden"
+    ).toHaveCount(0);
+
+    const { data } = await service
+      .from("course_teachers")
+      .select("teacher_id")
+      .eq("course_id", c.id)
+      .eq("teacher_id", admin.id);
+    expect(data?.length ?? 0, "Die Zuweisung steht nicht in der Datenbank").toBe(1);
+
+    // Nicht auf das beforeEach des nächsten Tests warten: Solange die Zuweisung
+    // steht, erscheint der Admin öffentlich als Lehrer dieses Kurses, und das
+    // sähe eine andere Suite womöglich als ihren Fehler an.
+    await service.from("course_teachers").delete().eq("teacher_id", admin.id).eq("course_id", c.id);
+  });
 });

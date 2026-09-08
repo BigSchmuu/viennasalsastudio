@@ -27,12 +27,19 @@ async function syncTeachers(
   teacherIds: string[]
 ): Promise<{ error?: string }> {
   if (teacherIds.length > 0) {
-    // Defense in depth: only allow ids that actually belong to teacher
-    // profiles, even though the UI only ever offers real teachers.
+    // Defense in depth: only allow ids that actually belong to people who may
+    // teach, even though the UI only ever offers those.
+    //
+    // Seit PROJ-40 zählt dazu auch ein Admin: Wer das Studio führt und selbst
+    // unterrichtet, soll kein zweites Konto brauchen. Die Auswahlliste bot ihn
+    // seither an (src/app/admin/kurse/page.tsx), diese Prüfung nicht — der
+    // Admin ließ sich also auswählen, und das Speichern schlug mit
+    // „Einer der ausgewählten Lehrer ist ungültig" fehl. Kunden bleiben
+    // weiterhin ausgeschlossen, darum geht es hier.
     const { data: validTeachers } = await supabase
       .from("profiles")
       .select("id")
-      .eq("role", "teacher")
+      .in("role", ["teacher", "admin"])
       .in("id", teacherIds);
 
     if ((validTeachers?.length ?? 0) !== teacherIds.length) {
