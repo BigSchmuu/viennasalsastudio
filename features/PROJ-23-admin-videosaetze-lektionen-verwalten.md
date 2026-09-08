@@ -40,8 +40,8 @@
 - [ ] Angenommen ein Videosatz wird von keinem Kurs verwendet, wenn der Admin ihn löscht, dann werden auch alle zugehörigen Lektionen und Video-Links entfernt
 - [ ] Angenommen der Admin legt einen Kurs an oder bearbeitet ihn, wenn er im Dropdown einen bestehenden Videosatz auswählt, dann wird dieser dem Kurs zugeordnet und gespeichert
 - [ ] Angenommen der Admin lässt die Videosatz-Auswahl beim Kurs-Formular leer, wenn er den Kurs speichert, dann wird er trotzdem erfolgreich angelegt (Feld ist optional)
-- [ ] Angenommen ein Lehrer ist einem Kurs mit zugeordnetem Videosatz zugeordnet, wenn er die Kursdetails aufruft, dann sieht er alle Lektionen und Video-Links dieses Videosatzes
-- [ ] Angenommen ein Lehrer ist einem Kurs NICHT zugeordnet, wenn er versucht, dessen Videosatz-Inhalte abzurufen, dann wird der Zugriff verweigert
+- [x] Angenommen ein Lehrer ist einem Kurs mit zugeordnetem Videosatz zugeordnet, wenn er die Kursdetails aufruft, dann sieht er alle Lektionen und Video-Links dieses Videosatzes — nachgeholt am 2026-09-08
+- [x] Angenommen ein Lehrer ist einem Kurs NICHT zugeordnet, wenn er versucht, dessen Videosatz-Inhalte abzurufen, dann wird der Zugriff verweigert — nachgeholt am 2026-09-08
 
 ## Edge Cases
 - Noch keine Videosätze vorhanden → Leerer Zustand mit Hinweis, zuerst einen Videosatz anzulegen; Dropdown im Kurs-Formular zeigt entsprechenden Hinweis statt leerer Liste
@@ -326,3 +326,46 @@ Fokus: Da Datenbank-Schema, RLS und Server Actions bereits im `/frontend`-Durchg
 **Bekannte offene Punkte (nicht blockierend):**
 - BUG-3 aus QA (kein Rate-Limiting auf Admin-Actions) — Low, vor PROJ-8/PROJ-9 nachholen
 - ESLint-Flat-Config-Migration weiterhin ausstehend (repo-weit, siehe PROJ-3-Deployment-Notiz)
+
+---
+
+## Lehrer-Ansicht nachgeholt (2026-09-08)
+
+Die Nutzergeschichte „Als Lehrer möchte ich die Lektionen und Videos des Videosatzes
+meiner zugeordneten Kurse einsehen können“ stand seit dem 2026-08-13 in dieser
+Spezifikation, die Ansicht fehlte aber. Der QA-Vermerk von damals nennt den Grund:
+„kein Teacher-facing UI vorhanden, da PROJ-13 ‚Lehrer-Ansicht‘ noch nicht gebaut ist —
+RLS ist bereits korrekt vorbereitet.“ PROJ-13 wurde später gebaut, erwähnt PROJ-23 aber
+nur zur Abgrenzung und hat die Ansicht nicht aufgegriffen. Damit waren AC12 und AC13 die
+einzigen zwei von vierzehn Kriterien, die offen blieben, während die Funktion als
+„Deployed“ geführt wurde. Aufgefallen ist es dem Betreiber mit der Frage, wo der Lehrer
+den Videosatz seines Kurses eigentlich sehe. Antwort: nirgends.
+
+**Gebaut:** Ein Abschnitt „Lehrmaterial“ auf `/lehrer/[courseId]`
+(`src/components/teacher/lehrmaterial.tsx`), zugeklappt, mit Name des Videosatzes und
+Lektionszahl in der Kopfzeile. Jede Lektion ist eine eigene aufklappbare Zeile.
+
+**Keine neue Berechtigung nötig:** Die Regel `VideoSets: admin or assigned teacher read`
+liegt seit der Migration vom 2026-08-13 in der Datenbank. Die Seite greift daher normal
+nutzergebunden zu, ohne Dienstschlüssel.
+
+### Entscheidungen
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Der Player lädt erst beim Aufklappen der Lektion | Ein Videosatz mit acht Lektionen à zwei Videos wären sechzehn YouTube-Player, die alle beim Öffnen der Seite zu laden begännen — je rund ein Megabyte fremder Code. Vom Betreiber aus drei Varianten gewählt | 2026-09-08 |
+| Fremde Videoadressen fallen auf einen Link zurück | `YoutubeEmbed` zeigt bei allem, was nicht YouTube ist, gar nichts an. In der Datenbank darf aber jede URL stehen — eine leere Fläche ließe offen, ob etwas fehlt oder kaputt ist | 2026-09-08 |
+| Kein Videosatz zugeordnet → Hinweis statt leerem Block | Sonst sucht der Lehrer den Fehler bei sich, statt beim nicht gepflegten Kurs | 2026-09-08 |
+| Lektionen und Videos nach `position` sortiert | Die Reihenfolge ist die Unterrichtsreihenfolge und wurde vom Admin von Hand gesetzt | 2026-09-08 |
+
+### Prüfung
+
+Drei E2E-Tests in `tests/PROJ-23-admin-videosaetze-lektionen-verwalten.spec.ts`, mit
+eigenem Videosatz als Fixture (angelegt und wieder entfernt, selbstheilend nach
+abgebrochenen Läufen — der Fremdschlüssel verhindert sonst das Aufräumen):
+
+- **AC12** — zugeordneter Lehrer sieht Satzname, Lektionszahl und beide Lektionen; der
+  Player ist vor dem Aufklappen der Lektion **nicht** im Dokument und danach sichtbar.
+- Eine Lektion mit einer Nicht-YouTube-Adresse zeigt den Link statt einer leeren Fläche.
+- **AC13** — ein nicht zugeordneter Lehrer wird von der Seite weggeleitet und sieht den
+  Satznamen nirgends.

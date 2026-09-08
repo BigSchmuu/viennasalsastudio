@@ -236,3 +236,132 @@ test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
     await expect(page.getByText("E2E23 Videosatz Beginner")).toHaveCount(0);
   });
 });
+
+/**
+ * Die beiden Lehrer-Kriterien aus der Spezifikation (AC12/AC13).
+ *
+ * Sie standen seit August offen: PROJ-23 hatte die Ansicht an die
+ * Lehrer-Ansicht weitergereicht („kein Teacher-facing UI vorhanden, da PROJ-13
+ * noch nicht gebaut ist"), PROJ-13 hat sie nicht aufgegriffen. Geprüft war
+ * bisher nur die Datenbankregel per SQL, nie die Ansicht.
+ */
+test.describe("PROJ-23: Lehrmaterial in der Lehrer-Ansicht", () => {
+  const KURS_ID = "6032ce07-b19c-445b-9f42-f45921df557e"; // "E2E13 Kurs", Lehrer A zugeordnet
+  const SATZ_NAME = "E2E23 Videosatz Lehrmaterial";
+  const LEHRER_A = "e2e13-lehrer-a@viennasalsastudio.test";
+  const LEHRER_C_OHNE_KURS = "e2e13-lehrer-c@viennasalsastudio.test";
+  const YOUTUBE_ID = "E2E23video1";
+
+  const dienst = () =>
+    createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+  let satzId = "";
+
+  async function anmelden(page: Page, email: string) {
+    await gehZu(page, "/login");
+    await page.waitForTimeout(1200);
+    await page.getByLabel("E-Mail").fill(email);
+    await page.getByLabel("Passwort").fill(PASSWORD);
+    await page.waitForTimeout(1500);
+    await page.getByRole("button", { name: "Einloggen" }).click();
+    await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
+  }
+
+  test.beforeAll(async () => {
+    const service = dienst();
+
+    // Selbstheilend: Bricht ein Lauf zwischen Anhängen und Aufräumen ab, hängt
+    // der Satz noch am Kurs — und der Fremdschlüssel verhindert dann sein
+    // Löschen. Deshalb erst lösen, dann neu anlegen.
+    await service.from("courses").update({ video_set_id: null }).eq("id", KURS_ID);
+    await service.from("video_sets").delete().eq("name", SATZ_NAME);
+
+    // `level` ist kleingeschrieben eingeschraenkt (video_sets_level_check).
+    const { data: satz, error: satzFehler } = await service
+      .from("video_sets")
+      .insert({ name: SATZ_NAME, level: "beginner" })
+      .select("id")
+      .single();
+    // Ohne diese Pruefung endete ein misslungener Insert als
+    // "Cannot read properties of null" — der Fehler stand da, nur nicht lesbar.
+    if (satzFehler || !satz) throw new Error(`Videosatz anlegen fehlgeschlagen: ${satzFehler?.message}`);
+    satzId = satz.id;
+
+    const { data: lektionen, error: lektionenFehler } = await service
+      .from("video_set_lessons")
+      .insert([
+        { video_set_id: satzId, title: "E2E23 Lektion Grundschritt", position: 1 },
+        { video_set_id: satzId, title: "E2E23 Lektion Drehung", position: 2 },
+      ])
+      .select("id, position");
+    if (lektionenFehler || !lektionen) throw new Error(`Lektionen anlegen fehlgeschlagen: ${lektionenFehler?.message}`);
+
+    const nach = (p: number) => lektionen.find((l) => l.position === p)!.id;
+    const { error: videoFehler } = await service.from("video_set_lesson_videos").insert([
+      { lesson_id: nach(1), url: `https://www.youtube.com/watch?v=${YOUTUBE_ID}`, position: 1 },
+      // Bewusst kein YouTube: In der Datenbank darf jede Adresse stehen, und
+      // der Player zeigt bei fremden Adressen nichts an.
+      { lesson_id: nach(2), url: "https://vimeo.com/999999", position: 1 },
+    ]);
+    if (videoFehler) throw new Error(`Videos anlegen fehlgeschlagen: ${videoFehler.message}`);
+
+    const { error: kursFehler } = await service
+      .from("courses")
+      .update({ video_set_id: satzId })
+      .eq("id", KURS_ID);
+    if (kursFehler) throw new Error(`Videosatz am Kurs setzen fehlgeschlagen: ${kursFehler.message}`);
+  });
+
+  test.afterAll(async () => {
+    const service = dienst();
+    await service.from("courses").update({ video_set_id: null }).eq("id", KURS_ID);
+    if (satzId) await service.from("video_sets").delete().eq("id", satzId);
+  });
+
+  test("AC12: Der zugeordnete Lehrer sieht Lektionen und Videos seines Kurses", async ({ page }) => {
+    await anmelden(page, LEHRER_A);
+    await gehZu(page, `/lehrer/${KURS_ID}`);
+    await page.waitForTimeout(1200);
+
+    // Zugeklappt steht der Satz samt Umfang schon in der Kopfzeile.
+    const aufklapper = page.getByRole("button", { name: /^Lehrmaterial/ });
+    await expect(aufklapper).toContainText(SATZ_NAME);
+    await expect(aufklapper).toContainText("2 Lektionen");
+
+    await aufklapper.click();
+    await expect(page.getByRole("button", { name: /Grundschritt/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Drehung/ })).toBeVisible();
+
+    // Der Player lädt erst beim Aufklappen der Lektion — vorher darf kein
+    // iframe im Dokument stehen, sonst wäre der Sinn der Sache verfehlt.
+    await expect(page.locator(`iframe[src*="${YOUTUBE_ID}"]`)).toHaveCount(0);
+    await page.getByRole("button", { name: /Grundschritt/ }).click();
+    await expect(page.locator(`iframe[src*="${YOUTUBE_ID}"]`)).toBeVisible();
+  });
+
+  test("Eine Lektion ohne YouTube-Adresse zeigt einen Link statt einer leeren Fläche", async ({
+    page,
+  }) => {
+    await anmelden(page, LEHRER_A);
+    await gehZu(page, `/lehrer/${KURS_ID}`);
+    await page.waitForTimeout(1200);
+
+    await page.getByRole("button", { name: /^Lehrmaterial/ }).click();
+    await page.getByRole("button", { name: /Drehung/ }).click();
+
+    const link = page.getByRole("link", { name: /Video 1 öffnen/ });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("href", "https://vimeo.com/999999");
+  });
+
+  test("AC13: Ein nicht zugeordneter Lehrer kommt nicht an das Lehrmaterial", async ({ page }) => {
+    await anmelden(page, LEHRER_C_OHNE_KURS);
+    await page.goto(`/lehrer/${KURS_ID}`);
+    await page.waitForTimeout(1500);
+
+    await expect(page).not.toHaveURL(new RegExp(`/lehrer/${KURS_ID}$`));
+    await expect(page.getByText(SATZ_NAME)).toHaveCount(0);
+  });
+});

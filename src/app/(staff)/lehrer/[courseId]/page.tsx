@@ -13,6 +13,7 @@ import {
 } from "@/components/teacher/attendance-matrix";
 import type { RosterRow } from "@/lib/actions/teacher/load-more-occurrences";
 import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
+import { Lehrmaterial, type Lektion } from "@/components/teacher/lehrmaterial";
 
 const PAST_WINDOW = 8;
 
@@ -22,12 +23,40 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
 
   const { data: course } = await supabase
     .from("courses")
-    .select("id, name, role_query_enabled, course_schedule(weekday, course_schedule_pauses(pause_date))")
+    .select("id, name, role_query_enabled, video_set_id, course_schedule(weekday, course_schedule_pauses(pause_date))")
     .eq("id", courseId)
     .single();
 
   if (!course) {
     notFound();
+  }
+
+  // PROJ-23: das interne Lehrmaterial. Die Leseberechtigung liegt seit August
+  // in der Datenbank („admin or assigned teacher read"), nur rief sie niemand
+  // ab — deshalb der gewöhnliche, nutzergebundene Zugriff und kein Dienstschlüssel.
+  let satzName: string | null = null;
+  let lektionen: Lektion[] = [];
+  if (course.video_set_id) {
+    const { data: satz } = await supabase
+      .from("video_sets")
+      .select("name, video_set_lessons(id, title, position, video_set_lesson_videos(url, position))")
+      .eq("id", course.video_set_id)
+      .single();
+
+    if (satz) {
+      satzName = satz.name;
+      // Nach `position` sortiert, nicht nach Zufall: Die Reihenfolge ist die
+      // Unterrichtsreihenfolge, und der Admin hat sie von Hand gesetzt.
+      lektionen = [...satz.video_set_lessons]
+        .sort((a, b) => a.position - b.position)
+        .map((l) => ({
+          id: l.id,
+          titel: l.title,
+          videoUrls: [...l.video_set_lesson_videos]
+            .sort((a, b) => a.position - b.position)
+            .map((v) => v.url),
+        }));
+    }
   }
 
   const roleByCustomer: Record<string, "leader" | "follower" | "both"> = {};
@@ -125,6 +154,16 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
       </Button>
 
       <h1 className="font-heading text-3xl font-bold">{course.name}</h1>
+
+      {satzName ? (
+        <Lehrmaterial satzName={satzName} lektionen={lektionen} />
+      ) : (
+        // Ein leerer Block wäre schlimmer als dieser Satz: Der Lehrer wüsste
+        // nicht, ob nichts hinterlegt ist oder etwas kaputt.
+        <p className="text-sm text-muted-foreground">
+          Für diesen Kurs ist kein Videosatz hinterlegt.
+        </p>
+      )}
 
       {!schedule ? (
         <p className="text-sm text-muted-foreground py-8 text-center">
