@@ -171,3 +171,30 @@ for i, l in enumerate(zeilen):
         if ".fill(" in t: print(f"ungeschützt: {j+1}"); break
         if "await page.goto(" in t: break
 ```
+
+## Nach dem Speichern gleich wieder öffnen (2026-09-09)
+
+**Fehlerbild:** Ein Test speichert etwas im Admin-Dialog, klickt kurz darauf erneut auf
+„Bearbeiten" und prüft den gespeicherten Wert — und scheitert mit `element(s) not found`.
+Isoliert läuft er meist durch, im Volllauf fällt er gelegentlich um. Getroffen hat es
+PROJ-30 (AC1/AC6) in zwei von vier Volllaufen, jedes Mal an anderer Stelle im Lauf.
+
+**Ursache:** Der Dialog schließt sofort beim Absenden, die Liste dahinter wird aber erst
+durch `revalidatePath` nachgeladen. Wer sofort wieder öffnet, bekommt den Dialog mit den
+**alten** Props — bei PROJ-30 also die Rollenabfrage noch ausgeschaltet, weshalb das
+Differenzfeld gar nicht erst gerendert wird. Verwandt mit dem bekannten Muster
+„`useState(initialProp)` wird nach `revalidatePath` schal".
+
+**Was nicht hilft:** `await page.waitForTimeout(1000)`. Das überdeckt die Lücke nur
+meistens — unter der Last eines 1,7-Stunden-Laufs nicht mehr.
+
+**Was auch nicht reicht:** `await expect(dialog).toBeHidden()`. Der Dialog ist *vor* der
+Auffrischung zu; die Prüfung macht den Fehler dadurch sogar zuverlässig reproduzierbar
+(was beim Diagnostizieren hilfreich war).
+
+**Lösung:** Nach dem Speichern `await page.reload()`. Das Kriterium fragt ohnehin, ob der
+Wert *gespeichert* wurde — nicht, ob sich die Liste im Hintergrund selbst auffrischt.
+
+**Noch offen:** Dasselbe Muster steckt vermutlich in weiteren Suiten; `waitForTimeout`
+kommt in `tests/` hundertfach vor. Es lohnt sich, betroffene Stellen bei der nächsten
+Gelegenheit umzustellen — nicht auf Verdacht alle auf einmal.

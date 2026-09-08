@@ -243,7 +243,16 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
     // AC6: enter and persist a difference value.
     await dialog.getByLabel(/Max\. Rollen-Differenz/).fill("2");
     await dialog.getByRole("button", { name: "Speichern", exact: true }).click();
-    await page.waitForTimeout(1000);
+    // Der Dialog schließt sofort, die Liste dahinter wird aber erst durch
+    // revalidatePath nachgeladen. Wer gleich wieder „Bearbeiten" klickt,
+    // bekommt den Dialog mit den alten Daten — Rollenabfrage noch aus, also
+    // kein Differenzfeld, und die Prüfung scheitert an „not found". Eine feste
+    // Wartezeit hat das nur meistens überdeckt (Volllauf vom 2026-09-09).
+    // Neu laden macht es eindeutig — und das Kriterium fragt ohnehin, ob der
+    // Wert *gespeichert* wurde, nicht ob die Liste sich selbst auffrischt.
+    await expect(dialog).toBeHidden();
+    await page.reload();
+    await page.waitForTimeout(900);
 
     await row.getByRole("button", { name: "Bearbeiten" }).click();
     await expect(page.getByRole("dialog").getByLabel(/Max\. Rollen-Differenz/)).toHaveValue("2");
@@ -251,7 +260,7 @@ test.describe("PROJ-30: Leader/Follower-Auswahl bei Kursbuchung", () => {
     // Leave the field blank going forward, for the AC7 "no restriction" test below.
     await page.getByRole("dialog").getByLabel(/Max\. Rollen-Differenz/).fill("");
     await page.getByRole("dialog").getByRole("button", { name: "Speichern", exact: true }).click();
-    await page.waitForTimeout(1000);
+    await expect(page.getByRole("dialog")).toBeHidden();
   });
 
   test("AC7: Kurs mit aktivierter Abfrage aber ohne hinterlegte Differenz erzwingt keine Balance", async ({ page }) => {
