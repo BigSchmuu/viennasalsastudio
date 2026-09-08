@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
   // Vor allem anderen: Wer noch die alte vercel.app-Adresse aufruft, wird auf
   // die eigene Domain geschickt — mit Pfad und Abfrage, damit die QR-Codes auf
   // bereits ausgestellten Tickets weiterhin am richtigen Ziel ankommen.
-  const ziel = umleitungsZiel(request.nextUrl, request.headers.get("host"));
+  const ziel = umleitungsZiel(request.nextUrl, request.headers.get("host"), request.method);
   if (ziel) {
     return NextResponse.redirect(ziel, 308);
   }

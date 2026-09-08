@@ -89,3 +89,76 @@ wachsen. Der Auslöser ist derselbe wie bei PROJ-35 in der PRD: grob ab tausend 
 - **Supabase** ist gesund (`ACTIVE_HEALTHY`), die Abfragen sind schnell.
 - **Vercel** war ebenfalls in Ordnung. Beide Dienste für sich waren nicht das Problem —
   ihre Entfernung zueinander war es.
+
+---
+
+# Nachmessung vom 2026-09-08
+
+Anlass: „lädt immer noch etwas langsam". Gemessen gegen `app.viennasalsastudio.at`.
+
+| Messung | Wert |
+|---|---|
+| TTFB warm (`/kurse`, `/login`, `/stundenplan`) | 110–200 ms |
+| **Erster Aufruf nach Ruhe** | **1,08 s** |
+| Zwischenspeicher | `x-vercel-cache: MISS`, `cache-control: no-store` |
+| JavaScript | 21 Dateien, 327 kB komprimiert |
+
+Die Serverzeit ist also nicht mehr das Problem — die Arbeit vom August hält.
+Der Betreiber bestätigt es: „Nach dem Kaltstart läuft die Website jetzt tatsächlich schnell."
+
+## Behoben: Sentry lag im Bündel jeder Seite
+
+Die beiden größten Brocken, heruntergeladen und durchsucht:
+
+- `2648a76c…` — 69 kB → React DOM. Unvermeidbar.
+- `4b23e31d…` — 61 kB → **Sentry** (120 Treffer auf „sentry", `tracesSampleRate`).
+
+Ursache: `import * as Sentry from "@sentry/nextjs"` als **fester** Import in
+`sentry-init.tsx` (Wurzel-Layout) **und** in `global-error.tsx`. Beide zusammen zogen
+den Browser-Teil in das Startbündel jeder Seite — für einen Fall, der im Regelbetrieb
+nie eintritt.
+
+Beide auf einen nachgeladenen Import umgestellt; `SentryInit` startet ihn, wenn der
+Browser sonst nichts zu tun hat (`requestIdleCallback`, Ersatzweg für ältere Safari).
+Ohne DSN wird gar nichts geladen — in Tests bleibt das Paket vollständig aus dem Weg.
+
+**Gemessen, lokal gegen den Produktionsbau:** 338,9 kB → **258,3 kB**, also **−80,6 kB**
+(ein Viertel). Mehr als die veranschlagten 61 kB, weil mit Sentry auch dessen Anhang geht.
+
+*Preis:* Ein Fehler in der allerersten Sekunde bleibt ungemeldet.
+
+## Korrektur: „öffentliche Seiten zwischenspeichern" geht so nicht
+
+Der Ansatz aus Punkt 2 oben war zu optimistisch formuliert. Nachgesehen, wer die
+Anmeldung liest:
+
+| Seite | liest die Anmeldung? |
+|---|---|
+| `/kurse` | **ja** — Mandat, Buchungen, Wartelisten-Einträge, aktive Abos |
+| `/stundenplan` | **ja** — Abos, heutige Anwesenheit, Mandat |
+| `/events` | **ja** |
+| `/agb`, `/datenschutz`, `/impressum` | nein |
+
+Die Seiten, die man einfach zwischenspeichern könnte, ruft kaum jemand auf. Die
+wichtigen sind echt personalisiert — dort steht, ob *dieser* Besucher schon gebucht hat.
+
+## Entschieden am 2026-09-08
+
+1. **Kaltstart abstellen** (der eigentliche Leidensdruck): ein regelmäßiger Aufruf hält
+   die Funktion warm. Setzt **Vercel Pro** voraus — Hobby erlaubt Cronjobs nur einmal
+   täglich, und ein häufigerer Ausdruck lässt die *Bereitstellung fehlschlagen*. Also
+   erst nach dem Tarifwechsel; vorher lässt sich nichts davon vorbereiten.
+   *Ebenfalls erst mit Pro:* **Skew Protection** einschalten (Settings → Advanced).
+   Sie bindet Anfragen einer noch offenen Seite an die Bereitstellung zurück, von der
+   die Seite kam. Ohne sie scheitert eine Server Action aus einem alten Reiter nach
+   jedem Ausrollen — dasselbe Symptom wie der Umleitungsfehler vom 2026-09-08
+   (`TypeError: Failed to fetch`), aber eine andere Ursache, die der dortige Fix nicht
+   abdeckt.
+2. **Cache Components / PPR zurückgestellt.** In Next 16 stabil (`cacheComponents: true`)
+   und das passende Werkzeug — statisches Gerüst sofort, personalisierte Teile strömen
+   nach. Dreht aber die Caching-Regeln der gesamten App um und verlangt einen Umbau über
+   alle Routen. Nicht in der Woche vor dem Start. Verdient nach dem Start eine eigene
+   Spezifikation.
+3. **Ignoriert:** Rechtstexte statisch (bringt fast nichts), Schriften (91 kB, aber mit
+   `display: swap` nicht renderblockierend — eine der beiden zu streichen wäre eine
+   Design-Entscheidung, keine Technikfrage).

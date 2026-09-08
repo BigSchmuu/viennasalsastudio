@@ -58,4 +58,27 @@ describe("umleitungsZiel", () => {
       )
     ).toBe(`https://${ZIEL_HOST}/profil`);
   });
+  // Regression vom 2026-09-08: Eine noch offene Seite der alten Adresse schickte
+  // ihre Server Action per POST dorthin. Die Umleitung machte daraus eine
+  // Anfrage an eine fremde Herkunft — der Browser brach mit „Failed to fetch"
+  // ab, und das Passwort-Formular meldete einen Fehler.
+  it("leitet ein abgeschicktes Formular nicht um", () => {
+    expect(
+      umleitungsZiel(
+        new URL("https://viennasalsastudio.vercel.app/passwort-vergessen"),
+        "viennasalsastudio.vercel.app",
+        "POST"
+      )
+    ).toBeNull();
+  });
+
+  it("leitet HEAD wie GET um", () => {
+    expect(
+      umleitungsZiel(
+        new URL("https://viennasalsastudio.vercel.app/kurse"),
+        "viennasalsastudio.vercel.app",
+        "HEAD"
+      )?.toString()
+    ).toBe(`https://${ZIEL_HOST}/kurse`);
+  });
 });

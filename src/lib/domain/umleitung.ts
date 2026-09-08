@@ -23,7 +23,18 @@ export const ALTE_HOSTS = [
  * QR-Codes mit der alten Adresse, und die sollen weiterhin an der richtigen
  * Stelle ankommen statt auf der Startseite.
  */
-export function umleitungsZiel(url: URL, host: string | null | undefined): URL | null {
+export function umleitungsZiel(
+  url: URL,
+  host: string | null | undefined,
+  methode: string = "GET"
+): URL | null {
+  // Nur navigierende Anfragen. Ein Formular auf einer Seite, die noch von der
+  // alten Adresse geladen war, schickt seine Server Action per POST dorthin —
+  // die Umleitung machte daraus eine Anfrage an eine fremde Herkunft, und weil
+  // Server Actions keine CORS-Kopfzeilen tragen, brach der Browser mit
+  // „TypeError: Failed to fetch" ab. Solche Anfragen beantwortet die alte
+  // Adresse weiterhin selbst, bis der Besucher die Seite neu lädt.
+  if (methode !== "GET" && methode !== "HEAD") return null;
   if (!host) return null;
 
   // Der Host-Kopf kann einen Port tragen; für den Vergleich zählt der Name.
