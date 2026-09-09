@@ -51,7 +51,14 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // manifest.webmanifest gehoert ausgenommen: Die Sprachweiche behandelte es
+  // wie eine Seite und schickte es auf einen Sprachpfad, wo es nicht existiert
+  // — die Datei lieferte in der Produktion 404. Damit fehlte der auf dem
+  // Home-Bildschirm gespeicherten App die Angabe `display: standalone` samt
+  // Geltungsbereich, und iOS blendete auf manchen Seiten die Adressleiste ein.
+  // Aufgefallen erst durch den Betreiber am 2026-09-09; im Browser sieht man
+  // davon nichts.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
