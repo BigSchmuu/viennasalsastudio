@@ -7,6 +7,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import type { MandateData } from "@/components/payments/payment-method-section";
 import { MyBookingsSection, type MyBookingRow } from "@/components/booking/my-bookings-section";
 import { MySubscriptionsSection, type MySubscriptionRow } from "@/components/subscription/my-subscriptions-section";
+import { FlatrateCourses, type FlatrateKurs } from "@/components/subscription/flatrate-courses";
 import { MyInvoicesSection, type MyInvoiceRow } from "@/components/invoices/my-invoices-section";
 import { MyCreditSection, type MyCreditEntry } from "@/components/credits/my-credit-section";
 import { readStudioPricing } from "@/lib/pricing";
@@ -53,6 +54,7 @@ export default async function ProfilePage() {
     { data: bookingRows },
     { data: subscriptionRows },
     { data: courseRows },
+    { data: kursplatzRows },
     { data: invoiceRows },
     { data: waitlistRows },
     { data: notificationPreferenceRows },
@@ -80,6 +82,15 @@ export default async function ProfilePage() {
       .eq("customer_id", user.id)
       .order("created_at", { ascending: true }),
     supabase.from("courses").select("id, name").order("name", { ascending: true }),
+    // PROJ-50: Die Kurse der Flatrate. Offene und beendete zusammen — die
+    // beendeten sind der Vorschlag nach einer Pause.
+    supabase
+      .from("course_memberships")
+      .select(
+        "course_id, dance_role, ended_on, courses(name, course_schedule(weekday, start_time))"
+      )
+      .eq("customer_id", user.id)
+      .order("started_on", { ascending: false }),
     supabase
       .from("invoices")
       .select(
@@ -156,6 +167,45 @@ export default async function ProfilePage() {
 
   const courses = courseRows ?? [];
   const courseNameById = new Map(courses.map((c) => [c.id, c.name]));
+
+  // PROJ-50: Die Kurse der Flatrate, getrennt in laufende und beendete.
+  //
+  // Ein beendeter Kurs erscheint nur dann als Vorschlag, wenn der Kunde nicht
+  // ohnehin schon wieder drin ist — sonst stünde derselbe Kurs zweimal da.
+  const hatFlatrate = (subscriptionRows ?? []).some(
+    (s) => s.course_id === null && s.status === "active"
+  );
+  const tw = await getTranslations("weekdays");
+  type KursplatzZeile = {
+    course_id: string;
+    dance_role: string | null;
+    ended_on: string | null;
+    courses: {
+      name: string;
+      course_schedule: { weekday: number; start_time: string | null }[] | { weekday: number; start_time: string | null } | null;
+    } | null;
+  };
+  const kursplatzZeile = (r: KursplatzZeile): FlatrateKurs => {
+    // course_schedule kommt je nach Beziehung als Objekt oder als Liste.
+    const plan = Array.isArray(r.courses?.course_schedule)
+      ? r.courses?.course_schedule[0]
+      : r.courses?.course_schedule;
+    const zeit = plan?.start_time;
+    return {
+      kursId: r.course_id,
+      name: r.courses?.name ?? "—",
+      termin: plan ? `${tw(String(plan.weekday))}${zeit ? ` · ${zeit.slice(0, 5)}` : ""}` : null,
+      tanzrolle: r.dance_role,
+    };
+  };
+  const alleKursplaetze = (kursplatzRows ?? []) as unknown as KursplatzZeile[];
+  const flatrateKurse = alleKursplaetze.filter((r) => r.ended_on === null).map(kursplatzZeile);
+  const laufendeIds = new Set(flatrateKurse.map((k) => k.kursId));
+  const frueherFlatrateKurse = alleKursplaetze
+    .filter((r) => r.ended_on !== null && !laufendeIds.has(r.course_id))
+    .map(kursplatzZeile)
+    // Derselbe Kurs kann mehrfach beendet worden sein; er gehört einmal in die Liste.
+    .filter((k, i, alle) => alle.findIndex((x) => x.kursId === k.kursId) === i);
 
   const waitlistEntries: MyWaitlistRow[] = (waitlistRows ?? []).map((w) => ({
     id: w.id,
@@ -266,6 +316,13 @@ export default async function ProfilePage() {
         <ProfilGruppe titel={t("groupCourses")} hinweis={t("groupCoursesHint")}>
           <ProfilAbschnitt wert="abo" titel={t("sectionSubscription")} hinweis={t("sectionSubscriptionHint")}>
             <MySubscriptionsSection subscriptions={subscriptions} courses={courses} />
+            {/* PROJ-50: Die Kurse gehören zum Abo — deshalb hier und nicht in
+                einem eigenen Abschnitt. */}
+            {hatFlatrate && (
+              <div className="mt-6 border-t pt-6">
+                <FlatrateCourses kurse={flatrateKurse} frueher={frueherFlatrateKurse} />
+              </div>
+            )}
           </ProfilAbschnitt>
           <ProfilAbschnitt wert="buchungen" titel={t("sectionBookings")} hinweis={t("sectionBookingsHint")}>
             <MyBookingsSection bookings={bookings} />

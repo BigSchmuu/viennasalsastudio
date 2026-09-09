@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CustomerProfileForm } from "@/components/admin/customers/customer-profile-form";
 import { SubscriptionManager, type SubscriptionRow } from "@/components/admin/customers/subscription-manager";
+import {
+  FlatrateCourseManager,
+  type FlatrateKursplatz,
+} from "@/components/admin/customers/flatrate-course-manager";
 import { CreditManager, type CreditEntry } from "@/components/admin/customers/credit-manager";
 import type { ProfileInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
@@ -31,7 +35,8 @@ export default async function CustomerDetailPage({
     notFound();
   }
 
-  const [emailsRes, subscriptionsRes, mandateRes, mandateHistoryRes, coursesRes, creditsRes] = await Promise.all([
+  const [emailsRes, subscriptionsRes, mandateRes, mandateHistoryRes, coursesRes, kursplaetzeRes, creditsRes] =
+    await Promise.all([
     supabase.rpc("admin_list_customer_emails"),
     supabase
       .from("subscriptions")
@@ -49,6 +54,12 @@ export default async function CustomerDetailPage({
       .select("id", { count: "exact", head: true })
       .eq("customer_id", id),
     supabase.from("courses").select("id, name").order("name", { ascending: true }),
+    // PROJ-50: Die laufenden Kursplätze der Flatrate.
+    supabase
+      .from("course_memberships")
+      .select("course_id, dance_role, courses(name)")
+      .eq("customer_id", id)
+      .is("ended_on", null),
     // PROJ-44: Kontostand und Verlauf. Der Stand ist die Summe des Verlaufs,
     // deshalb reicht eine Abfrage.
     supabase
@@ -82,6 +93,23 @@ export default async function CustomerDetailPage({
   }));
 
   const courses = coursesRes.data ?? [];
+
+  // PROJ-50: Die Kursliste erscheint nur, wo es eine Flatrate gibt. Ein
+  // kursgebundenes Abo trägt seinen Kurs selbst — dort gäbe es nichts zu tun.
+  const hatFlatrate = (subscriptionsRes.data ?? []).some(
+    (s) => s.course_id === null && s.status === "active"
+  );
+  const kursplaetze: FlatrateKursplatz[] = (
+    (kursplaetzeRes.data ?? []) as unknown as {
+      course_id: string;
+      dance_role: string | null;
+      courses: { name: string } | null;
+    }[]
+  ).map((k) => ({
+    kursId: k.course_id,
+    kursName: k.courses?.name ?? "—",
+    tanzrolle: k.dance_role,
+  }));
 
   // PROJ-44: Wer diesen Kunden geworben hat. Wurde der Werbende geloescht,
   // steht referred_by auf null und die Zuordnung ist damit weg — das Guthaben
@@ -143,6 +171,11 @@ export default async function CustomerDetailPage({
       <div className="space-y-3">
         <h3 className="font-heading text-lg font-semibold">Abos</h3>
         <SubscriptionManager customerId={id} subscriptions={subscriptions} courses={courses} />
+        {hatFlatrate && (
+          <div className="border-t pt-4">
+            <FlatrateCourseManager customerId={id} kursplaetze={kursplaetze} kurse={courses} />
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">

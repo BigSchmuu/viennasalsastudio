@@ -422,5 +422,26 @@
     "birthdaysHint": "Students from your classes, in the next seven days.",
     "missingAttendance": "Record attendance",
     "missingAttendanceHint": "Attendance is still missing for these classes."
+  },
+  "flatrate": {
+    "addToFlatrate": "Add to my flat rate",
+    "addDialogTitle": "Add course to your flat rate",
+    "addDialogHint": "No new subscription, no extra debit — the course joins your running flat rate.",
+    "add": "Add",
+    "cancel": "Cancel",
+    "added": "Course added — you're in from the next session.",
+    "removed": "Course removed. Your flat rate continues unchanged.",
+    "alreadyIn": "You're in this course",
+    "myCourses": "My courses",
+    "myCoursesHint": "These are the courses your flat rate covers.",
+    "remove": "Remove",
+    "removeConfirmTitle": "Remove this course?",
+    "removeConfirmBody": "Your spot is freed immediately and may go to someone on the waiting list. Your flat rate stays untouched.",
+    "noCourses": "Your flat rate is running, but you're not enrolled in any course.",
+    "noCoursesAction": "Browse courses",
+    "earlier": "Your earlier courses",
+    "earlierHint": "You were in these before your break. One click each — if there's still room.",
+    "roleQuestion": "Which role do you dance in this course?",
+    "noRoom": "There's no room in that course right now."
   }
 }

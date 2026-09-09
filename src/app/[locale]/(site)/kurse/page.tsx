@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
 import { CourseCatalog, type CatalogCourseRow, type SimpleOption } from "@/components/catalog/course-catalog";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { readStudioPricing } from "@/lib/pricing";
@@ -47,9 +48,10 @@ export default async function KurskatalogPage() {
   let openRegularCourseIds = new Set<string>();
   let waitlistCourseIds = new Set<string>();
   let enrolledCourseIds = new Set<string>();
+  let hatFlatrate = false;
 
   if (user) {
-    const [mandateRes, profileRes, bookingsRes, waitlistRes, subscriptionsRes] = await Promise.all([
+    const [mandateRes, profileRes, bookingsRes, waitlistRes, zugehoerigkeit] = await Promise.all([
       supabase.from("sepa_mandates").select("id").eq("customer_id", user.id).is("revoked_at", null).maybeSingle(),
       supabase.from("profiles").select("referral_source").eq("id", user.id).single(),
       supabase
@@ -59,18 +61,22 @@ export default async function KurskatalogPage() {
         .eq("type", "regular")
         .eq("status", "open"),
       supabase.from("waitlist_entries").select("course_id").eq("customer_id", user.id),
-      // Fix zu PROJ-8: Ohne diese Abfrage bot der Katalog einem bereits
-      // eingeschriebenen Kunden erneut das Anmeldeformular an — bestätigt der
-      // Admin, entsteht ein zweites Abo und damit ein doppelter Einzug.
-      supabase.from("subscriptions").select("course_id").eq("customer_id", user.id).eq("status", "active"),
+      // „In welchen Kursen sitzt er?" — seit PROJ-50 eine gemeinsame Antwort
+      // statt einer Abfrage auf `subscriptions.course_id`.
+      //
+      // Der Grund für die Abfrage bleibt derselbe wie beim Fix zu PROJ-8: Ohne
+      // sie bot der Katalog einem bereits eingeschriebenen Kunden erneut das
+      // Anmeldeformular an, und beim Bestätigen entstand ein zweites Abo. Bei
+      // einer Flatrate half die alte Abfrage dagegen nicht — deren Kurse
+      // stehen nicht am Abo.
+      ladeKurszugehoerigkeit(supabase, user.id),
     ]);
     hasMandate = !!mandateRes.data;
     hasReferralSource = !!profileRes.data?.referral_source;
     openRegularCourseIds = new Set((bookingsRes.data ?? []).map((b) => b.course_id));
     waitlistCourseIds = new Set((waitlistRes.data ?? []).map((w) => w.course_id));
-    enrolledCourseIds = new Set(
-      (subscriptionsRes.data ?? []).map((s) => s.course_id).filter((id): id is string => id !== null)
-    );
+    enrolledCourseIds = zugehoerigkeit.kursIds;
+    hatFlatrate = zugehoerigkeit.hatFlatrate;
   }
 
   const courses: CatalogCourseRow[] = (coursesRes.data ?? []).map((c) => {
@@ -99,6 +105,7 @@ export default async function KurskatalogPage() {
       price: c.price,
       hasOpenRegularBooking: openRegularCourseIds.has(c.id),
       hasActiveSubscription: enrolledCourseIds.has(c.id),
+      hasFlatrate: hatFlatrate,
       isFull: c.max_participants !== null && (occupiedByCourse.get(c.id) ?? 0) >= c.max_participants,
       isOnWaitlist: waitlistCourseIds.has(c.id),
       prerequisiteNote: c.prerequisite_note,

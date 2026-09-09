@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
 import { jsDayToWeekday, formatDateLocal, selfCheckinWindow, upcomingOccurrences } from "@/lib/scheduling/dates";
 import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
@@ -37,10 +38,14 @@ export default async function StundenplanPage() {
           "id, name, level, dance_styles(name), rooms(id, name, locations(id, name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled"
         ),
       supabase.from("teacher_directory").select("id, full_name"),
-      // PROJ-25: own active course-bound subscriptions determine self-check-in eligibility.
+      // PROJ-25: In welchen Kursen der Kunde sitzt, entscheidet über den
+      // Selbst-Check-in. Seit PROJ-50 über die gemeinsame Antwort — vorher
+      // stand hier eine Abfrage auf `subscriptions.course_id`, und die ließ
+      // einen Flatrate-Kunden leer ausgehen: kein Check-in, dafür überall
+      // „Jetzt buchen".
       user
-        ? supabase.from("subscriptions").select("course_id").eq("customer_id", user.id).eq("status", "active")
-        : Promise.resolve({ data: null }),
+        ? ladeKurszugehoerigkeit(supabase, user.id)
+        : Promise.resolve({ hatFlatrate: false, kursIds: new Set<string>(), videoKursIds: new Set<string>() }),
       user ? supabase.rpc("get_my_todays_attendance") : Promise.resolve({ data: null }),
       // PROJ-26: occupancy is public/aggregate (same RPC /kurse already uses), needed regardless of login state.
       supabase.rpc("get_course_occupancy"),
@@ -74,7 +79,7 @@ export default async function StundenplanPage() {
     (teachersRes.data ?? []).map((lehrer) => [lehrer.id, lehrer.full_name || texte("unnamedTeacher")])
   );
 
-  const myActiveCourseIds = new Set((mySubsRes.data ?? []).map((s) => s.course_id).filter(Boolean));
+  const myActiveCourseIds = mySubsRes.kursIds;
   const myTodaysStatusByCourse = new Map((myAttendanceRes.data ?? []).map((a) => [a.course_id, a.status]));
 
   // PROJ-26: booking-eligibility data, gathered once for all courses shown this week.
@@ -134,9 +139,10 @@ export default async function StundenplanPage() {
           pauseDates: schedule.course_schedule_pauses.map((p) => p.pause_date),
         }),
         hasOpenRegularBooking: myOpenRegularCourseIds.has(course.id),
-        // Immer false: dieser Zweig wird nur betreten, wenn der Kunde KEIN
-        // aktives Abo für den Kurs hat (siehe Bedingung oben).
+        // Immer false: dieser Zweig wird nur betreten, wenn der Kunde in
+        // diesem Kurs NICHT sitzt (siehe Bedingung oben).
         hasActiveSubscription: false,
+        hasFlatrate: mySubsRes.hatFlatrate,
         isFull: course.max_participants !== null && (occupiedByCourse.get(course.id) ?? 0) >= course.max_participants,
         isOnWaitlist: myWaitlistCourseIds.has(course.id),
         isLoggedIn: !!user,

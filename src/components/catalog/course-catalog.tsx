@@ -11,6 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { useTranslations } from "next-intl";
 import type { StudioPricing } from "@/lib/pricing";
 import { CoursePriceLine } from "@/components/catalog/course-price-line";
+import { FlatrateAddButton } from "@/components/booking/flatrate-add-button";
 import {
   Select,
   SelectContent,
@@ -45,6 +46,8 @@ export type CatalogCourseRow = {
   price: number | null;
   hasOpenRegularBooking: boolean;
   hasActiveSubscription: boolean;
+  /** PROJ-50: laufende Flatrate — der Kurs kostet nichts extra. */
+  hasFlatrate: boolean;
   isFull: boolean;
   isOnWaitlist: boolean;
   prerequisiteNote: string | null;
@@ -71,6 +74,7 @@ export function CourseCatalog({
   pricing: StudioPricing;
 }) {
   const t = useTranslations("courses");
+  const tf = useTranslations("flatrate");
   const router = useRouter();
   const pathname = usePathname();
 
@@ -262,13 +266,30 @@ export function CourseCatalog({
                   {/* Vorher: zwölf vollflächig rote Knöpfe übereinander. Eine
                       Akzentfarbe wirkt nur, solange sie selten ist — das Rot
                       bleibt jetzt der Buchung im Dialog vorbehalten. */}
-                  <Button
-                    variant="outline"
-                    className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
-                    onClick={() => handleBook(course)}
-                  >
-                    {t("book")}
-                  </Button>
+                  {/* PROJ-50: Ein Flatrate-Kunde bucht nicht, er trägt sich
+                      ein — ohne Preis, ohne AGB, ohne zweites Abo. */}
+                  {course.hasFlatrate && course.hasActiveSubscription ? (
+                    <p className="w-full text-center text-sm text-muted-foreground">
+                      {tf("alreadyIn")}
+                    </p>
+                  ) : course.hasFlatrate ? (
+                    <FlatrateAddButton
+                      kursId={course.id}
+                      fragtRolleAb={course.roleQueryEnabled}
+                      vorkenntnisseHinweis={course.prerequisiteNote}
+                      istVoll={course.isFull}
+                      onWarteliste={() => handleBook(course)}
+                      className="w-full border border-primary/30 bg-transparent text-primary hover:bg-primary hover:text-primary-foreground"
+                    />
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
+                      onClick={() => handleBook(course)}
+                    >
+                      {t("book")}
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             ))}

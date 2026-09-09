@@ -422,5 +422,26 @@
     "birthdaysHint": "Schüler aus deinen Kursen, in den nächsten sieben Tagen.",
     "missingAttendance": "Anwesenheit nachtragen",
     "missingAttendanceHint": "Für diese Stunden fehlt noch die Anwesenheit."
+  },
+  "flatrate": {
+    "addToFlatrate": "Zu meiner Flatrate hinzufügen",
+    "addDialogTitle": "Kurs zu deiner Flatrate hinzufügen",
+    "addDialogHint": "Kein neues Abo, keine zusätzliche Abbuchung — der Kurs kommt zu deiner laufenden Flatrate dazu.",
+    "add": "Hinzufügen",
+    "cancel": "Abbrechen",
+    "added": "Kurs hinzugefügt — du bist ab dem nächsten Termin dabei.",
+    "removed": "Kurs entfernt. Deine Flatrate läuft unverändert weiter.",
+    "alreadyIn": "Du bist in diesem Kurs",
+    "myCourses": "Meine Kurse",
+    "myCoursesHint": "In diesen Kursen bist du über deine Flatrate eingeschrieben.",
+    "remove": "Entfernen",
+    "removeConfirmTitle": "Kurs wirklich entfernen?",
+    "removeConfirmBody": "Dein Platz wird sofort frei und kann an jemanden von der Warteliste gehen. Deine Flatrate bleibt unberührt.",
+    "noCourses": "Deine Flatrate läuft, aber du bist in keinem Kurs eingeschrieben.",
+    "noCoursesAction": "Kurse ansehen",
+    "earlier": "Deine früheren Kurse",
+    "earlierHint": "Vor deiner Pause warst du hier dabei. Ein Klick genügt — sofern noch Platz ist.",
+    "roleQuestion": "Als was tanzt du in diesem Kurs?",
+    "noRoom": "In diesem Kurs ist gerade kein Platz frei."
   }
 }

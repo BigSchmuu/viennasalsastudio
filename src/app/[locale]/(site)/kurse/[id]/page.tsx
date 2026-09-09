@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ladeKurszugehoerigkeit, darfVideosSehen } from "@/lib/flatrate/kurszugehoerigkeit";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
 import { Badge } from "@/components/ui/badge";
@@ -62,11 +63,12 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   let hasReferralSource = false;
   let hasOpenRegularBooking = false;
   let hasActiveSubscription = false;
+  let hasFlatrate = false;
   let hasVideoAccess = false;
   let isOnWaitlist = false;
 
   if (user) {
-    const [mandateRes, profileRes, bookingRes, subscriptionsRes, waitlistRes] = await Promise.all([
+    const [mandateRes, profileRes, bookingRes, waitlistRes, zugehoerigkeit] = await Promise.all([
       supabase.from("sepa_mandates").select("id").eq("customer_id", user.id).is("revoked_at", null).maybeSingle(),
       supabase.from("profiles").select("referral_source").eq("id", user.id).single(),
       supabase
@@ -78,22 +80,21 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
         .eq("status", "open")
         .maybeSingle(),
       supabase
-        .from("subscriptions")
-        .select("id, course_id")
-        .eq("customer_id", user.id)
-        .eq("status", "active"),
-      supabase
         .from("waitlist_entries")
         .select("id")
         .eq("customer_id", user.id)
         .eq("course_id", id)
         .maybeSingle(),
+      // PROJ-50: „bin ich in diesem Kurs?" fragt nicht mehr die Abo-Tabelle,
+      // sondern die eine gemeinsame Antwort — sonst fehlt der Flatrate-Kunde.
+      ladeKurszugehoerigkeit(supabase, user.id),
     ]);
     hasMandate = !!mandateRes.data;
     hasReferralSource = !!profileRes.data?.referral_source;
     hasOpenRegularBooking = !!bookingRes.data;
-    hasVideoAccess = (subscriptionsRes.data ?? []).some((s) => s.course_id === id || s.course_id === null);
-    hasActiveSubscription = (subscriptionsRes.data ?? []).some((s) => s.course_id === id);
+    hasVideoAccess = darfVideosSehen(zugehoerigkeit, id);
+    hasActiveSubscription = zugehoerigkeit.kursIds.has(id);
+    hasFlatrate = zugehoerigkeit.hatFlatrate;
     isOnWaitlist = !!waitlistRes.data;
   }
 
@@ -124,6 +125,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     price: course.price,
     hasOpenRegularBooking,
     hasActiveSubscription,
+    hasFlatrate,
     isFull,
     isOnWaitlist,
     prerequisiteNote: course.prerequisite_note,

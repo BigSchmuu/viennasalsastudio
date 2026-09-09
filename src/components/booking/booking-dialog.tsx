@@ -53,6 +53,9 @@ export type BookingDialogCourse = {
   hasOpenRegularBooking: boolean;
   /** Fix zu PROJ-8: schon eingeschrieben — eine zweite Anmeldung hieße doppelter Einzug. */
   hasActiveSubscription: boolean;
+  /** PROJ-50: laufende Flatrate. Der Dialog nutzt es nicht — die Aufrufer
+   *  entscheiden damit, ob sie ihn überhaupt anbieten. */
+  hasFlatrate?: boolean;
   /** Eigener Preis dieses Kurses; `null` heißt „Standardpreis gilt" (PROJ-41). */
   price: number | null;
   isFull: boolean;

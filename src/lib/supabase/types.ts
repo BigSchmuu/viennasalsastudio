@@ -456,6 +456,61 @@ export type Database = {
           },
         ]
       }
+      course_memberships: {
+        Row: {
+          course_id: string
+          created_at: string
+          customer_id: string
+          dance_role: string | null
+          ended_on: string | null
+          id: string
+          started_on: string
+          subscription_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          customer_id: string
+          dance_role?: string | null
+          ended_on?: string | null
+          id?: string
+          started_on?: string
+          subscription_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          customer_id?: string
+          dance_role?: string | null
+          ended_on?: string | null
+          id?: string
+          started_on?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_memberships_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_memberships_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_memberships_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_teachers: {
         Row: {
           course_id: string
@@ -1624,6 +1679,16 @@ export type Database = {
       }
     }
     Views: {
+      course_members: {
+        Row: {
+          course_id: string | null
+          customer_id: string | null
+          dance_role: string | null
+          quelle: string | null
+          subscription_id: string | null
+        }
+        Relationships: []
+      }
       teacher_directory: {
         Row: {
           full_name: string | null
@@ -1641,12 +1706,55 @@ export type Database = {
       }
     }
     Functions: {
+      add_course_to_flatrate: {
+        Args: {
+          p_course_id: string
+          p_dance_role?: string | null
+          p_prerequisite_confirmed?: boolean
+        }
+        Returns: {
+          course_id: string
+          created_at: string
+          customer_id: string
+          dance_role: string | null
+          ended_on: string | null
+          id: string
+          started_on: string
+          subscription_id: string
+        }
+      }
+      admin_add_course_membership: {
+        Args: {
+          p_customer_id: string
+          p_course_id: string
+          p_dance_role?: string | null
+          p_ignore_capacity?: boolean
+        }
+        Returns: {
+          course_id: string
+          created_at: string
+          customer_id: string
+          dance_role: string | null
+          ended_on: string | null
+          id: string
+          started_on: string
+          subscription_id: string
+        }
+      }
       admin_list_customer_emails: {
         Args: never
         Returns: {
           email: string
           id: string
         }[]
+      }
+      admin_remove_course_membership: {
+        Args: { p_customer_id: string; p_course_id: string }
+        Returns: number
+      }
+      aktive_flatrate: {
+        Args: { p_customer_id: string }
+        Returns: string
       }
       assert_valid_terms_version: {
         Args: { p_version: string }
@@ -1976,6 +2084,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      kurs_belegung: {
+        Args: { p_course_id: string }
+        Returns: number
+      }
+      kurs_rollenanzahl: {
+        Args: { p_course_id: string; p_rolle: string }
+        Returns: number
+      }
       list_attendance_eligible_customers: {
         Args: never
         Returns: {
@@ -2071,6 +2187,10 @@ export type Database = {
       }
       return_collection_item_credit: {
         Args: { p_collection_item_id: string }
+        Returns: number
+      }
+      remove_course_from_flatrate: {
+        Args: { p_course_id: string }
         Returns: number
       }
       require_dance_role: {

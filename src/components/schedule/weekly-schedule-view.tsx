@@ -38,6 +38,8 @@ export type ScheduleEntry = {
     price: number | null;
     hasOpenRegularBooking: boolean;
     hasActiveSubscription: boolean;
+    /** PROJ-50: laufende Flatrate — Eintragen statt Buchen. */
+    hasFlatrate: boolean;
     isFull: boolean;
     isOnWaitlist: boolean;
     isLoggedIn: boolean;
@@ -116,6 +118,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
               price: entry.booking.price,
               hasOpenRegularBooking: entry.booking.hasOpenRegularBooking,
               hasActiveSubscription: entry.booking.hasActiveSubscription,
+              hasFlatrate: entry.booking.hasFlatrate,
               isFull: entry.booking.isFull,
               isOnWaitlist: entry.booking.isOnWaitlist,
               prerequisiteNote: entry.prerequisiteNote,

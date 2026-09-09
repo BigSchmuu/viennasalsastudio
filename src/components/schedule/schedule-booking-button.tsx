@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookingDialog, type BookingDialogCourse } from "@/components/booking/booking-dialog";
 import { Button } from "@/components/ui/button";
+import { FlatrateAddButton } from "@/components/booking/flatrate-add-button";
 import type { StudioPricing } from "@/lib/pricing";
 
 export function ScheduleBookingButton({
@@ -28,6 +29,33 @@ export function ScheduleBookingButton({
       return;
     }
     setBookingOpen(true);
+  }
+
+  // PROJ-50: Ein Flatrate-Kunde bucht nicht, er trägt sich ein. Der Dialog
+  // bleibt für ihn nur der Weg auf die Warteliste, wenn der Kurs voll ist.
+  if (isLoggedIn && course.hasFlatrate) {
+    return (
+      <>
+        <FlatrateAddButton
+          kursId={course.id}
+          fragtRolleAb={course.roleQueryEnabled}
+          vorkenntnisseHinweis={course.prerequisiteNote}
+          istVoll={course.isFull}
+          onWarteliste={() => setBookingOpen(true)}
+          className="w-full border border-primary/30 bg-transparent text-primary hover:bg-primary hover:text-primary-foreground h-9 px-3 text-sm"
+        />
+        {bookingOpen && (
+          <BookingDialog
+            open={bookingOpen}
+            onOpenChange={setBookingOpen}
+            course={course}
+            hasMandate={hasMandate}
+            hasReferralSource={hasReferralSource}
+            pricing={pricing}
+          />
+        )}
+      </>
+    );
   }
 
   return (
