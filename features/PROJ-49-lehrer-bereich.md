@@ -281,7 +281,7 @@ gar nicht.
 
 ### Gefundene Fehler
 
-#### BUG-1: Seite läuft bei Tablet-Breite seitlich über (Lehrer und Admin)
+#### BUG-1: Seite läuft bei Tablet-Breite seitlich über (Lehrer und Admin) — ✅ behoben
 - **Schweregrad:** Medium
 - **Gehört zu:** PROJ-24 (globale Navigation), nicht zu PROJ-49
 - **Schritte:**
@@ -298,8 +298,16 @@ gar nicht.
 - **Warum es jetzt auffällt:** PROJ-49 gibt Lehrern erstmals einen Grund, die App
   im Studio auf einem Tablet zu öffnen. 768 px ist genau das iPad im Hochformat.
 - **Priorität:** vor dem Start beheben
+- **Behoben am 2026-09-09:** Die Leiste erscheint jetzt erst ab 1024 px, wenn
+  sie mehr als fünf Einträge hat — also für Lehrer und Admins. Für Kunden bleibt
+  es bei 768 px, ihre Leiste passt dort. Zwischen 768 und 1024 px führt für
+  Mitarbeiter der Menüknopf, dessen Einträge ohnehin die größeren Tippziele
+  haben. Regressionstest in `PROJ-24`: sechs Breiten × drei Rollen, dazu die
+  Probe, dass „Meine Kurse" bei 820 px über das Menü erreichbar bleibt.
+  Nachgestellt: Ohne die Korrektur meldet der Test „Lehrer bei 768 px: Seite ist
+  863 px breit statt 768".
 
-#### BUG-2: Drei Datenbankfunktionen sind ohne Anmeldung aufrufbar
+#### BUG-2: Drei Datenbankfunktionen sind ohne Anmeldung aufrufbar — ✅ behoben
 - **Schweregrad:** Low — **kein Datenabfluss**
 - **Betroffen:** `get_course_participants`, `get_last_session_notes`,
   `get_course_attendance_roster`
@@ -314,6 +322,15 @@ gar nicht.
 - **Behebung:** `revoke all on function … from anon;` für die drei Funktionen.
   Betrifft auch die Produktion, dort läuft dasselbe SQL.
 - **Priorität:** nächster Zug, nicht dringend
+- **Behoben am 2026-09-09** (`20260909210000_funktionsrechte_anon_entziehen.sql`):
+  Beim Anwenden kam ein zweiter Weg zum Vorschein — der Roster hatte in seiner
+  Rechteliste einen Eintrag mit leerem Empfänger (`=X/postgres`), also PUBLIC.
+  Ein Entzug bei `anon` allein greift dort nicht, weil die Rolle das Recht über
+  PUBLIC erbt. Jetzt `from public, anon` für alle drei. Nachgeprüft: Alle neun
+  Kursfunktionen sind für `anon` gesperrt und für `authenticated` offen. Der
+  Sicherheitstest verlangt jetzt wieder eine Abweisung statt nur einer leeren
+  Antwort — er soll umfallen, wenn eine Funktion überarbeitet und der Entzug
+  vergessen wird.
 
 #### BUG-3: Tippziele im Lehrer-Bereich sind 36 px statt 44 px
 - **Schweregrad:** Low
@@ -334,7 +351,7 @@ gar nicht.
 | Akzeptanzkriterien | **16 / 16 bestanden** |
 | Edge Cases | 7 / 7 |
 | Sicherheit | kein Datenabfluss; 1 Härtungslücke (Low) |
-| Fehler | 0 kritisch, 0 hoch, 1 mittel, 2 niedrig |
+| Fehler | 0 kritisch, 0 hoch, 1 mittel, 2 niedrig — **BUG-1 und BUG-2 behoben**, BUG-3 offen |
 
 **Produktionsreif: JA.** Kein kritischer und kein hoher Fehler. BUG-1 gehört zu
 PROJ-24 und trifft eine bestimmte Breite, nicht die Funktion selbst.

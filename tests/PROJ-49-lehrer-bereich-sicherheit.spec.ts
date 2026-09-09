@@ -77,20 +77,23 @@ test.describe("PROJ-49 Sicherheit: Der Zaun um die Kursdaten", () => {
     });
   }
 
-  test("Ohne Anmeldung gibt keine der Funktionen Daten heraus", async () => {
+  test("Ohne Anmeldung ist keine der Funktionen aufrufbar", async () => {
     const anonym = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { auth: { persistSession: false, autoRefreshToken: false } }
     );
-    // Zwei zulässige Antworten: abgewiesen oder leer. Drei der Funktionen sind
-    // für Nicht-Angemeldete noch *aufrufbar* (QA-Befund vom 2026-09-09,
-    // Schweregrad niedrig) — herausgeben tun sie deshalb trotzdem nichts, weil
-    // der Zaun im Rumpf steckt und nicht allein im Ausführungsrecht.
+    // Die zweite Schranke, zusätzlich zum Zaun im Rumpf: Wer nicht angemeldet
+    // ist, kommt gar nicht erst hinein.
+    //
+    // Dieser Test hat den Befund vom 2026-09-09 gefunden — drei Funktionen
+    // waren offen, weil `create or replace function` die Rechte zurücksetzt
+    // und Supabase `EXECUTE` per Default-Privileg neu vergibt. Er bleibt
+    // deshalb streng: Er soll wieder umfallen, wenn eine Funktion überarbeitet
+    // und der Entzug vergessen wird.
     for (const { name, argumente } of FUNKTIONEN) {
-      const { data, error } = await anonym.rpc(name, argumente);
-      if (error) continue;
-      expect(data ?? [], `${name} gibt Daten an einen anonymen Aufrufer heraus`).toEqual([]);
+      const { error } = await anonym.rpc(name, argumente);
+      expect(error, `${name} ist ohne Anmeldung aufrufbar`).not.toBeNull();
     }
   });
 });

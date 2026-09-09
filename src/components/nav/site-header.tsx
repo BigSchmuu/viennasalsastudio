@@ -63,6 +63,27 @@ export function SiteHeader({
     return pathname === href || pathname?.startsWith(`${href}/`);
   }
 
+  /**
+   * Ab wann die Leiste statt des Menüknopfs erscheint.
+   *
+   * Bisher immer ab 768 px. Für Kunden passt das — vier bis fünf Einträge
+   * brauchen dort keine 700 px. Lehrer und Admins haben aber „Meine Kurse",
+   * „Check-in" und „Admin" zusätzlich, und ihre Leiste misst 863 px: Die Seite
+   * ließ sich zwischen 768 und rund 862 px seitlich schieben. Genau 768 px ist
+   * das iPad im Hochformat — also das Gerät, auf dem eine Lehrkraft im Studio
+   * die Anwesenheit abhakt.
+   *
+   * Statt die Abstände zu quetschen bekommen die langen Leisten mehr Anlauf:
+   * Bis 1024 px führt für sie der Menüknopf, dessen Einträge ohnehin die
+   * größeren Tippziele haben. Für Kunden bleibt alles, wie es war.
+   *
+   * Die Klassennamen stehen ausgeschrieben da, weil Tailwind sie im Quelltext
+   * finden muss — zusammengesetzte Namen fehlen später im Stylesheet.
+   */
+  const langeLeiste = links.length > 5;
+  const leisteAb = langeLeiste ? "hidden lg:flex" : "hidden md:flex";
+  const knopfBis = langeLeiste ? "lg:hidden" : "md:hidden";
+
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
@@ -70,7 +91,7 @@ export function SiteHeader({
           Vienna Salsa Studio
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className={cn(leisteAb, "items-center gap-1")}>
           {links.map((link) => {
             // Mitarbeiterbereiche ohne Sprachpräfix — sie haben keine
             // Sprachebene. Die Sprachwahl des Betreibers bleibt dabei
@@ -97,7 +118,7 @@ export function SiteHeader({
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden" aria-label={t("openMenu")}>
+            <Button variant="ghost" size="icon" className={knopfBis} aria-label={t("openMenu")}>
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>

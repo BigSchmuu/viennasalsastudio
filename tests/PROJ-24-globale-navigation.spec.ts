@@ -3,6 +3,7 @@ import { gehZu } from "./navigation";
 
 const ADMIN = { email: "e2e24-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const CUSTOMER = { email: "e2e24-customer@viennasalsastudio.test", password: "CorrectPassword123!" };
+const LEHRER = { email: "e2e13-lehrer-a@viennasalsastudio.test", password: "CorrectPassword123!" };
 
 async function login(page: Page, { email, password }: { email: string; password: string }) {
   await gehZu(page, "/login");
@@ -172,4 +173,54 @@ test.describe("PROJ-24: Globale Navigation & Login-Status", () => {
     }
   });
 
+  /**
+   * Die Kopfzeile darf die Seite bei keiner Breite seitlich schiebbar machen.
+   *
+   * Sie tat es: Lehrer und Admins haben mit „Meine Kurse", „Check-in" und
+   * „Admin" eine 863 px breite Leiste, die schon ab 768 px erschien. Zwischen
+   * 768 und rund 862 px lief die Seite über — und 768 px ist genau das iPad im
+   * Hochformat, also das Gerät, auf dem eine Lehrkraft im Studio steht.
+   * Gefunden im QA-Durchgang zu PROJ-49 am 2026-09-09.
+   *
+   * Kunden waren nie betroffen, deshalb stehen hier alle drei Rollen: Ein Test
+   * nur mit Kundenkonto wäre grün geblieben.
+   */
+  for (const [rolle, konto] of [
+    ["Kunde", CUSTOMER],
+    ["Lehrer", LEHRER],
+    ["Admin", ADMIN],
+  ] as const) {
+    test(`Kopfzeile läuft für ${rolle} bei keiner Breite seitlich über`, async ({ page }) => {
+      await login(page, konto);
+      for (const breite of [375, 768, 820, 900, 1024, 1280]) {
+        await page.setViewportSize({ width: breite, height: 900 });
+        await page.goto("/kurse");
+        await page.waitForTimeout(800);
+        const mass = await page.evaluate(() => ({
+          scroll: document.documentElement.scrollWidth,
+          client: document.documentElement.clientWidth,
+        }));
+        expect(
+          mass.scroll,
+          `${rolle} bei ${breite} px: Seite ist ${mass.scroll} px breit statt ${mass.client}`
+        ).toBeLessThanOrEqual(mass.client);
+      }
+    });
+  }
+
+  test("Bei Tablet-Breite erreicht ein Lehrer seine Einträge über den Menüknopf", async ({
+    page,
+  }) => {
+    // Die Kehrseite der Korrektur oben: Zwischen 768 und 1024 px führt für
+    // Lehrer und Admins jetzt der Menüknopf. Das darf nichts verstecken.
+    await login(page, LEHRER);
+    await page.setViewportSize({ width: 820, height: 900 });
+    await page.goto("/kurse");
+    await page.waitForTimeout(800);
+
+    const nav = await navContainer(page);
+    await expect(nav.getByRole("link", { name: "Meine Kurse" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Kurse", exact: true })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Stundenplan" })).toBeVisible();
+  });
 });
