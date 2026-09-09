@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { fehlendeAnwesenheit } from "../src/lib/teacher/uebersicht";
 
 try {
   ladeTestUmgebung();
@@ -14,6 +15,9 @@ const LEHRER = "e2e13-lehrer-a@viennasalsastudio.test";
 const LEHRER_OHNE_KURS = "e2e13-lehrer-c@viennasalsastudio.test";
 const KUNDE = "e2e8-customer@viennasalsastudio.test";
 const KURS_ID = "6032ce07-b19c-445b-9f42-f45921df557e"; // "E2E13 Kurs", Donnerstag
+const KURS_OHNE_TERMIN = "502077db-5c24-416f-b126-0838e580bd03"; // derselbe Lehrer, kein Wochentermin
+const ADMIN = "e2e13-admin@viennasalsastudio.test";
+const ADMIN_OHNE_KURS = "e2e22-admin@viennasalsastudio.test";
 
 const dienst = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -158,7 +162,7 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
       .eq("occurrence_date", datum);
   });
 
-  test("AC15: Ein Lehrer ohne Termine sieht einen erklärenden Hinweis statt einer leeren Seite", async ({
+  test("AC16: Ein Lehrer ohne Termine sieht einen erklärenden Hinweis statt einer leeren Seite", async ({
     page,
   }) => {
     // Lehrer C ist keinem Kurs zugewiesen — er hat nichts anstehen.
@@ -300,4 +304,168 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
     }
   });
 
+  test("AC3: Ein Admin, der einen Kurs unterrichtet, sieht den Lehrer-Bereich", async ({ page }) => {
+    const service = dienst();
+    const { data: admin } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E13 Admin")
+      .single();
+    expect(admin, "Fixture E2E13 Admin fehlt").toBeTruthy();
+
+    // Seit PROJ-40 darf ein Admin einem Kurs zugewiesen werden. Die Zuweisung
+    // muss danach wieder weg — sonst taucht bei anderen Suiten unerwartet
+    // „Meine Kurse" auf.
+    await service.from("course_teachers").insert({ course_id: KURS_ID, teacher_id: admin!.id });
+    try {
+      await anmelden(page, ADMIN);
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(1500);
+      await expect(page.getByText("Deine nächsten Kurse")).toBeVisible();
+      await expect(page.getByText("E2E13 Kurs").first()).toBeVisible();
+    } finally {
+      await service
+        .from("course_teachers")
+        .delete()
+        .eq("course_id", KURS_ID)
+        .eq("teacher_id", admin!.id);
+    }
+  });
+
+  test("AC4: Ein Admin ohne Kurszuweisung sieht die Kundenansicht", async ({ page }) => {
+    const service = dienst();
+    const { data: admin } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E22 Admin")
+      .single();
+    expect(admin, "Fixture E2E22 Admin fehlt").toBeTruthy();
+
+    // Vorbedingung ausdrücklich prüfen: Wäre dieser Admin doch zugewiesen,
+    // bestünde der Test aus dem falschen Grund nicht.
+    const { count } = await service
+      .from("course_teachers")
+      .select("*", { count: "exact", head: true })
+      .eq("teacher_id", admin!.id);
+    expect(count, "E2E22 Admin darf für diesen Test keinem Kurs zugewiesen sein").toBe(0);
+
+    await anmelden(page, ADMIN_OHNE_KURS);
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
+    await expect(page.getByText("Deine nächsten Kurse")).toHaveCount(0);
+  });
+
+  test("AC7: „Lehrmaterial“ führt auf die Kursseite, wo das Material sichtbar ist", async ({
+    page,
+  }) => {
+    const service = dienst();
+    const { data: satz } = await service
+      .from("video_sets")
+      .insert({ name: "E2E49 Materialsatz" })
+      .select("id")
+      .single();
+    await service.from("courses").update({ video_set_id: satz!.id }).eq("id", KURS_ID);
+
+    try {
+      await anmelden(page, LEHRER);
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(1500);
+
+      await page.getByRole("link", { name: "Lehrmaterial" }).first().click();
+      await page.waitForTimeout(2500);
+      expect(page.url()).toContain(`/lehrer/${KURS_ID}`);
+
+      // Nicht nur „irgendwo auf der Seite": Das Material muss ohne Scrollen zu
+      // sehen sein, sonst führt der Knopf nicht wirklich dorthin.
+      const material = page.getByText("E2E49 Materialsatz").first();
+      await expect(material).toBeVisible();
+      const kasten = await material.boundingBox();
+      const hoehe = page.viewportSize()!.height;
+      expect(kasten, "Materialblock nicht auffindbar").toBeTruthy();
+      expect(kasten!.y).toBeLessThan(hoehe);
+    } finally {
+      await service.from("courses").update({ video_set_id: null }).eq("id", KURS_ID);
+      await service.from("video_sets").delete().eq("id", satz!.id);
+    }
+  });
+
+  test("AC12: Ist jede der letzten vier Stunden erfasst, erscheint der Hinweis gar nicht", async ({
+    page,
+  }) => {
+    const service = dienst();
+    const { data: kunde } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E13 Abo Kunde")
+      .single();
+    expect(kunde, "Fixture E2E13 Abo Kunde fehlt").toBeTruthy();
+
+    // Dieselbe Rechnung wie die Anwendung, statt Daten von Hand auszurechnen —
+    // sonst prüft der Test eine andere Annahme als die, die gilt.
+    const { data: pausen } = await service
+      .from("course_schedule_pauses")
+      .select("pause_date, course_schedule!inner(course_id)")
+      .eq("course_schedule.course_id", KURS_ID);
+    const offen = fehlendeAnwesenheit(
+      [
+        {
+          id: KURS_ID,
+          name: "E2E13 Kurs",
+          ort: null,
+          weekday: 3,
+          startZeit: "19:00",
+          endZeit: "20:00",
+          pausen: (pausen ?? []).map((x) => x.pause_date as string),
+          hatVideosatz: false,
+          fragtRolleAb: false,
+        },
+      ],
+      new Set(),
+      new Date()
+    );
+    expect(offen.length, "Ohne Einträge müsste es offene Stunden geben").toBeGreaterThan(0);
+
+    const zeilen = offen.map((o) => ({
+      course_id: KURS_ID,
+      customer_id: kunde!.id,
+      occurrence_date: o.datum,
+      status: "present",
+    }));
+    const { error } = await service
+      .from("course_attendance")
+      .upsert(zeilen, { onConflict: "course_id,customer_id,occurrence_date" });
+    if (error) throw new Error(`Anwesenheit setzen fehlgeschlagen: ${error.message}`);
+
+    try {
+      await anmelden(page, LEHRER);
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(1500);
+      await expect(page.getByText("Anwesenheit nachtragen")).toHaveCount(0);
+    } finally {
+      await service
+        .from("course_attendance")
+        .delete()
+        .eq("course_id", KURS_ID)
+        .eq("customer_id", kunde!.id)
+        .in(
+          "occurrence_date",
+          offen.map((o) => o.datum)
+        );
+    }
+  });
+
+  test("Edge Case: Ein Kurs ohne hinterlegten Wochentermin taucht nicht als Termin auf", async ({
+    page,
+  }) => {
+    await anmelden(page, LEHRER);
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
+
+    // Der Lehrer unterrichtet ihn, aber er hat keinen Termin — er darf hier
+    // nicht erscheinen und auch nicht still verschwinden: auf /lehrer steht er.
+    await expect(page.getByText("E2E13 Kurs Ohne Termin")).toHaveCount(0);
+    await gehZu(page, `/lehrer/${KURS_OHNE_TERMIN}`);
+    await page.waitForTimeout(1500);
+    await expect(page.getByText("E2E13 Kurs Ohne Termin").first()).toBeVisible();
+  });
 });

@@ -199,7 +199,151 @@ Keine.
   der Liste, ohne dass etwas kaputtgeht.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Geprüft:** 2026-09-09
+**Gegen:** lokale Testumgebung (Port 3100) + Produktion für die Erreichbarkeit
+**Prüfer:** QA (AI)
+
+### Akzeptanzkriterien: 16 von 16 bestanden
+
+| # | Kriterium | Ergebnis | Nachweis |
+|---|---|---|---|
+| 1 | Lehrer sieht den Lehrer-Bereich | ✅ | E2E AC1 |
+| 2 | Kunde sieht die Kundenansicht | ✅ | E2E AC2 |
+| 3 | Admin, der unterrichtet, sieht den Lehrer-Bereich | ✅ | **neu** E2E AC3 |
+| 4 | Admin ohne Kurs sieht die Kundenansicht | ✅ | **neu** E2E AC4 |
+| 5 | Termine mit Datum, Uhrzeit, Kursname, Ort | ✅ | E2E AC5 |
+| 6 | „Anwesenheit" führt zur Anwesenheitsmatrix | ✅ | E2E AC6 + Messung |
+| 7 | „Lehrmaterial" führt zum Lehrmaterial | ✅ | **neu** E2E AC7 |
+| 8 | Ohne Videosatz keine Aktion „Lehrmaterial" | ✅ | E2E AC8 |
+| 9 | Geburtstag ohne Altersangabe | ✅ | E2E AC9 |
+| 10 | Probestunde mit Name, Kurs, Termin | ✅ | E2E AC10 |
+| 11 | Fehlende Anwesenheit wird genannt | ✅ | E2E AC11 |
+| 12 | Ist alles erfasst, erscheint der Hinweis nicht | ✅ | **neu** E2E AC12 |
+| 13 | Letzte Notiz beim nächsten Termin | ✅ | E2E AC13 |
+| 14 | Rollenverteilung, wo der Kurs sie abfragt | ✅ | E2E AC14 |
+| 15 | Keine Verteilung, wo er sie nicht abfragt | ✅ | E2E AC14 |
+| 16 | Leerzustand statt leerer Seite | ✅ | E2E AC16 |
+
+Zu AC6 und AC7: Beide Aktionen führen auf dieselbe Adresse `/lehrer/{kursId}`.
+Gemessen statt angenommen — auf der Kursseite steht das Lehrmaterial bei y=266,
+die Anwesenheitsmatrix bei y=376, bei Viewport-Höhen von 664 (iPhone 13) und
+720 px. **Beides liegt ohne Scrollen im Bild**, das Kriterium „landet bei …" ist
+damit erfüllt. Ein Anker wäre unnötige Mechanik.
+
+### Edge Cases
+
+| Fall | Ergebnis |
+|---|---|
+| Kurs ohne hinterlegten Wochentermin | ✅ erscheint nicht als Termin, bleibt aber unter „Meine Kurse" erreichbar (**neu** getestet) |
+| Ausgefallener Termin (Pause) | ✅ Unit-Tests `uebersicht.test.ts` |
+| Lehrer ohne jede Kurszuweisung | ✅ E2E AC16 |
+| Schüler ohne Geburtsdatum | ✅ Unit-Test |
+| Zwei Lehrer im selben Kurs | ✅ PROJ-13 AC8 (dieselbe Notiz für beide) |
+| Probestunde am selben Tag | ✅ Fenster beginnt bei `heuteInWien` |
+| Termin heute, Stunde läuft | ✅ Unit-Test |
+
+### Sicherheitsprüfung (Red Team)
+
+Neu: `tests/PROJ-49-lehrer-bereich-sicherheit.spec.ts` — 14 Fälle, alle bestanden.
+
+Die fünf neuen Funktionen laufen als `SECURITY DEFINER` und umgehen damit die
+Zeilenregeln der Tabellen. Der Zaun steckt allein in ihrem `where`, deshalb wurde
+jede einzeln geprüft:
+
+- ✅ Eine **Lehrkraft ohne Zuweisung** bekommt aus jeder der sechs Funktionen
+  nichts — kein Fehler, keine Zeile.
+- ✅ Ein **Kunde** bekommt aus jeder nichts.
+- ✅ **Gegenprobe:** Der zugewiesene Lehrer bekommt Daten. Ohne diese Probe
+  bestünde jede Verweigerung oben aus dem falschen Grund.
+- ✅ **Ohne Anmeldung** gibt keine Funktion Daten heraus.
+- ⚠️ Aber: drei Funktionen sind ohne Anmeldung *aufrufbar* → BUG-2.
+
+Keine personenbezogenen Daten in Antworten, die nicht hingehören; Geburtstage
+werden ohne Jahrgang gerendert (`datum.slice`), das Alter erreicht den Browser
+gar nicht.
+
+### Responsive
+
+| Breite | Ergebnis |
+|---|---|
+| 375 px | ✅ kein Überlauf |
+| 768 px | ❌ horizontaler Überlauf → BUG-1 |
+| 1440 px | ✅ kein Überlauf |
+
+### Regression
+
+- E2E: 60 Fälle über beide Browser (PROJ-49 + Sicherheit), alle grün
+- Unit: 462 Tests in 37 Dateien, alle grün
+- Vollständiger Durchgang zuvor: 912 bestanden, 2 übersprungen, 0 Fehlschläge
+
+---
+
+### Gefundene Fehler
+
+#### BUG-1: Seite läuft bei Tablet-Breite seitlich über (Lehrer und Admin)
+- **Schweregrad:** Medium
+- **Gehört zu:** PROJ-24 (globale Navigation), nicht zu PROJ-49
+- **Schritte:**
+  1. Als Lehrer oder Admin anmelden
+  2. Fenster auf 768 px Breite stellen (iPad im Hochformat)
+  3. Erwartet: Seite passt in die Breite
+  4. Tatsächlich: `scrollWidth` 863 px bei `clientWidth` 768 px — die Seite
+     lässt sich seitlich schieben
+- **Gemessen:** Überlauf von 768 px bis rund 862 px; ab 900 px verschwindet er.
+  **Kunden sind nicht betroffen** (bei keiner Breite).
+- **Ursache:** Die Desktop-Navigation schaltet bei `md:` (768 px) zu. Lehrer und
+  Admins haben zusätzliche Einträge („Meine Kurse", „Check-in", „Admin"), die
+  Leiste misst damit 863–864 px.
+- **Warum es jetzt auffällt:** PROJ-49 gibt Lehrern erstmals einen Grund, die App
+  im Studio auf einem Tablet zu öffnen. 768 px ist genau das iPad im Hochformat.
+- **Priorität:** vor dem Start beheben
+
+#### BUG-2: Drei Datenbankfunktionen sind ohne Anmeldung aufrufbar
+- **Schweregrad:** Low — **kein Datenabfluss**
+- **Betroffen:** `get_course_participants`, `get_last_session_notes`,
+  `get_course_attendance_roster`
+- **Tatsächlich:** Ein anonymer Aufrufer erhält keine Daten. Der Zaun sitzt im
+  Rumpf: Der Roster wirft „not authorized", die beiden anderen filtern auf null
+  Zeilen. Das Ausführungsrecht als *zweite* Schranke fehlt aber.
+- **Ursache:** `create or replace function` setzt die Rechte einer Funktion
+  zurück, und Supabase vergibt per Default-Privileg `EXECUTE` erneut an `anon`.
+  Ein `revoke ... from public` entfernt das **nicht** — `anon` ist eine eigene
+  Rolle. Die vier Funktionen aus `…200000` haben `from public, anon` und sind
+  darum dicht; die älteren nicht.
+- **Behebung:** `revoke all on function … from anon;` für die drei Funktionen.
+  Betrifft auch die Produktion, dort läuft dasselbe SQL.
+- **Priorität:** nächster Zug, nicht dringend
+
+#### BUG-3: Tippziele im Lehrer-Bereich sind 36 px statt 44 px
+- **Schweregrad:** Low
+- **Betrifft:** „Anwesenheit" und „Lehrmaterial" (`Button size="sm"`)
+- **Gemessen:** 36 px Höhe auf allen Breiten.
+- **Warum das zählt:** Das Projekt hat sich im September ausdrücklich auf 44 px
+  festgelegt — nachzulesen im Kommentar in `nav/site-header.tsx`, gesetzt
+  nachdem am Handy regelmäßig der Menüeintrag darüber getroffen wurde. 36 px ist
+  genau die Größe, die dort das Problem war.
+- **Entschärft:** Hier stehen die Knöpfe einzeln in einer Karte, nicht gestapelt
+  in einer Liste — die Verwechslungsgefahr ist kleiner.
+- **Priorität:** nice to have
+
+### Zusammenfassung
+
+| | |
+|---|---|
+| Akzeptanzkriterien | **16 / 16 bestanden** |
+| Edge Cases | 7 / 7 |
+| Sicherheit | kein Datenabfluss; 1 Härtungslücke (Low) |
+| Fehler | 0 kritisch, 0 hoch, 1 mittel, 2 niedrig |
+
+**Produktionsreif: JA.** Kein kritischer und kein hoher Fehler. BUG-1 gehört zu
+PROJ-24 und trifft eine bestimmte Breite, nicht die Funktion selbst.
+
+**Nachtrag zum Ablauf:** Der Bereich war zum Zeitpunkt dieser Prüfung bereits
+ausgeliefert — der Betreiber hat sich bewusst für „erst deployen, dann QA"
+entschieden. Der Status bleibt deshalb **Deployed** statt auf „In Review"
+zurückgesetzt zu werden; ein Rückschritt würde den Produktionsstand falsch
+beschreiben.
 
 ---
 
