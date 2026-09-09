@@ -288,9 +288,9 @@ also stand dort „0 Leader" — und `/\d+ Leader/` passt darauf genauso wie auf
 eigene Verteilung und prüft die Zahl; ohne die Korrektur fällt er um
 (nachgestellt und bestätigt).
 
-Chromium: PROJ-13, PROJ-30, PROJ-31 und PROJ-49 zusammen grün.
-**Mobile Safari steht noch aus** — die Maschine lag bei Last 17, in dem Zustand
-brechen die WebKit-Läufe reihenweise ohne echten Grund ab.
+Beide Browser grün. Danach der vollständige Durchgang über alle 47 Dateien:
+**912 bestanden, 2 übersprungen, kein Fehlschlag** (1,7 h, Maschine bei Last 4–5,
+also ohne die Ausfälle, die hohe Last sonst erzeugt).
 
 **Noch nicht durch Tests abgedeckt:** die beiden Admin-Kriterien (AC3/AC4).
 Gehört in den QA-Durchgang.
