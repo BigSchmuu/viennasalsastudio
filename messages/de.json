@@ -154,7 +154,17 @@
     "couponValidFixed": "Gutschein gültig: {betrag} Rabatt",
     "referralValid": "Empfehlungscode erkannt: {betrag} Guthaben nach deiner ersten Abbuchung.",
     "couponRateLimited": "Zu viele Code-Versuche. Bitte warte ein paar Minuten. Du kannst trotzdem ohne Code buchen.",
-    "couponInvalid": "Dieser Code ist nicht gültig. Du kannst trotzdem ohne Code buchen."
+    "couponInvalid": "Dieser Code ist nicht gültig. Du kannst trotzdem ohne Code buchen.",
+    "blockedTermin": "Bitte zuerst einen Termin wählen.",
+    "blockedAboArt": "Bitte die Abo-Art wählen.",
+    "blockedRolle": "Bitte angeben, ob du als Leader oder Follower tanzt.",
+    "blockedVorkenntnisse": "Bitte den Hinweis zu den Vorkenntnissen bestätigen.",
+    "blockedHerkunft": "Bitte angeben, wie du von uns erfahren hast.",
+    "blockedAgb": "Bitte die AGB akzeptieren.",
+    "blockedMandat": "Dafür braucht es zuerst ein SEPA-Mandat in deinem Profil.",
+    "blockedBereitsAngefragt": "Für diesen Kurs liegt schon eine offene Anfrage von dir vor.",
+    "blockedBereitsEingeschrieben": "Du bist für diesen Kurs bereits eingeschrieben.",
+    "blockedWarteliste": "Du stehst für diesen Kurs schon auf der Warteliste."
   },
   "profile": {
     "heading": "Mein Profil",

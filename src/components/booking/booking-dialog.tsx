@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PlanPriceTiles } from "@/components/booking/plan-price-tiles";
 import { useLocale, useTranslations } from "next-intl";
+import { buchungsHindernis } from "@/lib/bookings/hindernis";
 import { formatPrice, type StudioPricing } from "@/lib/pricing";
 import { TermsConsent } from "@/components/booking/terms-consent";
 import {
@@ -136,22 +137,27 @@ export function BookingDialog({
   // abfragt — bei allen anderen gäbe es nichts zu wählen.
   const roleMissing = course.roleQueryEnabled && !danceRole;
 
-  const canSubmit =
-    !termsAccepted ||
-    roleMissing ||
-    (!!course.prerequisiteNote && !prerequisiteConfirmed) ||
-    (!hasReferralSource && !referralSource)
-      ? false
-      : tab === "regular"
-        ? hasMandate &&
-          !course.hasOpenRegularBooking &&
-          !course.hasActiveSubscription &&
-          !course.isOnWaitlist &&
-          !!regularDate &&
-          !!desiredPlan
-        : tab === "trial"
-          ? !!trialDate
-          : !!dropinDate;
+  // Eine Quelle für „darf abgeschickt werden" und für „warum nicht": Der Knopf
+  // war ausgegraut, ohne dass irgendwo stand, woran es liegt.
+  const hindernis = buchungsHindernis({
+    art: tab as "regular" | "trial" | "dropin",
+    terminGewaehlt: tab === "regular" ? !!regularDate : tab === "trial" ? !!trialDate : !!dropinDate,
+    aboArtGewaehlt: !!desiredPlan,
+    rolleFehlt: roleMissing,
+    vorkenntnisseOffen: !!course.prerequisiteNote && !prerequisiteConfirmed,
+    herkunftFehlt: !hasReferralSource && !referralSource,
+    agbAkzeptiert: termsAccepted,
+    hatMandat: hasMandate,
+    bereitsAngefragt: course.hasOpenRegularBooking,
+    bereitsEingeschrieben: course.hasActiveSubscription,
+    aufWarteliste: course.isOnWaitlist,
+  });
+  const canSubmit = hindernis === null;
+
+  // „blockedTermin", „blockedAgb", … — der Schlüssel folgt dem Hindernis.
+  const hindernisText = hindernis
+    ? t(`blocked${hindernis.charAt(0).toUpperCase()}${hindernis.slice(1)}` as never)
+    : null;
 
   async function handleSubmit() {
     setLoading(true);
@@ -497,7 +503,10 @@ export function BookingDialog({
 
         <TermsConsent checked={termsAccepted} onCheckedChange={setTermsAccepted} id="terms-accepted-booking" />
 
-        <DialogFooter>
+        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-col sm:items-stretch">
+          {hindernisText && !showWaitlistForm && (
+            <p className="text-xs text-muted-foreground text-left">{hindernisText}</p>
+          )}
           <Button disabled={loading || !canSubmit} onClick={handleSubmit}>
             {loading
               ? t("submitting")

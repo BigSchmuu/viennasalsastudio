@@ -463,4 +463,29 @@ test.describe("PROJ-8: Kursbuchung", () => {
       await service.from("subscriptions").delete().eq("id", abo!.id);
     }
   });
+
+  // Gemeldet am 2026-09-09: „Auf meinem Handy kann ich mit dem Lehrer-Account
+  // keine Trial Class buchen. Der Knopf ist ausgegraut." Bei einer Probestunde
+  // können fünf Bedingungen den Knopf sperren, und keine davon stand irgendwo.
+  test("Ein gesperrter Absende-Knopf sagt, woran es liegt", async ({ page }) => {
+    await login(page, CUSTOMER);
+    await openBookingDialog(page, "E2E8 Kurs");
+    await page.getByRole("tab", { name: "Probestunde" }).click();
+    await page.waitForTimeout(400);
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Bitte zuerst einen Termin wählen.")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Rechtlich verbindlich buchen" })).toBeDisabled();
+
+    await dialog.getByRole("combobox").first().click();
+    await page.waitForTimeout(300);
+    await page.getByRole("option").first().click();
+    await page.waitForTimeout(300);
+
+    // Der Hinweis wandert weiter zur nächsten offenen Angabe — welche das ist,
+    // hängt vom Kunden ab (Herkunftsfrage nur bei der ersten Buchung), aber der
+    // Termin ist es nicht mehr.
+    await expect(dialog.getByText("Bitte zuerst einen Termin wählen.")).toHaveCount(0);
+  });
+
 });

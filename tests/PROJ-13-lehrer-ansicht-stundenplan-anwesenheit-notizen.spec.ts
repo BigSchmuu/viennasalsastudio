@@ -98,6 +98,21 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
       .single();
     if (!customer) throw new Error("PROJ-13 fixture customer 'E2E13 Flatrate Kunde' not found");
     await service.from("course_attendance").delete().eq("course_id", COURSE_ID).eq("customer_id", customer.id);
+
+    // AC8 haengt " (von Lehrer B ergaenzt)" an die vorbereitete Notiz an — bei
+    // jedem Lauf 23 Zeichen mehr. Nach rund 85 Laeufen stand sie bei 1984
+    // Zeichen, und der naechste Anhang riss die Grenze von 2000 aus
+    // src/lib/validations/teacher.ts. Ab da schlug AC8 auf beiden Browsern
+    // zuverlaessig fehl: Die Anwendung lehnte die zu lange Notiz voellig zu
+    // Recht ab, es kam "Notiz ist zu lang" statt "Notiz gespeichert.".
+    // Zuruecksetzen statt Grenze anheben — der Test soll sich nicht selbst
+    // vergiften.
+    const { error: notizFehler } = await service
+      .from("course_session_notes")
+      .update({ note: "E2E13: Vorbereitete Testnotiz" })
+      .eq("course_id", COURSE_ID)
+      .like("note", "E2E13: Vorbereitete Testnotiz%");
+    if (notizFehler) throw new Error(`PROJ-13 Notiz-Reset fehlgeschlagen: ${notizFehler.message}`);
   });
 
   test("AC1: Eingeloggter Lehrer sieht 'Meine Kurse' in der globalen Navigation", async ({ page }) => {

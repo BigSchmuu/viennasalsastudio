@@ -154,7 +154,17 @@
     "couponValidFixed": "Voucher valid: {betrag} off",
     "referralValid": "Referral code recognised: {betrag} credit after your first payment.",
     "couponRateLimited": "Too many code attempts. Please wait a few minutes. You can still book without a code.",
-    "couponInvalid": "This code is not valid. You can still book without a code."
+    "couponInvalid": "This code is not valid. You can still book without a code.",
+    "blockedTermin": "Please choose a date first.",
+    "blockedAboArt": "Please choose the plan.",
+    "blockedRolle": "Please tell us whether you dance as leader or follower.",
+    "blockedVorkenntnisse": "Please confirm the note about prior experience.",
+    "blockedHerkunft": "Please tell us how you heard about us.",
+    "blockedAgb": "Please accept the terms and conditions.",
+    "blockedMandat": "This needs a SEPA mandate in your profile first.",
+    "blockedBereitsAngefragt": "You already have an open request for this course.",
+    "blockedBereitsEingeschrieben": "You are already enrolled in this course.",
+    "blockedWarteliste": "You are already on the waiting list for this course."
   },
   "profile": {
     "heading": "My profile",
