@@ -62,6 +62,14 @@ export default async function StundenplanPage() {
         : Promise.resolve({ data: null }),
     ]);
 
+  // Vor der ersten Verwendung, nicht erst vor der Ausgabe: Stand die
+  // Deklaration weiter unten, warf die Zeile darunter „Cannot access before
+  // initialization" — aber nur, wenn ein Lehrer keinen Namen hat, weil `||`
+  // sonst kurzschließt. Genau so ist der Stundenplan am 2026-09-09 in
+  // Produktion ausgefallen, als sich der Betreiber ohne hinterlegten Namen
+  // als Lehrer eintrug.
+  const texte = await getTranslations("schedule");
+
   const teacherNameById = new Map(
     (teachersRes.data ?? []).map((lehrer) => [lehrer.id, lehrer.full_name || texte("unnamedTeacher")])
   );
@@ -149,7 +157,6 @@ export default async function StundenplanPage() {
 
   const todayWeekday = jsDayToWeekday(heuteAlsDatumInWien().getDay());
 
-  const texte = await getTranslations("schedule");
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-6">
