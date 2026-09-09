@@ -242,6 +242,12 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         pauseDate: data.pause_date,
       });
     }
+    case "konto_existiert":
+      // Die einzige Nachricht hier, die keinen Datensatz nachschlägt: Es gibt
+      // nichts nachzuschlagen — der Anlass ist der Versuch selbst.
+      return buildNotificationContent("konto_existiert", {
+        attemptedAt: payload.attemptedAt as string,
+      });
     case "zahlungserinnerung": {
       const invoiceId = payload.invoice_id as string;
       const [{ data }, { data: aufhebungen }] = await Promise.all([

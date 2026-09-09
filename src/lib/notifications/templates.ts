@@ -160,6 +160,8 @@ export type SepaAnkuendigungDetails = { amount: number; dueDate: string };
 /** PROJ-38: which course, and which date fell through. */
 export type KursausfallDetails = { courseName: string; pauseDate: string };
 export type ZahlungserinnerungDetails = { invoiceNumber: string; grossAmount: number; bounceFee: number };
+/** Jemand hat versucht, sich mit einer bereits vergebenen Adresse zu registrieren. */
+export type KontoExistiertDetails = { attemptedAt: string };
 export type EventTicketDetails =
   | { subType: "purchased"; eventName: string; startsAt: string; ticketStatus: "confirmed" | "reserved" }
   | { subType: "event_cancelled"; eventName: string; startsAt: string };
@@ -188,7 +190,7 @@ export type NeueBuchungDetails = { customerName: string; courseName: string; boo
  *  "newsletter", which has its own admin-authored text (PROJ-28), not a
  *  registry template. */
 export function resolveTemplateKey(
-  eventType: NotificationEventGroup | "sepa_ankuendigung" | "zahlungserinnerung" | "kursausfall",
+  eventType: NotificationEventGroup | "sepa_ankuendigung" | "zahlungserinnerung" | "kursausfall" | "konto_existiert",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
@@ -201,6 +203,7 @@ export function resolveTemplateKey(
     | ProbestundeNachfassungDetails
     | GuthabenDetails
     | NewsletterDetails
+    | KontoExistiertDetails
 ): TemplateKey | null {
   switch (eventType) {
     case "buchungsstatus":
@@ -232,6 +235,8 @@ export function resolveTemplateKey(
       return (details as GuthabenDetails).subType === "referral"
         ? "empfehlung_gutgeschrieben"
         : "guthaben_gutgeschrieben";
+    case "konto_existiert":
+      return "konto_existiert";
     case "newsletter":
       return null;
   }
@@ -246,7 +251,8 @@ export function buildNotificationContent(
     | "sepa_ankuendigung"
     | "neue_buchung"
     | "zahlungserinnerung"
-    | "kursausfall",
+    | "kursausfall"
+    | "konto_existiert",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
@@ -259,7 +265,8 @@ export function buildNotificationContent(
     | ProbestundeNachfassungDetails
     | GuthabenDetails
     | NewsletterDetails
-    | NeueBuchungDetails,
+    | NeueBuchungDetails
+    | KontoExistiertDetails,
   override?: TemplateFields,
   /** Sprache des Empfängers, aus profiles.language (PROJ-43). */
   locale = "de"
@@ -342,6 +349,15 @@ export function buildNotificationContent(
       return {
         ...renderTemplate("kursausfall", { kurs: d.courseName, datum: formatDate(d.pauseDate) }, override, "", locale),
         url: "/stundenplan",
+      };
+    }
+    case "konto_existiert": {
+      const d = details as KontoExistiertDetails;
+      return {
+        // Zum Anmelden, nicht ins Profil: Wer diese Nachricht bekommt, ist
+        // gerade nicht angemeldet — sonst hätte er sich nicht registrieren wollen.
+        ...renderTemplate("konto_existiert", { datum: formatDate(d.attemptedAt) }, override, "", locale),
+        url: "/login",
       };
     }
     case "zahlungserinnerung": {
@@ -488,6 +504,8 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
         { invoiceNumber: "2026-0042", grossAmount: 40, bounceFee: 4.5 },
         fields
       );
+    case "konto_existiert":
+      return buildNotificationContent("konto_existiert", { attemptedAt: "2026-09-09" }, fields);
     case "event_ticket_bestaetigt":
       return buildNotificationContent(
         "event_tickets",

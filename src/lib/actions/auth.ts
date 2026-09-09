@@ -1,6 +1,9 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
+import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import {
   loginSchema,
   registerSchema,
@@ -54,6 +57,18 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
       emailRedirectTo: `${siteUrl}/profil`,
     },
   });
+
+  // Supabase antwortet bei einer bereits vergebenen Adresse absichtlich genau
+  // wie bei einer neuen und verschickt nichts — „an obfuscated user response
+  // with no verification email sent. This prevents user enumeration attacks."
+  // Für den Besucher am Formular bleibt das so: Wer fremde Adressen
+  // durchprobiert, erfährt weiterhin nichts.
+  //
+  // Der Inhaber des Postfachs erfährt es dagegen sehr wohl — per Mail. Nur wer
+  // Zugriff auf das Postfach hat, bekommt die Information, und das ist genau
+  // der Richtige. Vorher stand der Kunde vor einer Seite, die eine Mail
+  // versprach, die nie kam.
+  await benachrichtigeUeberBestehendesKonto(parsed.data.email);
 
   if (error) {
     // Mit eingeschaltetem Schutz gegen geleakte Passwörter weist Supabase
@@ -135,4 +150,37 @@ export async function resetPassword(formData: FormData): Promise<ActionResult> {
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
+}
+
+/**
+ * Schickt dem Inhaber einer bereits registrierten Adresse eine Nachricht, dass
+ * jemand versucht hat, sich damit erneut zu registrieren.
+ *
+ * Scheitert nie nach außen: Die Registrierung darf daran nicht hängen, und der
+ * Rückgabewert des Formulars bleibt in jedem Fall derselbe — sonst wäre am
+ * Antwortverhalten doch wieder ablesbar, ob es das Konto gibt.
+ */
+async function benachrichtigeUeberBestehendesKonto(email: string): Promise<void> {
+  try {
+    const service = createServiceClient();
+    // `profiles` kennt keine E-Mail-Adresse, die liegt in `auth.users`. Bei
+    // rund 75 Konten genügt eine Seite; wächst das Studio in die Tausende,
+    // gehört hier eine gezielte Suche hin statt einer vollen Liste.
+    const { data } = await service.auth.admin.listUsers({ perPage: 1000 });
+    const gesucht = email.trim().toLowerCase();
+    const vorhanden = data?.users.find((u) => u.email?.toLowerCase() === gesucht);
+    if (!vorhanden) return;
+
+    const heute = heuteInWien();
+    await enqueueAndDispatch({
+      customerId: vorhanden.id,
+      eventType: "konto_existiert",
+      payload: { attemptedAt: heute },
+      // Höchstens eine Nachricht je Konto und Tag. Ohne diese Sperre ließe sich
+      // über das offene Registrierungsformular ein fremdes Postfach zuschütten.
+      dedupeKey: `konto_existiert:${vorhanden.id}:${heute}`,
+    });
+  } catch (fehler) {
+    console.error("benachrichtigeUeberBestehendesKonto fehlgeschlagen", fehler);
+  }
 }

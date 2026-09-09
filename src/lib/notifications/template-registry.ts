@@ -14,7 +14,8 @@ export type TemplateKey =
   | "zahlungserinnerung"
   | "kursausfall"
   | "empfehlung_gutgeschrieben"
-  | "guthaben_gutgeschrieben";
+  | "guthaben_gutgeschrieben"
+  | "konto_existiert";
 
 export type TemplateFields = {
   emailSubject: string;
@@ -212,6 +213,28 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
         "We've added {betrag} credit to your account — {grund} Your credit is now {guthaben} and will be deducted automatically from your next membership payment. It cannot be paid out.",
       pushTitle: "{betrag} credit for you",
       pushBody: "{grund} Your credit is now {guthaben}.",
+    },
+  },
+  {
+    key: "konto_existiert",
+    eventGroupLabel: "Registrierung",
+    variantLabel: "Konto besteht bereits",
+    placeholders: ["datum"],
+    boldPlaceholder: "datum",
+    samples: { datum: "09.09.2026" },
+    defaults: {
+      emailSubject: "Du hast bereits ein Konto bei uns",
+      emailBody:
+        "Am {datum} wurde versucht, sich mit dieser E-Mail-Adresse neu zu registrieren. Ein Konto mit dieser Adresse besteht bereits — deshalb haben wir kein zweites angelegt. Warst du das, melde dich einfach an; hast du dein Passwort vergessen, setze es über „Passwort vergessen“ zurück. Warst du das nicht, kannst du diese Nachricht ignorieren: Ohne Zugriff auf dein Postfach kommt niemand an dein Konto.",
+      pushTitle: "Konto besteht bereits",
+      pushBody: "Es wurde versucht, sich mit deiner Adresse neu zu registrieren.",
+    },
+    defaultsEn: {
+      emailSubject: "You already have an account with us",
+      emailBody:
+        "On {datum} someone tried to register again with this email address. An account with this address already exists, so we did not create a second one. If that was you, simply log in; if you have forgotten your password, reset it via “Forgot password”. If it wasn't you, you can ignore this message: without access to your inbox, nobody can reach your account.",
+      pushTitle: "Account already exists",
+      pushBody: "Someone tried to register again with your address.",
     },
   },
   {

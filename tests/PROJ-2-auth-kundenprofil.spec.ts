@@ -1,5 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { gehZu } from "./navigation";
+import { createClient } from "@supabase/supabase-js";
+import { ladeTestUmgebung } from "./env";
+
+try {
+  ladeTestUmgebung();
+} catch {
+  // Schon geladen (z. B. CI-Variablen direkt gesetzt) — unkritisch.
+}
 
 const CONFIRMED_EMAIL = "qa-proj2-a@viennasalsastudio.test";
 const CONFIRMED_PASSWORD = "CorrectPassword123!";
@@ -106,6 +114,48 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
 
     await expect(page.getByText("Bitte bestätige zuerst deine E-Mail-Adresse")).toBeVisible();
     await expect(page.getByRole("button", { name: "Bestätigungs-E-Mail erneut senden" })).toBeVisible();
+  });
+
+  // Gemeldet am 2026-09-09: Wer sich mit einer bereits vergebenen Adresse
+  // registriert, bekam weder eine Mail noch einen Hinweis. Supabase antwortet
+  // dort absichtlich wie bei einer neuen Adresse und verschickt nichts (Schutz
+  // vor Adress-Ausspähung). Der Besucher am Formular sieht deshalb weiterhin
+  // denselben Text — aber der Inhaber des Postfachs bekommt jetzt eine
+  // Nachricht.
+  test("Registrierung mit vergebener Adresse benachrichtigt den Konto-Inhaber", async ({ page }) => {
+    const service = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    const { data: liste } = await service.auth.admin.listUsers({ perPage: 1000 });
+    const konto = liste?.users.find((u) => u.email === CONFIRMED_EMAIL);
+    expect(konto, `Fixture-Konto ${CONFIRMED_EMAIL} fehlt`).toBeTruthy();
+
+    // Der dedupe_key laesst nur eine Nachricht je Konto und Tag zu — sonst
+    // schlaegt der zweite Lauf am selben Tag fehl, ohne dass etwas kaputt ist.
+    await service.from("notification_queue").delete().eq("customer_id", konto!.id).eq("event_type", "konto_existiert");
+
+    await page.goto("/registrieren");
+    await page.waitForTimeout(1200);
+    await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
+    await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
+    await page.waitForTimeout(800);
+    await page.getByRole("button", { name: "Registrieren" }).click();
+    await page.waitForTimeout(3000);
+
+    // Nach aussen unveraendert: Steht hier etwas anderes als bei einer neuen
+    // Adresse, laesst sich am Formular ablesen, wer Kunde ist.
+    await expect(page.getByText(/Bitte bestätige deine E-Mail-Adresse/)).toBeVisible();
+
+    const { data: zeilen } = await service
+      .from("notification_queue")
+      .select("event_type, email_status")
+      .eq("customer_id", konto!.id)
+      .eq("event_type", "konto_existiert");
+    expect(zeilen?.length ?? 0, "Der Konto-Inhaber wurde nicht benachrichtigt").toBe(1);
+
+    await service.from("notification_queue").delete().eq("customer_id", konto!.id).eq("event_type", "konto_existiert");
   });
 
   test("Registrierung mit zu schwachem Passwort zeigt Validierungsfehler ohne Absenden", async ({ page }) => {
