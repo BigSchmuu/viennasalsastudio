@@ -405,5 +405,22 @@
     },
     "noUpcoming": "Für dich steht gerade kein fester Kurstermin an.",
     "toSchedule": "Zum Stundenplan"
+  },
+  "teacherArea": {
+    "upcoming": "Deine nächsten Kurse",
+    "upcomingHint": "Die nächsten sieben Tage.",
+    "noUpcoming": "In den nächsten sieben Tagen unterrichtest du keinen Kurs.",
+    "leaders": "{n} Leader",
+    "followers": "{n} Follower",
+    "both": "{n} tanzen beides",
+    "lastNote": "Zuletzt notiert:",
+    "attendance": "Anwesenheit",
+    "material": "Lehrmaterial",
+    "trials": "Probestunden",
+    "trialsHint": "Diese Gäste kommen zum ersten Mal.",
+    "birthdays": "Geburtstage",
+    "birthdaysHint": "Schüler aus deinen Kursen, in den nächsten sieben Tagen.",
+    "missingAttendance": "Anwesenheit nachtragen",
+    "missingAttendanceHint": "Für diese Stunden fehlt noch die Anwesenheit."
   }
 }

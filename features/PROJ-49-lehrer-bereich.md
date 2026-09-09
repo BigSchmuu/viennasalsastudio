@@ -1,6 +1,6 @@
 # PROJ-49: Eigener Bereich für Lehrer
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-09-09
 **Last Updated:** 2026-09-09
 
@@ -200,3 +200,50 @@ Keine.
 
 ## QA Test Results
 _To be added by /qa_
+
+---
+
+## Umsetzungsnotizen (2026-09-09)
+
+Gebaut in drei Schichten, damit die Rechenarbeit ohne Datenbank prüfbar bleibt:
+
+| Datei | Aufgabe |
+|---|---|
+| `src/lib/teacher/uebersicht.ts` | Termine, fehlende Anwesenheit, Geburtstage, Rollenverteilung — reine Rechnung, 15 Unit-Tests |
+| `src/lib/teacher/laden.ts` | Holt alles in einem Rutsch über alle Kurse gemeinsam |
+| `src/components/teacher/lehrer-uebersicht.tsx` | Darstellung; rechnet nichts |
+
+Die Weiche sitzt in `mein-bereich/page.tsx` direkt nach der Frage, wer zusieht —
+die Kundenabfragen laufen für Lehrer gar nicht erst an.
+
+**Texte auf Deutsch und Englisch.** `/mein-bereich` liegt innerhalb der
+Sprachebene; ein deutscher Block auf einer englischen Seite wäre schief.
+
+### Zwei Funde beim Bauen
+
+**Die Wochentagszählung.** Das Projekt zählt `0 = Montag … 6 = Sonntag`
+(`constants/weekdays`), nicht 1–7. Die Unit-Tests haben das sofort aufgedeckt;
+in der Seite verbaut wäre es als „der Kurs steht am falschen Tag" aufgefallen,
+nicht als Fehler.
+
+**Notizen liegen hinter einer Sicherheitsfunktion.** Auf
+`course_session_notes` ist RLS aktiv, aber es gibt **keine Leseregel** — der
+Zugriff läuft ausschließlich über `SECURITY DEFINER`-Funktionen. Eine direkte
+Tabellenabfrage liefert deshalb stumm nichts. Die bestehende Funktion
+beantwortet nur „welche Notiz steht an diesem Termin?"; der Bereich braucht
+„was habe ich zuletzt notiert?", für mehrere Kurse auf einmal.
+
+Dafür kam `get_last_session_notes(uuid[])` dazu — derselbe Zaun wie bei der
+bestehenden Funktion (zugewiesene Lehrkraft oder Admin), Migration
+`20260909180000_proj49_letzte_notizen.sql`.
+
+### Prüfung
+
+16 E2E-Tests (8 Fälle × 2 Browser) in `tests/PROJ-49-lehrer-bereich.spec.ts`,
+alle grün: Weiche für Lehrer und Kunden, Termine mit Wochentag/Zeit/Ort,
+„Anwesenheit" führt auf die Kursseite, „Lehrmaterial" nur bei vorhandenem
+Videosatz, fehlende Anwesenheit, letzte Notiz, Leerzustand.
+
+**Noch nicht durch Tests abgedeckt:** die beiden Admin-Kriterien (AC3/AC4) sowie
+Geburtstage, Probestunden und die Leader/Follower-Verteilung — dafür fehlen
+Fixtures, die erst angelegt werden müssten. Gehört in den QA-Durchgang.

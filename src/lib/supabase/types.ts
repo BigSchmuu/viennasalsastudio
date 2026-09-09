@@ -1857,6 +1857,14 @@ export type Database = {
         Args: { p_course_id: string; p_occurrence_date: string }
         Returns: string
       }
+      get_last_session_notes: {
+        Args: { p_course_ids: string[] }
+        Returns: {
+          course_id: string
+          note: string
+          occurrence_date: string
+        }[]
+      }
       get_event_occupancy: {
         Args: never
         Returns: {

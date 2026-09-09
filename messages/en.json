@@ -405,5 +405,22 @@
     },
     "noUpcoming": "You have no fixed class coming up right now.",
     "toSchedule": "Go to the schedule"
+  },
+  "teacherArea": {
+    "upcoming": "Your next classes",
+    "upcomingHint": "The next seven days.",
+    "noUpcoming": "You are not teaching any class in the next seven days.",
+    "leaders": "{n} leaders",
+    "followers": "{n} followers",
+    "both": "{n} dance both",
+    "lastNote": "Last note:",
+    "attendance": "Attendance",
+    "material": "Teaching material",
+    "trials": "Trial classes",
+    "trialsHint": "These guests are coming for the first time.",
+    "birthdays": "Birthdays",
+    "birthdaysHint": "Students from your classes, in the next seven days.",
+    "missingAttendance": "Record attendance",
+    "missingAttendanceHint": "Attendance is still missing for these classes."
   }
 }

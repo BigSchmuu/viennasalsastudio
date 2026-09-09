@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTranslations, getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
-import { getViewer } from "@/lib/auth/viewer";
+import { getViewerContext } from "@/lib/auth/viewer";
+import { ladeLehrerUebersicht } from "@/lib/teacher/laden";
+import { LehrerUebersicht } from "@/components/teacher/lehrer-uebersicht";
 import { readStudioPricing, formatPrice } from "@/lib/pricing";
 import { heuteInWien, STUDIO_TIMEZONE } from "@/lib/constants/zeitzone";
 import { upcomingOccurrences, selfCheckinWindow, jsDayToWeekday } from "@/lib/scheduling/dates";
@@ -48,12 +50,20 @@ function ersterZeitplan(kurs: KursBezug | null): Zeitplan | null {
 }
 
 export default async function MeinBereichPage() {
-  const user = await getViewer();
+  // PROJ-49: Wer unterrichtet, sieht hier den Lehrer-Bereich statt der
+  // Kundenansicht. Die Frage „unterrichtet diese Person?" beantwortet dieselbe
+  // Stelle wie Navigation und „Meine Kurse" — zwei Antworten darauf liefen
+  // früher oder später auseinander.
+  const { user, isTeacher } = await getViewerContext();
   if (!user) {
     redirect("/login?redirect=/mein-bereich");
   }
 
   const supabase = await createClient();
+
+  if (isTeacher) {
+    return <LehrerBereich supabase={supabase} userId={user.id} />;
+  }
 
   // Ein Zeitpunkt für die ganze Seite. Würde jeder Abschnitt selbst auf die
   // Uhr sehen, könnten zwei Abschnitte denselben Termin unterschiedlich
@@ -420,6 +430,66 @@ export default async function MeinBereichPage() {
             {t("profileCta")}
           </Link>
         </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Der Lehrer-Bereich (PROJ-49).
+ *
+ * Steht bewusst in derselben Datei wie die Kundenansicht: Beide sind zwei
+ * Gesichter einer Seite, und wer die eine sucht, soll die andere daneben
+ * finden. Gerechnet wird in `lib/teacher/`, hier wird nur zusammengesetzt.
+ */
+async function LehrerBereich({
+  supabase,
+  userId,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+}) {
+  const jetzt = new Date();
+  const [daten, profilRes, t, tw, locale] = await Promise.all([
+    ladeLehrerUebersicht(supabase, userId, jetzt),
+    supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
+    getTranslations("dashboard"),
+    getTranslations("weekdays"),
+    getLocale(),
+  ]);
+
+  const vorname = profilRes.data?.full_name?.trim().split(/\s+/)[0] ?? "";
+
+  // Jedes vorkommende Datum einmal benennen — „Donnerstag, 10.09.".
+  // Die Beschriftung entsteht hier und nicht in der Anzeige: Eine Komponente,
+  // die beim Rendern auf die Uhr oder den Kalender sieht, liefert bei jedem
+  // Rendern etwas anderes.
+  const alleDaten = [
+    ...daten.termine.map((x) => x.datum),
+    ...daten.probestunden.map((x) => x.datum),
+    ...daten.offeneAnwesenheit.map((x) => x.datum),
+  ];
+  const wochentagNamen: Record<string, string> = {};
+  for (const datum of new Set(alleDaten)) {
+    const d = new Date(datum + "T12:00:00Z");
+    const wochentag = tw(String(jsDayToWeekday(d.getUTCDay())));
+    wochentagNamen[datum] = `${wochentag}, ${datum.slice(8, 10)}.${datum.slice(5, 7)}.`;
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
+      <h1 className="font-heading text-2xl font-bold tracking-[-0.5px] sm:text-3xl">
+        {vorname ? t("greeting", { name: vorname }) : t("greetingNoName")}
+      </h1>
+
+      <div className="mt-6">
+        <LehrerUebersicht
+          termine={daten.termine}
+          probestunden={daten.probestunden}
+          geburtstage={daten.geburtstage}
+          offeneAnwesenheit={daten.offeneAnwesenheit}
+          wochentagNamen={wochentagNamen}
+        />
       </div>
     </div>
   );
