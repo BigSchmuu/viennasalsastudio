@@ -15,7 +15,14 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   const { user, isAdmin, isTeacher } = await getViewerContext();
 
   return (
-    <div className="flex min-h-screen flex-col">
+    // min-h-dvh statt min-h-screen: `100vh` rechnet iOS Safari *ohne* seine
+    // Adressleiste. Auf einer inhaltsarmen Seite wird das Dokument dadurch um
+    // genau deren Hoehe zu hoch, die Seite wird scrollbar, obwohl es nichts zu
+    // scrollen gibt — und Safari blendet die Leiste beim kleinsten Wischen ein
+    // und aus. Der Inhalt springt dann um rund 50 Pixel, also fast genau eine
+    // Menuezeile. Gemeldet am 2026-09-09: „dann erscheint oben eine Adresszeile
+    // die sonst nicht erscheint, danach sind die Menuepunkte verschoben."
+    <div className="flex min-h-dvh flex-col">
       <SiteHeader isLoggedIn={!!user} isAdmin={isAdmin} isTeacher={isTeacher} />
       <div className="flex-1">{children}</div>
       <SiteFooter />

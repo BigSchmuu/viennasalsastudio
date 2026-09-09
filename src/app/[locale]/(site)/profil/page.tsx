@@ -230,7 +230,7 @@ export default async function ProfilePage() {
   const tc = await getTranslations("credit");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="flex min-h-dvh items-center justify-center bg-background p-4">
       {/* max-w-sm (384 px) stammte aus der Zeit, als hier eine einzelne
           Karte stand. Mit Tabellen fuer Rechnungen und Benachrichtigungen
           ist das zu eng; jede andere Kundenseite ist breiter. */}

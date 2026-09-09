@@ -237,4 +237,66 @@ test.describe("PROJ-22: Admin — Lehrer-Rollen verwalten", () => {
     const card = page.locator(".rounded-lg.border.bg-card", { hasText: "E2E5 Kizomba Beginner" });
     await expect(card.getByText("E2E22 Lehrer Mit Kurs")).toHaveCount(0);
   });
+
+  // Gefunden am 2026-09-09 durch einen scheiternden Test in PROJ-40: Diese
+  // Suite stuft „E2E22 Lehrer Mit Kurs" zurück und laesst die Kurszuweisung
+  // bewusst stehen. Das Kursformular schickt beim Speichern aber alle
+  // bestehenden Zuweisungen mit — und die zurueckgestufte Person steht nicht
+  // mehr in der Auswahlliste. Sie war ausgewaehlt, aber unsichtbar, und der
+  // Kurs liess sich nie wieder speichern: „Einer der ausgewaehlten Lehrer ist
+  // ungueltig." Niemand konnte das in der Oberflaeche beheben.
+  test("Ein Kurs bleibt speicherbar, wenn eine zugewiesene Lehrkraft zurückgestuft wurde", async ({
+    page,
+  }) => {
+    // PROJ-22 legt seinen Dienst-Client im beforeAll an, nicht auf Modulebene.
+    const service = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+
+    const { data: kurs } = await service
+      .from("courses")
+      .select("id")
+      .eq("name", "E2E5 Kizomba Beginner")
+      .single();
+    const { data: person } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E22 Lehrer Mit Kurs")
+      .single();
+    expect(kurs && person, "Fixtures fehlen").toBeTruthy();
+
+    // Zustand herstellen: zugewiesen, aber keine Lehrkraft mehr.
+    await service.from("profiles").update({ role: "customer" }).eq("id", person!.id);
+    await service.from("course_teachers").upsert(
+      { course_id: kurs!.id, teacher_id: person!.id },
+      { onConflict: "course_id,teacher_id", ignoreDuplicates: true }
+    );
+
+    await login(page, ADMIN);
+    await page.goto("/admin/kurse");
+    await page.waitForLoadState("networkidle");
+    await page
+      .locator("tr", { hasText: "E2E5 Kizomba Beginner" })
+      .first()
+      .getByRole("button", { name: "Bearbeiten" })
+      .click();
+    await page.waitForTimeout(900);
+    await page.getByRole("dialog").getByRole("button", { name: "Speichern", exact: true }).click();
+    await page.waitForTimeout(2500);
+
+    await expect(
+      page.getByText("Einer der ausgewählten Lehrer ist ungültig."),
+      "Eine zurückgestufte Lehrkraft darf den Kurs nicht unbearbeitbar machen"
+    ).toHaveCount(0);
+
+    // Die tote Zuweisung ist beim Speichern verschwunden; die gueltige bleibt.
+    const { data: danach } = await service
+      .from("course_teachers")
+      .select("teacher_id")
+      .eq("course_id", kurs!.id);
+    expect((danach ?? []).some((z) => z.teacher_id === person!.id)).toBe(false);
+  });
+
 });

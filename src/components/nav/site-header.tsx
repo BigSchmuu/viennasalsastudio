@@ -105,7 +105,12 @@ export function SiteHeader({
             <SheetHeader>
               <SheetTitle>{t("menu")}</SheetTitle>
             </SheetHeader>
-            <nav className="flex flex-col gap-1 mt-4">
+            {/* gap-2 statt gap-1 und py-3 statt py-2: Die Eintraege waren 36 px
+                hoch mit 4 px Abstand — gemessen, nicht geschaetzt. Apple nennt
+                44 px als Mindestgroesse fuer Tippziele, und auf dem Handy wurde
+                regelmaessig der Eintrag darueber getroffen. Jetzt 44 px mit
+                8 px Abstand. */}
+            <nav className="flex flex-col gap-2 mt-4">
               {links.map((link) => {
                 const Komponente = link.staff ? NextLink : Link;
                 return (
@@ -114,7 +119,7 @@ export function SiteHeader({
                     href={link.href}
                     onClick={() => setMobileOpen(false)}
                     className={cn(
-                      "px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                      "px-3 py-3 rounded-md text-sm font-medium transition-colors",
                       isActive(link.href)
                         ? "bg-muted text-primary"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted"

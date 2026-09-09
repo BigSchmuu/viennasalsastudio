@@ -141,4 +141,35 @@ test.describe("PROJ-24: Globale Navigation & Login-Status", () => {
     await page.waitForTimeout(500);
     await expect(page).toHaveURL(/\/login/);
   });
+
+  // Gemeldet am 2026-09-09: „Wenn ich in der Navigation auf einen Link klicken
+  // will, wird oft der Menüpunkt darüber aufgerufen." Gemessen waren die
+  // Einträge 36 px hoch mit 4 px Abstand — unter den 44 px, die Apple als
+  // Mindestgröße für Tippziele nennt. Dieser Test hält die Größe fest, damit
+  // sie nicht unbemerkt wieder schrumpft.
+  test("Mobile: Die Menüeinträge sind mindestens 44 px hoch und deutlich getrennt", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/kurse");
+    await page.waitForTimeout(1200);
+    await page.getByRole("banner").getByRole("button", { name: "Menü öffnen" }).click();
+    await page.waitForTimeout(600);
+
+    const links = page.getByRole("dialog").getByRole("link");
+    const anzahl = await links.count();
+    expect(anzahl, "Das Menü sollte Einträge enthalten").toBeGreaterThan(1);
+
+    let vorheriges: { y: number; hoehe: number } | null = null;
+    for (let i = 0; i < anzahl; i++) {
+      const kasten = await links.nth(i).boundingBox();
+      const name = (await links.nth(i).innerText()).trim();
+      expect(kasten, `Kein Kasten für „${name}"`).not.toBeNull();
+      expect(kasten!.height, `„${name}" ist zu klein zum Antippen`).toBeGreaterThanOrEqual(44);
+      if (vorheriges) {
+        const luecke = kasten!.y - (vorheriges.y + vorheriges.hoehe);
+        expect(luecke, `Zu wenig Abstand über „${name}"`).toBeGreaterThanOrEqual(6);
+      }
+      vorheriges = { y: kasten!.y, hoehe: kasten!.height };
+    }
+  });
+
 });

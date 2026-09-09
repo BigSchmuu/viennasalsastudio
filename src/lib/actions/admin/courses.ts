@@ -26,32 +26,38 @@ async function syncTeachers(
   courseId: string,
   teacherIds: string[]
 ): Promise<{ error?: string }> {
+  // Nur Personen, die unterrichten dürfen — auch wenn die Auswahlliste ohnehin
+  // nur solche anbietet. Seit PROJ-40 zählt dazu auch ein Admin: Wer das Studio
+  // führt und selbst unterrichtet, soll kein zweites Konto brauchen.
+  //
+  // Ungültige Kennungen werden **verworfen**, nicht abgelehnt. Vorher scheiterte
+  // das Speichern am ganzen Satz, sobald eine einzige Zuweisung nicht mehr galt
+  // — und genau das passiert regelmäßig: PROJ-22 stuft eine Lehrkraft zurück und
+  // lässt ihre Kurszuweisungen bewusst stehen („Zuordnungen automatisch zu
+  // löschen wäre stiller Datenverlust"). Das Kursformular schickt beim Speichern
+  // aber alle bestehenden Zuweisungen mit, und die zurückgestufte Person steht
+  // nicht mehr in der Auswahlliste — sie war ausgewählt, aber unsichtbar. Der
+  // Kurs liess sich damit nie wieder speichern, und niemand konnte es beheben.
+  //
+  // Der Schutz bleibt: Wer nicht unterrichten darf, wird nicht zugewiesen. Nur
+  // legt er jetzt nicht mehr den ganzen Kurs lahm.
+  let gueltigeIds = teacherIds;
   if (teacherIds.length > 0) {
-    // Defense in depth: only allow ids that actually belong to people who may
-    // teach, even though the UI only ever offers those.
-    //
-    // Seit PROJ-40 zählt dazu auch ein Admin: Wer das Studio führt und selbst
-    // unterrichtet, soll kein zweites Konto brauchen. Die Auswahlliste bot ihn
-    // seither an (src/app/admin/kurse/page.tsx), diese Prüfung nicht — der
-    // Admin ließ sich also auswählen, und das Speichern schlug mit
-    // „Einer der ausgewählten Lehrer ist ungültig" fehl. Kunden bleiben
-    // weiterhin ausgeschlossen, darum geht es hier.
     const { data: validTeachers } = await supabase
       .from("profiles")
       .select("id")
       .in("role", ["teacher", "admin"])
       .in("id", teacherIds);
 
-    if ((validTeachers?.length ?? 0) !== teacherIds.length) {
-      return { error: "Einer der ausgewählten Lehrer ist ungültig." };
-    }
+    const erlaubt = new Set((validTeachers ?? []).map((p) => p.id));
+    gueltigeIds = teacherIds.filter((id) => erlaubt.has(id));
   }
 
   await supabase.from("course_teachers").delete().eq("course_id", courseId);
-  if (teacherIds.length > 0) {
+  if (gueltigeIds.length > 0) {
     await supabase
       .from("course_teachers")
-      .insert(teacherIds.map((teacher_id) => ({ course_id: courseId, teacher_id })));
+      .insert(gueltigeIds.map((teacher_id) => ({ course_id: courseId, teacher_id })));
   }
 
   return {};
