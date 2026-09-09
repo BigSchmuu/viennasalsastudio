@@ -1,6 +1,6 @@
 # PROJ-49: Eigener Bereich für Lehrer
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-09-09
 **Last Updated:** 2026-09-09
 
@@ -72,6 +72,7 @@ ob heute jemand Geburtstag hat, erfährt er erst in der Anwesenheitsliste.
 - Die Daten anderer Lehrer bleiben unsichtbar: Geburtstage, Probestunden und Notizen nur zu Kursen, denen der Lehrer zugewiesen ist.
 
 ## Open Questions
+- [x] Zählen als „Schüler" für die Geburtstage nur Kunden mit aktivem Abo im jeweiligen Kurs? → Ja, nur aktive Abos. Probestunden- und Drop-in-Gäste bleiben außen vor (2026-09-09)
 - [x] Soll der Lehrer-Bereich einen Link „Zur Kundenansicht" bekommen? → Nein. Lehrer besuchen die Kurse des Studios kostenlos und haben deshalb keine Abos, Rechnungen oder Guthaben; die Kundenansicht wäre für sie ohnehin weitgehend leer (2026-09-09)
 
 ## Decision Log
@@ -88,12 +89,114 @@ ob heute jemand Geburtstag hat, erfährt er erst in der Anwesenheitsliste.
 | Kurs ausfallen lassen bleibt draußen | Verschickt Mails an alle Teilnehmer. Wer das darf, gehört bewusst entschieden statt nebenbei erweitert | 2026-09-09 |
 
 ### Technical Decisions
-_To be added by /architecture_
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Die Weiche sitzt in der Seite, nicht in einer neuen Adresse | „Mein Bereich" bleibt der eine Ort nach dem Login. Eine zweite Adresse hiesse, dass Lehrer zwei Startseiten im Kopf behalten müssten | 2026-09-09 |
+| Die bestehende Frage „unterrichtet diese Person?" wird wiederverwendet | Navigation und „Meine Kurse" stellen sie bereits. Zwei Antworten auf dieselbe Frage laufen früher oder später auseinander — dann stünde der Menüpunkt da, während der Bereich ihn nicht kennt | 2026-09-09 |
+| Terminberechnung wiederverwenden statt neu schreiben | Wochentermin minus Ausfälle ist bereits gelöst und getestet. Eine zweite Rechnung würde bei Kursausfällen anders antworten als die Kursseite | 2026-09-09 |
+| Rolle, Notiz und Aktionen stehen im Termin, nicht in eigenen Blöcken | Wer eine Stunde vorbereitet, soll nicht drei Listen nebeneinanderlegen müssen | 2026-09-09 |
+| Derselbe Block-Rahmen wie im Kunden-Dashboard | Bringt die Regel „ein Block ohne Inhalt erscheint gar nicht" mit. Ein Lehrer ohne Probestunde sieht dann keine leere Überschrift | 2026-09-09 |
+| Alle Daten in einem Rutsch und über alle Kurse gemeinsam | Sonst summieren sich die Wartezeiten, und ein Lehrer mit sechs Kursen wartet sechsmal so lang wie einer mit einem | 2026-09-09 |
+| „Schüler" für die Geburtstage = Kunden mit aktivem Abo im jeweiligen Kurs | Vom Betreiber entschieden. Ein Probestunden- oder Drop-in-Gast ist niemand, dessen Geburtstag man kennt — und eine Liste, die jeden einmaligen Besucher enthält, wird ignoriert | 2026-09-09 |
+| Keine neue Tabelle, keine neue Berechtigung | Alles ist für eine zugewiesene Lehrkraft schon lesbar. Der Bereich zeigt nur zusammen, was verstreut lag | 2026-09-09 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Wo die Weiche sitzt
+
+„Mein Bereich" bleibt eine einzige Adresse. Beim Aufruf wird einmal gefragt, ob
+diese Person unterrichtet — dieselbe Frage, die schon die Navigation und die
+Seite „Meine Kurse" stellen. Je nach Antwort erscheint der Lehrer-Bereich oder
+die bisherige Kundenansicht.
+
+Die Frage wird bewusst **nicht** neu formuliert, sondern die bestehende genutzt:
+Zwei Stellen, die „unterrichtet diese Person?" unterschiedlich beantworten,
+würden früher oder später auseinanderlaufen — dann stünde „Meine Kurse" in der
+Navigation, während „Mein Bereich" die Kundenansicht zeigt.
+
+### Aufbau der Seite
+
+```
+Mein Bereich
++-- unterrichtet diese Person?
+    |
+    +-- nein --> Kundenansicht            (unverändert, PROJ-45)
+    |
+    +-- ja ----> Lehrer-Bereich           (neu)
+                 |
+                 +-- Nächste Kurse (7 Tage)
+                 |    +-- je Termin: Datum, Uhrzeit, Kurs, Ort
+                 |    +-- je Termin: „Anwesenheit" und „Lehrmaterial"
+                 |    +-- je Termin: Leader/Follower  (nur wo der Kurs danach fragt)
+                 |    +-- beim nächsten Termin: die letzte Notiz
+                 |
+                 +-- Probestunden (7 Tage)
+                 +-- Geburtstage (7 Tage)
+                 +-- Fehlende Anwesenheit (letzte 4 Termine)
+```
+
+Rolle, Notiz und die beiden Aktionen stehen **im** jeweiligen Termin, nicht als
+eigene Blöcke daneben. Wer die Stunde vorbereitet, will nicht drei Listen
+nebeneinanderlegen, um zu wissen, was ihn erwartet.
+
+Für die vier Blöcke wird derselbe Rahmen verwendet wie im Kunden-Dashboard. Er
+bringt eine Regel mit, die hier genauso gilt: **Ein Block, der nichts zu sagen
+hat, erscheint gar nicht.** Ein Lehrer ohne anstehende Probestunde sieht keine
+leere Überschrift, sondern nichts.
+
+### Was die Seite wissen muss
+
+In Alltagssprache, ohne neue Datenstrukturen:
+
+1. **Welche Kurse unterrichtet diese Person?** — steht bereits in der Zuordnung
+   von Lehrkräften zu Kursen.
+2. **Wann finden sie statt?** — aus dem Wochentermin des Kurses, abzüglich der
+   eingetragenen Ausfälle. Diese Rechnung existiert schon und wird
+   wiederverwendet, statt sie ein zweites Mal zu schreiben.
+3. **Wurde die Anwesenheit erfasst?** — für jeden der letzten vier Termine die
+   Frage „gibt es dazu Einträge?".
+4. **Wer kommt zur Probestunde?** — Buchungen vom Typ Probestunde mit einem
+   Termin im Fenster.
+5. **Wer hat Geburtstag?** — die Schüler der eigenen Kurse, mit Geburtsdatum im
+   Fenster. Ohne Altersangabe.
+6. **Was stand zuletzt in den Notizen?** — die jüngste Notiz je Kurs.
+7. **Wie verteilen sich Leader und Follower?** — aus der bei der Buchung
+   erfassten Rolle, nur für Kurse, die danach fragen.
+
+**Keine neue Tabelle, keine neue Berechtigung.** Alles davon darf eine
+zugewiesene Lehrkraft heute schon lesen. Der Bereich zeigt nur zusammen, was
+bisher verstreut lag.
+
+### Wie die Daten geholt werden
+
+Alle Angaben werden in **einem Rutsch** geholt, nicht Block für Block. Der
+Kunden-Bereich macht das heute schon so; würde jeder Block einzeln nachfragen,
+summierten sich die Wartezeiten sichtbar auf.
+
+Ebenso werden die Fragen **über alle Kurse gemeinsam** gestellt, nicht je Kurs
+einzeln. Ein Lehrer mit sechs Kursen soll nicht sechsmal so lange warten wie
+einer mit einem.
+
+### Zugriffsschutz
+
+Der Bereich zeigt nur, was zu den eigenen Kursen gehört: keine Geburtstage
+fremder Schüler, keine fremden Probestunden, keine fremden Notizen. Das ist
+keine zusätzliche Prüfung, sondern ergibt sich daraus, dass alle Fragen bei den
+eigenen Kurszuordnungen beginnen — und die Datenbank denselben Zaun ohnehin
+zieht.
+
+### Neue Pakete
+
+Keine.
+
+### Was danach zu prüfen ist
+
+- Ein Lehrer mit **vielen** Kursen: Bleibt die Seite schnell? Die Antwort hängt
+  daran, dass gebündelt gefragt wird, nicht je Kurs.
+- Der Übergang von Sommer- zu Wintersemester: Kurse ohne Wochentermin fallen aus
+  der Liste, ohne dass etwas kaputtgeht.
 
 ## QA Test Results
 _To be added by /qa_
