@@ -1,6 +1,6 @@
 # PROJ-50: Flatrate für mehrere Kurse
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-09-10
 **Last Updated:** 2026-09-10
 **Priorität:** P0 (vor Inbetriebnahme)
@@ -397,3 +397,70 @@ Satz statt eines stillen Fehlschlags.
 
 Keine. Es entsteht keine neue Art von Oberfläche — Karten, Dialoge, Listen und
 Auswahlfelder sind vorhanden.
+
+---
+
+## Umsetzungsnotizen — Fundament und Oberfläche (2026-09-10)
+
+### Was gebaut wurde
+
+| Baustein | Aufgabe |
+|---|---|
+| `course_memberships` (Tabelle) | Der Kursplatz: Kunde, Kurs, Abo, Tanzrolle, seit wann, bis wann |
+| `course_members` (Sicht) | Die eine Antwort auf „wer ist in diesem Kurs?" |
+| `beende_kursplaetze_bei_abo_ende` (Trigger) | Ein Abo, das nicht mehr aktiv ist, hat keine Kursplätze |
+| `add_course_to_flatrate` / `remove_course_from_flatrate` | Der Kundenweg, mit allen Sperren unter Zeilensperre |
+| `admin_add_course_membership` / `admin_remove_course_membership` | Derselbe Vorgang für den Betreiber, Kursgrenze überschreibbar |
+| `kurs_belegung` / `kurs_rollenanzahl` | Belegung und Rollenzahlen an einer Stelle statt fünfmal |
+| `promote_waitlist_internal` | Nachrückung ohne Rechteprüfung, damit auch ein Kunde sie auslösen kann |
+| `src/lib/flatrate/kurszugehoerigkeit.ts` | Dieselbe Frage auf der Anwendungsseite, einmal beantwortet |
+| `FlatrateAddButton`, `FlatrateCourses`, `FlatrateCourseManager` | Katalog/Stundenplan/Kursseite, Profil, Admin |
+
+### Drei Entscheidungen beim Bauen
+
+**Der Trigger statt fünf Schreibstellen.** Ein Abo wird an fünf Orten pausiert
+oder gekündigt: Selbstbedienung, Admin, Stapelvorgang, fällige Änderungen aus
+dem Cron, Kursausfall. Eine Regel an der Tabelle gilt für alle fünf — und für
+die sechste, die es noch nicht gibt.
+
+**Die Nachrückung wurde geteilt.** `promote_waitlist_for_course` verlangte
+Admin-Rechte. Gibt ein Kunde seinen Kursplatz frei, muss aber auch nachgerückt
+werden, und mit seinen Rechten scheiterte die Prüfung. Die Arbeit steht jetzt in
+`promote_waitlist_internal`, das von keiner Rolle direkt aufrufbar ist; der
+Admin-Zugang ist ein dünner Mantel darum.
+
+**Das Fundament kam im Frontend-Durchgang mit.** Eine Oberfläche, die Kurse zu
+einer Flatrate hinzufügt, hätte sonst auf nichts gezeigt. Die Reihenfolge des
+Arbeitsablaufs passt bei diesem Feature nicht — der Kern ist die Datenbank.
+
+### Ein Detail, das beim Bauen dazukam
+
+`create or replace function` setzt die Rechte einer Funktion zurück, und
+Supabase vergibt `EXECUTE` per Default-Privileg sofort neu an `anon`. Weil die
+Nachrückung überarbeitet wurde, musste der Entzug wiederholt werden — genau der
+Fall, den der QA-Befund vom Vortag beschreibt (`.claude/rules/backend.md`).
+
+### Prüfung
+
+20 E2E-Fälle (10 × 2 Browser) in `tests/PROJ-50-flatrate-mehrere-kurse.spec.ts`,
+alle grün. Die Suite legt ihre Kurse selbst an und räumt sie weg: Ein Kursplatz
+taucht in Anwesenheitsliste, Kursgrenze und Rollenbalance auf, und geteilte
+Fixtures haben in diesem Projekt schon zweimal fremde Tests umgeworfen.
+
+Der aussagekräftigste Fall zählt die Abos vor und nach dem Hinzufügen — gleich
+viele. Das war der eigentliche Fehler.
+
+### Offen für `/backend`
+
+Die Kursplätze existieren, aber fünf Lesestellen kennen sie noch nicht:
+
+- [ ] `get_course_attendance_roster` — Anwesenheitsliste
+- [ ] `create_regular_course_booking` und `join_waitlist` — Kursgrenze und Rollenbalance
+- [ ] `self_toggle_attendance` — Selbst-Check-in
+- [ ] `course-cancellation.ts` — wer bei Kursausfall benachrichtigt wird
+- [ ] `get_course_occupancy` — freie Plätze im Katalog
+- [ ] `get_course_participants` und `get_course_active_subscribers` — Lehrer-Bereich
+
+**Bis dahin nicht ausliefern:** Die neuen Funktionen rechnen die Kursgrenze über
+`course_members`, die alten über `subscriptions.course_id`. Zwei Rechnungen
+nebeneinander sind genau der Zustand, den diese Spec beseitigen soll.
