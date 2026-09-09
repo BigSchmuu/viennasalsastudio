@@ -38,6 +38,9 @@ gar nicht erst für alle an.
 | Kursgrenze (`v_used` in Buchung, Warteliste, Nachrückung) | zählt nicht mit — ein Kurs mit 12 Plätzen kann faktisch mehr Leute haben |
 | Leader/Follower-Balance | zählt nicht mit; die Verteilung stimmt nicht |
 | Geburtstage im Lehrer-Bereich (PROJ-49) | erscheint nicht |
+| Kursausfall-Benachrichtigung (PROJ-38) | wird **nicht benachrichtigt** — er steht vor verschlossener Tür |
+| Selbst-Check-in (PROJ-25) | darf sich nicht selbst eintragen |
+| Freie Plätze im Katalog (`get_course_occupancy`) | der Kurs wirkt leerer, als er ist |
 
 In der Testdatenbank: 8 aktive Flatrate-Abos, davon **keines** mit einem Kurs
 verknüpft.
@@ -252,4 +255,145 @@ verknüpft.
 
 ### Technical Decisions
 
-_Wird von `/architecture` ergänzt._
+| Decision | Rationale | Date |
+|---|---|---|
+| Eine gemeinsame Definition von „ist im Kurs", die alle Lesestellen benutzen | Heute beantworten **zehn** Stellen dieselbe Frage, jede für sich. Genau daran ist die Flatrate gescheitert, und genau so entstehen die stillen Fehler, die dieses Projekt schon dreimal getroffen haben. Eine Definition kann falsch sein — zehn können auseinanderlaufen | 2026-09-10 |
+| Kursplätze als eigene Datensätze, `subscriptions.course_id` bleibt vorerst | Alles auf einmal umzustellen hieße, auch Abrechnung, Umbuchung und Fälligkeiten anzufassen — Tage vor der Inbetriebnahme. Weil niemand mehr direkt liest, ist die Doppelung hinter der gemeinsamen Definition verborgen und später ohne Änderung an den Lesestellen auflösbar | 2026-09-10 |
+| Kursplätze werden beendet, nicht gelöscht | Ein beendeter Platz ist die Erinnerung, die der Vorschlag nach der Pause braucht. Und er erklärt später, warum jemand im Mai in einer Anwesenheitsliste stand | 2026-09-10 |
+| Die Tanzrolle steht am Kursplatz, nicht am Abo | Sie gehört zum Kurs: Jemand kann in Salsa Leader und in Bachata Follower sein. Am Abo ließe sich das nicht abbilden | 2026-09-10 |
+| Hinzufügen und Entfernen laufen in der Datenbank, nicht im Anwendungscode | Die Kursgrenze verlangt dieselbe Zeilensperre wie eine reguläre Buchung. Im Anwendungscode geprüft, greifen zwei gleichzeitige Klicks am letzten Platz vorbei | 2026-09-10 |
+| Keine neuen Pakete | Es entsteht keine neue Art von Oberfläche — bestehende Bausteine reichen | 2026-09-10 |
+
+---
+
+## Tech Design (Solution Architect)
+
+### Die Kernfrage: eine Tür statt zehn
+
+Der Fehler in der Flatrate ist nicht, dass eine Stelle etwas falsch macht. Er
+ist, dass **zehn Stellen dieselbe Frage getrennt beantworten** — „wer ist in
+diesem Kurs?" — und alle zehn dieselbe Spalte lesen, die bei einer Flatrate leer
+ist. Nachgezählt am 2026-09-10:
+
+| Stelle | Was sie heute entscheidet | Folge für den Flatrate-Kunden |
+|---|---|---|
+| Kursbuchung | „bereits angemeldet", Kursgrenze, Rollenbalance | **erzeugt das zweite Abo** |
+| Wartelisten-Beitritt | dieselben drei Prüfungen | tritt einer Liste bei, auf der er nicht sein müsste |
+| Nachrückung | Kursgrenze, Rollenbalance | erzeugt eine offene Anfrage statt eines Platzes |
+| Anwesenheitsliste | wer steht in der Matrix | fehlt; der Lehrer trägt ihn jede Stunde nach |
+| Freie Plätze im Katalog | die angezeigte Belegung | der Kurs wirkt leerer, als er ist |
+| Selbst-Check-in | „darf ich mich eintragen?" | wird abgewiesen |
+| Teilnehmernamen (PROJ-49) | Namen für Lehrer | fehlt |
+| Aktive Kursteilnehmer (PROJ-49) | Geburtstage | fehlt |
+| Kursausfall (PROJ-38) | wer wird benachrichtigt | **erfährt nichts und steht vor der Tür** |
+| Umbuchung eines Einzelkurs-Abos | Kurswechsel | nicht betroffen, bleibt unberührt |
+
+Jede Stelle einzeln zu reparieren hieße, neun neue Gelegenheiten zu schaffen,
+eine zu vergessen. Deshalb bekommt die Frage **eine einzige Antwort**, die alle
+benutzen: eine benannte Sicht „Kursmitgliedschaften", die sagt, wer gerade in
+welchem Kurs ist — egal ob über ein kursgebundenes Abo oder über eine Flatrate.
+Danach liest keine Stelle mehr selbst nach.
+
+Das ist zugleich die Antwort auf eine Sorge aus PROJ-49: Solange zwei Wahrheiten
+nebeneinander stehen, laufen sie auseinander. Hier gibt es künftig eine.
+
+### Datenmodell
+
+**Neu — der Kursplatz.** Ein Datensatz, der festhält:
+
+- welcher Kunde
+- in welchem Kurs
+- über welches Abo er dort ist
+- mit welcher Tanzrolle (falls der Kurs danach fragt)
+- seit wann — und, sobald er endet, bis wann
+
+Ein kursgebundenes Abo hat genau einen solchen Platz, eine Flatrate beliebig
+viele. **Kein Preis am Kursplatz**: Was jemand zahlt, steht weiterhin
+ausschließlich am Abo. Das ist die Trennung, die heute fehlt — „was kostet es"
+und „wo bin ich drin" sind zwei Fragen, nicht eine.
+
+**Beendet statt gelöscht.** Wird eine Flatrate pausiert oder gekündigt, bekommen
+ihre Kursplätze ein Enddatum. Sie zählen ab sofort nirgends mehr mit — der Platz
+ist frei, die Warteliste rückt nach. Aber die Erinnerung bleibt, und daraus
+entsteht nach der Pause der Vorschlag „das waren deine Kurse". Nebenbei erklärt
+ein beendeter Platz später, warum jemand im Mai in einer Anwesenheitsliste
+stand.
+
+**Was unverändert bleibt:** Abos, Preise, Lastschriften, Rechnungen. Diese Spec
+fasst keine Abrechnung an.
+
+### Was sich in der Bedienung ändert
+
+```
+Kurskatalog / Kursdetail / Stundenplan
++-- Kurskarte
+    +-- [Kunde ohne Flatrate]  → „Jetzt buchen" (unverändert, voller Dialog)
+    +-- [Flatrate, nicht im Kurs]
+    |   +-- „Zu meiner Flatrate hinzufügen"
+    |       +-- Kurs fragt nichts ab      → sofort drin, kurze Rückmeldung
+    |       +-- Kurs fragt Rolle ab       → kleiner Dialog: nur Leader/Follower/Beide
+    |       +-- Kurs hat Vorkenntnisse    → zusätzlich das Häkchen aus PROJ-27
+    |       +-- Kurs ist voll             → Hinweis + Angebot Warteliste
+    +-- [Flatrate, bereits im Kurs] → Hinweis „Du bist in diesem Kurs", keine Aktion
+
+Mein Profil → Abo-Bereich
++-- Flatrate-Abo
+    +-- Liste „Meine Kurse"
+    |   +-- je Kurs: Name, Termin, Tanzrolle, „Entfernen"
+    +-- [keine Kurse] → Hinweis + Verweis auf den Kurskatalog
+    +-- [nach einer Pause] → „Deine früheren Kurse" mit je einem Knopf
+
+Admin → Kunden → Kundendetail
++-- Abo-Verwaltung (bestehend)
+    +-- [bei Flatrate] Kursliste
+        +-- je Kurs: Name, „Entfernen"
+        +-- „Kurs hinzufügen" (Auswahl)
+            +-- bei vollem Kurs: Warnung, aber überschreibbar
+```
+
+Für Kunden **ohne** Flatrate ändert sich an keiner Stelle etwas.
+
+### Wo die Arbeit wirklich liegt
+
+Nicht in der Oberfläche — die ist überschaubar. Sondern darin, die zehn
+Lesestellen auf die gemeinsame Definition umzustellen, ohne dabei eine zu
+übersehen oder eine bestehende Funktion zu verändern. Vier davon sind
+Prüfungen, an denen Geld oder Plätze hängen (Buchung, Warteliste, Nachrückung,
+Selbst-Check-in); drei versorgen den Lehrer; zwei die Anzeige.
+
+Die Absicherung dagegen ist ein Test je Lesestelle, der mit einem
+**Flatrate-Kunden** arbeitet — nicht mit einem kursgebundenen. Ohne das bleibt
+jeder dieser Tests grün, egal was passiert: Genau dieselbe Falle wie bei den
+Lehrer-Tests, die sich als Admin angemeldet hatten.
+
+### Umstellung der Bestandsdaten
+
+Jede bestätigte Flatrate-Buchung ist bereits mit ihrem Abo verknüpft. Daraus
+entsteht beim Einspielen einmalig je ein Kursplatz — samt der damals gewählten
+Tanzrolle. Wo keine Verknüpfung existiert, bleibt die Liste leer und der Kunde
+trägt sich selbst ein.
+
+Die Umstellung muss wiederholbar sein, ohne Plätze zu verdoppeln: Ein zweiter
+Lauf darf nichts anrichten. Das ist kein Luxus — eine Migration wird öfter
+angefasst, als man plant.
+
+**Vorher zu erledigen (Betreiber):** Die zwei Kunden mit doppelter Flatrate
+bereinigen. Die Umstellung ordnet die Kurse dem ältesten aktiven Abo zu; das
+überzählige bliebe sonst bestehen und würde weiter eingezogen.
+
+### Gleichzeitigkeit
+
+Hinzufügen und Entfernen laufen vollständig in der Datenbank, unter derselben
+Sperre auf den Kurs, die eine reguläre Buchung heute schon nimmt. Zwei Kunden,
+die im selben Moment nach dem letzten Platz greifen, bekommen dadurch die
+richtige Antwort: einer den Platz, einer den Hinweis. Im Anwendungscode geprüft,
+kämen beide durch.
+
+Dasselbe gilt für den Fall „Kunde tritt ein, während der Betreiber kündigt": Ohne
+aktives Abo entsteht kein Kursplatz, und der Kunde bekommt einen verständlichen
+Satz statt eines stillen Fehlschlags.
+
+### Neue Pakete
+
+Keine. Es entsteht keine neue Art von Oberfläche — Karten, Dialoge, Listen und
+Auswahlfelder sind vorhanden.
