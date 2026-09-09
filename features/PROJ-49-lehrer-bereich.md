@@ -1,6 +1,6 @@
 # PROJ-49: Eigener Bereich für Lehrer
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-09-09
 **Last Updated:** 2026-09-09
 
@@ -303,3 +303,22 @@ PROJ-13, dessen AC8 danach umfiel — ein Test, der mit der Sache nichts zu tun
 hat. AC13 legt jetzt einen eigenen, freien Termin an und räumt nur diesen weg;
 die PROJ-13-Fixture stellt sich in `beforeAll` selbst wieder her, statt sich nur
 zurücksetzen zu lassen.
+
+---
+
+## Deployment (2026-09-09)
+
+Produktion: https://app.viennasalsastudio.at — Commits `ba8d869` und `cf6e871`,
+Vercel-Deployment `67nnzwvxx`, Buildzeit 1 min.
+
+Die beiden Migrationen (`…190000_proj49_kursteilnehmer_fuer_lehrer.sql` und
+`…200000_proj49_lehrer_kursdaten.sql`) hat der Betreiber **vor** dem Deploy
+eingespielt — die Funktionen standen also bereit, bevor Code sie aufgerufen hat.
+
+Nach dem Deploy geprüft: öffentliche Routen (`/`, `/login`, `/kurse`,
+`/stundenplan`, `/en/kurse`) antworten mit 200, geschützte (`/mein-bereich`,
+`/lehrer`) mit 307 auf `/login?redirect=…`.
+
+**Ohne QA-Durchgang deployed** — auf ausdrückliche Entscheidung des Betreibers.
+AC3 und AC4 (die beiden Admin-Kriterien) sind damit weiterhin ungetestet; die
+übrigen 13 Kriterien deckt die E2E-Suite ab.
