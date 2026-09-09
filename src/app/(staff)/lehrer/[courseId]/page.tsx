@@ -61,13 +61,14 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
 
   const roleByCustomer: Record<string, "leader" | "follower" | "both"> = {};
   if (course.role_query_enabled) {
-    const { data: roleBookings } = await supabase
-      .from("course_bookings")
-      .select("customer_id, dance_role, created_at")
-      .eq("course_id", courseId)
-      .eq("type", "regular")
-      .not("dance_role", "is", null)
-      .order("created_at", { ascending: true });
+    // Über eine Funktion, nicht direkt: `course_bookings` erlaubt per Regel nur
+    // „eigene Zeile oder Admin". Für eine Lehrkraft kam die direkte Abfrage
+    // ohne Fehler, aber leer zurück — die Leader/Follower-Markierung aus
+    // PROJ-30 war hier also ausgerechnet für sie nie sichtbar.
+    const { data: roleBookings, error: roleFehler } = await supabase.rpc("get_course_dance_roles", {
+      p_course_ids: [courseId],
+    });
+    if (roleFehler) console.error("Anwesenheitsliste: Tanzrollen nicht lesbar", roleFehler);
     for (const b of roleBookings ?? []) {
       // Later rows overwrite earlier ones, so the most recent booking's
       // role choice wins if a customer applied to this course more than once.
@@ -118,9 +119,18 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
 
     const eligibleIds = (eligibleRes.data ?? []).map((c) => c.customer_id);
     const allIds = Array.from(new Set([...customersById.keys(), ...eligibleIds]));
-    const { data: birthdateRows } = allIds.length
-      ? await supabase.from("profiles").select("id, birthdate").in("id", allIds)
-      : { data: [] };
+    // Über die Funktion, nicht per direkter Abfrage: `profiles` erlaubt nur
+    // „eigene Zeile oder Admin". Eine Lehrkraft bekam hier stumm nichts —
+    // das Geburtstags-Symbol aus PROJ-31 erschien deshalb nur Admins, obwohl
+    // die Nutzergeschichte ausdrücklich den Lehrer meint. Aufgefallen am
+    // 2026-09-09 beim Bauen von PROJ-49; der Test von PROJ-31 meldet sich als
+    // Admin an und war darum immer grün.
+    const { data: teilnehmer } = await supabase.rpc("get_course_participants", {
+      p_course_ids: [courseId],
+    });
+    const birthdateRows = (teilnehmer ?? [])
+      .filter((p) => allIds.includes(p.customer_id))
+      .map((p) => ({ id: p.customer_id, birthdate: p.birthdate }));
     // Der Wiener Kalendertag, nicht der des Servers (UTC bei Vercel).
     const today = heuteAlsDatumInWien();
     const birthdayTodayById = new Set(

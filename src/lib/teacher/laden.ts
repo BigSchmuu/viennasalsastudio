@@ -74,46 +74,49 @@ export async function ladeLehrerUebersicht(
 
   const kursIds = kurse.map((k) => k.id);
 
+  // Alles über Funktionen, keine einzige direkte Tabellenabfrage.
+  //
+  // Für eine Lehrkraft sind `course_attendance`, `subscriptions`,
+  // `course_bookings` und `course_session_notes` gesperrt — teils per Regel
+  // „eigene Zeile oder Admin“, bei der Anwesenheit sogar ganz ohne Leseregel.
+  // Eine direkte Abfrage schlägt dabei nicht fehl, sie liefert leer. Genau
+  // daran sind Geburtstage, Probestunden, Rollenverteilung und die offenen
+  // Anwesenheiten beim Bauen still gescheitert.
   const [anwesenheitRes, probenRes, aboRes, notizenRes, rollenRes] = await Promise.all([
-    supabase.from("course_attendance").select("course_id, occurrence_date").in("course_id", kursIds),
-    supabase
-      .from("course_bookings")
-      .select("id, course_id, customer_id, chosen_date")
-      .in("course_id", kursIds)
-      .eq("type", "trial")
-      .not("status", "in", '("cancelled","rejected")')
-      .gte("chosen_date", heute)
-      .lte("chosen_date", grenze),
-    supabase
-      .from("subscriptions")
-      .select("course_id, customer_id")
-      .in("course_id", kursIds)
-      .eq("status", "active"),
-    // Notizen liegen hinter einer SECURITY-DEFINER-Funktion; auf der Tabelle
-    // selbst gibt es bewusst keine Leseregel. Eine direkte Abfrage liefert
-    // daher stumm nichts — genau das ist mir beim Bauen passiert.
+    supabase.rpc("get_course_attendance_dates", { p_course_ids: kursIds }),
+    supabase.rpc("get_course_trial_bookings", {
+      p_course_ids: kursIds,
+      p_von: heute,
+      p_bis: grenze,
+    }),
+    supabase.rpc("get_course_active_subscribers", { p_course_ids: kursIds }),
     supabase.rpc("get_last_session_notes", { p_course_ids: kursIds }),
-    supabase
-      .from("course_bookings")
-      .select("course_id, customer_id, dance_role, created_at")
-      .in("course_id", kursIds)
-      .eq("type", "regular")
-      .not("dance_role", "is", null)
-      .order("created_at", { ascending: true }),
+    supabase.rpc("get_course_dance_roles", { p_course_ids: kursIds }),
   ]);
 
-  // Namen und Geburtsdaten für alle beteiligten Personen — eine Abfrage, nicht
-  // eine je Person.
-  const personenIds = Array.from(
-    new Set([
-      ...(probenRes.data ?? []).map((p) => p.customer_id),
-      ...(aboRes.data ?? []).map((a) => a.customer_id),
-    ])
+  // Eine leere Liste ist hier nicht dasselbe wie „nichts vorhanden“ — sie kann
+  // auch heißen, dass die Abfrage nicht durchkam. Also laut sagen, wenn etwas
+  // schiefging.
+  for (const [was, res] of [
+    ["Anwesenheiten", anwesenheitRes],
+    ["Probestunden", probenRes],
+    ["Abos", aboRes],
+    ["Notizen", notizenRes],
+    ["Tanzrollen", rollenRes],
+  ] as const) {
+    if (res.error) console.error(`Lehrer-Bereich: ${was} nicht lesbar`, res.error);
+  }
+
+  // Namen und Geburtsdaten der eigenen Kursteilnehmer — aus demselben Grund
+  // ebenfalls über eine Funktion. Ausgeliefert wird nur, wer im eigenen Kurs
+  // ein Abo oder eine Buchung hat, nicht ein beliebiges Profil.
+  const { data: personen, error: personenFehler } = await supabase.rpc("get_course_participants", {
+    p_course_ids: kursIds,
+  });
+  if (personenFehler) console.error("Lehrer-Bereich: Teilnehmer nicht lesbar", personenFehler);
+  const personById = new Map(
+    (personen ?? []).map((p) => [p.customer_id, { full_name: p.full_name, birthdate: p.birthdate }])
   );
-  const { data: personen } = personenIds.length
-    ? await supabase.from("profiles").select("id, full_name, birthdate").in("id", personenIds)
-    : { data: [] };
-  const personById = new Map((personen ?? []).map((p) => [p.id, p]));
 
   const erfasst = new Set(
     (anwesenheitRes.data ?? []).map((a) => `${a.course_id}|${a.occurrence_date}`)
@@ -121,7 +124,6 @@ export async function ladeLehrerUebersicht(
 
   // Je Kurs die jüngste Notiz — die Funktion liefert bereits höchstens eine
   // Zeile je Kurs.
-  if (notizenRes.error) console.error("Lehrer-Bereich: Notizen nicht lesbar", notizenRes.error);
   const letzteNotizJeKurs = new Map<string, string>(
     (notizenRes.data ?? []).map((n) => [n.course_id, n.note])
   );

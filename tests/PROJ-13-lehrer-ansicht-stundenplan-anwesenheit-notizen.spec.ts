@@ -107,6 +107,19 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     // Recht ab, es kam "Notiz ist zu lang" statt "Notiz gespeichert.".
     // Zuruecksetzen statt Grenze anheben — der Test soll sich nicht selbst
     // vergiften.
+    //
+    // Angelegt, nicht nur zurueckgesetzt: Ein Update trifft nichts, wenn die
+    // Zeile fehlt, und dann faellt AC8 mit "found = false" um, ohne zu sagen
+    // warum. Genau das ist passiert, als ein anderer Test die Notiz mit
+    // wegraeumte. Die Fixture stellt sich jetzt selbst wieder her.
+    const { error: saatFehler } = await service
+      .from("course_session_notes")
+      .upsert(
+        { course_id: COURSE_ID, occurrence_date: "2026-08-06", note: "E2E13: Vorbereitete Testnotiz" },
+        { onConflict: "course_id,occurrence_date" }
+      );
+    if (saatFehler) throw new Error(`PROJ-13 Notiz-Saat fehlgeschlagen: ${saatFehler.message}`);
+
     const { error: notizFehler } = await service
       .from("course_session_notes")
       .update({ note: "E2E13: Vorbereitete Testnotiz" })

@@ -237,13 +237,69 @@ Dafür kam `get_last_session_notes(uuid[])` dazu — derselbe Zaun wie bei der
 bestehenden Funktion (zugewiesene Lehrkraft oder Admin), Migration
 `20260909180000_proj49_letzte_notizen.sql`.
 
+### Der eigentliche Fund: vier stumm gesperrte Tabellen
+
+Die Notizen waren nur der erste Fall. Nach dem Einbau blieben Geburtstage und
+Probestunden trotzdem leer — und die Suche danach hat einen Fehler ans Licht
+gebracht, der weit über PROJ-49 hinausgeht.
+
+Für eine Lehrkraft sind **vier** Tabellen nicht lesbar:
+
+| Tabelle | Regel |
+|---|---|
+| `profiles` | „eigene Zeile oder Admin" |
+| `subscriptions` | „eigene Zeile oder Admin" |
+| `course_bookings` | „eigene Zeile oder Admin" |
+| `course_attendance` | gar keine Leseregel |
+
+RLS lässt eine solche Abfrage nicht scheitern — sie liefert **leer, ohne
+Fehler**. Im Code ist das nicht von „es gibt nichts" zu unterscheiden. Die
+Folgen im Lehrer-Bereich: keine Geburtstage, keine Probestunden, „0 Leader /
+0 Follower", und jede vergangene Stunde galt als nicht erfasst.
+
+**Zwei ältere Features waren schon betroffen, ohne dass es je aufgefallen ist:**
+
+- **PROJ-31:** Das Geburtstags-Symbol in der Anwesenheitsliste ist für Lehrer
+  nie erschienen — obwohl die Nutzergeschichte ausdrücklich den Lehrer meint.
+- **PROJ-30:** Dasselbe bei den Leader/Follower-Markierungen auf der Kursseite.
+
+Beide Tests waren grün, weil sie sich als **Admin** anmelden.
+
+Dazu kamen fünf Funktionen mit dem Wächter
+`is_course_teacher(course_id) or "current_role"() = 'admin'`:
+`get_course_participants`, `get_course_attendance_dates`,
+`get_course_active_subscribers`, `get_course_trial_bookings`,
+`get_course_dance_roles` (Migrationen `…190000` und `…200000`). Die
+Kursseite aus PROJ-13 liest die Tanzrollen jetzt über dieselbe Funktion — damit
+ist auch der PROJ-30-Fehler behoben.
+
+Das Muster steht als Regel in `.claude/rules/backend.md`, damit die nächste
+Abfrage nicht wieder still ins Leere greift.
+
 ### Prüfung
 
-16 E2E-Tests (8 Fälle × 2 Browser) in `tests/PROJ-49-lehrer-bereich.spec.ts`,
-alle grün: Weiche für Lehrer und Kunden, Termine mit Wochentag/Zeit/Ort,
-„Anwesenheit" führt auf die Kursseite, „Lehrmaterial" nur bei vorhandenem
-Videosatz, fehlende Anwesenheit, letzte Notiz, Leerzustand.
+22 E2E-Tests (11 Fälle × 2 Browser) in `tests/PROJ-49-lehrer-bereich.spec.ts`.
+Neu dazu: Geburtstage ohne Jahrgang (AC9), anstehende Probestunde (AC10),
+Rollenverteilung (AC14).
 
-**Noch nicht durch Tests abgedeckt:** die beiden Admin-Kriterien (AC3/AC4) sowie
-Geburtstage, Probestunden und die Leader/Follower-Verteilung — dafür fehlen
-Fixtures, die erst angelegt werden müssten. Gehört in den QA-Durchgang.
+**AC14 hat vorher nichts geprüft.** Der Kurs hatte keine einzige Rollenbuchung,
+also stand dort „0 Leader" — und `/\d+ Leader/` passt darauf genauso wie auf
+„3 Leader". Der Test wäre auch mit dem Fehler grün geblieben. Er sät jetzt seine
+eigene Verteilung und prüft die Zahl; ohne die Korrektur fällt er um
+(nachgestellt und bestätigt).
+
+Chromium: PROJ-13, PROJ-30, PROJ-31 und PROJ-49 zusammen grün.
+**Mobile Safari steht noch aus** — die Maschine lag bei Last 17, in dem Zustand
+brechen die WebKit-Läufe reihenweise ohne echten Grund ab.
+
+**Noch nicht durch Tests abgedeckt:** die beiden Admin-Kriterien (AC3/AC4).
+Gehört in den QA-Durchgang.
+
+### Ein Test hat einen anderen vergiftet
+
+AC13 hat sich anfangs die *erstbeste vorhandene* Notiz des Kurses gegriffen,
+überschrieben und am Ende gelöscht. Getroffen hat es die vorbereitete Notiz aus
+PROJ-13, dessen AC8 danach umfiel — ein Test, der mit der Sache nichts zu tun
+hat. AC13 legt jetzt einen eigenen, freien Termin an und räumt nur diesen weg;
+die PROJ-13-Fixture stellt sich in `beforeAll` selbst wieder her, statt sich nur
+zurücksetzen zu lassen.

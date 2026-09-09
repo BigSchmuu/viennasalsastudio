@@ -1836,6 +1836,20 @@ export type Database = {
         Returns: undefined
       }
       generate_referral_code: { Args: never; Returns: string }
+      get_course_active_subscribers: {
+        Args: { p_course_ids: string[] }
+        Returns: {
+          course_id: string
+          customer_id: string
+        }[]
+      }
+      get_course_attendance_dates: {
+        Args: { p_course_ids: string[] }
+        Returns: {
+          course_id: string
+          occurrence_date: string
+        }[]
+      }
       get_course_attendance_roster: {
         Args: { p_course_id: string; p_occurrence_date: string }
         Returns: {
@@ -1846,6 +1860,15 @@ export type Database = {
           status: string
         }[]
       }
+      get_course_dance_roles: {
+        Args: { p_course_ids: string[] }
+        Returns: {
+          course_id: string
+          created_at: string
+          customer_id: string
+          dance_role: string
+        }[]
+      }
       get_course_occupancy: {
         Args: never
         Returns: {
@@ -1853,9 +1876,26 @@ export type Database = {
           occupied_count: number
         }[]
       }
+      get_course_participants: {
+        Args: { p_course_ids: string[] }
+        Returns: {
+          birthdate: string
+          customer_id: string
+          full_name: string
+        }[]
+      }
       get_course_session_note: {
         Args: { p_course_id: string; p_occurrence_date: string }
         Returns: string
+      }
+      get_course_trial_bookings: {
+        Args: { p_course_ids: string[]; p_von: string; p_bis: string }
+        Returns: {
+          chosen_date: string
+          course_id: string
+          customer_id: string
+          id: string
+        }[]
       }
       get_last_session_notes: {
         Args: { p_course_ids: string[] }

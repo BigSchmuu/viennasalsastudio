@@ -120,20 +120,30 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
   test("AC13: Die letzte Notiz steht beim nächsten Termin", async ({ page }) => {
     const service = dienst();
     const KENNUNG = "E2E49 Notiz zum Weitermachen";
-    // Eine Notiz an einem vergangenen Termin dieses Kurses.
     await service.from("course_session_notes").delete().eq("course_id", KURS_ID).like("note", "E2E49%");
+
+    // Ein eigener, freier Termin — keine fremde Notiz anfassen.
+    //
+    // Vorher hat dieser Test die erstbeste vorhandene Zeile ueberschrieben und
+    // am Ende geloescht. Getroffen hat es die vorbereitete Notiz aus PROJ-13,
+    // deren AC8 danach umfiel. Angezeigt wird ohnehin die Notiz mit dem
+    // spaetesten Termin, also einen Tag hinter allem Vorhandenen.
     const { data: vorhandene } = await service
       .from("course_session_notes")
       .select("occurrence_date")
       .eq("course_id", KURS_ID)
+      .order("occurrence_date", { ascending: false })
       .limit(1);
-    const datum = vorhandene?.[0]?.occurrence_date ?? "2026-08-06";
-    await service
+    const spaetestes = vorhandene?.[0]?.occurrence_date;
+    const heute = new Date().toISOString().slice(0, 10);
+    const datum =
+      spaetestes && spaetestes >= heute
+        ? new Date(new Date(spaetestes).getTime() + 86400000).toISOString().slice(0, 10)
+        : heute;
+    const { error: notizFehler } = await service
       .from("course_session_notes")
-      .upsert(
-        { course_id: KURS_ID, occurrence_date: datum, note: KENNUNG },
-        { onConflict: "course_id,occurrence_date" }
-      );
+      .insert({ course_id: KURS_ID, occurrence_date: datum, note: KENNUNG });
+    if (notizFehler) throw new Error(`Notiz anlegen fehlgeschlagen: ${notizFehler.message}`);
 
     await anmelden(page, LEHRER);
     await gehZu(page, "/mein-bereich");
@@ -141,7 +151,11 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
 
     await expect(page.getByText(KENNUNG)).toBeVisible();
 
-    await service.from("course_session_notes").delete().eq("course_id", KURS_ID).like("note", "E2E49%");
+    await service
+      .from("course_session_notes")
+      .delete()
+      .eq("course_id", KURS_ID)
+      .eq("occurrence_date", datum);
   });
 
   test("AC15: Ein Lehrer ohne Termine sieht einen erklärenden Hinweis statt einer leeren Seite", async ({
@@ -156,4 +170,134 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
       page.getByText("In den nächsten sieben Tagen unterrichtest du keinen Kurs.")
     ).toBeVisible();
   });
+
+  test("AC9: Ein Schüler mit Geburtstag im Fenster erscheint — ohne Altersangabe", async ({
+    page,
+  }) => {
+    const service = dienst();
+    const { data: schueler } = await service
+      .from("profiles")
+      .select("id, birthdate")
+      .eq("full_name", "E2E13 Abo Kunde")
+      .single();
+    expect(schueler, "Fixture E2E13 Abo Kunde fehlt").toBeTruthy();
+    const vorher = schueler!.birthdate;
+
+    // Geburtstag übermorgen, Jahrgang absichtlich alt — er darf nirgends auftauchen.
+    const uebermorgen = new Date(Date.now() + 2 * 86400000);
+    const geburtstag = `1971-${String(uebermorgen.getMonth() + 1).padStart(2, "0")}-${String(
+      uebermorgen.getDate()
+    ).padStart(2, "0")}`;
+    await service.from("profiles").update({ birthdate: geburtstag }).eq("id", schueler!.id);
+
+    await anmelden(page, LEHRER);
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
+
+    await expect(page.getByText("Geburtstage")).toBeVisible();
+    await expect(page.getByText("E2E13 Abo Kunde")).toBeVisible();
+    // Weder Jahrgang noch Alter — dieselbe Zurückhaltung wie in PROJ-31.
+    await expect(page.getByText("1971")).toHaveCount(0);
+
+    await service.from("profiles").update({ birthdate: vorher }).eq("id", schueler!.id);
+  });
+
+  test("AC10: Eine anstehende Probestunde wird mit Name, Kurs und Termin genannt", async ({
+    page,
+  }) => {
+    const service = dienst();
+    const { data: gast } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E13 Flatrate Kunde")
+      .single();
+    expect(gast, "Fixture E2E13 Flatrate Kunde fehlt").toBeTruthy();
+
+    // Übermorgen — sicher im Sieben-Tage-Fenster.
+    const datum = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+    await service.from("course_bookings").delete().eq("customer_id", gast!.id).eq("course_id", KURS_ID).eq("type", "trial");
+    const { data: buchung, error } = await service
+      .from("course_bookings")
+      .insert({
+        customer_id: gast!.id,
+        course_id: KURS_ID,
+        type: "trial",
+        status: "confirmed",
+        chosen_date: datum,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(`Probestunde anlegen fehlgeschlagen: ${error.message}`);
+
+    await anmelden(page, LEHRER);
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
+
+    await expect(page.getByText("Probestunden")).toBeVisible();
+    await expect(page.getByText("E2E13 Flatrate Kunde")).toBeVisible();
+
+    await service.from("course_bookings").delete().eq("id", buchung!.id);
+  });
+
+  test("AC14: Die Rollenverteilung erscheint nur, wo der Kurs die Tanzrolle abfragt", async ({
+    page,
+  }) => {
+    const service = dienst();
+
+    // Ohne eigene Rollenbuchung stünde hier „0 Leader / 0 Follower" — und das
+    // sähe genauso aus wie eine Abfrage, die gar nichts zurückbekommt. Also
+    // erst eine Verteilung herstellen, die es zu zählen gibt.
+    const { data: leute } = await service
+      .from("profiles")
+      .select("id, full_name")
+      .in("full_name", ["E2E13 Abo Kunde", "E2E13 Flatrate Kunde"]);
+    const leaderId = leute?.find((l) => l.full_name === "E2E13 Abo Kunde")?.id;
+    const followerId = leute?.find((l) => l.full_name === "E2E13 Flatrate Kunde")?.id;
+    expect(leaderId && followerId, "Fixtures für die Rollenverteilung fehlen").toBeTruthy();
+
+    const { data: schonDa } = await service
+      .from("course_bookings")
+      .select("dance_role")
+      .eq("course_id", KURS_ID)
+      .eq("type", "regular")
+      .not("dance_role", "is", null);
+    const vorhanden = (rolle: string) =>
+      (schonDa ?? []).filter((b) => b.dance_role === rolle).length;
+
+    // `chosen_date` ist Pflicht; für eine reguläre Buchung ist der Kursstart
+    // der naheliegende Wert.
+    const start = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+    const { data: gesaet, error } = await service
+      .from("course_bookings")
+      .insert([
+        { customer_id: leaderId!, course_id: KURS_ID, type: "regular", status: "confirmed", dance_role: "leader", chosen_date: start },
+        { customer_id: followerId!, course_id: KURS_ID, type: "regular", status: "confirmed", dance_role: "follower", chosen_date: start },
+      ])
+      .select("id");
+    if (error) throw new Error(`Rollenbuchungen anlegen fehlgeschlagen: ${error.message}`);
+    const aufraeumen = async () => {
+      await service.from("course_bookings").delete().in("id", (gesaet ?? []).map((b) => b.id));
+      await service.from("courses").update({ role_query_enabled: false }).eq("id", KURS_ID);
+    };
+
+    try {
+      // Aus: keine Verteilung.
+      await service.from("courses").update({ role_query_enabled: false }).eq("id", KURS_ID);
+      await anmelden(page, LEHRER);
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(1500);
+      await expect(page.getByText(/\d+ Leader/)).toHaveCount(0);
+
+      // An: Verteilung steht beim Termin — mit den Zahlen, die auch in der
+      // Datenbank stehen.
+      await service.from("courses").update({ role_query_enabled: true }).eq("id", KURS_ID);
+      await page.reload();
+      await page.waitForTimeout(1500);
+      await expect(page.getByText(`${vorhanden("leader") + 1} Leader`).first()).toBeVisible();
+      await expect(page.getByText(`${vorhanden("follower") + 1} Follower`).first()).toBeVisible();
+    } finally {
+      await aufraeumen();
+    }
+  });
+
 });
