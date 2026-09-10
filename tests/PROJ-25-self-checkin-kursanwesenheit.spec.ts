@@ -163,7 +163,8 @@ function courseCard(page: Page, name: string): Locator {
 test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => {
   test("AC1: Mehr als 30 Minuten vor Kursbeginn ist kein Self-Check-In-Button sichtbar", async ({ page }) => {
     await login(page, CUSTOMER_WITH_ABO);
-    await page.goto("/stundenplan");
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
     const card = courseCard(page, "E2E25 Zu Früh Kurs");
     await expect(card).toBeVisible();
     await expect(card.getByRole("button", { name: "Ich bin da" })).toHaveCount(0);
@@ -172,7 +173,8 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
 
   test("AC2, AC3: Ab 30 Minuten vor Kursbeginn erscheint 'Ich bin da', Klick checkt sofort ein", async ({ page }) => {
     await login(page, CUSTOMER_WITH_ABO);
-    await page.goto("/stundenplan");
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
     const card = courseCard(page, "E2E25 Im Fenster Kurs");
     await expect(card).toBeVisible();
 
@@ -184,7 +186,8 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
 
   test("AC4: Erneuter Klick vor Kursende macht den Check-In rückgängig", async ({ page }) => {
     await login(page, CUSTOMER_WITH_ABO);
-    await page.goto("/stundenplan");
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
     const card = courseCard(page, "E2E25 Im Fenster Kurs");
 
     // Ensure a known starting state: checked in (from the previous test, or check in now).
@@ -205,35 +208,37 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
 
   test("AC8: Kunde ohne aktives Abo für einen heutigen Kurs sieht keinen Self-Check-In-Button", async ({ page }) => {
     await login(page, CUSTOMER_NO_ABO);
-    await page.goto("/stundenplan");
-    const card = courseCard(page, "E2E25 Im Fenster Kurs");
-    await expect(card).toBeVisible();
-    await expect(card.getByRole("button", { name: "Ich bin da" })).toHaveCount(0);
-    await expect(card.getByRole("button", { name: "✓ Eingecheckt" })).toHaveCount(0);
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
+    // Unter „Mein Bereich" steht nur, was den Kunden betrifft — ein Kurs, in
+    // dem er nicht sitzt, taucht gar nicht erst auf. Damit gibt es auch
+    // nichts, worauf er drücken könnte.
+    await expect(page.getByText("E2E25 Im Fenster Kurs")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Ich bin da" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "✓ Eingecheckt" })).toHaveCount(0);
   });
 
   test("AC9: An einem pausierten Kurstag erscheint kein Self-Check-In-Button (der Termin selbst wird gar nicht erst angezeigt, PROJ-6-Verhalten)", async ({
     page,
   }) => {
     await login(page, CUSTOMER_WITH_ABO);
-    await page.goto("/stundenplan");
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
     await expect(courseCard(page, "E2E25 Pausiert Kurs")).toHaveCount(0);
   });
 
-  test("Rand: nach Kursende zeigt ein bereits eingechecktes Ticket einen nicht klickbaren Zustand", async ({ page }) => {
+  test("Rand: Eine beendete Stunde steht nicht mehr unter „Mein Bereich“", async ({ page }) => {
+    // Entscheidung vom 2026-09-10: Das Einchecken hat sein Fenster — ab 30
+    // Minuten vor Beginn bis Kursende. Danach ist der Moment vorbei; wer es
+    // vergessen hat, wird vom Lehrer in der Anwesenheitsliste eingetragen.
+    //
+    // Vorher stand die beendete Stunde im Stundenplan noch bis Mitternacht mit
+    // einem nicht klickbaren „✓ Eingecheckt". Diese Nachsicht entfällt mit dem
+    // Stundenplan-Knopf.
     await login(page, CUSTOMER_WITH_ABO);
-    await page.goto("/stundenplan");
-    const card = courseCard(page, "E2E25 Beendet Kurs");
-    await expect(card).toBeVisible();
-
-    // First-time late check-in must still succeed (allowed until midnight).
-    const openButton = card.getByRole("button", { name: "Ich bin da" });
-    if ((await openButton.count()) > 0) {
-      await openButton.click();
-    }
-    const doneButton = card.getByRole("button", { name: "✓ Eingecheckt" });
-    await expect(doneButton).toBeVisible();
-    await expect(doneButton).toBeDisabled();
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
+    await expect(page.getByText("E2E25 Beendet Kurs")).toHaveCount(0);
   });
 
   test("AC6, AC7: Self-Check-In überschreibt Lehrer-Markierung; Lehrer/Admin sieht Self-Check-In-Kennzeichnung", async ({
@@ -261,7 +266,8 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
 
     // Customer self-checks-in, which must override the teacher's mark.
     await login(page, CUSTOMER_WITH_ABO);
-    await page.goto("/stundenplan");
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
     const card = courseCard(page, "E2E25 Im Fenster Kurs");
     const checkedButton = card.getByRole("button", { name: "✓ Eingecheckt" });
     if ((await checkedButton.count()) > 0) {

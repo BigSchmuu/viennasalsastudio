@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useTranslations } from "next-intl";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { SelfCheckinButton } from "@/components/schedule/self-checkin-button";
 import { ScheduleBookingButton } from "@/components/schedule/schedule-booking-button";
 import type { StudioPricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -26,11 +25,10 @@ export type ScheduleEntry = {
   endTime: string;
   // PROJ-27: shown on the card whenever set, independent of booking/self-checkin.
   prerequisiteNote: string | null;
-  // PROJ-25: only set for today's occurrence of a course the logged-in
-  // customer has an active subscription for.
-  selfCheckin?: { opensAtIso: string; endsAtIso: string; checkedIn: boolean };
-  // PROJ-26: only set when the customer does NOT already have an active
-  // subscription for this course (mutually exclusive with selfCheckin).
+  // PROJ-26: only set when the customer is not already in this course.
+  //
+  // Das Einchecken stand hier ebenfalls (PROJ-25); es liegt seit 2026-09-10
+  // ausschließlich unter „Mein Bereich".
   booking?: {
     entryDates: string[];
     nextOccurrenceDates: string[];
@@ -99,14 +97,6 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
         )}
         {entry.prerequisiteNote && (
           <p className="text-xs bg-muted rounded-md px-2 py-1">{entry.prerequisiteNote}</p>
-        )}
-        {entry.selfCheckin && (
-          <SelfCheckinButton
-            courseId={entry.courseId}
-            opensAtIso={entry.selfCheckin.opensAtIso}
-            endsAtIso={entry.selfCheckin.endsAtIso}
-            initialCheckedIn={entry.selfCheckin.checkedIn}
-          />
         )}
         {entry.booking && (
           <ScheduleBookingButton

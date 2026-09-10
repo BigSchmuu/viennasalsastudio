@@ -66,6 +66,8 @@
 | Lehrer sieht Kennzeichnung „Self-Check-In" in der Anwesenheitsliste | Schafft Nachvollziehbarkeit, ohne die Anzeige zu überladen | 2026-08-18 |
 | Kunde sieht nur den heutigen Status, keine Anwesenheitshistorie | Hält das Feature fokussiert; deckt sich mit der bewussten Auslassung „Kunden-Sicht auf eigene Anwesenheit" aus PROJ-13 | 2026-08-18 |
 | Ort: `/stundenplan`, nicht im Profil | Dort schaut der Kunde ohnehin nach, wann sein Kurs stattfindet | 2026-08-18 |
+| **Umgekehrt:** Ort ist ausschließlich „Mein Bereich", nicht mehr `/stundenplan` | Die Entscheidung vom 18.08. war richtig — damals gab es „Mein Bereich" noch nicht, das kam mit PROJ-45 zehn Tage später. Inzwischen zeigt das Dashboard den ganzen nächsten Kurstag mit einem Knopf je Stunde und ist die erste Seite nach dem Login. Derselbe Handgriff an zwei Orten ist einer zu viel; der Stundenplan sagt wieder nur, wann etwas stattfindet | 2026-09-10 |
+| Kein Nachtragen nach Kursende | Folge der Umkehr, vom Betreiber entschieden: Das Dashboard zeigt nur laufende und kommende Stunden, eine beendete fällt heraus. Das Fenster (ab 30 Min. vor Beginn bis Kursende) deckt den natürlichen Moment ab — das Ankommen. Wer es vergisst, wird vom Lehrer in der Anwesenheitsliste eingetragen; die Anwesenheit geht nicht verloren. Vorher war der Check-in über den Stundenplan bis Mitternacht möglich | 2026-09-10 |
 | Kursbuchung direkt von `/stundenplan` aus wird NICHT Teil dieses Features | Eigenständiges Thema (Erweiterung von PROJ-6/PROJ-8), vom Kunden im Interview als Zusatzidee genannt, aber nicht Self-Check-In-Anwesenheit | 2026-08-18 |
 
 ### Technical Decisions
@@ -232,3 +234,28 @@ Keine.
 - Da Frontend und Backend dieselbe produktive Supabase-Instanz nutzen wie während `/qa` bereits getestet (keine separate Staging-DB), war die eigentliche Klick-Interaktion (Check-in/Undo/Konfliktregeln) bereits vollständig gegen dieselbe Datengrundlage verifiziert — der Produktions-Smoketest bestätigt zusätzlich, dass die neue Next.js-Build tatsächlich live ist und keine deploy-spezifischen Fehler (z.B. fehlende Chunks, Konsolenfehler) auftreten
 
 Keine neuen Production-Ready-Essentials nötig (Error-Tracking, Security-Headers etc. bereits aus früheren Deployments vorhanden und von diesem Feature unberührt).
+
+---
+
+## Nachtrag: Der Check-in zieht um (2026-09-10)
+
+**Auf Wunsch des Betreibers:** Das Einchecken steht nur noch unter „Mein
+Bereich", nicht mehr im Stundenplan.
+
+Geändert wurden zwei Dateien — `stundenplan/page.tsx` berechnet kein
+Check-in-Fenster mehr, `weekly-schedule-view.tsx` rendert keinen Knopf mehr.
+Mit dem Knopf sind die dafür nötige Abfrage (`get_my_todays_attendance`) und
+drei ungenutzt gewordene Bezeichner verschwunden.
+
+**Die Kehrseite, bewusst in Kauf genommen:** Eine heute bereits beendete
+Stunde erscheint im Dashboard nicht mehr — es zeigt nur Laufendes und
+Kommendes. Damit entfällt das nachträgliche Einchecken, das der Stundenplan
+bis Mitternacht erlaubte. Die Anwesenheit geht dadurch nicht verloren: Der
+Lehrer trägt sie in der Anwesenheitsliste ein.
+
+**Prüfung:** PROJ-45, PROJ-26 und PROJ-6 grün (20 Fälle). **Die PROJ-25-Suite
+selbst konnte nicht laufen** — sie schaltet sich zwischen 20:00 und 2:00
+Wiener Zeit ab, weil ihre Zeitfenster (2 h zurück, 4 h voraus) dann nicht mehr
+in denselben Kalendertag passen. Die Umstellung ihrer sieben Fälle auf
+`/mein-bereich` ist geschrieben, aber **noch nicht ausgeführt**; das gehört im
+nächsten Lauf zwischen 2:00 und 20:00 nachgeholt.

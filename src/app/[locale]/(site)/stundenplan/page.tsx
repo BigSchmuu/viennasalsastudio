@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
-import { jsDayToWeekday, formatDateLocal, selfCheckinWindow, upcomingOccurrences } from "@/lib/scheduling/dates";
-import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
+import { jsDayToWeekday, formatDateLocal, upcomingOccurrences } from "@/lib/scheduling/dates";
+import { heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 import { readStudioPricing } from "@/lib/pricing";
 import { getTranslations } from "next-intl/server";
 import { getViewer } from "@/lib/auth/viewer";
@@ -30,7 +30,7 @@ export default async function StundenplanPage() {
   // Anfrage dieselbe Antwort zurück, ohne erneut zu fragen.
   const user = await getViewer();
 
-  const [coursesRes, teachersRes, mySubsRes, myAttendanceRes, occupancyRes, dropinPricingRes, mandateRes, profileRes, myOpenBookingsRes, myWaitlistRes] =
+  const [coursesRes, teachersRes, mySubsRes, occupancyRes, dropinPricingRes, mandateRes, profileRes, myOpenBookingsRes, myWaitlistRes] =
     await Promise.all([
       supabase
         .from("courses")
@@ -46,7 +46,6 @@ export default async function StundenplanPage() {
       user
         ? ladeKurszugehoerigkeit(supabase, user.id)
         : Promise.resolve({ hatFlatrate: false, kursIds: new Set<string>(), videoKursIds: new Set<string>() }),
-      user ? supabase.rpc("get_my_todays_attendance") : Promise.resolve({ data: null }),
       // PROJ-26: occupancy is public/aggregate (same RPC /kurse already uses), needed regardless of login state.
       supabase.rpc("get_course_occupancy"),
       supabase.from("dropin_pricing").select("*").limit(1).single(),
@@ -80,7 +79,6 @@ export default async function StundenplanPage() {
   );
 
   const myActiveCourseIds = mySubsRes.kursIds;
-  const myTodaysStatusByCourse = new Map((myAttendanceRes.data ?? []).map((a) => [a.course_id, a.status]));
 
   // PROJ-26: booking-eligibility data, gathered once for all courses shown this week.
   const occupiedByCourse = new Map((occupancyRes.data ?? []).map((o) => [o.course_id, o.occupied_count]));
@@ -91,7 +89,6 @@ export default async function StundenplanPage() {
   const myWaitlistCourseIds = new Set((myWaitlistRes.data ?? []).map((w) => w.course_id));
 
   const weekDates = currentWeekDates();
-  const todayDateString = heuteInWien();
   const entriesByWeekday: Record<number, ScheduleEntry[]> = {};
 
   for (const course of coursesRes.data ?? []) {
@@ -121,16 +118,15 @@ export default async function StundenplanPage() {
       prerequisiteNote: course.prerequisite_note,
     };
 
-    if (thisWeekDate === todayDateString && myActiveCourseIds.has(course.id)) {
-      const { opensAt, endsAt } = selfCheckinWindow(thisWeekDate, schedule.start_time, schedule.end_time);
-      entry.selfCheckin = {
-        opensAtIso: opensAt.toISOString(),
-        endsAtIso: endsAt.toISOString(),
-        checkedIn: myTodaysStatusByCourse.get(course.id) === "present",
-      };
-    } else if (!myActiveCourseIds.has(course.id)) {
+    // Der Stundenplan zeigt, wann etwas stattfindet — und für Kurse, in denen
+    // der Kunde noch nicht sitzt, den Weg hinein. Das Einchecken hat seinen
+    // Ort seit 2026-09-10 ausschließlich unter „Mein Bereich": Dort steht der
+    // ganze Kurstag mit einem Knopf je Stunde, und derselbe Handgriff an zwei
+    // Orten ist einer zu viel. (Umkehr einer Entscheidung von PROJ-25 —
+    // damals gab es „Mein Bereich" noch nicht.)
+    if (!myActiveCourseIds.has(course.id)) {
       // PROJ-26: booking is only offered when the customer doesn't already
-      // have an active subscription for this course (self-check-in shows instead).
+      // have an active subscription for this course.
       entry.booking = {
         entryDates: (course.course_entry_dates ?? []).map((d) => d.entry_date).sort(),
         price: course.price,
