@@ -88,16 +88,31 @@ test.beforeAll(async () => {
     .maybeSingle();
   if (!bodymovement) throw new Error("PROJ-9 Fixture-Kurs fehlt: Bodymovement");
 
+  async function kurs(name: string) {
+    const { data } = await service.from("courses").select("id").eq("name", name).maybeSingle();
+    if (!data) throw new Error(`PROJ-9 Fixture-Kurs fehlt: ${name}`);
+    return data;
+  }
+  const multiKursA = await kurs("E2E Salsa Kurs (erneut bearbeitet)");
+  const multiKursB = await kurs("E2E23 Kurs ohne Videosatz");
+  const pausiertKurs = await kurs("E2E5 Kizomba Beginner");
+
   const clean = { pending_status: null, pending_effective_date: null, cancelled_at: null };
 
   const resets: { name: string; patch: Record<string, unknown> }[] = [
     // AC6 moves this one to Pachanga and back; restoring the course guards
     // against a run that aborted midway.
     { name: "E2E9 Testabo", patch: { ...clean, status: "active", course_id: bodymovement.id } },
-    { name: "E2E9 Multi Abo A", patch: { ...clean, status: "active" } },
-    { name: "E2E9 Multi Abo B", patch: { ...clean, status: "active" } },
+    // Diese drei hatten `course_id: null` — das machte sie technisch zu
+    // Flatrate-Abos, obwohl sie hier nur „irgendein Abo" sein sollen. Seit
+    // PROJ-50 ist das ein Unterschied: Eine Flatrate ersetzt im ganzen Katalog
+    // den Buchungsdialog, und derselbe Kunde dient in PROJ-8 als „Kunde ohne
+    // Mandat", der genau diesen Dialog sehen muss. Der Kursbezug steht deshalb
+    // hier und nicht nur in den Daten.
+    { name: "E2E9 Multi Abo A", patch: { ...clean, status: "active", course_id: multiKursA.id } },
+    { name: "E2E9 Multi Abo B", patch: { ...clean, status: "active", course_id: multiKursB.id } },
     // AC4 reactivates this one — it has to start out paused.
-    { name: "E2E9 Paused Abo", patch: { ...clean, status: "paused" } },
+    { name: "E2E9 Paused Abo", patch: { ...clean, status: "paused", course_id: pausiertKurs.id } },
     { name: "E2E7 Solo Abo", patch: { ...clean, status: "active" } },
   ];
 

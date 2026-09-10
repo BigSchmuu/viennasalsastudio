@@ -251,6 +251,8 @@ verknüpft.
 | Die Admin-Ansicht gehört in dieselbe Spec | Der Betreiber bekommt die Anrufe. Ohne sie bliebe ihm nur, den Kunden anzuleiten. Bewusste Abweichung von der Regel „Kunden- und Adminfunktionen trennen": Es ist derselbe Vorgang, nur mit anderer Schaltfläche | 2026-09-10 |
 | Der Betreiber darf die Kursgrenze überschreiben, der Kunde nicht | Ein Kurs ist manchmal für einen Menschen voll und für einen anderen nicht. Diese Entscheidung gehört dem Betreiber — dem Kunden aber gerade nicht, sonst ist die Grenze keine | 2026-09-10 |
 | Nachrücken trägt direkt ein, statt eine Anfrage zu erzeugen | Konsequent zur Entscheidung oben. Die offene Anfrage ist genau der Weg, auf dem heute das zweite Abo entsteht | 2026-09-10 |
+| Ein Kurs zur Flatrate braucht **kein** SEPA-Mandat | Aufgekommen beim Testlauf: Die Regel „ohne Mandat keine Anmeldung" schützt davor, eine Zahlungspflicht ohne Zahlungsweg einzugehen. Beim Hinzufügen entsteht keine neue Pflicht — die besteht bereits. Ein aktives Abo ohne Mandat ist ein Problem des Abos, nicht des Kurses, und die App meldet es dem Betreiber bereits unter /admin/kunden | 2026-09-10 |
+| Ein Flatrate-Kunde kann keinen Gutschein mehr einlösen | Folge, keine Absicht: Er sieht den Buchungsdialog nicht mehr, also auch kein Codefeld. Richtig so — ein Gutschein vergünstigt ein **neues** Abo, und genau das entsteht hier nicht mehr | 2026-09-10 |
 | Rückwirkende Abrechnungskorrektur bleibt draußen | Doppelt abgebuchte Kunden sind Einzelfälle mit Rechnungsbezug; die gehören über Storno und Gutschrift (PROJ-46) bereinigt, nicht über eine Migration | 2026-09-10 |
 
 ### Technical Decisions
@@ -449,6 +451,27 @@ Fixtures haben in diesem Projekt schon zweimal fremde Tests umgeworfen.
 
 Der aussagekräftigste Fall zählt die Abos vor und nach dem Hinzufügen — gleich
 viele. Das war der eigentliche Fehler.
+
+### Zwei Testsuiten, die die Änderung berührt hat
+
+Der vollständige Lauf ergab 967 bestanden und 4 Fehlschläge — zwei Fälle auf je
+zwei Browsern. Beide waren aufschlussreich:
+
+**PROJ-15** gab seinem Kunden absichtlich eine Flatrate, um „ein Abo, das vom
+Gutschein disqualifiziert, ohne in diesen Kurs einzuschreiben" herzustellen.
+Seit PROJ-50 erreicht dieser Kunde den Buchungsdialog nicht mehr. Der Test
+benutzt jetzt ein kursgebundenes Abo für einen anderen Kurs — dieselbe Lage,
+aber erreichbar.
+
+**PROJ-8/PROJ-9** teilen sich eine Fixture: „Kunde ohne Mandat" ist zugleich
+„Kunde mit mehreren Abos". Ihre drei Abos hießen „Multi Abo A/B" und „Paused
+Abo", hatten aber `course_id: null` — technisch also drei Flatrates, was seit
+PROJ-50 den ganzen Katalog dieses Kunden verändert. Der bequeme Weg zu einem
+Abo war nie als Flatrate gemeint. Sie haben jetzt einen Kursbezug, und der steht
+im `beforeAll` von PROJ-9 statt nur in den Daten — sonst wäre es wieder eine
+Wahrheit, die niemand im Code findet.
+
+Nach beiden Korrekturen: 112 Fälle über die fünf berührten Suiten, alle grün.
 
 ### Offen für `/backend`
 

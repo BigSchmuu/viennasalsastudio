@@ -254,12 +254,29 @@ test.describe("PROJ-15: Gutscheine & Rabattcodes", () => {
     // zur Prüfung, die er behauptet zu prüfen.
     //
     // Gebraucht wird: ein Abo (das disqualifiziert), aber keine Einschreibung
-    // in diesen Kurs. Ein Flatrate-Abo ohne Kursbezug ist genau das.
+    // in diesen Kurs.
+    //
+    // Vorher stand hier ein Flatrate-Abo ohne Kursbezug. Seit PROJ-50 führt das
+    // am Ziel vorbei: Ein Flatrate-Kunde bekommt den Buchungsdialog gar nicht
+    // mehr zu sehen — er trägt sich mit einem Klick ein — und damit auch kein
+    // Gutscheinfeld. Das ist kein Fehler, sondern die Folge: Wer pauschal
+    // zahlt, löst keinen Gutschein für ein neues Abo ein.
+    //
+    // Ein kursgebundenes Abo für einen *anderen* Kurs stellt dieselbe Lage her
+    // und bleibt erreichbar.
+    const { data: andererKurs } = await service
+      .from("courses")
+      .select("id")
+      .neq("name", COURSE_NAME)
+      .limit(1)
+      .single();
+    if (!andererKurs) throw new Error("Kein zweiter Kurs für das Bestandsabo vorhanden");
+
     await service.from("course_bookings").delete().eq("customer_id", customerId);
     await service.from("subscriptions").delete().eq("customer_id", customerId);
     await service.from("subscriptions").insert({
       customer_id: customerId,
-      course_id: null,
+      course_id: andererKurs.id,
       name: "E2E15 Bestandsabo",
       price: 40,
       status: "active",
