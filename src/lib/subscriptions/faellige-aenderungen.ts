@@ -77,8 +77,24 @@ export async function vollzieheFaelligeAenderungen(
     if (abo.pending_status === "cancelled") gekuendigt += 1;
 
     // Ein Platz wird frei, wenn ein aktives Abo aufhört, aktiv zu sein.
-    if (abo.status === "active" && abo.pending_status !== "active" && abo.course_id) {
-      freigeworden.add(abo.course_id);
+    if (abo.status === "active" && abo.pending_status !== "active") {
+      if (abo.course_id) {
+        freigeworden.add(abo.course_id);
+      } else {
+        // PROJ-50: Eine Flatrate hat keinen Kurs am Abo, aber Kursplätze.
+        // Der Trigger auf `subscriptions` hat sie beim Statuswechsel gerade
+        // beendet — ohne diese Abfrage bliebe jeder davon frei gewordene Platz
+        // liegen, statt an die Warteliste zu gehen.
+        const { data: beendetePlaetze, error: platzFehler } = await service
+          .from("course_memberships")
+          .select("course_id")
+          .eq("subscription_id", abo.id)
+          .eq("ended_on", heute);
+        if (platzFehler) {
+          console.error(`Kursplätze zu Abo ${abo.id} nicht lesbar`, platzFehler);
+        }
+        for (const platz of beendetePlaetze ?? []) freigeworden.add(platz.course_id);
+      }
     }
   }
 

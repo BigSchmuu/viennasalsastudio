@@ -34,10 +34,10 @@ export default async function CoursesPage({
     roomsRes,
     teachersRes,
     videoSetsRes,
-    activeSubsRes,
     openBookingsRes,
     waitlistRes,
     pricingRes,
+    occupancyRes,
   ] = await Promise.all([
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
     supabase.from("locations").select("id, name").order("name", { ascending: true }),
@@ -47,7 +47,6 @@ export default async function CoursesPage({
     // ausgeschlossen; für sie gibt es weiterhin den Rollenwechsel aus PROJ-22.
     supabase.from("profiles").select("id, full_name").in("role", ["teacher", "admin"]),
     supabase.from("video_sets").select("id, name, level").order("name", { ascending: true }),
-    supabase.from("subscriptions").select("course_id, course_bookings(dance_role)").eq("status", "active"),
     supabase
       .from("course_bookings")
       .select("course_id, dance_role")
@@ -60,6 +59,9 @@ export default async function CoursesPage({
     // PROJ-41 BUG-3: Der Standardpreis erklärt im Kursformular, was ein leeres
     // Preisfeld bedeutet.
     supabase.from("dropin_pricing").select("*").limit(1).single(),
+    // PROJ-50: dieselbe Rechnung wie überall sonst — Kursplätze und offene
+    // Anfragen zusammen.
+    supabase.rpc("get_course_occupancy"),
   ]);
 
   const danceStyles: SimpleOption[] = danceStylesRes.data ?? [];
@@ -83,15 +85,14 @@ export default async function CoursesPage({
   }));
   const videoSets: VideoSetOption[] = videoSetsRes.data ?? [];
 
-  const occupiedByCourse = new Map<string, number>();
-  for (const s of activeSubsRes.data ?? []) {
-    if (!s.course_id) continue;
-    occupiedByCourse.set(s.course_id, (occupiedByCourse.get(s.course_id) ?? 0) + 1);
-  }
-  for (const b of openBookingsRes.data ?? []) {
-    if (!b.course_id) continue;
-    occupiedByCourse.set(b.course_id, (occupiedByCourse.get(b.course_id) ?? 0) + 1);
-  }
+  // PROJ-50: Die Belegung kommt aus der gemeinsamen Rechnung, nicht aus einer
+  // eigenen. Vorher zählte diese Seite `subscriptions.course_id` und ließ jeden
+  // Flatrate-Kunden aus — der Kurs sah hier leerer aus, als er ist, und zwar
+  // ausgerechnet auf der Seite, auf der der Betreiber über die Kursgröße
+  // entscheidet.
+  const occupiedByCourse = new Map<string, number>(
+    (occupancyRes.data ?? []).map((o) => [o.course_id, o.occupied_count])
+  );
 
   const roleCountsByCourse = new Map<string, { leader: number; follower: number; both: number }>();
   function bumpRole(courseId: string | null | undefined, role: string | null | undefined) {
@@ -102,8 +103,15 @@ export default async function CoursesPage({
     else if (role === "both") counts.both += 1;
     roleCountsByCourse.set(courseId, counts);
   }
-  for (const s of activeSubsRes.data ?? []) {
-    bumpRole(s.course_id, s.course_bookings?.[0]?.dance_role);
+  // PROJ-50: Die Rolle der Eingeschriebenen kommt vom Kursplatz — dort steht
+  // sie für beide Wege, das kursgebundene Abo und die Flatrate. Vorher las
+  // diese Seite die Buchung am Abo und ließ jeden Flatrate-Kunden aus.
+  const { data: rollenRows, error: rollenFehler } = await supabase.rpc("get_course_dance_roles", {
+    p_course_ids: (coursesRes.data ?? []).map((c) => c.id),
+  });
+  if (rollenFehler) console.error("Kursliste: Tanzrollen nicht lesbar", rollenFehler);
+  for (const r of rollenRows ?? []) {
+    bumpRole(r.course_id, r.dance_role);
   }
   for (const b of openBookingsRes.data ?? []) {
     bumpRole(b.course_id, b.dance_role);

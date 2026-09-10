@@ -640,3 +640,38 @@ Nach dem Deployment geprüft: öffentliche Routen 200, geschützte 307 auf
 `/login`, und drei Belege, dass wirklich der neue Stand läuft — das Augen-Icon
 auf `/login`, der Flatrate-Knopf im Katalog, die englische Herkunftsfrage unter
 `/en/kurse`.
+
+---
+
+## Nachtrag: drei übersehene Lesestellen (2026-09-10, aus dem Betrieb gemeldet)
+
+**Meldung:** Ein Flatrate-Kunde mit zwei Kursen sah unter „Mein Bereich" bei
+„Dein nächster Kurs" nichts.
+
+**Ursache:** Das Kunden-Dashboard baut seine Termine aus `subscriptions.courses`
+— und die ist bei einer Flatrate leer. Es war die **achte** Lesestelle, und sie
+stand nicht auf meiner Liste. Dieselbe Liste versorgt den Selbst-Check-in auf
+dem Dashboard; der war damit ebenfalls tot.
+
+Bei der Suche danach kamen zwei weitere heraus, gefunden durch eine
+systematische Suche statt durch eine Stichprobe
+(`grep -rn 'from("subscriptions")' src/ -A4 | grep course_id`):
+
+| Stelle | Folge |
+|---|---|
+| `mein-bereich/page.tsx` | kein nächster Kurs, kein Selbst-Check-in |
+| `admin/kurse/page.tsx` — Belegung | der Kurs sah leerer aus, als er ist — dort, wo über die Kursgröße entschieden wird |
+| `admin/kurse/page.tsx` — Rollenverteilung | Flatrate-Kunden fehlten in Leader/Follower |
+| `faellige-aenderungen.ts` | Endet eine Flatrate zum Stichtag, blieb jeder frei gewordene Platz liegen, statt an die Warteliste zu gehen |
+
+**Was ich daraus mitnehme:** Meine ursprüngliche Liste der Lesestellen kam aus
+einer Suche nach Datenbankfunktionen und einer Handvoll bekannter Dateien. Die
+Anwendungsseite habe ich nur dort geprüft, wo ich sie vermutete. Die
+vollständige Suche hätte alle acht auf einmal gezeigt.
+
+Die Belegung im Admin läuft jetzt über `get_course_occupancy`, die
+Rollenverteilung über `get_course_dance_roles` — beide rechnen damit dasselbe
+wie alle anderen Stellen, statt eine eigene Rechnung zu führen.
+
+Drei neue E2E-Fälle decken das ab; 43 Fälle über PROJ-50, PROJ-45, PROJ-25 und
+PROJ-3 laufen grün.

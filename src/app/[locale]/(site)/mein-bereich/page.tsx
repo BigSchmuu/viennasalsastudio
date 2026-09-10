@@ -81,6 +81,7 @@ export default async function MeinBereichPage() {
     { data: profil },
     { data: mandat },
     { data: abos },
+    { data: kursplaetze },
     { data: buchungen },
     { data: wartelisteRows },
     { data: heutigeAnwesenheit },
@@ -104,6 +105,15 @@ export default async function MeinBereichPage() {
       .select(`id, status, course_id, courses(${kursAuswahl})`)
       .eq("customer_id", user.id)
       .eq("status", "active"),
+    // PROJ-50: Die Kurse einer Flatrate stehen am Kursplatz, nicht am Abo.
+    // Ohne diese Abfrage blieb „Dein nächster Kurs" für jeden Flatrate-Kunden
+    // leer — und der Selbst-Check-in ebenfalls, weil beides an derselben Liste
+    // hängt. Gemeldet aus dem Betrieb am 2026-09-10.
+    supabase
+      .from("course_memberships")
+      .select(`course_id, courses(${kursAuswahl})`)
+      .eq("customer_id", user.id)
+      .is("ended_on", null),
     supabase
       .from("course_bookings")
       .select(`id, type, status, chosen_date, course_id, courses(${kursAuswahl})`)
@@ -139,10 +149,19 @@ export default async function MeinBereichPage() {
   // --- Termine ---------------------------------------------------------
 
   const aboEingaben: AboEingabe[] = [];
-  for (const abo of abos ?? []) {
-    const kurs = abo.courses as KursBezug | null;
+  const schonErfasst = new Set<string>();
+  // Beide Wege in einen Kurs: das kursgebundene Abo und der Kursplatz einer
+  // Flatrate. Für die Anzeige sind sie dasselbe — hier sitzt jemand in einem
+  // Kurs, der einen Wochentermin hat.
+  const kursQuellen: { courses: unknown }[] = [...(abos ?? []), ...(kursplaetze ?? [])];
+  for (const quelle of kursQuellen) {
+    const kurs = quelle.courses as KursBezug | null;
     const plan = ersterZeitplan(kurs);
     if (!kurs || !plan) continue;
+    // Wer ein kursgebundenes Abo *und* einen Kursplatz für denselben Kurs
+    // hätte, stünde sonst zweimal da.
+    if (schonErfasst.has(kurs.id)) continue;
+    schonErfasst.add(kurs.id);
     aboEingaben.push({
       kursId: kurs.id,
       kursName: kurs.name,

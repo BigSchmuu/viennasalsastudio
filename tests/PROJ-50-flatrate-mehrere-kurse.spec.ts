@@ -854,4 +854,61 @@ test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
       await service.from("subscriptions").delete().eq("id", abo!.id);
     }
   });
+
+  test("Lesestelle: Der nächste Kurs im Dashboard kennt Flatrate-Kurse", async ({ page }) => {
+    // Aus dem Betrieb gemeldet (2026-09-10): Ein Flatrate-Kunde mit zwei Kursen
+    // sah unter „Mein Bereich" bei „Dein nächster Kurs" nichts. Das Dashboard
+    // baute seine Termine aus `subscriptions.courses` — und die ist bei einer
+    // Flatrate leer. Es war die achte Lesestelle, und sie stand nicht auf
+    // meiner Liste.
+    const service = dienst();
+    const aboId = await flatrateAboId();
+    await service
+      .from("course_memberships")
+      .insert({ customer_id: kundeId, course_id: kursId, subscription_id: aboId });
+
+    try {
+      await anmelden(page, FLATRATE_KUNDE);
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(2000);
+
+      await expect(page.getByText("Dein nächster Kurs")).toBeVisible();
+      await expect(page.getByText(KURS_NAME).first()).toBeVisible();
+    } finally {
+      await service.from("course_memberships").delete().eq("customer_id", kundeId);
+    }
+  });
+
+  test("Lesestelle: Die Kursliste im Admin zählt Flatrate-Kunden mit", async ({ page }) => {
+    const service = dienst();
+    const aboId = await flatrateAboId();
+    // Die Belegung erscheint in dieser Liste nur bei gesetzter Grenze.
+    await service.from("courses").update({ max_participants: 10 }).eq("id", kursId);
+
+    try {
+      await anmelden(page, { email: "e2e8-admin@viennasalsastudio.test", passwort: "CorrectPassword123!" });
+      await page.goto("/admin/kurse");
+      await page.waitForTimeout(2000);
+
+      const zeile = page.locator("tr", { hasText: KURS_NAME }).first();
+      await expect(zeile.getByText("0 / 10")).toBeVisible();
+
+      await service
+        .from("course_memberships")
+        .insert({ customer_id: kundeId, course_id: kursId, subscription_id: aboId });
+
+      await page.reload();
+      await page.waitForTimeout(2000);
+
+      // Vorher zählte diese Seite ausschließlich `subscriptions.course_id` und
+      // ließ jeden Flatrate-Kunden aus — ausgerechnet dort, wo der Betreiber
+      // über die Kursgröße entscheidet.
+      await expect(
+        page.locator("tr", { hasText: KURS_NAME }).first().getByText("1 / 10")
+      ).toBeVisible();
+    } finally {
+      await service.from("course_memberships").delete().eq("customer_id", kundeId);
+      await service.from("courses").update({ max_participants: null }).eq("id", kursId);
+    }
+  });
 });
