@@ -158,7 +158,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
   }) => {
     await login(page, CUSTOMER);
     await openBookingDialog(page, "E2E8 Kurs");
-    await expect(page.getByText("Wie haben Sie von uns erfahren?")).toBeVisible();
+    await expect(page.getByText("Wie hast du von uns erfahren?")).toBeVisible();
 
     await page.getByRole("dialog").getByRole("combobox").first().click();
     await page.waitForTimeout(300);
@@ -189,7 +189,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
   test("Akquisitionskanal wird bei weiteren Buchungen nicht erneut abgefragt", async ({ page }) => {
     await login(page, CUSTOMER);
     await openBookingDialog(page, "E2E8 Kurs");
-    await expect(page.getByText("Wie haben Sie von uns erfahren?")).not.toBeVisible();
+    await expect(page.getByText("Wie hast du von uns erfahren?")).not.toBeVisible();
   });
 
   test("Zweite offene Anfrage für denselben Kurs wird verhindert", async ({ page }) => {

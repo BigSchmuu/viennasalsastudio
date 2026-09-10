@@ -16,7 +16,7 @@ try {
 // - "E2E30 Kein Rollen Kurs": role_query_enabled=false
 // - e2e30-admin / e2e30-a / e2e30-b / e2e30-c / e2e30-d: all with an active SEPA mandate
 //   and referral_source already set, so the booking dialog never shows the
-//   "Wie haben Sie von uns erfahren?" prompt for them.
+//   "Wie hast du von uns erfahren?" prompt for them.
 const ROLLEN_KURS_ID = "cdbbfdcf-8201-47d6-8cf3-0ee6a48a74ca";
 const KEIN_ROLLEN_KURS_ID = "e26b2df4-8a5d-4433-8025-4ae18f850f23";
 

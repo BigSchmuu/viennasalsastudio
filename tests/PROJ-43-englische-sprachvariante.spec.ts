@@ -446,9 +446,31 @@ test.describe("Startseite: das genannte Angebot stimmt", () => {
     //
     // Die Frage erscheint nur beim ersten Mal. Ohne dieses Zurücksetzen
     // übersprang der Test sich selbst und bewies nichts.
+    //
+    // Und danach wird sie wieder gesetzt: Dieser Kunde gehört fünf Suiten
+    // gleichzeitig (PROJ-12, 41, 42, 43, 44). Ohne das Zurückstellen verlangt
+    // deren Buchungsdialog plötzlich eine Antwort, der Absende-Knopf bleibt
+    // gesperrt — und siebzehn Tests fallen um, die mit Sprache nichts zu tun
+    // haben. Genau das ist am 2026-09-10 passiert.
     const kunde = await customerId();
+    const { data: vorher } = await service
+      .from("profiles")
+      .select("referral_source")
+      .eq("id", kunde)
+      .single();
     await service.from("profiles").update({ referral_source: null }).eq("id", kunde);
 
+    try {
+      await pruefeHerkunftsfrage(page);
+    } finally {
+      await service
+        .from("profiles")
+        .update({ referral_source: vorher?.referral_source ?? "website" })
+        .eq("id", kunde);
+    }
+  });
+
+  async function pruefeHerkunftsfrage(page: Page) {
     await login(page, "/en/login");
     await page.goto("/en/kurse");
     await page.waitForTimeout(1800);
@@ -474,7 +496,7 @@ test.describe("Startseite: das genannte Angebot stimmt", () => {
     await expect(page.getByRole("option", { name: "Word of mouth" })).toBeVisible();
     // Vorher stand hier „Empfehlung" — mitten auf der englischen Seite.
     await expect(page.getByRole("option", { name: "Empfehlung" })).toHaveCount(0);
-  });
+  }
 
   test("Pausieren und Kündigen heißen auf der englischen Seite Englisch", async ({ page }) => {
     // Ohne Abo gäbe es die Knöpfe nicht — der Test legt sich eines an und

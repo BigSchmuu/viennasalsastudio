@@ -198,3 +198,41 @@ Wert *gespeichert* wurde — nicht, ob sich die Liste im Hintergrund selbst auff
 **Noch offen:** Dasselbe Muster steckt vermutlich in weiteren Suiten; `waitForTimeout`
 kommt in `tests/` hundertfach vor. Es lohnt sich, betroffene Stellen bei der nächsten
 Gelegenheit umzustellen — nicht auf Verdacht alle auf einmal.
+
+## Ein Feld an einer geteilten Fixture verändern
+
+**Symptom:** Ein Testlauf bringt auf einmal ein bis zwei Dutzend Fehlschläge in
+Suiten, die mit der letzten Änderung nichts zu tun haben. Die Fehler sehen aus
+wie Produktfehler — ein Knopf ist gesperrt, ein Element fehlt.
+
+**Ursache (2026-09-10, 34 Fehlschläge):** Ein neuer Test setzte
+`profiles.referral_source` auf `null`, damit die Frage „Wie hast du von uns
+erfahren?" überhaupt erscheint — und stellte sie nicht zurück. Dieser eine Kunde
+(`e2e12-a`) gehört **fünf** Suiten gleichzeitig. Ab da verlangte deren
+Buchungsdialog eine Antwort, der Absende-Knopf blieb gesperrt, und siebzehn
+Fälle fielen um. Die Anwendung hat sich dabei völlig richtig verhalten.
+
+**Regeln:**
+
+1. Wer an einer Fixture etwas verändert, das über den eigenen Test hinauswirkt,
+   stellt es im `finally` zurück — nicht am Ende des Tests, denn der kann
+   vorher abbrechen.
+2. Vor dem Ändern prüfen, wer die Fixture sonst noch benutzt:
+   `grep -rl "e2eXY-name@" tests/`. Bei mehr als einer Suite: eigene Daten
+   anlegen statt fremde umzubiegen.
+3. Kursnamen und andere Testdaten neutral wählen. „E2E9 Pausiert Kurs" stand in
+   derselben Karte wie der Status „Pausiert" — die Statusprüfung fand plötzlich
+   zwei Treffer.
+4. Keine Fixture an Daten hängen, deren Name selbst das Ergebnis eines
+   Testlaufs ist („E2E Salsa Kurs (erneut bearbeitet)"). Die sind beim nächsten
+   Lauf weg.
+
+## Einen Text im Produkt ändern
+
+Wird eine Beschriftung geändert, brechen die Tests, die den alten Wortlaut
+prüfen — und zwar oft in fremden Suiten. Vor der Änderung:
+`grep -rn "alter Wortlaut" tests/ src/`.
+
+Am 2026-09-10 wurde „Wie haben Sie von uns erfahren?" auf „du" umgestellt (die
+einzige siezende Stelle im Kundenbereich). Betroffen waren vier Testdateien,
+davon drei, die mit dem Thema nichts zu tun hatten.

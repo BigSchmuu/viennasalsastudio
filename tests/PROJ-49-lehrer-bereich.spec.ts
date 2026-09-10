@@ -248,39 +248,76 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
   }) => {
     const service = dienst();
 
-    // Ohne eigene Rollenbuchung stünde hier „0 Leader / 0 Follower" — und das
-    // sähe genauso aus wie eine Abfrage, die gar nichts zurückbekommt. Also
-    // erst eine Verteilung herstellen, die es zu zählen gibt.
-    const { data: leute } = await service
+    // Ohne eigene Rollenangabe stünde hier „0 Leader / 0 Follower" — und das
+    // sähe genauso aus wie eine Abfrage, die nichts zurückbekommt. Also erst
+    // eine Verteilung herstellen, die es zu zählen gibt.
+    //
+    // Seit PROJ-50 kommt die Rolle vom **Kursplatz**, nicht mehr von der
+    // Buchung: Gezählt wird, wer im Kurs sitzt. Zwei bloße Buchungen ohne Abo
+    // ergeben deshalb keine Verteilung mehr — was richtig ist, aber diesen
+    // Aufbau ungültig gemacht hat.
+    //
+    // Der Leader ist ein Kunde mit kursgebundenem Abo (Rolle an der Buchung,
+    // die es erzeugt hat), der Follower einer mit Flatrate (Rolle am
+    // Kursplatz). Damit prüft der Fall zugleich, dass beide Wege zählen.
+    const { data: aboKunde } = await service
       .from("profiles")
-      .select("id, full_name")
-      .in("full_name", ["E2E13 Abo Kunde", "E2E13 Flatrate Kunde"]);
-    const leaderId = leute?.find((l) => l.full_name === "E2E13 Abo Kunde")?.id;
-    const followerId = leute?.find((l) => l.full_name === "E2E13 Flatrate Kunde")?.id;
-    expect(leaderId && followerId, "Fixtures für die Rollenverteilung fehlen").toBeTruthy();
+      .select("id")
+      .eq("full_name", "E2E13 Abo Kunde")
+      .single();
+    const { data: flatrateKunde } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E13 Flatrate Kunde")
+      .single();
+    expect(aboKunde && flatrateKunde, "Fixtures für die Rollenverteilung fehlen").toBeTruthy();
 
-    const { data: schonDa } = await service
-      .from("course_bookings")
-      .select("dance_role")
+    const { data: kursAbo } = await service
+      .from("subscriptions")
+      .select("id")
+      .eq("customer_id", aboKunde!.id)
       .eq("course_id", KURS_ID)
-      .eq("type", "regular")
-      .not("dance_role", "is", null);
-    const vorhanden = (rolle: string) =>
-      (schonDa ?? []).filter((b) => b.dance_role === rolle).length;
+      .eq("status", "active")
+      .single();
+    const { data: flatrate } = await service
+      .from("subscriptions")
+      .select("id")
+      .eq("customer_id", flatrateKunde!.id)
+      .is("course_id", null)
+      .eq("status", "active")
+      .single();
+    expect(kursAbo && flatrate, "Abos für die Rollenverteilung fehlen").toBeTruthy();
 
-    // `chosen_date` ist Pflicht; für eine reguläre Buchung ist der Kursstart
-    // der naheliegende Wert.
-    const start = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
-    const { data: gesaet, error } = await service
+    const { data: leaderBuchung, error: leaderFehler } = await service
       .from("course_bookings")
-      .insert([
-        { customer_id: leaderId!, course_id: KURS_ID, type: "regular", status: "confirmed", dance_role: "leader", chosen_date: start },
-        { customer_id: followerId!, course_id: KURS_ID, type: "regular", status: "confirmed", dance_role: "follower", chosen_date: start },
-      ])
-      .select("id");
-    if (error) throw new Error(`Rollenbuchungen anlegen fehlgeschlagen: ${error.message}`);
+      .insert({
+        customer_id: aboKunde!.id,
+        course_id: KURS_ID,
+        type: "regular",
+        status: "confirmed",
+        dance_role: "leader",
+        chosen_date: new Date().toISOString().slice(0, 10),
+        subscription_id: kursAbo!.id,
+      })
+      .select("id")
+      .single();
+    if (leaderFehler) throw new Error(`Leader anlegen fehlgeschlagen: ${leaderFehler.message}`);
+
+    const { data: followerPlatz, error: followerFehler } = await service
+      .from("course_memberships")
+      .insert({
+        customer_id: flatrateKunde!.id,
+        course_id: KURS_ID,
+        subscription_id: flatrate!.id,
+        dance_role: "follower",
+      })
+      .select("id")
+      .single();
+    if (followerFehler) throw new Error(`Follower anlegen fehlgeschlagen: ${followerFehler.message}`);
+
     const aufraeumen = async () => {
-      await service.from("course_bookings").delete().in("id", (gesaet ?? []).map((b) => b.id));
+      await service.from("course_bookings").delete().eq("id", leaderBuchung!.id);
+      await service.from("course_memberships").delete().eq("id", followerPlatz!.id);
       await service.from("courses").update({ role_query_enabled: false }).eq("id", KURS_ID);
     };
 
@@ -297,8 +334,8 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
       await service.from("courses").update({ role_query_enabled: true }).eq("id", KURS_ID);
       await page.reload();
       await page.waitForTimeout(1500);
-      await expect(page.getByText(`${vorhanden("leader") + 1} Leader`).first()).toBeVisible();
-      await expect(page.getByText(`${vorhanden("follower") + 1} Follower`).first()).toBeVisible();
+      await expect(page.getByText("1 Leader").first()).toBeVisible();
+      await expect(page.getByText("1 Follower").first()).toBeVisible();
     } finally {
       await aufraeumen();
     }

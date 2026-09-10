@@ -54,7 +54,7 @@ test.beforeAll(async () => {
         courses.map((c) => c.id)
       );
     // A customer whose profile has no referral_source gets the mandatory
-    // "Wie haben Sie von uns erfahren?" prompt (PROJ-8), which blocks
+    // "Wie hast du von uns erfahren?" prompt (PROJ-8), which blocks
     // submitting. AC6 is about booking a drop-in from /stundenplan, not
     // about that prompt — so seed the answered state here rather than
     // making every test click through it.
