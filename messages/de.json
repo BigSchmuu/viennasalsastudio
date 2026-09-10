@@ -370,7 +370,7 @@
       "waitlistCta": "Warteliste ansehen"
     },
     "nextCourse": {
-      "heading": "Dein nächster Kurs",
+      "heading": "{count, plural, one {Dein nächster Kurs} other {Deine nächsten Kurse}}",
       "today": "Heute",
       "tomorrow": "Morgen",
       "running": "läuft gerade",

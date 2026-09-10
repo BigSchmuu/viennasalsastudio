@@ -41,11 +41,15 @@ function uhrzeit(zeit: string): string {
 }
 
 /**
- * „Dein nächster Kurs".
+ * „Dein nächster Kurs" — genauer: dein nächster Kurstag.
  *
- * Zeigt genau einen Termin — oder zwei, wenn sie exakt gleichzeitig beginnen;
- * dann wäre es Willkür, einen davon zu unterschlagen. Der übernächste steht
- * als Zeile darunter, damit der zweite Kurs nicht verlorengeht.
+ * Zeigt alles, was am nächsten Kurstag ansteht, in zeitlicher Reihenfolge. Ein
+ * Kurstag ist die Einheit, in der man plant: Wer abends zwei Kurse
+ * hintereinander hat, will beide sehen und nicht den zweiten aus einer Zeile
+ * „Danach: …" erschließen. Die Überschrift steht deshalb im Singular oder
+ * Plural, je nachdem, wie viele es sind.
+ *
+ * Darunter der Ausblick auf den nächsten Kurstag danach.
  */
 export async function NextCourseSection({
   anzeigen,
@@ -75,7 +79,7 @@ export async function NextCourseSection({
   }
 
   return (
-    <DashboardSection title={t("heading")}>
+    <DashboardSection title={t("heading", { count: anzeigen.length })}>
       <div className="space-y-3">
         {anzeigen.map(({ termin, zustand, wochentag, checkin, buchungsArt }) => (
           <Card key={`${termin.kursId}-${termin.datum}`} className="border-primary/25 bg-primary/[0.03]">

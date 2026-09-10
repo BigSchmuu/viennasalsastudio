@@ -879,6 +879,31 @@ test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
     }
   });
 
+  test("Zwei Kurse am selben Tag stehen beide im Dashboard", async ({ page }) => {
+    // Wunsch aus dem Betrieb (2026-09-10): Vorher zeigte der Abschnitt nur den
+    // ersten Termin; der zweite stand bloß als Zeile „Danach: …". Beide
+    // Testkurse liegen donnerstags, um 19:00 und um 20:00.
+    const service = dienst();
+    const aboId = await flatrateAboId();
+    await service.from("course_memberships").insert([
+      { customer_id: kundeId, course_id: kursId, subscription_id: aboId },
+      { customer_id: kundeId, course_id: rollenKursId, subscription_id: aboId },
+    ]);
+
+    try {
+      await anmelden(page, FLATRATE_KUNDE);
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(2000);
+
+      // Überschrift im Plural, sobald es mehr als einer ist.
+      await expect(page.getByText("Deine nächsten Kurse")).toBeVisible();
+      await expect(page.getByText(KURS_NAME).first()).toBeVisible();
+      await expect(page.getByText(KURS_MIT_ROLLE).first()).toBeVisible();
+    } finally {
+      await service.from("course_memberships").delete().eq("customer_id", kundeId);
+    }
+  });
+
   test("Lesestelle: Die Kursliste im Admin zählt Flatrate-Kunden mit", async ({ page }) => {
     const service = dienst();
     const aboId = await flatrateAboId();

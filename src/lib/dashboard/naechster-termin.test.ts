@@ -90,6 +90,32 @@ describe("naechsteTermine", () => {
     expect(am27[0].quelle).toBe("abo");
   });
 
+  it("zeigt alle Kurse desselben Tages, auch wenn sie nacheinander liegen", () => {
+    // Wunsch aus dem Betrieb (2026-09-10): Wer an einem Abend zwei Kurse
+    // hintereinander hat, sah nur den ersten — der zweite stand bloß als
+    // Zeile „Danach: …". Ein Kurstag ist die Einheit, in der man plant.
+    const { naechste, danach } = naechsteTermine(
+      [
+        abo(),
+        abo({
+          kursId: "kurs-spaet",
+          kursName: "Bachata Level 1",
+          startZeit: "20:15:00",
+          endZeit: "21:15:00",
+        }),
+      ],
+      [],
+      new Date("2026-08-27T06:00:00Z")
+    );
+
+    expect(naechste).toHaveLength(2);
+    // In zeitlicher Reihenfolge, nicht in der Reihenfolge der Abos.
+    expect(naechste.map((t) => t.startZeit)).toEqual(["19:00:00", "20:15:00"]);
+    expect(naechste.every((t) => t.datum === "2026-08-27")).toBe(true);
+    // Der Ausblick zeigt den nächsten Kurs*tag*, nicht die nächste Stunde.
+    expect(danach?.datum).toBe("2026-09-03");
+  });
+
   it("zeigt zwei gleichzeitige Termine beide, statt willkürlich einen zu wählen", () => {
     const { naechste, danach } = naechsteTermine(
       [abo(), abo({ kursId: "kurs-zweit", kursName: "Bachata Level 1", raum: "Saal 2" })],

@@ -152,9 +152,17 @@ export function naechsteTermine(
     return { naechste: [], danach: null };
   }
 
-  const fruehester = alle[0].beginn.getTime();
-  const naechste = alle.filter((t) => t.beginn.getTime() === fruehester);
-  const danach = alle.find((t) => t.beginn.getTime() > fruehester) ?? null;
+  // Alles, was am nächsten Kurstag ansteht — nicht nur der erste Termin.
+  //
+  // Vorher galt „exakt gleiche Anfangszeit", also nur echte Parallelkurse. Wer
+  // an einem Abend zwei Kurse hintereinander hat, sah den zweiten nur als
+  // Zeile „Danach: …" und musste ihn sich selbst zusammenreimen. Ein Kurstag
+  // ist aber die Einheit, in der man plant (Wunsch aus dem Betrieb,
+  // 2026-09-10).
+  const ersterTag = alle[0].datum;
+  const naechste = alle.filter((t) => t.datum === ersterTag);
+  // Der Ausblick zeigt jetzt den nächsten **Tag**, nicht die nächste Stunde.
+  const danach = alle.find((t) => t.datum > ersterTag) ?? null;
 
   return { naechste, danach };
 }

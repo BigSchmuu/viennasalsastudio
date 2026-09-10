@@ -370,7 +370,7 @@
       "waitlistCta": "View waiting list"
     },
     "nextCourse": {
-      "heading": "Your next class",
+      "heading": "{count, plural, one {Your next class} other {Your next classes}}",
       "today": "Today",
       "tomorrow": "Tomorrow",
       "running": "on right now",
