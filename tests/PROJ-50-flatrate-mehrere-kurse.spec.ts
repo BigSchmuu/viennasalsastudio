@@ -344,4 +344,137 @@ test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
     expect(error, "Ein Kunde ohne Flatrate durfte sich eintragen").not.toBeNull();
     expect(error!.message).toContain("no flatrate");
   });
+
+  /**
+   * Ab hier: die Lesestellen.
+   *
+   * Der Kursplatz allein nützt nichts, solange ihn niemand liest. Diese Fälle
+   * prüfen genau die Stellen, an denen ein Flatrate-Kunde vorher unsichtbar
+   * war — und sie melden sich als Flatrate-Kunde an, nicht als Admin. Genau
+   * diese Verwechslung hat in PROJ-30 und PROJ-31 dafür gesorgt, dass ein
+   * Fehler wochenlang grün war.
+   */
+
+  test("Lesestelle: Ein Flatrate-Kunde steht in der Anwesenheitsliste des Lehrers", async ({
+    page,
+  }) => {
+    const service = dienst();
+    const { data: abo } = await service
+      .from("subscriptions")
+      .select("id")
+      .eq("customer_id", kundeId)
+      .is("course_id", null)
+      .eq("status", "active")
+      .single();
+    await service
+      .from("course_memberships")
+      .insert({ customer_id: kundeId, course_id: kursId, subscription_id: abo!.id });
+
+    const { data: lehrer } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E13 Lehrer A")
+      .single();
+    // Nur für die Dauer dieses Falls: Ein dauerhaft zugewiesener Testkurs
+    // taucht sonst im Lehrer-Bereich aus PROJ-49 auf und verschiebt dort die
+    // Terminliste.
+    await service.from("course_teachers").insert({ course_id: kursId, teacher_id: lehrer!.id });
+
+    try {
+      await anmelden(page, { email: "e2e13-lehrer-a@viennasalsastudio.test", passwort: "CorrectPassword123!" });
+      await gehZu(page, `/lehrer/${kursId}`);
+      await page.waitForTimeout(2500);
+      await expect(page.getByText("E2E11 Flatrate Kunde")).toBeVisible();
+    } finally {
+      await service
+        .from("course_teachers")
+        .delete()
+        .eq("course_id", kursId)
+        .eq("teacher_id", lehrer!.id);
+    }
+  });
+
+  test("Lesestelle: Ein Flatrate-Kunde zählt gegen die Kursgrenze", async () => {
+    const service = dienst();
+    const { data: abo } = await service
+      .from("subscriptions")
+      .select("id")
+      .eq("customer_id", kundeId)
+      .is("course_id", null)
+      .eq("status", "active")
+      .single();
+
+    // Ein Platz, und den nimmt der Flatrate-Kunde.
+    await service.from("courses").update({ max_participants: 1 }).eq("id", kursId);
+    await service
+      .from("course_memberships")
+      .insert({ customer_id: kundeId, course_id: kursId, subscription_id: abo!.id });
+
+    try {
+      const client = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: false, autoRefreshToken: false } }
+      );
+      await client.auth.signInWithPassword({
+        email: KURS_KUNDE.email,
+        password: KURS_KUNDE.passwort,
+      });
+
+      const { error } = await client.rpc("create_regular_course_booking", {
+        p_course_id: kursId,
+        p_desired_plan: "single_course",
+        p_chosen_date: new Date().toISOString().slice(0, 10),
+        p_note: "",
+        p_prerequisite_confirmed: false,
+        p_dance_role: "",
+        p_coupon_code: "",
+        p_wants_student_price: false,
+        p_terms_accepted: true,
+        p_terms_version: new Date().toISOString().slice(0, 7),
+      });
+
+      // Vor PROJ-50 wäre der Kurs hier leer gewesen und die Buchung
+      // durchgegangen — der Kurs hätte zwei Leute auf einem Platz gehabt.
+      expect(error, "Der Flatrate-Kunde zählt nicht gegen die Kursgrenze").not.toBeNull();
+      expect(error!.message).toContain("course is full");
+    } finally {
+      await service.from("courses").update({ max_participants: null }).eq("id", kursId);
+      await service
+        .from("course_bookings")
+        .delete()
+        .eq("course_id", kursId)
+        .eq("type", "regular");
+    }
+  });
+
+  test("Lesestelle: Ein Flatrate-Kunde kann keine reguläre Buchung mehr auslösen", async () => {
+    const client = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    await client.auth.signInWithPassword({
+      email: FLATRATE_KUNDE.email,
+      password: FLATRATE_KUNDE.passwort,
+    });
+
+    // Der Riegel gehört in die Datenbank, nicht in den Bildschirm: Genau über
+    // diesen Aufruf entstand das zweite Abo.
+    const { error } = await client.rpc("create_regular_course_booking", {
+      p_course_id: kursId,
+      p_desired_plan: "flatrate",
+      p_chosen_date: new Date().toISOString().slice(0, 10),
+      p_note: "",
+      p_prerequisite_confirmed: false,
+      p_dance_role: "",
+      p_coupon_code: "",
+      p_wants_student_price: false,
+      p_terms_accepted: true,
+      p_terms_version: new Date().toISOString().slice(0, 7),
+    });
+
+    expect(error, "Ein Flatrate-Kunde konnte eine reguläre Buchung anlegen").not.toBeNull();
+    expect(error!.message).toContain("flatrate covers this");
+  });
 });

@@ -473,17 +473,57 @@ Wahrheit, die niemand im Code findet.
 
 Nach beiden Korrekturen: 112 Fälle über die fünf berührten Suiten, alle grün.
 
-### Offen für `/backend`
+---
 
-Die Kursplätze existieren, aber fünf Lesestellen kennen sie noch nicht:
+## Umsetzungsnotizen — die Lesestellen (2026-09-10)
 
-- [ ] `get_course_attendance_roster` — Anwesenheitsliste
-- [ ] `create_regular_course_booking` und `join_waitlist` — Kursgrenze und Rollenbalance
-- [ ] `self_toggle_attendance` — Selbst-Check-in
-- [ ] `course-cancellation.ts` — wer bei Kursausfall benachrichtigt wird
-- [ ] `get_course_occupancy` — freie Plätze im Katalog
-- [ ] `get_course_participants` und `get_course_active_subscribers` — Lehrer-Bereich
+Bis hierher gab es die gemeinsame Antwort, aber niemand las sie: Die Kursplätze
+existierten und blieben unsichtbar. Dieser Durchgang dreht die Stellen um.
 
-**Bis dahin nicht ausliefern:** Die neuen Funktionen rechnen die Kursgrenze über
-`course_members`, die alten über `subscriptions.course_id`. Zwei Rechnungen
-nebeneinander sind genau der Zustand, den diese Spec beseitigen soll.
+- [x] `get_course_attendance_roster` — der Flatrate-Kunde steht jetzt in der Liste
+- [x] `create_regular_course_booking` — Kursgrenze, Rollenbalance, „bereits angemeldet"
+- [x] `join_waitlist` — dieselben drei
+- [x] `self_toggle_attendance` — Selbst-Check-in
+- [x] `course-cancellation.ts` — über `get_course_member_ids`
+- [x] `get_course_occupancy` — freie Plätze im Katalog
+- [x] `get_course_participants`, `get_course_active_subscribers`, `get_course_dance_roles`
+
+### Drei Dinge, die dabei dazukamen
+
+**Ein Riegel in der Datenbank.** Wer eine aktive Flatrate hat, kann keine
+reguläre Buchung mehr auslösen — genau über diesen Aufruf entstand das zweite
+Abo. Die Oberfläche bietet es längst nicht mehr an; der Riegel gehört aber
+dorthin, wo er nicht zu umgehen ist. Fehlermeldung: `flatrate covers this`, im
+Buchungsvorgang in einen verständlichen Satz übersetzt.
+
+**Kein Mandat für die Warteliste.** `join_waitlist` verlangte ein SEPA-Mandat.
+Für einen Flatrate-Kunden entfällt das aus demselben Grund wie beim Hinzufügen:
+Es entsteht keine neue Zahlungspflicht. Ohne diese Ausnahme hätte er sich
+eintragen, aber nicht auf die Warteliste setzen können — inkonsequent.
+
+**Die Rollen kommen jetzt vom Kursplatz.** `get_course_dance_roles` liefert eine
+Zeile je Teilnehmer statt je Buchung; die frühere Auswertung „die jüngste
+Buchung gewinnt" ist gegenstandslos. Die Kommentare an beiden Aufrufstellen
+wurden mitgezogen, damit sie nicht das Gegenteil behaupten.
+
+### Ein Fehler, den ich beim Bauen gemacht habe
+
+`self_toggle_attendance` hatte ich zunächst aus dem Gedächtnis nachgebaut, weil
+ich nur die erste Hälfte gelesen hatte. Dabei habe ich still eine Regel erfunden
+(„nach Stundenende kein Check-in mehr") und die echte verloren („nach
+Stundenende nicht mehr zurücknehmen"). Aufgefallen ist es nur, weil ich den
+Rumpf vor dem Anwenden noch einmal abgeglichen habe. Die Funktion ist jetzt
+wortgleich mit der bisherigen — bis auf die eine Zeile, um die es ging.
+
+### Prüfung
+
+26 E2E-Fälle (13 × 2 Browser). Neu dazu je ein Fall für die Stellen, an denen
+der Flatrate-Kunde bisher unsichtbar war:
+
+- Er steht in der Anwesenheitsliste des Lehrers.
+- Er zählt gegen die Kursgrenze — ein zweiter Kunde bekommt „Kurs ist voll".
+- Er kann keine reguläre Buchung mehr auslösen.
+
+Alle drei melden sich als **Flatrate-Kunde** an, nicht als Admin. Genau diese
+Verwechslung hat in PROJ-30 und PROJ-31 dafür gesorgt, dass ein Fehler
+wochenlang grün war.

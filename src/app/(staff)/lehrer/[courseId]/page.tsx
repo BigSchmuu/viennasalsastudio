@@ -70,8 +70,9 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
     });
     if (roleFehler) console.error("Anwesenheitsliste: Tanzrollen nicht lesbar", roleFehler);
     for (const b of roleBookings ?? []) {
-      // Later rows overwrite earlier ones, so the most recent booking's
-      // role choice wins if a customer applied to this course more than once.
+      // Seit PROJ-50 eine Zeile je Teilnehmer: Die Rolle steht am Kursplatz,
+      // und den gibt es genau einmal. Die frühere Auswertung „die jüngste
+      // Buchung gewinnt" ist damit gegenstandslos.
       roleByCustomer[b.customer_id] = b.dance_role as "leader" | "follower" | "both";
     }
   }

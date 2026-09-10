@@ -38,11 +38,10 @@ export async function countAffectedCustomers(pauseId: string): Promise<AffectedC
   const courseId = pause.course_schedule.course_id;
 
   const [subscriptions, bookings] = await Promise.all([
-    supabase
-      .from("subscriptions")
-      .select("customer_id")
-      .eq("course_id", courseId)
-      .eq("status", "active"),
+    // PROJ-50: über die gemeinsame Antwort, nicht über `subscriptions.course_id`.
+    // Vorher fehlte hier jeder Flatrate-Kunde — er erfuhr nichts vom Ausfall
+    // und stand vor verschlossener Tür.
+    supabase.rpc("get_course_member_ids", { p_course_id: courseId }),
     supabase
       .from("course_bookings")
       .select("customer_id")
@@ -51,6 +50,13 @@ export async function countAffectedCustomers(pauseId: string): Promise<AffectedC
       .eq("status", "confirmed")
       .in("type", ["trial", "dropin"]),
   ]);
+
+  // Eine leere Empfängerliste wäre hier folgenschwer: Die Stunde fällt aus und
+  // niemand erfährt es. Also laut sagen, wenn die Abfrage nicht durchkam.
+  if (subscriptions.error) {
+    console.error("Kursausfall: Teilnehmer nicht lesbar", subscriptions.error);
+    return { error: "Teilnehmerliste konnte nicht geladen werden." };
+  }
 
   // One person may hold both a subscription and a drop-in for the same date;
   // they should be counted — and later messaged — once.
@@ -91,7 +97,8 @@ export async function notifyCourseCancellation(pauseId: string): Promise<NotifyR
   const courseId = pause.course_schedule.course_id;
 
   const [subscriptions, bookings] = await Promise.all([
-    supabase.from("subscriptions").select("customer_id").eq("course_id", courseId).eq("status", "active"),
+    // PROJ-50: siehe oben — Flatrate-Kunden gehören zu den Empfängern.
+    supabase.rpc("get_course_member_ids", { p_course_id: courseId }),
     supabase
       .from("course_bookings")
       .select("customer_id")
@@ -100,6 +107,11 @@ export async function notifyCourseCancellation(pauseId: string): Promise<NotifyR
       .eq("status", "confirmed")
       .in("type", ["trial", "dropin"]),
   ]);
+
+  if (subscriptions.error) {
+    console.error("Kursausfall: Teilnehmer nicht lesbar", subscriptions.error);
+    return { error: "Teilnehmerliste konnte nicht geladen werden." };
+  }
 
   const recipients = [
     ...new Set([

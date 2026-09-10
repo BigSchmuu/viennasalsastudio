@@ -1972,9 +1972,14 @@ export type Database = {
         Args: { p_course_ids: string[] }
         Returns: {
           course_id: string
-          created_at: string
           customer_id: string
           dance_role: string
+        }[]
+      }
+      get_course_member_ids: {
+        Args: { p_course_id: string }
+        Returns: {
+          customer_id: string
         }[]
       }
       get_course_occupancy: {

@@ -128,8 +128,8 @@ export async function ladeLehrerUebersicht(
     (notizenRes.data ?? []).map((n) => [n.course_id, n.note])
   );
 
-  // Die zuletzt gewählte Rolle je Kunde gilt — wer zweimal angefragt hat, soll
-  // nicht doppelt zählen.
+  // Eine Zeile je Teilnehmer: Seit PROJ-50 steht die Rolle am Kursplatz, und
+  // den gibt es je Kunde und Kurs genau einmal.
   const rolleJeKursUndKunde = new Map<string, string | null>();
   for (const b of rollenRes.data ?? []) {
     rolleJeKursUndKunde.set(`${b.course_id}|${b.customer_id}`, b.dance_role);

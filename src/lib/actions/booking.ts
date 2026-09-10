@@ -139,6 +139,15 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       if (error.message.includes("dance role required")) {
         return { error: "Bitte wähle, ob du als Leader oder Follower tanzt." };
       }
+      if (error.message.includes("flatrate covers this")) {
+        // PROJ-50: Die Oberfläche bietet einem Flatrate-Kunden den
+        // Buchungsdialog nicht mehr an; diese Meldung greift, wenn der Aufruf
+        // trotzdem hier ankommt — etwa aus einem alten, offenen Tab.
+        return {
+          error:
+            "Deine Flatrate deckt diesen Kurs bereits ab — trag dich direkt beim Kurs ein, dann entsteht kein zweites Abo.",
+        };
+      }
       if (error.message.includes("already enrolled")) {
         return { error: "Du bist für diesen Kurs bereits angemeldet." };
       }
