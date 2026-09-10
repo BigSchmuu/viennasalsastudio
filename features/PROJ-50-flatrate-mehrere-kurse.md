@@ -527,3 +527,90 @@ der Flatrate-Kunde bisher unsichtbar war:
 Alle drei melden sich als **Flatrate-Kunde** an, nicht als Admin. Genau diese
 Verwechslung hat in PROJ-30 und PROJ-31 dafür gesorgt, dass ein Fehler
 wochenlang grün war.
+
+---
+
+## QA Test Results
+
+**Geprüft:** 2026-09-10
+**Gegen:** lokale Testumgebung (Port 3100), beide Browser
+**Prüfer:** QA (AI)
+
+### Akzeptanzkriterien: 21 von 25 belegt, 1 fehlgeschlagen, 3 offen
+
+| Bereich | Kriterien | Stand |
+|---|---|---|
+| Kurs hinzufügen | 6 | ✅ alle |
+| Kurs entfernen | 3 | ✅ alle |
+| Grenzen und Sperren | 4 | ✅ 3 · ⚠️ Rollenverhältnis ungetestet |
+| Abo-Status wirkt | 3 | ✅ alle |
+| Lehrer und Kursbetrieb | 2 | ✅ 1 · ⚠️ Tanzrolle in der Liste ungetestet |
+| Warteliste | 2 | ✅ beide |
+| Betreiber | 3 | ✅ 2 · ❌ **BUG-1** |
+| Bestandsdaten | 2 | ⚠️ nur durch die Migration selbst belegt |
+
+21 E2E-Fälle × 2 Browser: **40 bestanden, 2 fehlgeschlagen** (BUG-1 auf beiden).
+
+### Gefundener Fehler
+
+#### BUG-1: Beim Bestätigen einer neuen Flatrate-Anfrage entsteht kein Kursplatz
+- **Schweregrad:** High
+- **Steht in:** `src/lib/actions/admin/bookings.ts` (Stapel-Bestätigung) und
+  `src/lib/actions/admin/subscriptions.ts` (Abo von Hand anlegen)
+- **Tatsächlich:** Die Bestätigung legt ein Abo ohne Kursbezug an und verknüpft
+  die Buchung damit — aber **keinen Kursplatz**. Der Kunde zahlt und sitzt in
+  keinem Kurs: nicht in der Anwesenheitsliste, nicht in der Kursgrenze, ohne
+  Ausfall-Benachrichtigung.
+- **Nachgewiesen:** `tests/PROJ-50…spec.ts`, Fall „BEFUND: Bestätigt der
+  Betreiber eine neue Flatrate-Anfrage, entsteht ein Kursplatz" — schlägt fehl
+  mit „Received length: 0".
+- **Einordnung:** Keine Regression, sondern eine **Lücke in der Behebung**. Vor
+  PROJ-50 war derselbe Kunde ebenso unsichtbar — das war ja der Ausgangsfehler.
+  Die Migration hat die Bestandsdaten geheilt, der Selbstbedienungsweg und die
+  Nachrückung sind versorgt; der Weg über die Bestätigung nicht.
+- **Warum es zählt:** Das ist der **Normalweg für jeden neuen Flatrate-Kunden**.
+- **Priorität:** vor dem Deployment beheben
+
+### Sicherheitsprüfung (Red Team)
+
+- ✅ Ein Kunde kann über `admin_add_course_membership` keinen fremden Kursplatz
+  anlegen — „not authorized".
+- ✅ Ein Kunde sieht beim Lesen von `course_memberships` **nur eigene Zeilen**
+  (geprüft mit angelegtem Fremdplatz, nicht bloß aus der Regel geschlossen).
+- ✅ `add_course_to_flatrate` und `remove_course_from_flatrate` arbeiten
+  ausschließlich auf `auth.uid()`; ein fremder Kunde ist nicht adressierbar.
+- ✅ Ein Kunde **ohne** Flatrate wird von `add_course_to_flatrate` abgewiesen
+  („no flatrate") — der Zaun steht in der Datenbank, nicht im Bildschirm.
+- ✅ Die Sicht `course_members` ist für `public`, `anon` und `authenticated`
+  gesperrt; sie ist nur aus `SECURITY DEFINER`-Funktionen erreichbar.
+- ✅ Kursgrenze und Rollenbalance laufen unter Zeilensperre auf den Kurs —
+  zwei gleichzeitige Klicks auf den letzten Platz greifen nicht aneinander
+  vorbei.
+
+Keine personenbezogenen Daten in Antworten, die nicht hingehören.
+
+### Was ungeprüft blieb
+
+Bewusst benannt statt stillschweigend übergangen:
+
+- **Rollenverhältnis beim Hinzufügen** — dieselbe Rechnung wie bei der Buchung
+  (`kurs_rollenanzahl`), dort geprüft; der Weg über die Flatrate nicht.
+- **Tanzrolle in der Anwesenheitsliste** — die Verteilung im Lehrer-Bereich ist
+  geprüft (PROJ-49 AC14, über Kursplatz *und* kursgebundenes Abo), die
+  Markierung an der einzelnen Zeile nicht.
+- **Kursgrenze überschreiben als Betreiber** — der Weg „Entfernen" ist geprüft,
+  „trotzdem eintragen" nicht.
+- **Ableitung der Bestandsdaten** — in der Testdatenbank gab es keine
+  verknüpften Flatrate-Buchungen, die Migration hatte dort nichts zu tun. Der
+  Beleg steht also aus; in der Produktion zeigt ihn die Prüfabfrage.
+
+### Zusammenfassung
+
+| | |
+|---|---|
+| Akzeptanzkriterien | 21 / 25 belegt |
+| Fehler | 0 kritisch, **1 hoch**, 0 mittel, 0 niedrig |
+| Sicherheit | keine Befunde |
+
+**Produktionsreif: NEIN.** BUG-1 trifft den Normalweg jedes neuen
+Flatrate-Kunden und gehört vor dem Deployment behoben.

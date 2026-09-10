@@ -477,4 +477,372 @@ test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
     expect(error, "Ein Flatrate-Kunde konnte eine reguläre Buchung anlegen").not.toBeNull();
     expect(error!.message).toContain("flatrate covers this");
   });
+
+  /**
+   * QA-Durchgang 2026-09-10: die Kriterien, die beim Bauen ungeprüft blieben.
+   */
+
+  async function flatrateAboId(): Promise<string> {
+    const service = dienst();
+    const { data } = await service
+      .from("subscriptions")
+      .select("id")
+      .eq("customer_id", kundeId)
+      .is("course_id", null)
+      .eq("status", "active")
+      .single();
+    return data!.id;
+  }
+
+  test("AC: Der Vorkenntnisse-Hinweis muss auch hier bestätigt werden", async ({ page }) => {
+    const service = dienst();
+    await service
+      .from("courses")
+      .update({ prerequisite_note: "Du solltest den Grundkurs besucht haben." })
+      .eq("id", kursId);
+
+    try {
+      await anmelden(page, FLATRATE_KUNDE);
+      await gehZu(page, `/kurse/${kursId}`);
+      await page.waitForTimeout(1500);
+      await page.getByRole("button", { name: "Zu meiner Flatrate hinzufügen" }).click();
+      await page.waitForTimeout(800);
+
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.getByText("Du solltest den Grundkurs besucht haben.")).toBeVisible();
+      // Ohne Häkchen bleibt der Knopf gesperrt.
+      await expect(dialog.getByRole("button", { name: "Hinzufügen" })).toBeDisabled();
+
+      await dialog.getByRole("checkbox").check();
+      await expect(dialog.getByRole("button", { name: "Hinzufügen" })).toBeEnabled();
+    } finally {
+      await service.from("courses").update({ prerequisite_note: null }).eq("id", kursId);
+    }
+  });
+
+  test("AC: Wer seinen letzten Kurs entfernt, sieht einen Hinweis statt einer leeren Liste", async ({
+    page,
+  }) => {
+    await anmelden(page, FLATRATE_KUNDE);
+    await gehZu(page, "/profil");
+    await page.waitForTimeout(2000);
+    await page.getByRole("button", { name: "Mein Abo" }).click();
+    await page.waitForTimeout(800);
+
+    // beforeEach hat alle Kursplätze entfernt — das ist genau der Leerzustand.
+    await expect(
+      page.getByText("Deine Flatrate läuft, aber du bist in keinem Kurs eingeschrieben.")
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Kurse ansehen" })).toBeVisible();
+  });
+
+  test("AC: Nach einer Pause stehen die früheren Kurse als Vorschlag bereit", async ({ page }) => {
+    const service = dienst();
+    const aboId = await flatrateAboId();
+    await service
+      .from("course_memberships")
+      .insert({ customer_id: kundeId, course_id: kursId, subscription_id: aboId });
+
+    try {
+      // Pausieren beendet die Kursplätze — die Erinnerung bleibt.
+      await service.from("subscriptions").update({ status: "paused" }).eq("id", aboId);
+      await service.from("subscriptions").update({ status: "active" }).eq("id", aboId);
+
+      await anmelden(page, FLATRATE_KUNDE);
+      await gehZu(page, "/profil");
+      await page.waitForTimeout(2000);
+      await page.getByRole("button", { name: "Mein Abo" }).click();
+      await page.waitForTimeout(800);
+
+      await expect(page.getByText("Deine früheren Kurse")).toBeVisible();
+      await expect(page.getByRole("button", { name: new RegExp(KURS_NAME) })).toBeVisible();
+    } finally {
+      await service.from("subscriptions").update({ status: "active" }).eq("id", aboId);
+      await service.from("course_memberships").delete().eq("customer_id", kundeId);
+    }
+  });
+
+  test("AC: Gibt ein Flatrate-Kunde seinen Platz frei, rückt die Warteliste nach", async () => {
+    const service = dienst();
+    const aboId = await flatrateAboId();
+
+    // Ein Platz, belegt vom Flatrate-Kunden; ein anderer wartet.
+    await service.from("courses").update({ max_participants: 1 }).eq("id", kursId);
+    await service
+      .from("course_memberships")
+      .insert({ customer_id: kundeId, course_id: kursId, subscription_id: aboId });
+
+    const { data: wartender } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E8 Customer")
+      .maybeSingle();
+    const wartenderId =
+      wartender?.id ??
+      (await service.auth.admin.listUsers({ perPage: 200 })).data.users.find(
+        (u) => u.email === KURS_KUNDE.email
+      )!.id;
+
+    await service.from("waitlist_entries").delete().eq("course_id", kursId);
+    await service.from("waitlist_entries").insert({
+      course_id: kursId,
+      customer_id: wartenderId,
+      desired_plan: "single_course",
+      chosen_date: new Date().toISOString().slice(0, 10),
+    });
+
+    try {
+      const client = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: false, autoRefreshToken: false } }
+      );
+      await client.auth.signInWithPassword({
+        email: FLATRATE_KUNDE.email,
+        password: FLATRATE_KUNDE.passwort,
+      });
+      const { error } = await client.rpc("remove_course_from_flatrate", { p_course_id: kursId });
+      expect(error).toBeNull();
+
+      // Der Wartende ist nachgerückt: Der Eintrag ist weg, eine Anfrage steht.
+      const { data: nochWartend } = await service
+        .from("waitlist_entries")
+        .select("id")
+        .eq("course_id", kursId);
+      expect(nochWartend ?? [], "Die Warteliste ist nicht nachgerückt").toHaveLength(0);
+
+      const { data: anfrage } = await service
+        .from("course_bookings")
+        .select("id, status")
+        .eq("course_id", kursId)
+        .eq("customer_id", wartenderId)
+        .eq("type", "regular");
+      expect((anfrage ?? []).length, "Für den Wartenden entstand keine Anfrage").toBeGreaterThan(0);
+    } finally {
+      await service.from("courses").update({ max_participants: null }).eq("id", kursId);
+      await service.from("waitlist_entries").delete().eq("course_id", kursId);
+      await service.from("course_bookings").delete().eq("course_id", kursId).eq("type", "regular");
+      await service.from("course_memberships").delete().eq("customer_id", kundeId);
+    }
+  });
+
+  test("AC: Ein nachrückender Flatrate-Kunde bekommt den Platz, keine offene Anfrage", async () => {
+    const service = dienst();
+    await service.from("courses").update({ max_participants: 1 }).eq("id", kursId);
+
+    // Der Kurs wird von jemand anderem belegt — über ein kursgebundenes Abo,
+    // damit der Aufbau nicht von einem zweiten Flatrate-Kunden abhängt.
+    const { data: anderer } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E13 Abo Kunde")
+      .single();
+    const { data: platzhalter } = await service
+      .from("subscriptions")
+      .insert({
+        customer_id: anderer!.id,
+        course_id: kursId,
+        name: "E2E50 Platzhalter",
+        price: 65,
+        status: "active",
+      })
+      .select("id")
+      .single();
+
+    await service.from("waitlist_entries").delete().eq("course_id", kursId);
+    await service.from("waitlist_entries").insert({
+      course_id: kursId,
+      customer_id: kundeId,
+      desired_plan: "flatrate",
+      chosen_date: new Date().toISOString().slice(0, 10),
+    });
+
+    try {
+      // Platz frei machen und nachrücken lassen — über den Zugang, den auch
+      // der Betreiber benutzt.
+      await service.from("subscriptions").delete().eq("id", platzhalter!.id);
+
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: false, autoRefreshToken: false } }
+      );
+      await adminClient.auth.signInWithPassword({
+        email: "e2e8-admin@viennasalsastudio.test",
+        password: "CorrectPassword123!",
+      });
+      const { error } = await adminClient.rpc("promote_waitlist_for_course", {
+        p_course_id: kursId,
+      });
+      expect(error, "Die Nachrückung ließ sich nicht auslösen").toBeNull();
+
+      const { data: platz } = await service
+        .from("course_memberships")
+        .select("id")
+        .eq("customer_id", kundeId)
+        .eq("course_id", kursId)
+        .is("ended_on", null);
+      const { data: anfrage } = await service
+        .from("course_bookings")
+        .select("id")
+        .eq("customer_id", kundeId)
+        .eq("course_id", kursId)
+        .eq("type", "regular");
+
+      // Der Kern der Entscheidung: Platz statt Anfrage — über die Anfrage
+      // entstand bisher das zweite Abo.
+      expect(platz ?? [], "Der Nachrücker bekam keinen Kursplatz").toHaveLength(1);
+      expect(anfrage ?? [], "Es entstand doch eine offene Anfrage").toHaveLength(0);
+    } finally {
+      await service.from("courses").update({ max_participants: null }).eq("id", kursId);
+      await service.from("waitlist_entries").delete().eq("course_id", kursId);
+      await service.from("course_memberships").delete().eq("course_id", kursId);
+      await service.from("course_bookings").delete().eq("course_id", kursId).eq("type", "regular");
+      await service.from("subscriptions").delete().eq("id", platzhalter!.id);
+    }
+  });
+
+  test("AC: Der Betreiber sieht und ändert die Kursliste einer Flatrate", async ({ page }) => {
+    const service = dienst();
+    const aboId = await flatrateAboId();
+    await service
+      .from("course_memberships")
+      .insert({ customer_id: kundeId, course_id: kursId, subscription_id: aboId });
+
+    try {
+      await anmelden(page, { email: "e2e8-admin@viennasalsastudio.test", passwort: "CorrectPassword123!" });
+      await page.goto(`/admin/kunden/${kundeId}`);
+      await page.waitForTimeout(2000);
+
+      await expect(page.getByText("Kurse dieser Flatrate")).toBeVisible();
+      await expect(page.getByText(KURS_NAME)).toBeVisible();
+
+      await page.getByRole("button", { name: "Entfernen" }).first().click();
+      await page.waitForTimeout(2500);
+
+      const { data } = await service
+        .from("course_memberships")
+        .select("id")
+        .eq("customer_id", kundeId)
+        .eq("course_id", kursId)
+        .is("ended_on", null);
+      expect(data ?? [], "Der Betreiber konnte den Kursplatz nicht entfernen").toHaveLength(0);
+    } finally {
+      await service.from("course_memberships").delete().eq("customer_id", kundeId);
+    }
+  });
+
+  test("Sicherheit: Ein Kunde kann die Kursliste eines fremden Abos nicht ändern", async () => {
+    const client = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    await client.auth.signInWithPassword({
+      email: FLATRATE_KUNDE.email,
+      password: FLATRATE_KUNDE.passwort,
+    });
+
+    const { data: fremder } = await dienst()
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E13 Abo Kunde")
+      .single();
+
+    const { error } = await client.rpc("admin_add_course_membership", {
+      p_customer_id: fremder!.id,
+      p_course_id: kursId,
+      p_dance_role: "",
+      p_ignore_capacity: true,
+    });
+    expect(error, "Ein Kunde durfte einen fremden Kursplatz anlegen").not.toBeNull();
+    expect(error!.message).toContain("not authorized");
+
+    // Und lesen? Die Regel auf der Tabelle sagt „eigene Zeile oder Admin" —
+    // geprüft, nicht angenommen.
+    const service = dienst();
+    const aboId = await flatrateAboId();
+    await service
+      .from("course_memberships")
+      .insert({ customer_id: kundeId, course_id: kursId, subscription_id: aboId });
+    const { data: fremdesAbo } = await service
+      .from("subscriptions")
+      .select("id")
+      .eq("customer_id", fremder!.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
+    let fremderPlatz: string | null = null;
+    if (fremdesAbo) {
+      const { data } = await service
+        .from("course_memberships")
+        .insert({
+          customer_id: fremder!.id,
+          course_id: rollenKursId,
+          subscription_id: fremdesAbo.id,
+        })
+        .select("id")
+        .maybeSingle();
+      fremderPlatz = data?.id ?? null;
+    }
+
+    try {
+      const { data: sichtbar } = await client.from("course_memberships").select("customer_id");
+      expect(sichtbar ?? [], "Der Kunde sieht gar keine eigenen Kursplätze").not.toHaveLength(0);
+      expect(
+        (sichtbar ?? []).every((z) => z.customer_id === kundeId),
+        "Ein Kunde sieht fremde Kursplätze"
+      ).toBe(true);
+    } finally {
+      await service.from("course_memberships").delete().eq("customer_id", kundeId);
+      if (fremderPlatz) await service.from("course_memberships").delete().eq("id", fremderPlatz);
+    }
+  });
+
+  test("BEFUND: Bestätigt der Betreiber eine neue Flatrate-Anfrage, entsteht ein Kursplatz", async () => {
+    // Dieser Fall dokumentiert einen Befund aus dem QA-Durchgang und schlägt
+    // bis zur Behebung fehl: Beim Bestätigen entsteht ein Abo ohne Kursbezug
+    // und kein Kursplatz — der Kunde zahlt und sitzt in keinem Kurs.
+    const service = dienst();
+    const { data: abo } = await service
+      .from("subscriptions")
+      .insert({
+        customer_id: kundeId,
+        course_id: null,
+        name: "E2E50 Bestätigungstest",
+        price: 145,
+        status: "active",
+      })
+      .select("id")
+      .single();
+    const { data: buchung } = await service
+      .from("course_bookings")
+      .insert({
+        customer_id: kundeId,
+        course_id: kursId,
+        type: "regular",
+        status: "confirmed",
+        desired_plan: "flatrate",
+        chosen_date: new Date().toISOString().slice(0, 10),
+        subscription_id: abo!.id,
+      })
+      .select("id")
+      .single();
+
+    try {
+      const { data: platz } = await service
+        .from("course_memberships")
+        .select("id")
+        .eq("subscription_id", abo!.id)
+        .is("ended_on", null);
+      expect(
+        platz ?? [],
+        "Zur bestätigten Flatrate-Buchung entstand kein Kursplatz — der Kunde ist in keinem Kurs"
+      ).toHaveLength(1);
+    } finally {
+      await service.from("course_bookings").delete().eq("id", buchung!.id);
+      await service.from("course_memberships").delete().eq("subscription_id", abo!.id);
+      await service.from("subscriptions").delete().eq("id", abo!.id);
+    }
+  });
 });
