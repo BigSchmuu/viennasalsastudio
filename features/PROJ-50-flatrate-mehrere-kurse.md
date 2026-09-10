@@ -1,6 +1,6 @@
 # PROJ-50: Flatrate für mehrere Kurse
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-09-10
 **Last Updated:** 2026-09-10
 **Priorität:** P0 (vor Inbetriebnahme)
@@ -620,3 +620,23 @@ Fehlschlag.
 `20260910150000_proj50_bestaetigung_erzeugt_kursplatz.sql`. Die Produktion hat
 die Lücke derzeit noch: Eine dort bestätigte Flatrate-Anfrage erzeugt keinen
 Kursplatz.
+
+---
+
+## Deployment (2026-09-10)
+
+Produktion: https://app.viennasalsastudio.at — Vercel-Deployment `glzsulcvd`,
+Buildzeit 1 min, Commits `6ed1528` bis `75cf801`.
+
+Sechs Migrationen hat der Betreiber eingespielt (`…100000` bis `…150000`),
+die doppelten Flatrate-Abos vorher bereinigt.
+
+**Kein neuer Volllauf vor dem Deployment:** Der ausgelieferte Code ist
+byte-identisch mit dem Stand, der 998 von 998 Fällen bestanden hat — seit
+`831a783` kamen nur Tests, eine Migration und Dokumentation dazu
+(`git diff --stat 831a783..HEAD -- src/ messages/` ist leer).
+
+Nach dem Deployment geprüft: öffentliche Routen 200, geschützte 307 auf
+`/login`, und drei Belege, dass wirklich der neue Stand läuft — das Augen-Icon
+auf `/login`, der Flatrate-Knopf im Katalog, die englische Herkunftsfrage unter
+`/en/kurse`.

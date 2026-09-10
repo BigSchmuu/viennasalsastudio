@@ -57,7 +57,7 @@ Vienna Salsa Studio App ist eine Kunden-Self-Service-Plattform für die Tanzschu
 | P1 | Empfehlungsprogramm (Kunden werben Kunden) | Planned |
 | P2 | Granulare Rollen, Dokumente & Verträge | Roadmap |
 | P1 | Eigener Bereich für Lehrer | Deployed |
-| P0 (vor Start) | Flatrate für mehrere Kurse | Planned |
+| P0 (vor Start) | Flatrate für mehrere Kurse | Deployed |
 | P2 | Pagination für Admin-Listen (DB-seitig filtern/sortieren) | Roadmap |
 
 ## Success Metrics
