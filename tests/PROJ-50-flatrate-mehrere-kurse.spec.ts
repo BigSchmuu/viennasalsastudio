@@ -799,10 +799,11 @@ test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
     }
   });
 
-  test("BEFUND: Bestätigt der Betreiber eine neue Flatrate-Anfrage, entsteht ein Kursplatz", async () => {
-    // Dieser Fall dokumentiert einen Befund aus dem QA-Durchgang und schlägt
-    // bis zur Behebung fehl: Beim Bestätigen entsteht ein Abo ohne Kursbezug
-    // und kein Kursplatz — der Kunde zahlt und sitzt in keinem Kurs.
+  test("AC: Bestätigt der Betreiber eine neue Flatrate-Anfrage, entsteht ein Kursplatz", async () => {
+    // BUG-1 aus dem QA-Durchgang vom 2026-09-10: Drei Wege in einen Kurs waren
+    // versorgt, der vierte nicht — ausgerechnet der, den jeder neue
+    // Flatrate-Kunde nimmt. Beim Bestätigen entstand ein Abo ohne Kursbezug
+    // und kein Kursplatz; der Kunde zahlte und saß in keinem Kurs.
     const service = dienst();
     const { data: abo } = await service
       .from("subscriptions")
@@ -815,19 +816,27 @@ test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
       })
       .select("id")
       .single();
+    // Der echte Weg ist zweistufig: Die Anfrage steht offen, und das Bestätigen
+    // setzt Status und Abo — ein UPDATE, kein INSERT. Genau so nachgebaut,
+    // sonst prüft der Fall den falschen Zweig.
     const { data: buchung } = await service
       .from("course_bookings")
       .insert({
         customer_id: kundeId,
         course_id: kursId,
         type: "regular",
-        status: "confirmed",
+        status: "open",
         desired_plan: "flatrate",
         chosen_date: new Date().toISOString().slice(0, 10),
-        subscription_id: abo!.id,
       })
       .select("id")
       .single();
+
+    const { error: bestaetigenFehler } = await service
+      .from("course_bookings")
+      .update({ status: "confirmed", subscription_id: abo!.id })
+      .eq("id", buchung!.id);
+    if (bestaetigenFehler) throw new Error(`Bestätigen fehlgeschlagen: ${bestaetigenFehler.message}`);
 
     try {
       const { data: platz } = await service

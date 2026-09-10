@@ -71,7 +71,7 @@
 
 | PROJ-49 | Eigener Bereich für Lehrer | Deployed | [PROJ-49](../features/PROJ-49-lehrer-bereich.md) | 2026-09-09 |
 
-| PROJ-50 | Flatrate für mehrere Kurse | In Review | [PROJ-50](../features/PROJ-50-flatrate-mehrere-kurse.md) | 2026-09-10 |
+| PROJ-50 | Flatrate für mehrere Kurse | Approved | [PROJ-50](../features/PROJ-50-flatrate-mehrere-kurse.md) | 2026-09-10 |
 
 <!-- Add features above this line -->
 

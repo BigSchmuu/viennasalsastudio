@@ -608,9 +608,15 @@ Bewusst benannt statt stillschweigend übergangen:
 
 | | |
 |---|---|
-| Akzeptanzkriterien | 21 / 25 belegt |
-| Fehler | 0 kritisch, **1 hoch**, 0 mittel, 0 niedrig |
+| Akzeptanzkriterien | 22 / 25 belegt |
+| Fehler | 0 kritisch, 1 hoch — **behoben**, 0 mittel, 0 niedrig |
 | Sicherheit | keine Befunde |
 
-**Produktionsreif: NEIN.** BUG-1 trifft den Normalweg jedes neuen
-Flatrate-Kunden und gehört vor dem Deployment behoben.
+**Produktionsreif: JA** (nach Behebung von BUG-1). Nachlauf: 21 Fälle × 2
+Browser grün, dazu PROJ-12 und PROJ-13 als Regression — zusammen 86 Fälle ohne
+Fehlschlag.
+
+**Vor dem Deployment einzuspielen:**
+`20260910150000_proj50_bestaetigung_erzeugt_kursplatz.sql`. Die Produktion hat
+die Lücke derzeit noch: Eine dort bestätigte Flatrate-Anfrage erzeugt keinen
+Kursplatz.
