@@ -463,6 +463,7 @@
     "earlier": "Your earlier courses",
     "earlierHint": "You were in these before your break. One click each — if there's still room.",
     "roleQuestion": "Which role do you dance in this course?",
-    "noRoom": "There's no room in that course right now."
+    "noRoom": "There's no room in that course right now.",
+    "removeFromFlatrate": "Remove from my flat rate"
   }
 }

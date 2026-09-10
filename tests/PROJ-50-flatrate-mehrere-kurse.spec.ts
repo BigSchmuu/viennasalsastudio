@@ -219,6 +219,53 @@ test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
 
     await expect(page.getByText("Du bist in diesem Kurs")).toBeVisible();
     await expect(page.getByRole("button", { name: "Zu meiner Flatrate hinzufügen" })).toHaveCount(0);
+    // Seit 2026-09-10 steht an derselben Stelle der Rückweg statt einer
+    // Sackgasse.
+    await expect(page.getByRole("button", { name: "Aus meiner Flatrate entfernen" })).toBeVisible();
+  });
+
+  test("AC: Der Rückweg steht dort, wo der Hinweg war — mit Rückfrage", async ({ page }) => {
+    const service = dienst();
+    const aboId = await flatrateAboId();
+    await service
+      .from("course_memberships")
+      .insert({ customer_id: kundeId, course_id: kursId, subscription_id: aboId });
+
+    await anmelden(page, FLATRATE_KUNDE);
+    await gehZu(page, `/kurse/${kursId}`);
+    await page.waitForTimeout(1500);
+
+    await page.getByRole("button", { name: "Aus meiner Flatrate entfernen" }).click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText("Kurs wirklich entfernen?")).toBeVisible();
+
+    // Erst abbrechen: Es darf nichts passieren.
+    await dialog.getByRole("button", { name: "Abbrechen" }).click();
+    await page.waitForTimeout(600);
+    const { data: nochDrin } = await service
+      .from("course_memberships")
+      .select("id")
+      .eq("customer_id", kundeId)
+      .eq("course_id", kursId)
+      .is("ended_on", null);
+    expect(nochDrin ?? [], "Abbrechen hat den Kurs trotzdem entfernt").toHaveLength(1);
+
+    // Dann wirklich.
+    await page.getByRole("button", { name: "Aus meiner Flatrate entfernen" }).click();
+    await page.waitForTimeout(600);
+    await page.getByRole("alertdialog").getByRole("button", { name: "Entfernen" }).click();
+    await page.waitForTimeout(2500);
+
+    const { data: danach } = await service
+      .from("course_memberships")
+      .select("id")
+      .eq("customer_id", kundeId)
+      .eq("course_id", kursId)
+      .is("ended_on", null);
+    expect(danach ?? [], "Der Kurs wurde nicht entfernt").toHaveLength(0);
+    // Und der Hinweg ist wieder da.
+    await expect(page.getByRole("button", { name: "Zu meiner Flatrate hinzufügen" })).toBeVisible();
   });
 
   test("AC7: Im Profil stehen die Kurse der Flatrate und lassen sich entfernen", async ({

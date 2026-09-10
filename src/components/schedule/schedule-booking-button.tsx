@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookingDialog, type BookingDialogCourse } from "@/components/booking/booking-dialog";
 import { Button } from "@/components/ui/button";
-import { FlatrateAddButton } from "@/components/booking/flatrate-add-button";
+import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
 import type { StudioPricing } from "@/lib/pricing";
 
 export function ScheduleBookingButton({
@@ -36,7 +36,7 @@ export function ScheduleBookingButton({
   if (isLoggedIn && course.hasFlatrate) {
     return (
       <>
-        <FlatrateAddButton
+        <FlatrateCourseButton
           kursId={course.id}
           fragtRolleAb={course.roleQueryEnabled}
           vorkenntnisseHinweis={course.prerequisiteNote}

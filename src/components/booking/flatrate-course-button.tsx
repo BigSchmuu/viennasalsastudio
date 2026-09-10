@@ -17,10 +17,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { danceRoleOptions, type DanceRole } from "@/lib/constants/booking";
-import { kursZuFlatrateHinzufuegen } from "@/lib/actions/flatrate";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { kursZuFlatrateHinzufuegen, kursAusFlatrateEntfernen } from "@/lib/actions/flatrate";
 
 /**
- * „Zu meiner Flatrate hinzufügen" (PROJ-50).
+ * Die Flatrate-Aktion für einen Kurs — hinzufügen oder entfernen (PROJ-50).
  *
  * Ersetzt für Flatrate-Kunden den Buchungsdialog. Der große Dialog fragt
  * Zahlweise, Startdatum, Gutschein, Studierendenpreis und AGB ab — davon ist
@@ -31,9 +41,16 @@ import { kursZuFlatrateHinzufuegen } from "@/lib/actions/flatrate";
  * Person: die Tanzrolle (jemand kann in Salsa Leader und in Bachata Follower
  * sein) und der Vorkenntnisse-Hinweis. Fragt der Kurs beides nicht ab, gibt es
  * gar keinen Dialog — dann ist der Klick der ganze Vorgang.
+ *
+ * Wer schon drin ist, sah zuerst nur den Satz „Du bist in diesem Kurs" — eine
+ * Sackgasse. Jetzt steht an derselben Stelle der Rückweg (Wunsch aus dem
+ * Betrieb, 2026-09-10). Anders als beim Hinzufügen wird dabei nachgefragt: Der
+ * Platz wird sofort frei und kann an die Warteliste gehen; ein Fehlgriff wäre
+ * nicht ohne Weiteres rückgängig zu machen.
  */
-export function FlatrateAddButton({
+export function FlatrateCourseButton({
   kursId,
+  istDrin = false,
   fragtRolleAb,
   vorkenntnisseHinweis,
   istVoll,
@@ -41,6 +58,8 @@ export function FlatrateAddButton({
   className,
 }: {
   kursId: string;
+  /** Sitzt der Kunde bereits in diesem Kurs? Dann führt der Knopf hinaus. */
+  istDrin?: boolean;
   fragtRolleAb: boolean;
   vorkenntnisseHinweis: string | null;
   istVoll: boolean;
@@ -51,6 +70,7 @@ export function FlatrateAddButton({
   const t = useTranslations("flatrate");
   const tb = useTranslations("booking");
   const [offen, setOffen] = useState(false);
+  const [entfernenOffen, setEntfernenOffen] = useState(false);
   const [rolle, setRolle] = useState<DanceRole | "">("");
   const [bestaetigt, setBestaetigt] = useState(false);
   const [laeuft, starte] = useTransition();
@@ -82,6 +102,18 @@ export function FlatrateAddButton({
     });
   }
 
+  function entfernen() {
+    starte(async () => {
+      const ergebnis = await kursAusFlatrateEntfernen(kursId);
+      setEntfernenOffen(false);
+      if ("ok" in ergebnis) {
+        toast.success(t("removed"));
+        return;
+      }
+      toast.error("error" in ergebnis ? ergebnis.error : t("removed"));
+    });
+  }
+
   function klick() {
     if (istVoll) {
       onWarteliste?.();
@@ -92,6 +124,36 @@ export function FlatrateAddButton({
       return;
     }
     hinzufuegen("", false);
+  }
+
+  if (istDrin) {
+    return (
+      <>
+        <Button
+          variant="outline"
+          className={className ?? "rounded-full"}
+          onClick={() => setEntfernenOffen(true)}
+          disabled={laeuft}
+        >
+          {t("removeFromFlatrate")}
+        </Button>
+
+        <AlertDialog open={entfernenOffen} onOpenChange={setEntfernenOffen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("removeConfirmTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("removeConfirmBody")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={laeuft}>{t("cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={entfernen} disabled={laeuft}>
+                {t("remove")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    );
   }
 
   return (

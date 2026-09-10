@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookingDialog } from "@/components/booking/booking-dialog";
-import { FlatrateAddButton } from "@/components/booking/flatrate-add-button";
+import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import type { StudioPricing } from "@/lib/pricing";
@@ -55,15 +55,18 @@ export function CourseDetailBooking({
   // geklärt. Er bekommt den kurzen Weg; alle anderen den bisherigen.
   const mitFlatrate = isLoggedIn && course.hasFlatrate;
 
-  if (mitFlatrate && course.hasActiveSubscription) {
-    return <p className="text-sm text-muted-foreground">{t("alreadyIn")}</p>;
-  }
-
   if (mitFlatrate) {
     return (
       <>
-        <FlatrateAddButton
+        {/* Wer schon drin ist, sah hier nur den Satz „Du bist in diesem Kurs".
+            Der Knopf bleibt jetzt stehen und führt hinaus — der Rückweg gehört
+            dorthin, wo der Hinweg war. */}
+        {course.hasActiveSubscription && (
+          <p className="mb-2 text-sm text-muted-foreground">{t("alreadyIn")}</p>
+        )}
+        <FlatrateCourseButton
           kursId={course.id}
+          istDrin={course.hasActiveSubscription}
           fragtRolleAb={course.roleQueryEnabled}
           vorkenntnisseHinweis={course.prerequisiteNote}
           istVoll={course.isFull}

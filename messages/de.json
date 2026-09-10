@@ -463,6 +463,7 @@
     "earlier": "Deine früheren Kurse",
     "earlierHint": "Vor deiner Pause warst du hier dabei. Ein Klick genügt — sofern noch Platz ist.",
     "roleQuestion": "Als was tanzt du in diesem Kurs?",
-    "noRoom": "In diesem Kurs ist gerade kein Platz frei."
+    "noRoom": "In diesem Kurs ist gerade kein Platz frei.",
+    "removeFromFlatrate": "Aus meiner Flatrate entfernen"
   }
 }
