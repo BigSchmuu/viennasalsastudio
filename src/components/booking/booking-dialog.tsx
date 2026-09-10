@@ -358,7 +358,7 @@ export function BookingDialog({
                         <div key={option.value} className="flex items-center gap-2">
                           <RadioGroupItem value={option.value} id={`role-${option.value}`} />
                           <Label htmlFor={`role-${option.value}`} className="font-normal">
-                            {option.label}
+                            {t(`danceRoles.${option.value}`)}
                           </Label>
                         </div>
                       ))}
@@ -494,9 +494,12 @@ export function BookingDialog({
                 <SelectValue placeholder={t("choose")} />
               </SelectTrigger>
               <SelectContent>
+                {/* Die Beschriftungen kommen aus den Sprachdateien, nicht aus
+                    den Konstanten: Dort standen sie fest auf Deutsch und
+                    blieben es auch auf der englischen Seite. */}
                 {referralSourceOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {t(`referralSource.${option.value}`)}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -43,6 +43,8 @@ export type MySubscriptionRow = {
   name: string;
   courseId: string | null;
   courseName: string | null;
+  /** Leader/Follower/Beide — nur wo der Kurs danach fragt. */
+  danceRole: string | null;
   price: number | null;
   status: string;
   pendingStatus: string | null;
@@ -73,6 +75,7 @@ export function MySubscriptionsSection({
   courses: SubscriptionCourseOption[];
 }) {
   const t = useTranslations("profile");
+  const tb = useTranslations("booking");
   // PROJ-9: Kündigen ohne Rückfrage stand direkt neben „Pausieren" — ein
   // Fehlgriff war einen Klick entfernt und die Folge nicht offensichtlich.
   const [kuendigungsZiel, setKuendigungsZiel] = useState<MySubscriptionRow | null>(null);
@@ -174,12 +177,17 @@ export function MySubscriptionsSection({
                 {subscription.courseName && `${subscription.courseName} · `}
                 {subscription.price !== null && formatPrice(subscription.price)}
               </p>
+              {/* Wer als Leader oder Follower angemeldet ist, soll es
+                  nachlesen können — die Wahl liegt beim Buchen Wochen zurück. */}
+              {subscription.danceRole && (
+                <Badge variant="secondary">{tb(`danceRoles.${subscription.danceRole}`)}</Badge>
+              )}
               {hint && <p className="text-sm font-medium text-amber-600">{hint}</p>}
               <div className="flex flex-wrap gap-2 pt-1">
                 {canPauseOrCancel && (
                   <>
                     <Button variant="outline" size="sm" disabled={isLoading} onClick={() => handlePause(subscription.id)}>
-                      Pausieren
+                      {t("pauseSub")}
                     </Button>
                     <Button
                       variant="outline"
@@ -187,7 +195,7 @@ export function MySubscriptionsSection({
                       disabled={isLoading}
                       onClick={() => setKuendigungsZiel(subscription)}
                     >
-                      Kündigen
+                      {t("cancelSub")}
                     </Button>
                   </>
                 )}

@@ -132,7 +132,7 @@
     "studentPrice": "Ich bin Student(in)",
     "dropinOnSite": "{price} — bar/SumUp vor Ort",
     "prerequisiteConfirm": "Ich bestätige, dass ich die genannte Voraussetzung erfülle.",
-    "referralQuestion": "Wie haben Sie von uns erfahren?",
+    "referralQuestion": "Wie hast du von uns erfahren?",
     "submit": "Rechtlich verbindlich buchen",
     "submitWaitlist": "Auf Warteliste eintragen",
     "submitting": "Wird gesendet…",
@@ -164,7 +164,20 @@
     "blockedMandat": "Dafür braucht es zuerst ein SEPA-Mandat in deinem Profil.",
     "blockedBereitsAngefragt": "Für diesen Kurs liegt schon eine offene Anfrage von dir vor.",
     "blockedBereitsEingeschrieben": "Du bist für diesen Kurs bereits eingeschrieben.",
-    "blockedWarteliste": "Du stehst für diesen Kurs schon auf der Warteliste."
+    "blockedWarteliste": "Du stehst für diesen Kurs schon auf der Warteliste.",
+    "referralSource": {
+      "google": "Google / Suchmaschine",
+      "social_media": "Social Media",
+      "empfehlung": "Empfehlung",
+      "website": "Website",
+      "werbung": "Werbung",
+      "sonstiges": "Sonstiges"
+    },
+    "danceRoles": {
+      "leader": "Leader",
+      "follower": "Follower",
+      "both": "Beide"
+    }
   },
   "profile": {
     "heading": "Mein Profil",
@@ -238,7 +251,9 @@
     "cancelSubConfirmTitle": "Abo wirklich kündigen?",
     "cancelSubConfirmBody": "Dein Abo läuft bis zum Ende des aktuellen Zyklus weiter und endet dann. Bis dahin kannst du die Kündigung hier wieder rückgängig machen.",
     "cancelSubConfirmAction": "Ja, kündigen",
-    "keep": "Abo behalten"
+    "keep": "Abo behalten",
+    "pauseSub": "Pausieren",
+    "cancelSub": "Kündigen"
   },
   "notifications": {
     "event": "Ereignis",

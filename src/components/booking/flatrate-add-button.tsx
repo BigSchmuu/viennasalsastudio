@@ -116,7 +116,7 @@ export function FlatrateAddButton({
                     <div key={option.value} className="flex items-center gap-2">
                       <RadioGroupItem value={option.value} id={`fr-role-${option.value}`} />
                       <Label htmlFor={`fr-role-${option.value}`} className="font-normal">
-                        {option.label}
+                        {tb(`danceRoles.${option.value}`)}
                       </Label>
                     </div>
                   ))}

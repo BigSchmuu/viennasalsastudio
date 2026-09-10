@@ -437,4 +437,90 @@ test.describe("Startseite: das genannte Angebot stimmt", () => {
     }
     await expect(page.getByText("Salsa and Bachata in Vienna")).toBeVisible();
   });
+
+  test("Die Frage nach der Herkunft steht auf der englischen Seite auf Englisch", async ({
+    page,
+  }) => {
+    // Die Auswahl stand in den Konstanten fest auf Deutsch und blieb es auch
+    // hier — gemeldet am 2026-09-10.
+    //
+    // Die Frage erscheint nur beim ersten Mal. Ohne dieses Zurücksetzen
+    // übersprang der Test sich selbst und bewies nichts.
+    const kunde = await customerId();
+    await service.from("profiles").update({ referral_source: null }).eq("id", kunde);
+
+    await login(page, "/en/login");
+    await page.goto("/en/kurse");
+    await page.waitForTimeout(1800);
+    const more = page.getByRole("button", { name: /Load more/ });
+    for (let i = 0; i < 10 && (await more.count()) > 0; i++) {
+      await more.click();
+      await page.waitForTimeout(400);
+    }
+    await page
+      .locator(".rounded-lg.border.bg-card")
+      .filter({ has: page.getByText(COURSE, { exact: true }) })
+      .getByRole("button", { name: "Book now" })
+      .click();
+    await page.waitForTimeout(1000);
+    await page.getByRole("tab", { name: "Enrol" }).click();
+    await page.waitForTimeout(700);
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("How did you hear about us?")).toBeVisible();
+
+    await dialog.getByRole("combobox").last().click();
+    await page.waitForTimeout(400);
+    await expect(page.getByRole("option", { name: "Word of mouth" })).toBeVisible();
+    // Vorher stand hier „Empfehlung" — mitten auf der englischen Seite.
+    await expect(page.getByRole("option", { name: "Empfehlung" })).toHaveCount(0);
+  });
+
+  test("Pausieren und Kündigen heißen auf der englischen Seite Englisch", async ({ page }) => {
+    // Ohne Abo gäbe es die Knöpfe nicht — der Test legt sich eines an und
+    // räumt es wieder weg. Kursgebunden und an einem Kurs, den diese Suite
+    // sonst nicht anfasst: Ein Flatrate-Abo würde im Katalog aus „Book now"
+    // ein „Add to my flat rate" machen und die anderen Fälle hier stören.
+    const kunde = await customerId();
+    const { data: kurs } = await service
+      .from("courses")
+      .select("id")
+      .eq("name", "Bodymovement")
+      .single();
+    if (!kurs) throw new Error("PROJ-43: Fixture-Kurs Bodymovement fehlt");
+
+    const { data: abo, error } = await service
+      .from("subscriptions")
+      .insert({
+        customer_id: kunde,
+        course_id: kurs.id,
+        name: "E2E43 Sprachtest Abo",
+        price: 60,
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(`PROJ-43: Abo anlegen fehlgeschlagen: ${error.message}`);
+
+    try {
+      await login(page, "/en/login");
+      await page.goto("/en/profil");
+      await page.waitForTimeout(1800);
+
+      // Die Abschnitte liegen hinter einem Akkordeon.
+      await page.getByRole("button", { name: "My membership" }).click();
+      await page.waitForTimeout(800);
+
+      // Auf die eigene Karte eingegrenzt: Der Kunde kann mehrere Abos haben,
+      // und dann steht jeder Knopf mehrfach auf der Seite.
+      const karte = page.locator("li", { hasText: "E2E43 Sprachtest Abo" });
+      await expect(karte.getByRole("button", { name: "Cancel subscription" })).toBeVisible();
+      await expect(karte.getByRole("button", { name: "Pause" })).toBeVisible();
+      // Vorher standen hier die deutschen Wörter, auch auf der englischen Seite.
+      await expect(page.getByRole("button", { name: "Pausieren" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Kündigen" })).toHaveCount(0);
+    } finally {
+      await service.from("subscriptions").delete().eq("id", abo!.id);
+    }
+  });
 });

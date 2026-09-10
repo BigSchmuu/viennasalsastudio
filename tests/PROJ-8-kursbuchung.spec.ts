@@ -488,4 +488,68 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await expect(dialog.getByText("Bitte zuerst einen Termin wählen.")).toHaveCount(0);
   });
 
+  test("Eine noch nicht angenommene Anfrage lässt sich jederzeit zurückziehen", async ({ page }) => {
+    // Die Stornofrist schützt einen zugesagten Platz. Bei einer offenen
+    // Anfrage ist nichts zugesagt — trotzdem war sie ab einem Tag vor dem
+    // Starttermin nicht mehr loszuwerden. Gemeldet am 2026-09-10.
+    const { data: kunde } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E8 Customer")
+      .maybeSingle();
+    const kundenId =
+      kunde?.id ??
+      (await service.auth.admin.listUsers({ perPage: 200 })).data.users.find(
+        (u) => u.email === CUSTOMER.email
+      )!.id;
+
+    const { data: kurs } = await service
+      .from("courses")
+      .select("id")
+      .eq("name", COURSE_NAME)
+      .single();
+
+    // Starttermin heute: damit ist die Frist von einem Tag sicher gerissen.
+    const heute = new Date().toISOString().slice(0, 10);
+    await service
+      .from("course_bookings")
+      .delete()
+      .eq("customer_id", kundenId)
+      .eq("course_id", kurs!.id)
+      .eq("status", "open");
+    const { data: anfrage, error } = await service
+      .from("course_bookings")
+      .insert({
+        customer_id: kundenId,
+        course_id: kurs!.id,
+        type: "regular",
+        status: "open",
+        desired_plan: "single_course",
+        chosen_date: heute,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(`Anfrage anlegen fehlgeschlagen: ${error.message}`);
+
+    try {
+      await login(page, CUSTOMER);
+      await gehZu(page, "/profil");
+      await page.waitForTimeout(1800);
+      await page.getByRole("button", { name: "Meine Buchungen" }).click();
+      await page.waitForTimeout(800);
+
+      const karte = page.locator("li", { hasText: COURSE_NAME }).filter({ hasText: "Offen" }).first();
+      await karte.getByRole("button", { name: "Stornieren" }).click();
+      await page.waitForTimeout(2000);
+
+      const { data: danach } = await service
+        .from("course_bookings")
+        .select("status")
+        .eq("id", anfrage!.id)
+        .single();
+      expect(danach!.status, "Die offene Anfrage ließ sich nicht zurückziehen").toBe("cancelled");
+    } finally {
+      await service.from("course_bookings").delete().eq("id", anfrage!.id);
+    }
+  });
 });

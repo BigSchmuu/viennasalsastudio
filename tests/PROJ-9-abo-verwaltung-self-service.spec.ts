@@ -350,4 +350,70 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
     await expect(page.getByText("E2E9 Due Abo")).toHaveCount(0);
     await expect(page.getByText("E2E8 Kunde Heute")).toHaveCount(0);
   });
+
+  test("Die Tanzrolle steht beim eigenen Kurs", async ({ page }) => {
+    // Die Wahl liegt beim Buchen Wochen zurück; wer sie nachlesen will, soll
+    // sie dort finden, wo sein Kurs steht. Gemeldet am 2026-09-10.
+    const service = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+
+    const { data: kunde } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E8 Customer Nomandate")
+      .maybeSingle();
+    const kundenId =
+      kunde?.id ??
+      (await service.auth.admin.listUsers({ perPage: 200 })).data.users.find(
+        (u) => u.email === CUSTOMER_MULTI.email
+      )!.id;
+
+    const { data: kurs } = await service
+      .from("courses")
+      .select("id")
+      .eq("name", "E2E9 Kursbezug Alpha")
+      .single();
+
+    const { data: abo, error } = await service
+      .from("subscriptions")
+      .insert({
+        customer_id: kundenId,
+        course_id: kurs!.id,
+        name: "E2E9 Rollenanzeige Abo",
+        price: 50,
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(`Abo anlegen fehlgeschlagen: ${error.message}`);
+
+    // Die Rolle steht an der Buchung, die das Abo erzeugt hat.
+    const { error: buchungFehler } = await service.from("course_bookings").insert({
+      customer_id: kundenId,
+      course_id: kurs!.id,
+      type: "regular",
+      status: "confirmed",
+      desired_plan: "single_course",
+      chosen_date: new Date().toISOString().slice(0, 10),
+      dance_role: "follower",
+      subscription_id: abo!.id,
+    });
+    if (buchungFehler) throw new Error(`Buchung anlegen fehlgeschlagen: ${buchungFehler.message}`);
+
+    try {
+      await login(page, CUSTOMER_MULTI);
+      await page.waitForTimeout(600);
+      await openAboSection(page);
+
+      const karte = page.locator("li", { hasText: "E2E9 Rollenanzeige Abo" });
+      await expect(karte).toBeVisible();
+      await expect(karte.getByText("Follower")).toBeVisible();
+    } finally {
+      await service.from("course_bookings").delete().eq("subscription_id", abo!.id);
+      await service.from("subscriptions").delete().eq("id", abo!.id);
+    }
+  });
 });

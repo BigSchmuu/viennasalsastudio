@@ -287,7 +287,14 @@ export async function cancelBooking(bookingId: string): Promise<ActionResult> {
   if (booking.status === "cancelled" || booking.status === "rejected") {
     return { error: "Diese Buchung ist bereits storniert oder abgelehnt." };
   }
-  if (daysUntil(booking.chosen_date) < BOOKING_CANCELLATION_LEAD_DAYS) {
+  // Die Frist gilt für zugesagte Buchungen — sie schützt einen Platz, der für
+  // jemanden freigehalten wird. Eine offene Anfrage hat noch niemand
+  // angenommen; wer sie zurückziehen will, soll das jederzeit können. Der
+  // Bildschirm hält sich an dieselbe Regel (profil/page.tsx).
+  if (
+    booking.status !== "open" &&
+    daysUntil(booking.chosen_date) < BOOKING_CANCELLATION_LEAD_DAYS
+  ) {
     return { error: "Die Frist zum Stornieren ist abgelaufen." };
   }
 

@@ -16,7 +16,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { danceRoleLabel } from "@/lib/constants/booking";
 import { kursAusFlatrateEntfernen, kursZuFlatrateHinzufuegen } from "@/lib/actions/flatrate";
 
 export type FlatrateKurs = {
@@ -47,6 +46,7 @@ export function FlatrateCourses({
   frueher: FlatrateKurs[];
 }) {
   const t = useTranslations("flatrate");
+  const tb = useTranslations("booking");
   const [zuEntfernen, setZuEntfernen] = useState<FlatrateKurs | null>(null);
   const [laeuft, starte] = useTransition();
 
@@ -102,7 +102,7 @@ export function FlatrateCourses({
                   </Link>
                   <p className="text-sm text-muted-foreground">
                     {k.termin ?? "—"}
-                    {k.tanzrolle ? ` · ${danceRoleLabel(k.tanzrolle)}` : ""}
+                    {k.tanzrolle ? ` · ${tb(`danceRoles.${k.tanzrolle}`)}` : ""}
                   </p>
                 </div>
                 <Button
@@ -137,7 +137,7 @@ export function FlatrateCourses({
                   {k.name}
                   {k.tanzrolle && (
                     <Badge variant="secondary" className="ml-2">
-                      {danceRoleLabel(k.tanzrolle)}
+                      {tb(`danceRoles.${k.tanzrolle}`)}
                     </Badge>
                   )}
                 </Button>

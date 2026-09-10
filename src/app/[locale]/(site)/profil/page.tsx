@@ -72,7 +72,7 @@ export default async function ProfilePage() {
     supabase
       .from("course_bookings")
       .select(
-        "id, type, status, chosen_date, desired_plan, price, courses(name, course_schedule(weekday, course_schedule_pauses(pause_date)))"
+        "id, type, status, chosen_date, desired_plan, price, dance_role, subscription_id, courses(name, course_schedule(weekday, course_schedule_pauses(pause_date)))"
       )
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false }),
@@ -148,17 +148,31 @@ export default async function ProfilePage() {
       chosenDate: b.chosen_date,
       desiredPlan: b.desired_plan,
       price: b.price,
-      canCancel: isActive && withinLeadTime,
+      // Eine noch offene Anfrage lässt sich immer zurückziehen: Die Frist
+      // schützt einen zugesagten Platz, und zugesagt ist hier nichts. Vorher
+      // konnte ein Kunde eine Anfrage, deren Starttermin näher als einen Tag
+      // war, nicht mehr loswerden — obwohl sie niemand angenommen hatte.
+      canCancel: isActive && (b.status === "open" || withinLeadTime),
       canRebook: isActive && withinLeadTime && b.type !== "regular",
       availableDates,
     };
   });
+
+  // Die Tanzrolle steht an der Buchung, die das Abo erzeugt hat. Für
+  // Flatrate-Kunden steht sie am Kursplatz — die zeigt `FlatrateCourses`
+  // ohnehin schon an.
+  const rolleJeAbo = new Map(
+    (bookingRows ?? [])
+      .filter((b) => b.subscription_id && b.dance_role)
+      .map((b) => [b.subscription_id as string, b.dance_role as string])
+  );
 
   const subscriptions: MySubscriptionRow[] = (subscriptionRows ?? []).map((s) => ({
     id: s.id,
     name: s.name ?? "",
     courseId: s.course_id,
     courseName: s.courses?.name ?? null,
+    danceRole: rolleJeAbo.get(s.id) ?? null,
     price: s.price,
     status: s.status,
     pendingStatus: s.pending_status,
