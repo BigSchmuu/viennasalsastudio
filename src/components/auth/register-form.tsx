@@ -8,6 +8,7 @@ import { registerSchema, type RegisterInput } from "@/lib/validations/auth";
 import { signUp } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTranslations } from "next-intl";
 import {
@@ -105,7 +106,7 @@ export function RegisterForm() {
             <FormItem>
               <FormLabel>{t("password")}</FormLabel>
               <FormControl>
-                <Input type="password" autoComplete="new-password" {...field} />
+                <PasswordInput autoComplete="new-password" {...field} />
               </FormControl>
               <FormDescription>{t("passwordHint")}</FormDescription>
               <FormMessage />

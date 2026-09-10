@@ -234,7 +234,11 @@
     "invoiceCancelled": "Aufgehoben",
     "documentStorno": "Storno",
     "documentCredit": "Gutschrift",
-    "documentFor": "zu {number}"
+    "documentFor": "zu {number}",
+    "cancelSubConfirmTitle": "Abo wirklich kündigen?",
+    "cancelSubConfirmBody": "Dein Abo läuft bis zum Ende des aktuellen Zyklus weiter und endet dann. Bis dahin kannst du die Kündigung hier wieder rückgängig machen.",
+    "cancelSubConfirmAction": "Ja, kündigen",
+    "keep": "Abo behalten"
   },
   "notifications": {
     "event": "Ereignis",
@@ -308,7 +312,9 @@
     "resetLinkInvalid": "Dieser Link ist ungültig oder abgelaufen.",
     "requestNewLink": "Neuen Link anfordern",
     "weakPassword": "Dieses Passwort taucht in bekannten Datenlecks auf und ist damit unsicher. Bitte wähle ein anderes.",
-    "passwordHint": "Mindestens 8 Zeichen mit Groß- und Kleinbuchstaben und mindestens einer Ziffer"
+    "passwordHint": "Mindestens 8 Zeichen mit Groß- und Kleinbuchstaben und mindestens einer Ziffer",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen"
   },
   "legal": {
     "termsTitle": "Allgemeine Geschäftsbedingungen",

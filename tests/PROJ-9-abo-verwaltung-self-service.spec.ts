@@ -88,14 +88,40 @@ test.beforeAll(async () => {
     .maybeSingle();
   if (!bodymovement) throw new Error("PROJ-9 Fixture-Kurs fehlt: Bodymovement");
 
+  // Eigene Kurse, selbst angelegt.
+  //
+  // Beim ersten Anlauf hingen diese Abos an Kursen fremder Suiten — darunter
+  // einer, dessen Name selbst das Ergebnis eines Testlaufs ist („… erneut
+  // bearbeitet"). Der war beim nächsten Lauf weg, und PROJ-9 fiel auf dem
+  // Fixture-Aufbau um. Ein Kurs, den diese Suite braucht, gehört ihr auch.
+  //
+  // Ohne Wochentermin und ohne Level: Sie sollen im Stundenplan nicht
+  // auftauchen und die Level-Filter im Katalog nicht verschieben.
+  //
+  // Und mit neutralen Namen: Der erste Versuch hieß „E2E9 Pausiert Kurs" —
+  // der Name stand damit in derselben Karte wie der Status „Pausiert", und
+  // die Statusprüfung fand plötzlich zwei Treffer.
   async function kurs(name: string) {
-    const { data } = await service.from("courses").select("id").eq("name", name).maybeSingle();
-    if (!data) throw new Error(`PROJ-9 Fixture-Kurs fehlt: ${name}`);
+    const { data: vorhanden } = await service
+      .from("courses")
+      .select("id")
+      .eq("name", name)
+      .maybeSingle();
+    if (vorhanden) return vorhanden;
+
+    const { data: raum } = await service.from("rooms").select("id").limit(1).single();
+    if (!raum) throw new Error("PROJ-9: Kein Raum vorhanden");
+    const { data, error } = await service
+      .from("courses")
+      .insert({ name, room_id: raum.id, role_query_enabled: false })
+      .select("id")
+      .single();
+    if (error || !data) throw new Error(`PROJ-9 Fixture-Kurs (${name}): ${error?.message}`);
     return data;
   }
-  const multiKursA = await kurs("E2E Salsa Kurs (erneut bearbeitet)");
-  const multiKursB = await kurs("E2E23 Kurs ohne Videosatz");
-  const pausiertKurs = await kurs("E2E5 Kizomba Beginner");
+  const multiKursA = await kurs("E2E9 Kursbezug Alpha");
+  const multiKursB = await kurs("E2E9 Kursbezug Beta");
+  const pausiertKurs = await kurs("E2E9 Kursbezug Gamma");
 
   const clean = { pending_status: null, pending_effective_date: null, cancelled_at: null };
 
@@ -182,9 +208,35 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
     await openAboSection(page);
     const card = page.locator("li", { hasText: "E2E9 Testabo" });
     await card.getByRole("button", { name: "Kündigen" }).click();
+    // Seit 2026-09-10 fragt die App nach — der Knopf lag direkt neben
+    // „Pausieren", und ein Fehlgriff war einen Klick entfernt.
+    await page.getByRole("alertdialog").getByRole("button", { name: "Ja, kündigen" }).click();
     await page.waitForTimeout(800);
     await expect(card.getByText("Aktiv")).toBeVisible();
     await expect(card.getByText(/Wird gekündigt ab \d{2}\.\d{2}\.\d{4}/)).toBeVisible();
+  });
+
+  test("Kündigen fragt nach; wer abbricht, behält sein Abo unverändert", async ({ page }) => {
+    // Bewusst ein anderes Abo als AC2: Das dortige ist zu diesem Zeitpunkt
+    // bereits gekündigt, und dann gibt es keinen Kündigen-Knopf mehr. Dieser
+    // Fall bricht ab und hinterlässt nichts — er darf deshalb an einem Abo
+    // arbeiten, das andere Fälle danach unverändert vorfinden müssen.
+    await login(page, CUSTOMER_FLATRATE);
+    await page.waitForTimeout(600);
+    await openAboSection(page);
+    const card = page.locator("li", { hasText: "E2E7 Solo Abo" });
+
+    await card.getByRole("button", { name: "Kündigen" }).click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText("Abo wirklich kündigen?")).toBeVisible();
+
+    await dialog.getByRole("button", { name: "Abo behalten" }).click();
+    await page.waitForTimeout(800);
+
+    // Nichts passiert: keine Kündigung vorgemerkt, der Knopf steht weiterhin da.
+    await expect(card.getByText(/Wird gekündigt ab/)).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Kündigen" })).toBeVisible();
   });
 
   test("AC6: Umbuchen wechselt den Kurs sofort, auch bei laufender geplanter Kündigung; Preis bleibt unverändert", async ({

@@ -234,7 +234,11 @@
     "invoiceCancelled": "Cancelled",
     "documentStorno": "Cancellation",
     "documentCredit": "Credit note",
-    "documentFor": "for {number}"
+    "documentFor": "for {number}",
+    "cancelSubConfirmTitle": "Really cancel your subscription?",
+    "cancelSubConfirmBody": "Your subscription runs until the end of the current cycle and then ends. Until then you can undo the cancellation right here.",
+    "cancelSubConfirmAction": "Yes, cancel it",
+    "keep": "Keep subscription"
   },
   "notifications": {
     "event": "Event",
@@ -308,7 +312,9 @@
     "resetLinkInvalid": "This link is invalid or has expired.",
     "requestNewLink": "Request a new link",
     "weakPassword": "This password appears in known data breaches and is therefore unsafe. Please choose a different one.",
-    "passwordHint": "At least 8 characters, including upper and lower case letters and at least one digit"
+    "passwordHint": "At least 8 characters, including upper and lower case letters and at least one digit",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "legal": {
     "termsTitle": "Terms and Conditions",

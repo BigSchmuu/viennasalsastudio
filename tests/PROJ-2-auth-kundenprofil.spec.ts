@@ -328,4 +328,41 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.goto("/profil");
     await expect(page).toHaveURL(/\/login\?redirect=(%2F|\/)profil/);
   });
+
+  test("Das Auge am Passwortfeld zeigt die Eingabe und verbirgt sie wieder", async ({ page }) => {
+    await gehZu(page, "/login");
+    await page.waitForTimeout(1200);
+
+    const feld = page.getByLabel("Passwort");
+    await feld.fill("GeheimesPasswort123!");
+
+    // Verborgen ist der Ausgangszustand — sonst stünde das Passwort für
+    // jeden im Raum lesbar auf dem Schirm.
+    await expect(feld).toHaveAttribute("type", "password");
+
+    const auge = page.getByRole("button", { name: "Passwort anzeigen" });
+    await expect(auge).toBeVisible();
+    await auge.click();
+    await expect(feld).toHaveAttribute("type", "text");
+    // Der Inhalt bleibt unverändert; umgeschaltet wird nur die Anzeige.
+    await expect(feld).toHaveValue("GeheimesPasswort123!");
+
+    await page.getByRole("button", { name: "Passwort verbergen" }).click();
+    await expect(feld).toHaveAttribute("type", "password");
+  });
+
+  test("Der Klick aufs Auge schickt das Formular nicht ab", async ({ page }) => {
+    // Ohne type=\"button\" löst ein Knopf im Formular das Absenden aus — der
+    // Blick aufs eigene Passwort wäre dann ein Anmeldeversuch.
+    await gehZu(page, "/login");
+    await page.waitForTimeout(1200);
+    await page.getByLabel("E-Mail").fill("niemand@viennasalsastudio.test");
+    await page.getByLabel("Passwort").fill("Irgendwas123!");
+
+    await page.getByRole("button", { name: "Passwort anzeigen" }).click();
+    await page.waitForTimeout(1500);
+
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByText(/E-Mail oder Passwort falsch/)).toHaveCount(0);
+  });
 });

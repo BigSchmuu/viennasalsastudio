@@ -21,6 +21,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -63,6 +73,9 @@ export function MySubscriptionsSection({
   courses: SubscriptionCourseOption[];
 }) {
   const t = useTranslations("profile");
+  // PROJ-9: Kündigen ohne Rückfrage stand direkt neben „Pausieren" — ein
+  // Fehlgriff war einen Klick entfernt und die Folge nicht offensichtlich.
+  const [kuendigungsZiel, setKuendigungsZiel] = useState<MySubscriptionRow | null>(null);
   const [subscriptions, setSubscriptions] = useState(initialSubscriptions);
   const [error, setError] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -168,7 +181,12 @@ export function MySubscriptionsSection({
                     <Button variant="outline" size="sm" disabled={isLoading} onClick={() => handlePause(subscription.id)}>
                       Pausieren
                     </Button>
-                    <Button variant="outline" size="sm" disabled={isLoading} onClick={() => handleCancel(subscription.id)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isLoading}
+                      onClick={() => setKuendigungsZiel(subscription)}
+                    >
                       Kündigen
                     </Button>
                   </>
@@ -231,6 +249,36 @@ export function MySubscriptionsSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Kündigen ist die einzige Aktion hier, die man nicht sofort bemerkt und
+          die Geld kostet, wenn sie ungewollt passiert. Der Text sagt deshalb
+          beides: was jetzt geschieht — und dass es umkehrbar ist. */}
+      <AlertDialog
+        open={kuendigungsZiel !== null}
+        onOpenChange={(offen) => !offen && setKuendigungsZiel(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("cancelSubConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("cancelSubConfirmBody")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loadingId === kuendigungsZiel?.id}>
+              {t("keep")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={loadingId === kuendigungsZiel?.id}
+              onClick={() => {
+                const ziel = kuendigungsZiel;
+                setKuendigungsZiel(null);
+                if (ziel) handleCancel(ziel.id);
+              }}
+            >
+              {t("cancelSubConfirmAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
