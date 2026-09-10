@@ -15,6 +15,16 @@ const LEHRER = "e2e13-lehrer-a@viennasalsastudio.test";
 const LEHRER_OHNE_KURS = "e2e13-lehrer-c@viennasalsastudio.test";
 const KUNDE = "e2e8-customer@viennasalsastudio.test";
 const KURS_ID = "6032ce07-b19c-445b-9f42-f45921df557e"; // "E2E13 Kurs", Donnerstag
+
+/**
+ * Woran man den Lehrer-Bereich erkennt.
+ *
+ * Nicht an der Überschrift „Deine nächsten Kurse": Seit dem Kunden-Dashboard
+ * einen ganzen Kurstag zeigt, steht dort im Plural derselbe Satz. Beide
+ * erscheinen nie gemeinsam — für den Nutzer gibt es also keine Verwechslung,
+ * für einen Test schon. Der Hinweistext darunter gehört dagegen nur hierher.
+ */
+const LEHRER_MERKMAL = "Die nächsten sieben Tage.";
 const KURS_OHNE_TERMIN = "502077db-5c24-416f-b126-0838e580bd03"; // derselbe Lehrer, kein Wochentermin
 const ADMIN = "e2e13-admin@viennasalsastudio.test";
 const ADMIN_OHNE_KURS = "e2e22-admin@viennasalsastudio.test";
@@ -40,7 +50,7 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
     await gehZu(page, "/mein-bereich");
     await page.waitForTimeout(1200);
 
-    await expect(page.getByText("Deine nächsten Kurse")).toBeVisible();
+    await expect(page.getByText(LEHRER_MERKMAL)).toBeVisible();
     // Und ausdrücklich nicht die Kundenansicht.
     await expect(page.getByText("Nächster Kurs", { exact: true })).toHaveCount(0);
   });
@@ -52,7 +62,7 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
     await gehZu(page, "/mein-bereich");
     await page.waitForTimeout(1200);
 
-    await expect(page.getByText("Deine nächsten Kurse")).toHaveCount(0);
+    await expect(page.getByText(LEHRER_MERKMAL)).toHaveCount(0);
   });
 
   test("AC5: Die nächsten Termine stehen mit Wochentag, Datum, Uhrzeit und Ort da", async ({
@@ -358,7 +368,7 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
       await anmelden(page, ADMIN);
       await gehZu(page, "/mein-bereich");
       await page.waitForTimeout(1500);
-      await expect(page.getByText("Deine nächsten Kurse")).toBeVisible();
+      await expect(page.getByText(LEHRER_MERKMAL)).toBeVisible();
       await expect(page.getByText("E2E13 Kurs").first()).toBeVisible();
     } finally {
       await service
@@ -389,7 +399,7 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
     await anmelden(page, ADMIN_OHNE_KURS);
     await gehZu(page, "/mein-bereich");
     await page.waitForTimeout(1500);
-    await expect(page.getByText("Deine nächsten Kurse")).toHaveCount(0);
+    await expect(page.getByText(LEHRER_MERKMAL)).toHaveCount(0);
   });
 
   test("AC7: „Lehrmaterial“ führt auf die Kursseite, wo das Material sichtbar ist", async ({
