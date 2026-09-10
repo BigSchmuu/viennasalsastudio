@@ -189,12 +189,13 @@ zwei Wochen Ferien sind das bis zu vierzig Einträge von Hand.
       Zahlungsbeziehung; der Kurs ist nur der Ort, an dem gerade getanzt wird —
       und lässt sich über das bestehende Umbuchen (PROJ-9) wechseln
       (2026-09-11)
-- [ ] **Ändert sich bei einer Umwandlung der Preis?** Vorerst nein — falls
-      Beginner 2 anders kostet, müsste die Vormerkung auch den Preis tragen und
-      die laufenden Abos anfassen.
-- [ ] **Sollen Ferien die Kurszeiträume verlängern?** Wenn ein Achtwochenkurs
-      zwei Ferienwochen enthält, endet er nach zehn Kalenderwochen — soll das
-      Enddatum automatisch nachrücken oder trägt der Betreiber es selbst ein?
+- [x] **Ändert sich bei einer Umwandlung der Preis?** → Nein. Sonst müsste die
+      Vormerkung laufende Abos anfassen, und eine Preisänderung an einem
+      bestehenden Vertrag ist etwas anderes als ein neuer Kursname (2026-09-11)
+- [x] **Sollen Ferien die Kurszeiträume verlängern?** → Nein, der Betreiber
+      trägt das Ende selbst ein. Er kennt die Ferien beim Planen; eine
+      automatische Verschiebung liefe im Hintergrund und wäre später nicht
+      nachvollziehbar (2026-09-11)
 - [ ] Wie viele Tage vorher soll die Benachrichtigung über eine Umwandlung
       hinausgehen?
 
@@ -215,4 +216,139 @@ zwei Wochen Ferien sind das bis zu vierzig Einträge von Hand.
 
 ### Technical Decisions
 
-_Wird von `/architecture` ergänzt._
+| Decision | Rationale | Date |
+|---|---|---|
+| Kurszeitraum und Ferien werden **Pflichtangaben** der Terminrechnung | 14 Aufrufstellen in 10 Dateien fragen „wann findet dieser Kurs statt?". Optional wäre die Angabe genau so lange, bis eine Stelle sie vergisst — und dann rechnet sie still falsch. Als Pflicht listet der Compiler alle 14 auf, und keine kann übersehen werden. Genau so hat sich heute schon `hasFlatrate` durch die Aufrufer gearbeitet | 2026-09-11 |
+| Die Terminrechnung bleibt in TypeScript, nicht in der Datenbank | Sie ist dort mit Unit-Tests abgedeckt (Wochentagskonvention, Wiener Zeit, Tagesgrenzen). In SQL verschoben wäre sie zwar unumgehbar, aber ohne diese Prüfungen — und der Zwang entsteht hier ohnehin über den Compiler | 2026-09-11 |
+| Ferien als eigener studioweiter Zeitraum, nicht als viele Ausfalltage | Ein Eintrag statt vierzig. Und sie bleiben unterscheidbar: Wer die Ferien löscht, löscht keinen Ausfalltag, den jemand aus anderem Grund gesetzt hat | 2026-09-11 |
+| Die Umwandlung ist eine Vormerkung am Kurs, kein neuer Kurs | Der Kurs behält seine Identität. Abos, Kursplätze, Anwesenheit und Notizen hängen an der Kurs-Kennung — bei einem neuen Kurs müsste all das umgehängt werden, und jede vergessene Verknüpfung wäre stiller Datenverlust | 2026-09-11 |
+| Vollzogen vom bestehenden nächtlichen Lauf | Dort werden bereits fällige Abo-Änderungen vollzogen, mit Fehlerbehandlung und Sentry-Meldung je Schritt. Ein zweiter Mechanismus für „etwas wird zum Stichtag wirksam" würde früher oder später anders antworten | 2026-09-11 |
+| Der alte Kursname verschwindet mit der Umwandlung | Bewusst in Kauf genommen: Eine Anwesenheitsliste vom November zeigt danach den neuen Namen. Den alten mitzuführen hieße, jeden Termin mit seinem damaligen Namen zu versehen — viel Maschinerie für eine Zeile, die niemand vermisst. Rechnungen und Abos tragen ohnehin eigene Bezeichnungen und bleiben unberührt | 2026-09-11 |
+| Preis bleibt bei der Umwandlung unverändert | Vom Betreiber entschieden. Sonst müsste die Vormerkung auch laufende Abos anfassen — eine Preisänderung an einem bestehenden Vertrag ist etwas anderes als ein neuer Kursname und gehört ausdrücklich angekündigt | 2026-09-11 |
+| Ferien verlängern den Kurszeitraum nicht | Vom Betreiber entschieden. Der Betreiber kennt die Ferien beim Planen; eine automatische Verschiebung wäre eine Rechnung im Hintergrund, die niemand nachvollzieht, wenn sie einmal anders ausfällt als gedacht | 2026-09-11 |
+
+---
+
+## Tech Design (Solution Architect)
+
+### Die Kernfrage: eine Rechnung, die niemand umgehen kann
+
+„Wann findet dieser Kurs statt?" wird an **14 Stellen in 10 Dateien** gefragt —
+Stundenplan, Kurskatalog, Kursdetail, Kunden-Dashboard, Profil, Lehrer-Bereich,
+Buchung, Benachrichtigungen. Alle rufen dieselbe Funktion auf, und das ist gut
+so: Es gibt bereits eine gemeinsame Rechnung.
+
+Nur weiß sie zwei Dinge nicht, die sie künftig wissen muss: **wie lange ein Kurs
+läuft** und **wann das Studio zu ist**.
+
+Die naheliegende Lösung wäre, beides als zusätzliche, optionale Angabe
+anzubieten. Genau davor warnt die Erfahrung aus PROJ-50: Optional heißt, dass
+es funktioniert, bis eine Stelle es vergisst — und dann rechnet sie still
+falsch, ohne Fehlermeldung. Drei solche Stellen kamen dort erst durch eine
+Meldung aus dem Betrieb ans Licht.
+
+**Deshalb werden beide Angaben zur Pflicht.** Wer die Terminrechnung aufruft,
+muss sagen, in welchem Zeitraum der Kurs läuft und welche Ferien gelten. Der
+Compiler zeigt beim Umbau alle 14 Stellen auf einmal an; eine zu übersehen ist
+nicht möglich. Dieselbe Mechanik hat sich in diesem Projekt gestern schon
+bewährt, als eine neue Pflichtangabe sich durch die Aufrufer gearbeitet hat.
+
+Damit nicht jede Stelle die Ferien anders beschafft, gibt es **einen
+gemeinsamen Weg**, sie zu laden — so wie es für die Kurszugehörigkeit bereits
+einen gibt.
+
+### Zwei Regeln, die nicht dasselbe sind
+
+Beim Entwurf fiel auf, dass hier zwei Fragen leicht verwechselt werden:
+
+| Frage | Gilt für | Regel |
+|---|---|---|
+| **Findet dieser Termin statt?** | Dashboard, Lehrer-Bereich, Check-in, Erinnerungen, fehlende Anwesenheit | Nur innerhalb des Kurszeitraums, nie in den Ferien |
+| **Zeige ich diesen Kurs im Stundenplan?** | nur der Stundenplan | Laufende Kurse — und solche, die innerhalb von drei Wochen beginnen |
+
+Die erste ist eine Wahrheit über die Wirklichkeit: Ein Termin außerhalb des
+Zeitraums existiert nicht. Die zweite ist eine Anzeigeentscheidung: Ein Kurs,
+der in fünf Wochen beginnt, existiert sehr wohl — er steht nur noch nicht im
+Plan.
+
+Sie getrennt zu halten ist wichtig, weil sonst die Vorschau von drei Wochen
+irgendwann in die Terminrechnung sickert und dort etwas verbirgt.
+
+### Datenmodell
+
+**Der Kurs bekommt einen Zeitraum.** „Läuft von" und „läuft bis", beide dürfen
+leer bleiben — dann ist der Kurs unbefristet und verhält sich wie heute. Ein
+Kurs, dessen Ende vorbei ist, verschwindet aus dem Stundenplan und liefert
+keine Termine mehr.
+
+**Der Kurs bekommt eine Vormerkung.** Neuer Name, neues Level, Stichtag — die
+drei gehören zusammen: entweder alle oder keine. Höchstens eine offene
+Vormerkung je Kurs. Der Preis bleibt außen vor.
+
+**Neu: Ferien.** Ein Name, ein Von- und ein Bis-Datum, gültig fürs ganze Studio.
+Öffentlich lesbar, denn der Stundenplan zeigt sie auch anonymen Besuchern.
+
+**Was unverändert bleibt:** die einzeln gepflegten Ausfalltage je Kurs. Sie sind
+etwas anderes als Ferien — ein einzelner Abend, an dem der Lehrer krank ist,
+hat mit Weihnachten nichts zu tun. Beide lassen einen Termin ausfallen, keiner
+löscht den anderen.
+
+### Der Vollzug zum Stichtag
+
+Die Umwandlung wird vorgemerkt und wirkt zum Stichtag — genau wie eine geplante
+Abo-Pause oder -Kündigung. Der nächtliche Lauf, der jene bereits vollzieht,
+bekommt einen Schritt dazu. Er bringt seine Fehlerbehandlung mit: Scheitert ein
+Schritt, meldet er es und die anderen laufen weiter.
+
+Vorher geht eine Benachrichtigung an die betroffenen Kunden — ihr Kurs wechselt
+Name und Level, und der neue Name soll sie in „Mein Bereich" nicht überraschen.
+
+### Was sich in der Bedienung ändert
+
+```
+Admin → Kurse → Kurs bearbeiten
++-- (bestehendes Formular)
++-- NEU: Zeitraum
+|   +-- „läuft von" · „läuft bis"   (beide optional)
++-- NEU: Kurs umwandeln
+    +-- neuer Name · neues Level · ab wann
+    +-- [Vormerkung besteht] → „Ab 7.1. wird daraus: Salsa Beginner 2"
+                               + „Vormerkung zurücknehmen"
+
+Admin → Kurse (Liste)
++-- NEU: Spalte/Hinweis „läuft bis …" bzw. „ab …"
+
+Admin → NEU: Ferien
++-- Liste der Zeiträume (Name, von, bis)
++-- Anlegen · Entfernen
+
+Stundenplan (öffentlich)
++-- NEU: Hinweisleiste bei anstehenden Ferien
+|   „Vom 23.12. bis 6.1. ist das Studio geschlossen."
++-- Wochentag
+    +-- Kurskarte
+        +-- [läuft, Ende in Sicht]  „noch bis 21.12."
+        +-- [beginnt demnächst]     „ab 7.1."
+        +-- [Umwandlung vorgemerkt] „ab 7.1.: Salsa Beginner 2"
+        +-- [unbefristet]           (keine Angabe — sie sagt hier nichts aus)
+
+Mein Bereich / Mein Profil
++-- NEU: Hinweis bei einem Abo, dessen Kurs ausgelaufen ist
+    „Dieser Kurs ist beendet." + Weg zum Umbuchen
+```
+
+Für Kurse ohne Zeitraum ändert sich **nichts** — weder in der Anzeige noch im
+Verhalten. Das ist Absicht: Der Betreiber soll die Zeiträume nachziehen können,
+wo sie ihm nützen, statt sie überall gleichzeitig pflegen zu müssen.
+
+### Wo die Arbeit wirklich liegt
+
+Nicht in den drei neuen Feldern und nicht in der Ferienverwaltung. Sondern
+darin, die 14 Aufrufstellen umzustellen, ohne dass eine falsch versorgt wird —
+und in der Absicherung: **je ein Test pro Stelle, der einen Kurs außerhalb
+seines Zeitraums oder einen Termin in den Ferien benutzt.** Ohne das bleibt
+jeder dieser Tests grün, egal was passiert.
+
+### Neue Pakete
+
+Keine. Formulare, Listen, Datumsfelder und Hinweisleisten sind vorhanden.
