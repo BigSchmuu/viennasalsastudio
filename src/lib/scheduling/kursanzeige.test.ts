@@ -1,29 +1,64 @@
 import { describe, it, expect } from "vitest";
-import { imStundenplan, zeitraumhinweis, anstehendeFerien } from "./kursanzeige";
+import { imAngebot, zeitraumhinweis, anstehendeFerien } from "./kursanzeige";
 
 const HEUTE = "2026-09-11";
 const UNBEFRISTET = { von: null, bis: null };
 
-describe("imStundenplan", () => {
+const ohneUmwandlung = (zeitraum: { von: string | null; bis: string | null }) => ({
+  zeitraum,
+  umwandlung: null,
+});
+
+describe("imAngebot", () => {
   it("zeigt einen unbefristeten Kurs", () => {
-    expect(imStundenplan(UNBEFRISTET, HEUTE)).toBe(true);
+    expect(imAngebot(ohneUmwandlung(UNBEFRISTET), HEUTE)).toBe(true);
   });
 
   it("zeigt einen ausgelaufenen Kurs nicht mehr", () => {
-    expect(imStundenplan({ von: null, bis: "2026-09-10" }, HEUTE)).toBe(false);
+    expect(imAngebot(ohneUmwandlung({ von: null, bis: "2026-09-10" }), HEUTE)).toBe(false);
   });
 
   it("zeigt einen Kurs, der heute endet, noch", () => {
     // Heute findet er statt — wer hingeht, steht nicht vor verschlossener Tür.
-    expect(imStundenplan({ von: null, bis: HEUTE }, HEUTE)).toBe(true);
+    expect(imAngebot(ohneUmwandlung({ von: null, bis: HEUTE }), HEUTE)).toBe(true);
   });
 
   it("zeigt einen Kurs, der in drei Wochen beginnt", () => {
-    expect(imStundenplan({ von: "2026-10-02", bis: null }, HEUTE)).toBe(true);
+    expect(imAngebot(ohneUmwandlung({ von: "2026-10-02", bis: null }), HEUTE)).toBe(true);
   });
 
   it("zeigt einen Kurs, der erst in fünf Wochen beginnt, noch nicht", () => {
-    expect(imStundenplan({ von: "2026-10-16", bis: null }, HEUTE)).toBe(false);
+    expect(imAngebot(ohneUmwandlung({ von: "2026-10-16", bis: null }), HEUTE)).toBe(false);
+  });
+
+  it("hält einen ausgelaufenen Kurs in der Lücke bis zur Umwandlung sichtbar", () => {
+    // Sonst verschwände er samt dem Hinweis „ab {Datum}: {neuer Name}" —
+    // ausgerechnet in den Wochen, in denen die Frage am dringendsten ist.
+    const kurs = {
+      zeitraum: { von: "2026-08-01", bis: "2026-09-08" },
+      umwandlung: { name: "Beginner 2", datum: "2026-09-25" },
+    };
+    expect(imAngebot(kurs, HEUTE)).toBe(true);
+  });
+
+  it("lässt ihn bei einer Pause von mehr als drei Wochen trotzdem verschwinden", () => {
+    // Eine so lange Abwesenheit ist keine Lücke mehr, sondern ein Ende mit
+    // Neuanfang — dann steht er im Plan, sobald es wieder losgeht.
+    const kurs = {
+      zeitraum: { von: "2026-08-01", bis: "2026-09-08" },
+      umwandlung: { name: "Beginner 2", datum: "2026-11-01" },
+    };
+    expect(imAngebot(kurs, HEUTE)).toBe(false);
+  });
+
+  it("hilft einer Umwandlung nicht, deren Stichtag schon vorbei ist", () => {
+    // Dann hat der nächtliche Lauf sie noch nicht vollzogen; sichtbar wird der
+    // Kurs erst dadurch, nicht durch eine liegengebliebene Vormerkung.
+    const kurs = {
+      zeitraum: { von: null, bis: "2026-09-01" },
+      umwandlung: { name: "Beginner 2", datum: "2026-09-05" },
+    };
+    expect(imAngebot(kurs, HEUTE)).toBe(false);
   });
 });
 

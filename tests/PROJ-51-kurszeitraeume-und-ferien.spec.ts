@@ -220,6 +220,98 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
     }
   });
 
+  test("Ein Kurs in der Lücke zwischen zwei Staffeln bleibt mit seinem Hinweis stehen", async ({
+    page,
+  }) => {
+    // Vorher verschwand er ab dem Kursende aus dem Plan — samt „ab {Datum}:
+    // {neuer Name}", ausgerechnet in den Wochen, in denen die Frage am
+    // dringendsten ist (gemeldet 2026-09-11).
+    const service = dienst();
+    await service
+      .from("courses")
+      .update({
+        pending_name: "E2E51 Fortgeschritten",
+        pending_level: "intermediate",
+        pending_effective_date: tagePlus(9),
+      })
+      .eq("name", KURS_VORBEI);
+
+    try {
+      await oeffneTag(page);
+      await expect(page.getByText(KURS_VORBEI, { exact: true })).toBeVisible();
+      await expect(page.getByText(/^ab .*E2E51 Fortgeschritten/)).toBeVisible();
+    } finally {
+      await service
+        .from("courses")
+        .update({ pending_name: null, pending_level: null, pending_effective_date: null })
+        .eq("name", KURS_VORBEI);
+    }
+  });
+
+  test("Bei einer Pause von mehr als drei Wochen bleibt er verschwunden", async ({ page }) => {
+    // Eine so lange Abwesenheit ist keine Lücke mehr, sondern ein Ende mit
+    // Neuanfang — sonst stünde ein toter Kurs monatelang im Plan.
+    const service = dienst();
+    await service
+      .from("courses")
+      .update({
+        pending_name: "E2E51 Fortgeschritten",
+        pending_level: "intermediate",
+        pending_effective_date: tagePlus(40),
+      })
+      .eq("name", KURS_VORBEI);
+
+    try {
+      await oeffneTag(page);
+      await expect(page.getByText(KURS_VORBEI, { exact: true })).toHaveCount(0);
+    } finally {
+      await service
+        .from("courses")
+        .update({ pending_name: null, pending_level: null, pending_effective_date: null })
+        .eq("name", KURS_VORBEI);
+    }
+  });
+
+  test("Der Kunde sieht die Umwandlung auch in „Mein Bereich“", async ({ page }) => {
+    // Der Hinweis hing nur an der Stundenplan-Karte: Wer seine eigenen Kurse
+    // ansieht statt den Gesamtplan, erfuhr es erst per E-Mail.
+    const service = dienst();
+    const { data: kurs } = await service.from("courses").select("id").eq("name", KURS_LAEUFT).single();
+    const { data: abo } = await service
+      .from("subscriptions")
+      .insert({
+        customer_id: kundeId,
+        course_id: kurs!.id,
+        name: "E2E51 Abo laufend",
+        status: "active",
+        price: 45,
+        cycle_anchor_date: tagePlus(-30),
+      })
+      .select("id")
+      .single();
+    await service
+      .from("courses")
+      .update({
+        pending_name: "E2E51 Fortgeschritten",
+        pending_level: "intermediate",
+        pending_effective_date: tagePlus(9),
+      })
+      .eq("name", KURS_LAEUFT);
+
+    try {
+      await anmelden(page, KUNDE);
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(2500);
+      await expect(page.getByText(/heißt dieser Kurs E2E51 Fortgeschritten/)).toBeVisible();
+    } finally {
+      await service
+        .from("courses")
+        .update({ pending_name: null, pending_level: null, pending_effective_date: null })
+        .eq("name", KURS_LAEUFT);
+      if (abo) await service.from("subscriptions").delete().eq("id", abo.id);
+    }
+  });
+
   test("AC: Ferien stehen als Hinweis über dem Plan", async ({ page }) => {
     const service = dienst();
     await service

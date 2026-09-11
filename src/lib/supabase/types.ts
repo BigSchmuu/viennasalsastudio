@@ -1786,6 +1786,19 @@ export type Database = {
           subscription_id: string
         }
       }
+      admin_list_failed_notifications: {
+        Args: { p_limit?: number }
+        Returns: {
+          id: string
+          event_type: string
+          customer_name: string
+          email_status: string | null
+          push_status: string | null
+          error_detail: string | null
+          created_at: string
+          processed_at: string | null
+        }[]
+      }
       admin_list_customer_emails: {
         Args: never
         Returns: {

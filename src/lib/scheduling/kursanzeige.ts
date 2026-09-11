@@ -27,9 +27,9 @@ function tagePlus(datum: string, tage: number): string {
 /**
  * Gehört dieser Kurs ins Angebot? (PROJ-51)
  *
- * Benutzt vom Stundenplan **und** vom Kurskatalog. Zwei Antworten darauf
- * liefen früher oder später auseinander — und dann stünde ein Kurs im Katalog,
- * den der Stundenplan nicht mehr kennt.
+ * Benutzt vom Stundenplan, vom Kurskatalog **und** von der Kursdetailseite.
+ * Drei Antworten darauf liefen früher oder später auseinander — und dann
+ * stünde ein Kurs im Katalog, den der Stundenplan nicht mehr kennt.
  *
  * Das ist bewusst **nicht** dieselbe Frage wie „findet dieser Termin statt?".
  * Jene ist eine Aussage über die Wirklichkeit und steckt in der
@@ -38,10 +38,25 @@ function tagePlus(datum: string, tage: number): string {
  *
  * Die beiden getrennt zu halten verhindert, dass die Vorschau von drei Wochen
  * irgendwann in die Terminrechnung sickert und dort etwas verbirgt.
+ *
+ * **Die Lücke zwischen zwei Staffeln** ist die eine Ausnahme: Läuft ein Kurs
+ * bis zum 21.12. und wird zum 07.01. umgewandelt, war er ab dem 22.12. aus
+ * dem Plan verschwunden — samt dem Hinweis „ab 07.01.: Beginner 2",
+ * ausgerechnet in den zwei Wochen, in denen die Frage am dringendsten ist.
+ * Eine vorgemerkte Umwandlung hält ihn deshalb sichtbar, solange ihr Stichtag
+ * in die Vorschau fällt. Ist die Pause länger als drei Wochen, verschwindet
+ * er trotzdem — eine so lange Abwesenheit ist keine Lücke mehr, sondern ein
+ * Ende mit Neuanfang.
  */
-export function imStundenplan(zeitraum: Kurszeitraum, heute: string): boolean {
-  if (zeitraum.bis && zeitraum.bis < heute) return false;
-  if (zeitraum.von && zeitraum.von > tagePlus(heute, VORSCHAU_TAGE)) return false;
+export function imAngebot(kurs: KursAnzeigeEingabe, heute: string): boolean {
+  const grenze = tagePlus(heute, VORSCHAU_TAGE);
+  if (kurs.zeitraum.bis && kurs.zeitraum.bis < heute) {
+    const kommtWieder = Boolean(
+      kurs.umwandlung && kurs.umwandlung.datum >= heute && kurs.umwandlung.datum <= grenze
+    );
+    if (!kommtWieder) return false;
+  }
+  if (kurs.zeitraum.von && kurs.zeitraum.von > grenze) return false;
   return true;
 }
 
@@ -64,7 +79,12 @@ export function zeitraumhinweis(
 ): Zeitraumhinweis | null {
   const grenze = tagePlus(heute, VORSCHAU_TAGE);
 
-  if (kurs.zeitraum.von && kurs.zeitraum.von > heute) {
+  // Eine bevorstehende Umwandlung geht dem Kursbeginn vor, sobald der Kurs
+  // schon gelaufen ist: In der Lücke zwischen zwei Staffeln ist „ab {Beginn}"
+  // eine Angabe über die Vergangenheit und sagt nichts mehr.
+  const inDerLuecke = Boolean(kurs.zeitraum.bis && kurs.zeitraum.bis < heute);
+
+  if (!inDerLuecke && kurs.zeitraum.von && kurs.zeitraum.von > heute) {
     return { art: "beginnt", datum: kurs.zeitraum.von };
   }
 

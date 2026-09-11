@@ -391,7 +391,8 @@
       "after": "Danach: {weekday}, {time} · {course}",
       "checkinOpensAt": "Einchecken ab {time}",
       "trialBadge": "Probestunde",
-      "dropinBadge": "Drop-in"
+      "dropinBadge": "Drop-in",
+      "becomes": "Ab {date} heißt dieser Kurs {course}."
     },
     "checkin": {
       "action": "Ich bin da",

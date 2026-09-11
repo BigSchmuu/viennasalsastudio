@@ -3,7 +3,7 @@ import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { CourseCatalog, type CatalogCourseRow, type SimpleOption } from "@/components/catalog/course-catalog";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
-import { imStundenplan } from "@/lib/scheduling/kursanzeige";
+import { imAngebot } from "@/lib/scheduling/kursanzeige";
 import { heuteInWien } from "@/lib/constants/zeitzone";
 import { readStudioPricing } from "@/lib/pricing";
 import { getTranslations } from "next-intl/server";
@@ -22,7 +22,7 @@ export default async function KurskatalogPage() {
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until"
+        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
       )
       .order("created_at", { ascending: true }),
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
@@ -88,11 +88,21 @@ export default async function KurskatalogPage() {
   // PROJ-51: Dieselbe Regel wie im Stundenplan. Ein ausgelaufener Kurs gehört
   // nicht ins Schaufenster — wer ihn dort noch buchen könnte, zahlte für etwas,
   // das es nicht mehr gibt.
-  const imAngebot = (coursesRes.data ?? []).filter((c) =>
-    imStundenplan(kurszeitraum(c), heuteInWien())
+  const heute = heuteInWien();
+  const angeboteneKurse = (coursesRes.data ?? []).filter((c) =>
+    imAngebot(
+      {
+        zeitraum: kurszeitraum(c),
+        umwandlung:
+          c.pending_name && c.pending_effective_date
+            ? { name: c.pending_name, datum: c.pending_effective_date }
+            : null,
+      },
+      heute
+    )
   );
 
-  const courses: CatalogCourseRow[] = imAngebot.map((c) => {
+  const courses: CatalogCourseRow[] = angeboteneKurse.map((c) => {
     const schedule = c.course_schedule;
     const nextDates = schedule
       ? upcomingOccurrences(schedule.weekday, {

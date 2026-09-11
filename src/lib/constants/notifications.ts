@@ -37,3 +37,31 @@ export const notificationEventGroupDescription: Record<NotificationEventGroup, s
   guthaben: "Du bekommst Guthaben — aus einer Empfehlung oder als Gutschrift des Studios",
   newsletter: "Ankündigungen und Aktionen des Studios",
 };
+
+/**
+ * Klartext für jeden Ereignistyp der Warteschlange (PROJ-16).
+ *
+ * Die Gruppen oben sind das, was der **Kunde** ein- und ausschalten kann —
+ * diese Liste ist länger: Sie enthält auch die Nachrichten, die niemand
+ * abbestellen kann (SEPA-Ankündigung, Kursausfall, Zahlungserinnerung) und
+ * die an die Verwaltung selbst gehen.
+ *
+ * Gebraucht, wo eine Zeile der Warteschlange einem Menschen gezeigt wird.
+ * Ohne sie stünde dort der technische Schlüssel.
+ */
+export const notificationEventTypeLabel: Record<string, string> = {
+  buchungsstatus: "Buchungsstatus",
+  warteliste: "Warteliste rückt nach",
+  abo_kuendigung: "Abo-Änderung wirksam",
+  kursstart_erinnerung: "Kursstart-Erinnerung",
+  sepa_ankuendigung: "SEPA-Ankündigung",
+  event_tickets: "Event-Ticket",
+  probestunde_nachfassung: "Probestunden-Nachfassung",
+  newsletter: "Newsletter",
+  neue_buchung: "Neue Buchung (an die Verwaltung)",
+  zahlungserinnerung: "Zahlungserinnerung",
+  kursausfall: "Kursausfall",
+  guthaben: "Guthaben",
+  konto_existiert: "Konto existiert bereits",
+  kursumwandlung: "Kursumwandlung",
+};

@@ -1,4 +1,5 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
+import { formatShortDate } from "@/lib/formatting";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SelfCheckinButton } from "@/components/schedule/self-checkin-button";
@@ -28,6 +29,14 @@ export type TerminAnzeige = {
   wochentag: number;
   checkin: CheckinAngebot | null;
   buchungsArt: "trial" | "dropin" | null;
+  /**
+   * PROJ-51: Der Kurs geht ab diesem Datum unter neuem Namen weiter.
+   *
+   * Der Hinweis stand bisher nur an der Stundenplan-Karte — wer seine eigenen
+   * Kurse ansieht statt den Gesamtplan, erfuhr es erst per E-Mail. Und in der
+   * Lücke zwischen zwei Staffeln gar nicht.
+   */
+  umwandlung: { name: string; datum: string } | null;
 };
 
 export type DanachAnzeige = {
@@ -60,9 +69,10 @@ export async function NextCourseSection({
 }) {
   if (anzeigen.length === 0) return null;
 
-  const [t, tw] = await Promise.all([
+  const [t, tw, locale] = await Promise.all([
     getTranslations("dashboard.nextCourse"),
     getTranslations("weekdays"),
+    getLocale(),
   ]);
 
   function tagesLabel(zustand: Tageszustand, wochentag: number): string {
@@ -81,7 +91,7 @@ export async function NextCourseSection({
   return (
     <DashboardSection title={t("heading", { count: anzeigen.length })}>
       <div className="space-y-3">
-        {anzeigen.map(({ termin, zustand, wochentag, checkin, buchungsArt }) => (
+        {anzeigen.map(({ termin, zustand, wochentag, checkin, buchungsArt, umwandlung }) => (
           <Card key={`${termin.kursId}-${termin.datum}`} className="border-primary/25 bg-primary/[0.03]">
             <CardContent className="p-5">
               <div className="flex flex-wrap items-center gap-2">
@@ -100,6 +110,14 @@ export async function NextCourseSection({
 
               <p className="mt-2 font-heading text-xl font-bold tracking-[-0.5px]">{termin.kursName}</p>
               <p className="mt-0.5 text-sm text-muted-foreground">{ort(termin.raum, termin.standort)}</p>
+              {umwandlung && (
+                <p className="mt-1 text-sm font-medium text-primary">
+                  {t("becomes", {
+                    date: formatShortDate(umwandlung.datum, locale),
+                    course: umwandlung.name,
+                  })}
+                </p>
+              )}
 
               {checkin ? (
                 <div className="mt-4">

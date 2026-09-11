@@ -17,6 +17,9 @@ const CUSTOMER = { email: "e2e8-customer@viennasalsastudio.test", password: "Cor
 const TEACHER = { email: "e2e13-lehrer-a@viennasalsastudio.test", password: "CorrectPassword123!" };
 
 const TEST_KEY = "buchungsstatus_bestaetigt";
+/** PROJ-16: eine erfundene, fehlgeschlagene Sendung für „Nicht zugestellt". */
+const SENDUNG_SCHLUESSEL = "e2e16-nicht-zugestellt";
+const SENDUNG_FEHLER = "E2E16 Zustellung abgelehnt: Postfach unbekannt";
 const DEFAULT_BODY = "Deine Buchungsanfrage für {kurs} wurde bestätigt.";
 
 const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -46,6 +49,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await service.from("notification_template_overrides").delete().eq("template_key", TEST_KEY);
+  await service.from("notification_queue").delete().eq("dedupe_key", SENDUNG_SCHLUESSEL);
 });
 
 test.describe("PROJ-34: Benachrichtigungs-Texte verwalten", () => {
@@ -201,5 +205,100 @@ test.describe("PROJ-34: Benachrichtigungs-Texte verwalten", () => {
     await login(page, ADMIN);
     const response = await page.goto("/admin/benachrichtigungen/does-not-exist");
     expect(response?.status()).toBe(404);
+  });
+});
+
+/**
+ * PROJ-16: Nicht zugestellte Benachrichtigungen.
+ *
+ * Bis hierher endete jede Zeile der Warteschlange auf „processed", und ob die
+ * E-Mail wirklich hinausging, las niemand. Eine Bestätigung, die nie ankam,
+ * erfuhr der Betreiber vom Kunden — oder gar nicht.
+ */
+test.describe("PROJ-16: Nicht zugestellte Benachrichtigungen", () => {
+  async function legeFehlschlagAn(): Promise<void> {
+    const { data: kunde } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E8 Customer")
+      .maybeSingle();
+    const { data: irgendwer } = await service.from("profiles").select("id").limit(1).single();
+
+    await service.from("notification_queue").delete().eq("dedupe_key", SENDUNG_SCHLUESSEL);
+    const { error } = await service.from("notification_queue").insert({
+      customer_id: kunde?.id ?? irgendwer!.id,
+      event_type: "buchungsstatus",
+      payload: {},
+      dedupe_key: SENDUNG_SCHLUESSEL,
+      status: "processed",
+      email_status: "failed",
+      push_status: "skipped",
+      error_detail: SENDUNG_FEHLER,
+      processed_at: new Date().toISOString(),
+    });
+    if (error) throw new Error(`Fehlschlag anlegen: ${error.message}`);
+  }
+
+  test("Der Betreiber sieht eine nicht zugestellte Nachricht mit Anlass und Grund", async ({
+    page,
+  }) => {
+    await legeFehlschlagAn();
+    await login(page, ADMIN);
+    await page.goto("/admin/benachrichtigungen");
+    await page.waitForTimeout(1500);
+
+    await expect(page.getByText("Nicht zugestellt")).toBeVisible();
+    const zeile = page.locator("tr", { hasText: SENDUNG_FEHLER });
+    await expect(zeile).toBeVisible();
+    // Der technische Schlüssel „buchungsstatus" wäre für den Betreiber nichts wert.
+    await expect(zeile.getByText("Buchungsstatus")).toBeVisible();
+    await expect(zeile.getByText("E-Mail")).toBeVisible();
+  });
+
+  test("Ohne Fehlschläge steht dort, dass alles zugestellt ist", async ({ page }) => {
+    // Ein leerer Bereich ließe offen, ob nichts fehlgeschlagen ist oder die
+    // Liste gar nicht geladen wurde.
+    await service.from("notification_queue").delete().eq("dedupe_key", SENDUNG_SCHLUESSEL);
+    const { count } = await service
+      .from("notification_queue")
+      .select("id", { count: "exact", head: true })
+      .or("email_status.eq.failed,push_status.eq.failed");
+    test.skip((count ?? 0) > 0, "In der Testdatenbank liegen echte Fehlschläge");
+
+    await login(page, ADMIN);
+    await page.goto("/admin/benachrichtigungen");
+    await page.waitForTimeout(1500);
+    await expect(page.getByText("Alles zugestellt.")).toBeVisible();
+  });
+
+  test("Sicherheit: Ein Kunde ruft die Funktion auf und bekommt nichts", async () => {
+    // Der Seitenschutz allein wäre zu wenig: Die Funktion ist jedem
+    // Angemeldeten zugänglich, ihre eigene Prüfung entscheidet. Deshalb hier
+    // der direkte Aufruf am Admin-Bereich vorbei.
+    await legeFehlschlagAn();
+
+    const client = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    const { error: anmeldung } = await client.auth.signInWithPassword({
+      email: CUSTOMER.email,
+      password: CUSTOMER.password,
+    });
+    expect(anmeldung, "Der Testkunde konnte sich nicht anmelden").toBeNull();
+
+    const { data, error } = await client.rpc("admin_list_failed_notifications", { p_limit: 50 });
+    // Entweder abgelehnt oder leer — nur nicht die Postausgangs-Liste des
+    // ganzen Studios.
+    expect(error ? [] : data ?? []).toHaveLength(0);
+  });
+
+  test("Sicherheit: Ein Kunde kommt nicht auf die Seite", async ({ page }) => {
+    await login(page, CUSTOMER);
+    await page.goto("/admin/benachrichtigungen");
+    await page.waitForTimeout(1500);
+    await expect(page).not.toHaveURL(/\/admin\/benachrichtigungen$/);
+    await expect(page.getByText("Nicht zugestellt")).toHaveCount(0);
   });
 });

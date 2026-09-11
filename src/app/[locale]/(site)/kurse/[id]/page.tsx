@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { heuteInWien } from "@/lib/constants/zeitzone";
+import { imAngebot } from "@/lib/scheduling/kursanzeige";
 import { ladeKurszugehoerigkeit, darfVideosSehen } from "@/lib/flatrate/kurszugehoerigkeit";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
@@ -33,7 +34,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until"
+        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
       )
       .eq("id", id)
       .single(),
@@ -53,10 +54,21 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   // nicht, und über einen alten Link oder ein Lesezeichen ließ er sich weiter
   // buchen und zur Flatrate hinzufügen (QA 2026-09-11, BUG-5).
   //
-  // Nur das Ende, nicht der Beginn: Ein Kurs, der erst in fünf Wochen
-  // anfängt, existiert schon — er steht nur noch nicht im Plan, und ein Link
-  // darauf soll funktionieren.
-  if (course.runs_until && course.runs_until < heuteInWien()) {
+  // Dieselbe Regel wie dort, damit die drei Seiten nicht auseinanderlaufen —
+  // samt der Ausnahme für die Lücke zwischen zwei Staffeln.
+  //
+  // Nur das Ende wird geprüft, nicht der Beginn: Ein Kurs, der erst in fünf
+  // Wochen anfängt, existiert schon. Er steht nur noch nicht im Plan, und ein
+  // Link darauf soll funktionieren.
+  const heute = heuteInWien();
+  const anzeige = {
+    zeitraum: kurszeitraum(course),
+    umwandlung:
+      course.pending_name && course.pending_effective_date
+        ? { name: course.pending_name, datum: course.pending_effective_date }
+        : null,
+  };
+  if (course.runs_until && course.runs_until < heute && !imAngebot(anzeige, heute)) {
     notFound();
   }
 

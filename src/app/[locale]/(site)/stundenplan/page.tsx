@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
 import { ladeFerien, ladeFerienMitNamen, kurszeitraum } from "@/lib/scheduling/ferien";
-import { imStundenplan, zeitraumhinweis, anstehendeFerien } from "@/lib/scheduling/kursanzeige";
+import { imAngebot, zeitraumhinweis, anstehendeFerien } from "@/lib/scheduling/kursanzeige";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
 import { jsDayToWeekday, formatDateLocal, upcomingOccurrences } from "@/lib/scheduling/dates";
 import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
@@ -105,7 +105,14 @@ export default async function StundenplanPage() {
     // erst in fünf Wochen beginnt, noch nicht. Das ist eine
     // Anzeigeentscheidung — ob ein einzelner Termin stattfindet, beantwortet
     // die Terminrechnung, nicht diese Zeile.
-    if (!imStundenplan(kurszeitraum(course), heute)) continue;
+    const anzeige = {
+      zeitraum: kurszeitraum(course),
+      umwandlung:
+        course.pending_name && course.pending_effective_date
+          ? { name: course.pending_name, datum: course.pending_effective_date }
+          : null,
+    };
+    if (!imAngebot(anzeige, heute)) continue;
 
     const thisWeekDate = weekDates[schedule.weekday];
     const isPausedThisWeek = schedule.course_schedule_pauses.some(
@@ -129,16 +136,7 @@ export default async function StundenplanPage() {
       endTime: schedule.end_time,
       prerequisiteNote: course.prerequisite_note,
       runsUntil: course.runs_until,
-      zeitraumHinweis: zeitraumhinweis(
-        {
-          zeitraum: kurszeitraum(course),
-          umwandlung:
-            course.pending_name && course.pending_effective_date
-              ? { name: course.pending_name, datum: course.pending_effective_date }
-              : null,
-        },
-        heute
-      ),
+      zeitraumHinweis: zeitraumhinweis(anzeige, heute),
     };
 
     // Der Stundenplan zeigt, wann etwas stattfindet — und dazu die Aktion, die

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslations, getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
+import { VORSCHAU_TAGE } from "@/lib/scheduling/kursanzeige";
 import { getViewerContext } from "@/lib/auth/viewer";
 import { ladeLehrerUebersicht } from "@/lib/teacher/laden";
 import { LehrerUebersicht } from "@/components/teacher/lehrer-uebersicht";
@@ -27,6 +28,13 @@ export const dynamic = "force-dynamic";
 
 const EVENT_FENSTER_TAGE = 7;
 
+/** Das Ende der Vorschau — dieselbe Spanne wie im Stundenplan (PROJ-51). */
+function tagePlusVorschau(datum: string): string {
+  const d = new Date(`${datum}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + VORSCHAU_TAGE);
+  return d.toISOString().slice(0, 10);
+}
+
 type Zeitplan = {
   weekday: number;
   start_time: string;
@@ -45,6 +53,9 @@ type KursBezug = {
   /** PROJ-51: der Kurszeitraum — außerhalb davon findet nichts statt. */
   runs_from: string | null;
   runs_until: string | null;
+  /** PROJ-51: vorgemerkte Umwandlung — der Kurs geht unter neuem Namen weiter. */
+  pending_name: string | null;
+  pending_effective_date: string | null;
 };
 
 /** Supabase liefert eingebettete 1:1-Beziehungen je nach Abfrage als Objekt oder als Liste. */
@@ -79,7 +90,7 @@ export default async function MeinBereichPage() {
   const fensterEnde = new Date(jetzt.getTime() + EVENT_FENSTER_TAGE * 24 * 60 * 60 * 1000).toISOString();
 
   const kursAuswahl =
-    "id, name, level, video_set_id, runs_from, runs_until, course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), rooms(name, locations(name)), dance_styles(name)";
+    "id, name, level, video_set_id, runs_from, runs_until, pending_name, pending_effective_date, course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), rooms(name, locations(name)), dance_styles(name)";
 
   const [
     { data: profil },
@@ -182,6 +193,20 @@ export default async function MeinBereichPage() {
     });
   }
 
+  // PROJ-51: Die vorgemerkte Umwandlung je Kurs — für den Hinweis an der Karte.
+  // Derselbe Vorlauf wie im Stundenplan: Was erst in Monaten gilt, sagt an
+  // einem Termin von morgen nichts.
+  const umwandlungProKurs = new Map<string, { name: string; datum: string }>();
+  for (const quelle of kursQuellen) {
+    const kurs = quelle.courses as KursBezug | null;
+    if (!kurs?.pending_name || !kurs.pending_effective_date) continue;
+    if (kurs.pending_effective_date > tagePlusVorschau(heute)) continue;
+    umwandlungProKurs.set(kurs.id, {
+      name: kurs.pending_name,
+      datum: kurs.pending_effective_date,
+    });
+  }
+
   const buchungsArtProKurs = new Map<string, "trial" | "dropin">();
   const buchungsEingaben: BuchungEingabe[] = [];
   for (const buchung of buchungen ?? []) {
@@ -248,6 +273,7 @@ export default async function MeinBereichPage() {
           }
         : null,
       buchungsArt: buchungsArtProKurs.get(`${termin.kursId}|${termin.datum}`) ?? null,
+      umwandlung: umwandlungProKurs.get(termin.kursId) ?? null,
     };
   });
 
