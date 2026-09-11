@@ -141,38 +141,40 @@ export default async function StundenplanPage() {
       ),
     };
 
-    // Der Stundenplan zeigt, wann etwas stattfindet — und für Kurse, in denen
-    // der Kunde noch nicht sitzt, den Weg hinein. Das Einchecken hat seinen
-    // Ort seit 2026-09-10 ausschließlich unter „Mein Bereich": Dort steht der
-    // ganze Kurstag mit einem Knopf je Stunde, und derselbe Handgriff an zwei
-    // Orten ist einer zu viel. (Umkehr einer Entscheidung von PROJ-25 —
-    // damals gab es „Mein Bereich" noch nicht.)
-    if (!myActiveCourseIds.has(course.id)) {
-      // PROJ-26: booking is only offered when the customer doesn't already
-      // have an active subscription for this course.
-      entry.booking = {
-        entryDates: (course.course_entry_dates ?? []).map((d) => d.entry_date).sort(),
-        price: course.price,
-        nextOccurrenceDates: upcomingOccurrences(schedule.weekday, {
-          count: UPCOMING_OCCURRENCES_WINDOW,
-          pauseDates: schedule.course_schedule_pauses.map((p) => p.pause_date),
-          zeitraum: kurszeitraum(course),
-          ferien,
-        }),
-        hasOpenRegularBooking: myOpenRegularCourseIds.has(course.id),
-        // Immer false: dieser Zweig wird nur betreten, wenn der Kunde in
-        // diesem Kurs NICHT sitzt (siehe Bedingung oben).
-        hasActiveSubscription: false,
-        hasFlatrate: mySubsRes.hatFlatrate,
-        isFull: course.max_participants !== null && (occupiedByCourse.get(course.id) ?? 0) >= course.max_participants,
-        isOnWaitlist: myWaitlistCourseIds.has(course.id),
-        isLoggedIn: !!user,
-        hasMandate,
-        hasReferralSource,
-        pricing,
-        roleQueryEnabled: course.role_query_enabled,
-      };
-    }
+    // Der Stundenplan zeigt, wann etwas stattfindet — und dazu die Aktion, die
+    // zum Kurs gehört: der Weg hinein, wenn der Kunde nicht drin ist, der Weg
+    // hinaus, wenn er mit einer Flatrate drin ist.
+    //
+    // Das Einchecken hat seinen Ort seit 2026-09-10 ausschließlich unter „Mein
+    // Bereich": Dort steht der ganze Kurstag mit einem Knopf je Stunde, und
+    // derselbe Handgriff an zwei Orten ist einer zu viel. (Umkehr einer
+    // Entscheidung von PROJ-25 — damals gab es „Mein Bereich" noch nicht.)
+    //
+    // Nebenwirkung jener Verlagerung, gemeldet aus dem Betrieb am 2026-09-11:
+    // Für einen Kurs, in dem der Kunde saß, blieb die Karte danach ganz ohne
+    // Aktion zurück. Der Rückweg der Flatrate stand nur im Kurskatalog — also
+    // genau dort nicht, wo man seine Kurse ansieht.
+    const istDrin = myActiveCourseIds.has(course.id);
+    entry.booking = {
+      entryDates: (course.course_entry_dates ?? []).map((d) => d.entry_date).sort(),
+      price: course.price,
+      nextOccurrenceDates: upcomingOccurrences(schedule.weekday, {
+        count: UPCOMING_OCCURRENCES_WINDOW,
+        pauseDates: schedule.course_schedule_pauses.map((p) => p.pause_date),
+        zeitraum: kurszeitraum(course),
+        ferien,
+      }),
+      hasOpenRegularBooking: myOpenRegularCourseIds.has(course.id),
+      hasActiveSubscription: istDrin,
+      hasFlatrate: mySubsRes.hatFlatrate,
+      isFull: course.max_participants !== null && (occupiedByCourse.get(course.id) ?? 0) >= course.max_participants,
+      isOnWaitlist: myWaitlistCourseIds.has(course.id),
+      isLoggedIn: !!user,
+      hasMandate,
+      hasReferralSource,
+      pricing,
+      roleQueryEnabled: course.role_query_enabled,
+    };
 
     if (!entriesByWeekday[schedule.weekday]) entriesByWeekday[schedule.weekday] = [];
     entriesByWeekday[schedule.weekday].push(entry);

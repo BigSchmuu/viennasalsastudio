@@ -224,6 +224,43 @@ test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
     await expect(page.getByRole("button", { name: "Aus meiner Flatrate entfernen" })).toBeVisible();
   });
 
+  test("Der Rückweg steht auch im Stundenplan, nicht nur im Kurskatalog", async ({ page }) => {
+    // Gemeldet aus dem Betrieb am 2026-09-11: Seit der Check-in aus dem
+    // Stundenplan verschwunden ist, blieb die Karte eines Kurses, in dem der
+    // Kunde sitzt, ganz ohne Aktion zurück — ausgerechnet dort, wo man seine
+    // Kurse ansieht.
+    const service = dienst();
+    const aboId = await flatrateAboId();
+
+    await anmelden(page, FLATRATE_KUNDE);
+    await gehZu(page, "/stundenplan");
+    await page.waitForTimeout(2000);
+    await page.getByRole("tab", { name: /Donnerstag/ }).click();
+    await page.waitForTimeout(800);
+
+    // Noch nicht drin: der Hinweg. Beide Testkurse stehen an diesem Tag, also
+    // zwei Knöpfe.
+    const hinweg = page.getByRole("button", { name: "Zu meiner Flatrate hinzufügen" });
+    await expect(hinweg.first()).toBeVisible();
+    const vorher = await hinweg.count();
+    await expect(page.getByRole("button", { name: "Aus meiner Flatrate entfernen" })).toHaveCount(0);
+
+    await service
+      .from("course_memberships")
+      .insert({ customer_id: kundeId, course_id: kursId, subscription_id: aboId });
+
+    await gehZu(page, "/stundenplan");
+    await page.waitForTimeout(2000);
+    await page.getByRole("tab", { name: /Donnerstag/ }).click();
+    await page.waitForTimeout(800);
+
+    // Genau der eine Kurs hat den Rückweg — der andere weiter den Hinweg.
+    const rueckweg = page.getByRole("button", { name: "Aus meiner Flatrate entfernen" });
+    await expect(rueckweg).toHaveCount(1);
+    await expect(rueckweg).toBeVisible();
+    await expect(hinweg).toHaveCount(vorher - 1);
+  });
+
   test("AC: Der Rückweg steht dort, wo der Hinweg war — mit Rückfrage", async ({ page }) => {
     const service = dienst();
     const aboId = await flatrateAboId();

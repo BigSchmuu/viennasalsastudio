@@ -31,13 +31,25 @@ export function ScheduleBookingButton({
     setBookingOpen(true);
   }
 
+  // Wer schon in diesem Kurs sitzt, ohne Flatrate: Hier gibt es nichts zu tun.
+  // Sein Abo hängt an genau diesem Kurs — heraus kommt er über „Umbuchen" oder
+  // „Kündigen" im Profil, nicht mit einem Knopf am Stundenplan.
+  if (isLoggedIn && course.hasActiveSubscription && !course.hasFlatrate) {
+    return null;
+  }
+
   // PROJ-50: Ein Flatrate-Kunde bucht nicht, er trägt sich ein. Der Dialog
   // bleibt für ihn nur der Weg auf die Warteliste, wenn der Kurs voll ist.
+  //
+  // Und er kommt auf demselben Weg wieder heraus: Der Knopf bleibt stehen und
+  // heißt dann „Aus meiner Flatrate entfernen". Der Rückweg gehört dorthin, wo
+  // der Hinweg war — bis zum 2026-09-11 stand er nur im Kurskatalog.
   if (isLoggedIn && course.hasFlatrate) {
     return (
       <>
         <FlatrateCourseButton
           kursId={course.id}
+          istDrin={course.hasActiveSubscription}
           fragtRolleAb={course.roleQueryEnabled}
           vorkenntnisseHinweis={course.prerequisiteNote}
           istVoll={course.isFull}
