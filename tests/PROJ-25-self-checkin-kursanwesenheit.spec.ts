@@ -238,7 +238,21 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
     await login(page, CUSTOMER_WITH_ABO);
     await gehZu(page, "/mein-bereich");
     await page.waitForTimeout(1500);
-    await expect(page.getByText("E2E25 Beendet Kurs")).toHaveCount(0);
+
+    // Geprüft wird die **Karte**, nicht die ganze Seite.
+    //
+    // Der Kurs läuft wöchentlich weiter — sein nächster Termin ist in einer
+    // Woche, und der steht zu Recht in der Ausblick-Zeile „Danach: Freitag,
+    // 00:05 · E2E25 Beendet Kurs". Der erste Entwurf dieses Falls suchte die
+    // ganze Seite ab und fiel genau darüber.
+    //
+    // Der Unterschied lässt sich einfach ausdrücken: In einer Karte steht der
+    // Kursname allein, in der Ausblick-Zeile eingebettet in einen Satz. `exact`
+    // trifft deshalb nur die Karte.
+    await expect(page.getByText("E2E25 Beendet Kurs", { exact: true })).toHaveCount(0);
+    // Gegenprobe, damit der Fall nicht aus dem falschen Grund besteht: Die
+    // laufende Stunde hat sehr wohl eine Karte.
+    await expect(page.getByText("E2E25 Im Fenster Kurs", { exact: true })).toHaveCount(1);
   });
 
   test("AC6, AC7: Self-Check-In überschreibt Lehrer-Markierung; Lehrer/Admin sieht Self-Check-In-Kennzeichnung", async ({
