@@ -144,6 +144,20 @@ test.afterAll(async () => {
   await service.from("studio_holidays").delete().eq("name", FERIEN_NAME);
 });
 
+/**
+ * Der Katalog ist seitenweise (12 je Seite, „Mehr laden") und nach Anlagedatum
+ * sortiert — die Kurse dieser Suite entstehen zuletzt und stehen deshalb hinten.
+ */
+async function oeffneKatalog(page: import("@playwright/test").Page) {
+  await gehZu(page, "/kurse");
+  await page.waitForTimeout(1500);
+  const mehr = page.getByRole("button", { name: /Mehr laden/ });
+  for (let i = 0; i < 10 && (await mehr.count()) > 0; i++) {
+    await mehr.click();
+    await page.waitForTimeout(500);
+  }
+}
+
 async function oeffneTag(page: import("@playwright/test").Page) {
   await gehZu(page, "/stundenplan");
   await page.waitForTimeout(1800);
@@ -285,6 +299,30 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
         .update({ pending_name: null, pending_level: null, pending_effective_date: null })
         .eq("name", KURS_LAEUFT);
     }
+  });
+
+  test("AC: Wer einen bald endenden Kurs buchen will, erfährt es vorher", async ({ page }) => {
+    await anmelden(page, KUNDE);
+    await oeffneKatalog(page);
+
+    // Der Hinweis steht im Dialog, nicht auf der Karte: Er gehört an die
+    // Stelle, an der die Entscheidung fällt.
+    await page
+      .locator(".rounded-lg.border.bg-card")
+      .filter({ has: page.getByText(KURS_LAEUFT, { exact: true }) })
+      .getByRole("button", { name: "Jetzt buchen" })
+      .click();
+    await page.waitForTimeout(1200);
+
+    await expect(page.getByRole("dialog").getByText(/läuft nur noch bis/)).toBeVisible();
+  });
+
+  test("AC: Ein ausgelaufener Kurs steht auch im Katalog nicht mehr", async ({ page }) => {
+    // Sonst führte der Stundenplan ihn zu Recht nicht mehr — und der Katalog
+    // ließe ihn weiter buchen.
+    await oeffneKatalog(page);
+    await expect(page.getByText(KURS_LAEUFT, { exact: true })).toBeVisible();
+    await expect(page.getByText(KURS_VORBEI, { exact: true })).toHaveCount(0);
   });
 
   test("AC: Der Kunde sieht im Profil, dass sein Kurs beendet ist — und kann umbuchen", async ({

@@ -182,7 +182,8 @@
       "leader": "Leader",
       "follower": "Follower",
       "both": "Both"
-    }
+    },
+    "courseEndsSoon": "Heads up: this class only runs until {date}. Your subscription continues afterwards — you can switch it to another class at any time."
   },
   "profile": {
     "heading": "My profile",

@@ -394,3 +394,10 @@ Keine. Formulare, Listen, Datumsfelder und Hinweisleisten sind vorhanden.
 - Das Kriterium „der Betreiber erkennt die betroffenen Abos" ist an **zwei**
   Stellen umgesetzt statt an einer: Kundenliste *und* Kundenprofil. Nur im
   Profil hieße, fünfzig Profile zu öffnen, um die drei zu finden.
+- Der **Kurskatalog** filtert ausgelaufene Kurse ebenfalls heraus, mit
+  derselben Funktion wie der Stundenplan (`imStundenplan`). Im Entwurf stand
+  nur der Stundenplan; ein Kurs, den der Plan nicht mehr kennt, aber der
+  Katalog weiter zum Buchen anbietet, wäre die gefährlichere Hälfte gewesen.
+- Der Buchungsdialog weist auf ein nahes Kursende hin. `runsUntil` ist dafür
+  **Pflichtfeld** an `BookingDialogCourse` — der Compiler hat dadurch alle
+  sieben Aufrufstellen aufgezählt.

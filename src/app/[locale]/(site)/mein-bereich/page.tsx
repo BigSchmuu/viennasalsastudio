@@ -382,6 +382,7 @@ export default async function MeinBereichPage() {
             isFull: kurs.max_participants !== null && belegt >= kurs.max_participants,
             isOnWaitlist: false,
             prerequisiteNote: kurs.prerequisite_note,
+            runsUntil: kurs.runs_until,
             roleQueryEnabled: kurs.role_query_enabled,
           },
           level: kurs.level,

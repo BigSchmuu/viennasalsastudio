@@ -128,6 +128,7 @@ export default async function StundenplanPage() {
       startTime: schedule.start_time,
       endTime: schedule.end_time,
       prerequisiteNote: course.prerequisite_note,
+      runsUntil: course.runs_until,
       zeitraumHinweis: zeitraumhinweis(
         {
           zeitraum: kurszeitraum(course),

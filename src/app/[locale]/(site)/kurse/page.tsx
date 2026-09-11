@@ -3,6 +3,8 @@ import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { CourseCatalog, type CatalogCourseRow, type SimpleOption } from "@/components/catalog/course-catalog";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
+import { imStundenplan } from "@/lib/scheduling/kursanzeige";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import { readStudioPricing } from "@/lib/pricing";
 import { getTranslations } from "next-intl/server";
 import { getViewer } from "@/lib/auth/viewer";
@@ -83,7 +85,14 @@ export default async function KurskatalogPage() {
   // PROJ-51: einmal für die ganze Liste geladen, nicht je Kurs.
   const ferien = await ladeFerien(supabase);
 
-  const courses: CatalogCourseRow[] = (coursesRes.data ?? []).map((c) => {
+  // PROJ-51: Dieselbe Regel wie im Stundenplan. Ein ausgelaufener Kurs gehört
+  // nicht ins Schaufenster — wer ihn dort noch buchen könnte, zahlte für etwas,
+  // das es nicht mehr gibt.
+  const imAngebot = (coursesRes.data ?? []).filter((c) =>
+    imStundenplan(kurszeitraum(c), heuteInWien())
+  );
+
+  const courses: CatalogCourseRow[] = imAngebot.map((c) => {
     const schedule = c.course_schedule;
     const nextDates = schedule
       ? upcomingOccurrences(schedule.weekday, {
@@ -115,6 +124,7 @@ export default async function KurskatalogPage() {
       isFull: c.max_participants !== null && (occupiedByCourse.get(c.id) ?? 0) >= c.max_participants,
       isOnWaitlist: waitlistCourseIds.has(c.id),
       prerequisiteNote: c.prerequisite_note,
+      runsUntil: c.runs_until,
       roleQueryEnabled: c.role_query_enabled,
     };
   });

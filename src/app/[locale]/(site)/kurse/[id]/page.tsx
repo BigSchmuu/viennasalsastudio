@@ -135,6 +135,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     isFull,
     isOnWaitlist,
     prerequisiteNote: course.prerequisite_note,
+    runsUntil: course.runs_until,
     roleQueryEnabled: course.role_query_enabled,
   };
 

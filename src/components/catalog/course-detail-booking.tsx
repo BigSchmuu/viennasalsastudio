@@ -22,6 +22,8 @@ export type CourseDetailData = {
   isFull: boolean;
   isOnWaitlist: boolean;
   prerequisiteNote: string | null;
+  /** PROJ-51: Kursende — der Dialog weist darauf hin, bevor jemand bucht. */
+  runsUntil: string | null;
   roleQueryEnabled: boolean;
 };
 

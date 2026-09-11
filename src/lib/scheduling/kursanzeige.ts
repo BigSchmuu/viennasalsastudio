@@ -25,7 +25,11 @@ function tagePlus(datum: string, tage: number): string {
 }
 
 /**
- * Gehört dieser Kurs in den Stundenplan? (PROJ-51)
+ * Gehört dieser Kurs ins Angebot? (PROJ-51)
+ *
+ * Benutzt vom Stundenplan **und** vom Kurskatalog. Zwei Antworten darauf
+ * liefen früher oder später auseinander — und dann stünde ein Kurs im Katalog,
+ * den der Stundenplan nicht mehr kennt.
  *
  * Das ist bewusst **nicht** dieselbe Frage wie „findet dieser Termin statt?".
  * Jene ist eine Aussage über die Wirklichkeit und steckt in der

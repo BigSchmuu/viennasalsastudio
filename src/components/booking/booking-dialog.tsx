@@ -24,6 +24,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PlanPriceTiles } from "@/components/booking/plan-price-tiles";
 import { useLocale, useTranslations } from "next-intl";
 import { buchungsHindernis } from "@/lib/bookings/hindernis";
+import { VORSCHAU_TAGE } from "@/lib/scheduling/kursanzeige";
 import { formatPrice, type StudioPricing } from "@/lib/pricing";
 import { TermsConsent } from "@/components/booking/terms-consent";
 import {
@@ -45,6 +46,28 @@ function formatDate(date: string): string {
   return new Date(date).toLocaleDateString("de-AT", { weekday: "short", day: "2-digit", month: "2-digit" });
 }
 
+/** Das Kursende (PROJ-51) — mit Jahr, und in der Sprache des Lesers. */
+function formatEnddatum(date: string, locale: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString(locale === "en" ? "en-GB" : "de-AT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+/**
+ * Läuft dieser Kurs so bald aus, dass es beim Buchen dazugehört?
+ *
+ * Derselbe Horizont wie im Stundenplan: Ein Ende in vier Monaten sagt bei
+ * einem Monatsabo nichts, eines in zehn Tagen alles.
+ */
+function laeuftBaldAus(runsUntil: string | null): boolean {
+  if (!runsUntil) return false;
+  const grenze = new Date();
+  grenze.setDate(grenze.getDate() + VORSCHAU_TAGE);
+  return runsUntil <= grenze.toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
+}
+
 export type BookingDialogCourse = {
   id: string;
   name: string;
@@ -61,6 +84,14 @@ export type BookingDialogCourse = {
   isFull: boolean;
   isOnWaitlist: boolean;
   prerequisiteNote: string | null;
+  /**
+   * PROJ-51: Wann dieser Kurs ausläuft — `null` heißt unbefristet.
+   *
+   * Pflichtangabe, nicht optional: Sonst bleibt sie genau so lange gesetzt,
+   * bis ein Aufrufer sie vergisst — und dann bucht jemand einen Kurs, der in
+   * zehn Tagen vorbei ist, ohne es zu erfahren.
+   */
+  runsUntil: string | null;
   roleQueryEnabled: boolean;
 };
 
@@ -254,6 +285,18 @@ export function BookingDialog({
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* PROJ-51: Vor der Auswahl, nicht darunter — wer bucht, soll wissen,
+            worauf er sich einlässt, bevor er einen Tarif anklickt. Derselbe
+            Horizont wie im Stundenplan: Ein Ende in vier Monaten sagt bei
+            einem Monatsabo nichts, eines in zehn Tagen alles. */}
+        {laeuftBaldAus(course.runsUntil) && (
+          <Alert>
+            <AlertDescription>
+              {t("courseEndsSoon", { date: formatEnddatum(course.runsUntil!, locale) })}
+            </AlertDescription>
           </Alert>
         )}
 

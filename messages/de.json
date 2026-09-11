@@ -182,7 +182,8 @@
       "leader": "Leader",
       "follower": "Follower",
       "both": "Beide"
-    }
+    },
+    "courseEndsSoon": "Achtung: Dieser Kurs läuft nur noch bis zum {date}. Dein Abo läuft danach weiter — du kannst es jederzeit auf einen anderen Kurs umbuchen."
   },
   "profile": {
     "heading": "Mein Profil",

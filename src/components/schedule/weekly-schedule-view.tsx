@@ -29,6 +29,8 @@ export type ScheduleEntry = {
   endTime: string;
   // PROJ-27: shown on the card whenever set, independent of booking/self-checkin.
   prerequisiteNote: string | null;
+  /** PROJ-51: Kursende — der Dialog weist darauf hin, bevor jemand bucht. */
+  runsUntil: string | null;
   /** PROJ-51: „noch bis …", „ab …" oder „ab …: Neuer Name" — null, wo es nichts zu sagen gibt. */
   zeitraumHinweis: Zeitraumhinweis | null;
   // PROJ-26: only set when the customer is not already in this course.
@@ -134,6 +136,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
               isFull: entry.booking.isFull,
               isOnWaitlist: entry.booking.isOnWaitlist,
               prerequisiteNote: entry.prerequisiteNote,
+              runsUntil: entry.runsUntil,
               roleQueryEnabled: entry.booking.roleQueryEnabled,
             }}
             isLoggedIn={entry.booking.isLoggedIn}
