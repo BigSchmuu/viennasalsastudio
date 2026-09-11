@@ -121,6 +121,12 @@ test.describe("PROJ-26: Kursbuchung direkt von /stundenplan aus", () => {
     const card = courseCard(page, "E2E26 Buchbar Kurs");
     await expect(card).toBeVisible();
     await expect(card.getByRole("button", { name: "Buchen" })).toHaveCount(0);
+
+    // Statt gar nichts (Wunsch aus dem Betrieb, 2026-09-11): Eine Karte ohne
+    // Knopf war zweideutig — „ich bin drin" und „hier ist gerade nichts
+    // möglich" sahen gleich aus. Beim kursgebundenen Abo gibt es sonst
+    // nirgends im Plan einen Hinweis darauf, wo man hingehört.
+    await expect(card.getByText("Du bist in diesem Kurs")).toBeVisible();
   });
 
   test("AC5: Ausgebuchter Kurs zeigt 'Ausgebucht' direkt auf der Stundenplan-Karte", async ({ page }) => {

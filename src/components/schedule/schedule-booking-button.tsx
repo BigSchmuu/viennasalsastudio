@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { BookingDialog, type BookingDialogCourse } from "@/components/booking/booking-dialog";
 import { Button } from "@/components/ui/button";
 import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
@@ -21,6 +22,10 @@ export function ScheduleBookingButton({
   pricing: StudioPricing;
 }) {
   const router = useRouter();
+  // Der Satz steht im Namensraum „flatrate", weil er dort entstanden ist —
+  // gemeint ist er allgemein, und zwei Fassungen desselben Satzes liefen
+  // früher oder später auseinander.
+  const t = useTranslations("flatrate");
   const [bookingOpen, setBookingOpen] = useState(false);
 
   function handleClick() {
@@ -31,11 +36,16 @@ export function ScheduleBookingButton({
     setBookingOpen(true);
   }
 
-  // Wer schon in diesem Kurs sitzt, ohne Flatrate: Hier gibt es nichts zu tun.
-  // Sein Abo hängt an genau diesem Kurs — heraus kommt er über „Umbuchen" oder
+  // Wer mit einem kursgebundenen Abo drin sitzt, hat hier nichts zu tun: Sein
+  // Abo hängt an genau diesem Kurs, heraus kommt er über „Umbuchen" oder
   // „Kündigen" im Profil, nicht mit einem Knopf am Stundenplan.
+  //
+  // Aber er soll es sehen. Ohne diese Zeile war eine Karte ohne Knopf
+  // zweideutig: „ich bin drin" und „hier ist gerade nichts möglich" sahen
+  // gleich aus — und gerade beim kursgebundenen Abo gibt es sonst nirgends im
+  // Plan einen Hinweis darauf, wo man eigentlich hingehört.
   if (isLoggedIn && course.hasActiveSubscription && !course.hasFlatrate) {
-    return null;
+    return <p className="text-sm text-muted-foreground">{t("alreadyIn")}</p>;
   }
 
   // PROJ-50: Ein Flatrate-Kunde bucht nicht, er trägt sich ein. Der Dialog
@@ -47,6 +57,9 @@ export function ScheduleBookingButton({
   if (isLoggedIn && course.hasFlatrate) {
     return (
       <>
+        {course.hasActiveSubscription && (
+          <p className="mb-2 text-sm text-muted-foreground">{t("alreadyIn")}</p>
+        )}
         <FlatrateCourseButton
           kursId={course.id}
           istDrin={course.hasActiveSubscription}
