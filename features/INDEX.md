@@ -73,7 +73,7 @@
 
 | PROJ-50 | Flatrate für mehrere Kurse | Deployed | [PROJ-50](../features/PROJ-50-flatrate-mehrere-kurse.md) | 2026-09-10 |
 
-| PROJ-51 | Kurszeiträume, Umwandlung und Ferien im Stundenplan | In Progress | [PROJ-51](../features/PROJ-51-kurszeitraeume-umwandlung-ferien.md) | 2026-09-11 |
+| PROJ-51 | Kurszeiträume, Umwandlung und Ferien im Stundenplan | In Review | [PROJ-51](../features/PROJ-51-kurszeitraeume-umwandlung-ferien.md) | 2026-09-11 |
 
 <!-- Add features above this line -->
 

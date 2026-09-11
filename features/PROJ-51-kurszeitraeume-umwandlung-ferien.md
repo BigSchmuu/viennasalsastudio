@@ -1,6 +1,6 @@
 # PROJ-51: Kurszeiträume, Umwandlung und Ferien im Stundenplan
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-09-11
 **Last Updated:** 2026-09-11
 **Priorität:** P1
@@ -409,3 +409,175 @@ Keine. Formulare, Listen, Datumsfelder und Hinweisleisten sind vorhanden.
   mehr abarbeiten kann. Nachtragen geht weiterhin über die Kursseite. Falls
   sich das im Betrieb als falsch erweist, wäre eine Schonfrist von ein paar
   Wochen nach Kursende die naheliegende Korrektur.
+
+---
+
+## QA Test Results
+
+**Getestet:** 2026-09-11
+**Umgebung:** lokal gegen die Testdatenbank (beide Migrationen eingespielt)
+**Prüfer:** QA Engineer (AI)
+
+### Akzeptanzkriterien
+
+#### Kurszeitraum — 7/7
+- [x] „Läuft von"/„läuft bis" im Kursformular, beide leer = unbefristet
+- [x] Kurs mit Ende in der Vergangenheit steht nicht mehr im Stundenplan
+- [x] Kurs, der in mehr als drei Wochen beginnt, erscheint noch nicht
+- [x] Kurs, der binnen drei Wochen beginnt, steht mit „ab {Datum}" da
+- [x] Kurs, der binnen drei Wochen endet, steht mit „noch bis {Datum}" da
+- [x] Unbefristeter Kurs bekommt keine Zeitraumzeile
+- [x] Hinweis auf ein nahes Kursende im Buchungsdialog — **mit Einschränkung**,
+      siehe BUG-4
+
+#### Umwandlung — 5/6
+- [x] „Kurs umwandeln" nimmt Namen, Level und Stichtag entgegen
+- [x] Vormerkung ist sichtbar und zurücknehmbar
+- [x] Stundenplan zeigt „ab {Datum}: {neuer Name}" und stellt es dem Ende voran
+- [x] Stichtag erreicht → neuer Name, neues Level, alle Kunden weiter eingeschrieben
+- [x] Anwesenheitshistorie bleibt unverändert (die Kurs-Kennung ändert sich nicht)
+- [ ] **BUG-1:** Der Kunde wird vorher benachrichtigt — aber bei einem Kurs mit
+      gesetztem Enddatum führt die Ankündigung ins Leere, weil der Kurs
+      unsichtbar bleibt
+
+#### Ausgelaufener Kurs — 3/4
+- [ ] **BUG-3:** Hinweis in „Mein Bereich"/„Mein Profil" erscheint auch bei
+      gekündigten Abos, wo er nicht stimmt
+- [x] Dashboard rechnet für einen ausgelaufenen Kurs keinen Termin mehr
+- [x] Lehrerbereich zeigt ihn weder als Termin noch als fehlende Anwesenheit
+- [x] Betreiber erkennt die betroffenen Abos in Kundenliste und Kundenprofil
+
+#### Ferien — 5/5
+- [x] Eingetragene Ferien lassen alle Kurstermine darin ausfallen
+- [x] Hinweisleiste über dem Stundenplan
+- [x] Termin in den Ferien ist kein „nächster Kurs" im Kundenbereich
+- [x] Termin in den Ferien fehlt auch im Lehrerbereich
+- [x] Ferien löschen lässt die einzeln gepflegten Ausfalltage unberührt
+
+### Randfälle
+
+- [x] **Umwandlung mit Stichtag in der Vergangenheit** — wird beim Speichern abgelehnt
+- [x] **Kursende vor dem Kursbeginn** — wird abgelehnt, zusätzlich per DB-CHECK
+- [x] **Ferienende vor dem Ferienbeginn** — wird abgelehnt, zusätzlich per DB-CHECK
+- [x] **Verpasster Stichtag** (nächtlicher Lauf fiel aus) — wird nachgeholt (`lte`, nicht `eq`)
+- [x] **Zweiter Lauf am selben Tag** — ändert nichts und kündigt nicht erneut an
+- [x] **Ferien über Jahrzehnte** — keine Endlosschleife, `MAX_WOCHEN = 520` greift
+- [x] **Kurs ohne Wochentermin** — taucht nirgends als Termin auf
+- [ ] **BUG-2:** Vormerkung ankündigen → zurücknehmen → neu vormerken
+
+### Sicherheitsprüfung
+
+- [x] **Authentifizierung:** `/admin/ferien` liegt unter dem Admin-Layout, das
+      `requireAdmin()` aufruft; die Ferien-Aktionen prüfen zusätzlich selbst
+- [x] **Autorisierung:** `studio_holidays` hat RLS — öffentlich lesbar (der
+      Stundenplan zeigt Ferien auch anonym), Schreiben nur für `current_role() = 'admin'`.
+      Die Server-Aktionen benutzen den Client des Nutzers, nicht `service_role` —
+      RLS bleibt also die letzte Instanz, auch wenn eine Prüfung im Code fehlte
+- [x] **Eingabeprüfung / XSS:** Platzhalterwerte in Benachrichtigungen laufen
+      durch `escapeHtml` (`substituteHtml`), ein Kursname mit `<script>` landet
+      escaped in der E-Mail. Im Stundenplan escapet React
+- [x] **Cron-Endpunkt:** `/api/cron/notifications` verlangt den Bearer-Token;
+      ohne ihn 401 und kein Vollzug (durch Test abgedeckt)
+- [x] **Keine personenbezogenen Daten** in der Nutzlast der neuen
+      Benachrichtigung — nur Kursnamen und ein Datum
+- [x] **Keine neuen API-Routen**, keine neuen Geheimnisse, keine `service_role`
+      im Browser
+
+### Automatisierte Tests
+
+| Lauf | Ergebnis |
+|---|---|
+| `npm test` (Vitest) | 485 bestanden, 38 Dateien |
+| `npm run test:e2e` (Chromium + Mobile Safari) | **1066 bestanden, 4 übersprungen, 0 Fehler** (1,9 h) |
+| `npx tsc --noEmit` | sauber |
+| `npm run lint` | sauber |
+| `npm run build` | erfolgreich |
+
+Neu in dieser Runde: 16 E2E-Fälle in `tests/PROJ-51-kurszeitraeume-und-ferien.spec.ts`,
+5 in `tests/kursumwandlung-vollzug.spec.ts`, 14 Unit-Tests für `kursanzeige`,
+1 für `fehlendeAnwesenheit` bei ausgelaufenem Kurs.
+
+**Browser:** Chromium und Mobile Safari (WebKit) laufen in der Projekt-Konfiguration.
+Firefox ist dort nicht eingerichtet und wurde **nicht** geprüft.
+
+### Gefundene Fehler
+
+#### BUG-1: Ein Kurs mit Enddatum verschwindet, wenn man ihn umwandelt
+- **Schwere:** Hoch
+- **Schritte:**
+  1. Kurs „Beginner 1" mit „läuft bis 21.12." speichern
+  2. Umwandlung nach „Beginner 2" zum 07.01. vormerken
+  3. Erwartet: Ab dem 07.01. steht „Beginner 2" im Stundenplan
+  4. Tatsächlich: Ab dem 22.12. fällt der Kurs aus dem Plan (`imStundenplan`
+     prüft `runs_until < heute`). Der nächtliche Lauf benennt ihn am 07.01. um,
+     rührt `runs_until` aber nicht an — der Kurs bleibt für immer unsichtbar.
+     Die Kunden haben vorher die Ankündigung bekommen, dass es weitergeht.
+- **Warum das der Hauptweg ist:** Genau diese Kombination steht als Beispiel im
+  Entwurf dieser Spec („noch bis 21.12." und „ab 7.1.: Salsa Beginner 2").
+- **Mögliche Richtungen:** Die Umwandlung setzt den Zeitraum mit (Formular fragt
+  „läuft bis" der neuen Staffel ab), oder der Vollzug leert `runs_until`, oder
+  das Formular warnt, wenn der Stichtag hinter dem Kursende liegt.
+- **Priorität:** Vor dem Deploy beheben
+
+#### BUG-2: Die zweite Vormerkung wird nie angekündigt
+- **Schwere:** Mittel
+- **Schritte:**
+  1. Umwandlung vormerken, nächtlicher Lauf kündigt an (`pending_announced_at` gesetzt)
+  2. Vormerkung zurücknehmen (etwa weil der Name falsch war)
+  3. Neue Vormerkung mit korrigiertem Namen anlegen
+  4. Erwartet: Die Kunden erfahren von der neuen Umwandlung
+  5. Tatsächlich: `kursUmwandlungZuruecknehmen` und `kursUmwandlungVormerken`
+     leeren `pending_announced_at` nicht. Der Lauf hält den Kurs für „schon
+     informiert" und schweigt; umgewandelt wird trotzdem
+- **Beleg:** `src/lib/actions/admin/courses.ts` — beide `update`-Aufrufe lassen
+  die Spalte aus. Der Kommentar in `20260911040000` verspricht das Gegenteil
+  („Wird mit der Vormerkung zusammen geleert")
+- **Priorität:** Vor dem Deploy beheben
+
+#### BUG-3: „Dieser Kurs ist beendet" erscheint auch bei gekündigten Abos
+- **Schwere:** Mittel
+- **Schritte:**
+  1. Ein gekündigtes Abo an einem ausgelaufenen Kurs
+  2. „Mein Profil" → „Mein Abo" öffnen
+  3. Erwartet: kein Handlungsaufruf — es gibt nichts umzubuchen
+  4. Tatsächlich: „Dieser Kurs ist beendet. Buche auf einen laufenden Kurs um —
+     dein Abo bleibt bestehen." Beides stimmt nicht, und der Umbuchen-Knopf
+     fehlt dort ohnehin (`canSwitch` schließt gekündigte aus)
+- **Gleiches gilt für:** das Kundenprofil im Admin („Kurs beendet — Umbuchen
+  nötig"). In der Kundenliste ist der Fall bereits abgefangen — die drei
+  Lesestellen sind uneinheitlich
+- **Priorität:** Vor dem Deploy beheben
+
+#### BUG-4: Der Hinweis im Buchungsdialog spricht vom Abo, steht aber über allen drei Reitern
+- **Schwere:** Niedrig
+- **Tatsächlich:** „Dein Abo läuft danach weiter — du kannst es jederzeit auf
+  einen anderen Kurs umbuchen." steht auch über „Probestunde" und „Drop-in",
+  wo es kein Abo gibt
+- **Priorität:** Nächste Runde
+
+#### BUG-5: Ein ausgelaufener Kurs ist über seine Detailseite weiter buchbar
+- **Schwere:** Niedrig bis Mittel
+- **Schritte:**
+  1. `/kurse/<id>` eines ausgelaufenen Kurses öffnen (alter Link, Lesezeichen)
+  2. Tatsächlich: Die Seite lädt, Einstiegstermine stehen zur Wahl, ein
+     Flatrate-Kunde kann den Kurs hinzufügen. Stundenplan und Katalog
+     verstecken ihn — die Detailseite prüft den Zeitraum nicht
+- **Anmerkung:** Dass Einstiegstermine nie auf die Zukunft gefiltert werden,
+  stammt aus PROJ-8 und ist älter als dieses Feature
+- **Priorität:** Nächste Runde
+
+#### BUG-6: 36-px-Schaltflächen auf der Ferienseite
+- **Schwere:** Niedrig
+- **Tatsächlich:** „Entfernen" nutzt `size="sm"` (36 px) statt der Projektnorm
+  von 44 px. Dieselbe Klasse wie PROJ-49 BUG-3, der noch offen ist
+- **Priorität:** Zusammen mit PROJ-49 BUG-3
+
+### Zusammenfassung
+
+- **Akzeptanzkriterien:** 20 von 22 bestanden
+- **Fehler:** 6 (0 kritisch, 1 hoch, 2 mittel, 3 niedrig)
+- **Sicherheit:** keine Befunde
+- **Regression:** keine — 1066 E2E-Fälle bestanden, 0 Fehler
+- **Produktionsreif:** **NEIN** — BUG-1 muss vorher weg
+- **Empfehlung:** BUG-1 bis BUG-3 beheben, dann erneut `/qa`. BUG-4 bis BUG-6
+  sind vertretbar für eine spätere Runde
