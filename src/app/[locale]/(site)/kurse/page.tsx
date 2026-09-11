@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
+import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { CourseCatalog, type CatalogCourseRow, type SimpleOption } from "@/components/catalog/course-catalog";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { readStudioPricing } from "@/lib/pricing";
@@ -19,7 +20,7 @@ export default async function KurskatalogPage() {
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled"
+        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until"
       )
       .order("created_at", { ascending: true }),
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
@@ -79,12 +80,17 @@ export default async function KurskatalogPage() {
     hatFlatrate = zugehoerigkeit.hatFlatrate;
   }
 
+  // PROJ-51: einmal für die ganze Liste geladen, nicht je Kurs.
+  const ferien = await ladeFerien(supabase);
+
   const courses: CatalogCourseRow[] = (coursesRes.data ?? []).map((c) => {
     const schedule = c.course_schedule;
     const nextDates = schedule
       ? upcomingOccurrences(schedule.weekday, {
           count: UPCOMING_OCCURRENCES_WINDOW,
           pauseDates: schedule.course_schedule_pauses.map((p) => p.pause_date),
+          zeitraum: kurszeitraum(c),
+          ferien,
         })
       : [];
 

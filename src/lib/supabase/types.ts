@@ -560,10 +560,15 @@ export type Database = {
           max_participants: number | null
           max_role_difference: number | null
           name: string
+          pending_effective_date: string | null
+          pending_level: string | null
+          pending_name: string | null
           prerequisite_note: string | null
           price: number | null
           role_query_enabled: boolean
           room_id: string
+          runs_from: string | null
+          runs_until: string | null
           video_set_id: string | null
         }
         Insert: {
@@ -574,10 +579,15 @@ export type Database = {
           max_participants?: number | null
           max_role_difference?: number | null
           name: string
+          pending_effective_date?: string | null
+          pending_level?: string | null
+          pending_name?: string | null
           prerequisite_note?: string | null
           price?: number | null
           role_query_enabled?: boolean
           room_id: string
+          runs_from?: string | null
+          runs_until?: string | null
           video_set_id?: string | null
         }
         Update: {
@@ -588,10 +598,15 @@ export type Database = {
           max_participants?: number | null
           max_role_difference?: number | null
           name?: string
+          pending_effective_date?: string | null
+          pending_level?: string | null
+          pending_name?: string | null
           prerequisite_note?: string | null
           price?: number | null
           role_query_enabled?: boolean
           room_id?: string
+          runs_from?: string | null
+          runs_until?: string | null
           video_set_id?: string | null
         }
         Relationships: [
@@ -1361,6 +1376,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      studio_holidays: {
+        Row: {
+          created_at: string
+          ends_on: string
+          id: string
+          name: string
+          starts_on: string
+        }
+        Insert: {
+          created_at?: string
+          ends_on: string
+          id?: string
+          name: string
+          starts_on: string
+        }
+        Update: {
+          created_at?: string
+          ends_on?: string
+          id?: string
+          name?: string
+          starts_on?: string
+        }
+        Relationships: []
       }
       subscriptions: {
         Row: {

@@ -463,11 +463,15 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
           startZeit: "19:00",
           endZeit: "20:00",
           pausen: (pausen ?? []).map((x) => x.pause_date as string),
+          // PROJ-51: Dieser Testkurs ist unbefristet und von Ferien nicht
+          // betroffen — ausdrücklich gesagt, nicht vergessen.
+          zeitraum: { von: null, bis: null },
           hatVideosatz: false,
           fragtRolleAb: false,
         },
       ],
       new Set(),
+      [],
       new Date()
     );
     expect(offen.length, "Ohne Einträge müsste es offene Stunden geben").toBeGreaterThan(0);

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { pastOccurrences } from "@/lib/scheduling/dates";
 
 export type RosterRow = {
@@ -22,7 +23,7 @@ export async function loadMoreOccurrences(courseId: string, beforeDate: string):
 
   const { data: course } = await supabase
     .from("courses")
-    .select("course_schedule(weekday, course_schedule_pauses(pause_date))")
+    .select("runs_from, runs_until, course_schedule(weekday, course_schedule_pauses(pause_date))")
     .eq("id", courseId)
     .single();
 
@@ -35,6 +36,10 @@ export async function loadMoreOccurrences(courseId: string, beforeDate: string):
   const dates = pastOccurrences(schedule.weekday, {
     count: LOAD_MORE_COUNT,
     pauseDates,
+    // PROJ-51: Eine Stunde vor Kursbeginn oder in den Ferien hat nie
+    // stattgefunden — für sie kann auch keine Anwesenheit fehlen.
+    zeitraum: kurszeitraum(course ?? {}),
+    ferien: await ladeFerien(supabase),
     before: new Date(beforeDate + "T00:00:00"),
   });
 

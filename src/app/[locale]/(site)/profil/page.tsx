@@ -8,6 +8,7 @@ import type { MandateData } from "@/components/payments/payment-method-section";
 import { MyBookingsSection, type MyBookingRow } from "@/components/booking/my-bookings-section";
 import { MySubscriptionsSection, type MySubscriptionRow } from "@/components/subscription/my-subscriptions-section";
 import { FlatrateCourses, type FlatrateKurs } from "@/components/subscription/flatrate-courses";
+import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { MyInvoicesSection, type MyInvoiceRow } from "@/components/invoices/my-invoices-section";
 import { MyCreditSection, type MyCreditEntry } from "@/components/credits/my-credit-section";
 import { readStudioPricing } from "@/lib/pricing";
@@ -72,7 +73,7 @@ export default async function ProfilePage() {
     supabase
       .from("course_bookings")
       .select(
-        "id, type, status, chosen_date, desired_plan, price, dance_role, subscription_id, courses(name, course_schedule(weekday, course_schedule_pauses(pause_date)))"
+        "id, type, status, chosen_date, desired_plan, price, dance_role, subscription_id, courses(name, runs_from, runs_until, course_schedule(weekday, course_schedule_pauses(pause_date)))"
       )
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false }),
@@ -128,6 +129,9 @@ export default async function ProfilePage() {
       }
     : null;
 
+  // PROJ-51: einmal für alle Buchungen geladen.
+  const ferien = await ladeFerien(supabase);
+
   const bookings: MyBookingRow[] = (bookingRows ?? []).map((b) => {
     const withinLeadTime = daysUntil(b.chosen_date) >= BOOKING_CANCELLATION_LEAD_DAYS;
     const isActive = b.status === "open" || b.status === "confirmed";
@@ -137,6 +141,8 @@ export default async function ProfilePage() {
         ? upcomingOccurrences(schedule.weekday, {
             count: 4,
             pauseDates: schedule.course_schedule_pauses.map((p) => p.pause_date),
+            zeitraum: kurszeitraum(b.courses ?? {}),
+            ferien,
           })
         : [];
 

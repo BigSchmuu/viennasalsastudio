@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTranslations, getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { getViewerContext } from "@/lib/auth/viewer";
 import { ladeLehrerUebersicht } from "@/lib/teacher/laden";
 import { LehrerUebersicht } from "@/components/teacher/lehrer-uebersicht";
@@ -41,6 +42,9 @@ type KursBezug = {
   course_schedule: Zeitplan | Zeitplan[] | null;
   rooms: { name: string; locations: { name: string } | null } | null;
   dance_styles: { name: string } | null;
+  /** PROJ-51: der Kurszeitraum — außerhalb davon findet nichts statt. */
+  runs_from: string | null;
+  runs_until: string | null;
 };
 
 /** Supabase liefert eingebettete 1:1-Beziehungen je nach Abfrage als Objekt oder als Liste. */
@@ -75,7 +79,7 @@ export default async function MeinBereichPage() {
   const fensterEnde = new Date(jetzt.getTime() + EVENT_FENSTER_TAGE * 24 * 60 * 60 * 1000).toISOString();
 
   const kursAuswahl =
-    "id, name, level, video_set_id, course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), rooms(name, locations(name)), dance_styles(name)";
+    "id, name, level, video_set_id, runs_from, runs_until, course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), rooms(name, locations(name)), dance_styles(name)";
 
   const [
     { data: profil },
@@ -148,6 +152,9 @@ export default async function MeinBereichPage() {
 
   // --- Termine ---------------------------------------------------------
 
+  // PROJ-51: einmal geladen, für alle Terminrechnungen dieser Seite.
+  const ferien = await ladeFerien(supabase);
+
   const aboEingaben: AboEingabe[] = [];
   const schonErfasst = new Set<string>();
   // Beide Wege in einen Kurs: das kursgebundene Abo und der Kursplatz einer
@@ -171,6 +178,7 @@ export default async function MeinBereichPage() {
       raum: kurs.rooms?.name ?? null,
       standort: kurs.rooms?.locations?.name ?? null,
       pausenTage: (plan.course_schedule_pauses ?? []).map((p) => p.pause_date),
+      zeitraum: kurszeitraum(kurs),
     });
   }
 
@@ -194,7 +202,7 @@ export default async function MeinBereichPage() {
     buchungsArtProKurs.set(`${kurs.id}|${buchung.chosen_date}`, buchung.type);
   }
 
-  const { naechste, danach } = naechsteTermine(aboEingaben, buchungsEingaben, jetzt);
+  const { naechste, danach } = naechsteTermine(aboEingaben, buchungsEingaben, ferien, jetzt);
   const aboKursIds = new Set(aboEingaben.map((a) => a.kursId));
   const eingechecktHeute = new Set(
     (heutigeAnwesenheit ?? [])
@@ -340,6 +348,8 @@ export default async function MeinBereichPage() {
         const termine = upcomingOccurrences(plan.weekday, {
           count: 1,
           pauseDates: (plan.course_schedule_pauses ?? []).map((p) => p.pause_date),
+          zeitraum: kurszeitraum(kurs),
+          ferien,
         });
         const belegt = belegtProKurs.get(kurs.id) ?? 0;
         return {
@@ -350,6 +360,8 @@ export default async function MeinBereichPage() {
             nextOccurrenceDates: upcomingOccurrences(plan.weekday, {
               count: 4,
               pauseDates: (plan.course_schedule_pauses ?? []).map((p) => p.pause_date),
+              zeitraum: kurszeitraum(kurs),
+              ferien,
             }),
             hasOpenRegularBooking: false,
             hasActiveSubscription: false,

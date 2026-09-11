@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { ladeKurszugehoerigkeit, darfVideosSehen } from "@/lib/flatrate/kurszugehoerigkeit";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
@@ -31,7 +32,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled"
+        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until"
       )
       .eq("id", id)
       .single(),
@@ -52,10 +53,15 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   const teacherNameById = new Map((teachersData ?? []).map((t) => [t.id, t.full_name || "Unbenannter Lehrer"]));
 
   const schedule = course.course_schedule;
+  // PROJ-51: Termine gibt es nur innerhalb des Kurszeitraums und außerhalb der
+  // Ferien. Beides ist Pflichtangabe — siehe scheduling/dates.ts.
+  const ferien = await ladeFerien(supabase);
   const nextOccurrenceDates = schedule
     ? upcomingOccurrences(schedule.weekday, {
         count: UPCOMING_OCCURRENCES_WINDOW,
         pauseDates: schedule.course_schedule_pauses.map((p) => p.pause_date),
+        zeitraum: kurszeitraum(course),
+        ferien,
       })
     : [];
 

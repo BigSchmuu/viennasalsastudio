@@ -14,6 +14,7 @@ import {
 import type { RosterRow } from "@/lib/actions/teacher/load-more-occurrences";
 import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 import { Lehrmaterial, type Lektion } from "@/components/teacher/lehrmaterial";
+import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 
 const PAST_WINDOW = 8;
 
@@ -23,7 +24,7 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
 
   const { data: course } = await supabase
     .from("courses")
-    .select("id, name, role_query_enabled, video_set_id, course_schedule(weekday, course_schedule_pauses(pause_date))")
+    .select("id, name, role_query_enabled, video_set_id, runs_from, runs_until, course_schedule(weekday, course_schedule_pauses(pause_date))")
     .eq("id", courseId)
     .single();
 
@@ -88,7 +89,14 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
     const todayDate = heuteInWien();
     const isTodayOccurrence = jsDayToWeekday(heuteAlsDatumInWien().getDay()) === schedule.weekday && !pauseDates.includes(todayDate);
 
-    const past = pastOccurrences(schedule.weekday, { count: PAST_WINDOW, pauseDates });
+    const past = pastOccurrences(schedule.weekday, {
+      count: PAST_WINDOW,
+      pauseDates,
+      // PROJ-51: Eine Stunde vor Kursbeginn oder in den Ferien hat nie
+      // stattgefunden — sie gehört nicht in die Anwesenheitsliste.
+      zeitraum: kurszeitraum(course),
+      ferien: await ladeFerien(supabase),
+    });
     const chronologicalPast = [...past].reverse();
     const allDates = isTodayOccurrence ? [...chronologicalPast, todayDate] : chronologicalPast;
 

@@ -4,6 +4,7 @@ import { sendPushToCustomer } from "@/lib/notifications/push";
 import { buildNotificationContent, resolveTemplateKey, type NotificationContent } from "@/lib/notifications/templates";
 import type { TemplateFields } from "@/lib/notifications/template-registry";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
+import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { hasConvertedSince } from "@/lib/trials/conversion";
 import type { Json } from "@/lib/supabase/types";
 
@@ -561,11 +562,13 @@ export async function runFollowupChecks(service: ServiceClient): Promise<{ follo
   const windowStart = addDaysToDateString(today, -30);
 
   let followup = 0;
+  // PROJ-51: einmal je Lauf, nicht je Buchung.
+  const ferien = await ladeFerien(service);
 
   const { data: bookings } = await service
     .from("course_bookings")
     .select(
-      "id, customer_id, chosen_date, courses(course_schedule(weekday, course_schedule_pauses(pause_date)))"
+      "id, customer_id, chosen_date, courses(runs_from, runs_until, course_schedule(weekday, course_schedule_pauses(pause_date)))"
     )
     .eq("type", "trial")
     .eq("status", "confirmed")
@@ -580,7 +583,12 @@ export async function runFollowupChecks(service: ServiceClient): Promise<{ follo
     if (converted) continue;
 
     const pauseDates = schedule.course_schedule_pauses.map((p) => p.pause_date);
-    const [nextOccurrence] = upcomingOccurrences(schedule.weekday, { count: 1, pauseDates });
+    const [nextOccurrence] = upcomingOccurrences(schedule.weekday, {
+      count: 1,
+      pauseDates,
+      zeitraum: kurszeitraum(booking.courses ?? {}),
+      ferien,
+    });
     if (nextOccurrence !== tomorrow) continue;
 
     const { error } = await service.from("notification_queue").insert({

@@ -6,6 +6,7 @@ import {
   rollenVerteilung,
   type KursEingabe,
 } from "./uebersicht";
+import { UNBEFRISTET } from "@/lib/scheduling/ferien";
 
 /** Mittwoch, 9. September 2026, mittags — fester Bezugspunkt für alle Tests. */
 const JETZT = new Date("2026-09-09T12:00:00Z");
@@ -19,6 +20,7 @@ const kurs = (ueber: Partial<KursEingabe> = {}): KursEingabe => ({
   startZeit: "19:00",
   endZeit: "20:00",
   pausen: [],
+  zeitraum: UNBEFRISTET,
   hatVideosatz: true,
   fragtRolleAb: false,
   ...ueber,
@@ -26,7 +28,7 @@ const kurs = (ueber: Partial<KursEingabe> = {}): KursEingabe => ({
 
 describe("naechsteTermine", () => {
   it("nennt den nächsten Termin eines wöchentlichen Kurses", () => {
-    const t = naechsteTermine([kurs()], HEUTE, JETZT);
+    const t = naechsteTermine([kurs()], HEUTE, [], JETZT);
     expect(t).toHaveLength(1);
     expect(t[0].datum).toBe("2026-09-10");
     expect(t[0].kursName).toBe("Salsa Beginner 1");
@@ -35,17 +37,17 @@ describe("naechsteTermine", () => {
   it("zeigt einen Kurs höchstens einmal, auch wenn zwei Termine berechnet werden", () => {
     // Wöchentlich heißt: im Sieben-Tage-Fenster genau einmal. Der zweite
     // berechnete Termin liegt außerhalb und wird verworfen.
-    expect(naechsteTermine([kurs()], HEUTE, JETZT)).toHaveLength(1);
+    expect(naechsteTermine([kurs()], HEUTE, [], JETZT)).toHaveLength(1);
   });
 
   it("lässt einen ausgefallenen Termin aus und nimmt den nächsten nur, wenn er noch ins Fenster passt", () => {
     const mitPause = kurs({ pausen: ["2026-09-10"] });
     // Der nächste wäre der 17.9. — außerhalb der sieben Tage.
-    expect(naechsteTermine([mitPause], HEUTE, JETZT)).toHaveLength(0);
+    expect(naechsteTermine([mitPause], HEUTE, [], JETZT)).toHaveLength(0);
   });
 
   it("übergeht Kurse ohne hinterlegten Wochentermin", () => {
-    expect(naechsteTermine([kurs({ weekday: null })], HEUTE, JETZT)).toEqual([]);
+    expect(naechsteTermine([kurs({ weekday: null })], HEUTE, [], JETZT)).toEqual([]);
   });
 
   it("sortiert über alle Kurse hinweg nach Datum, dann nach Uhrzeit", () => {
@@ -53,7 +55,7 @@ describe("naechsteTermine", () => {
     const donnerstagFrueh = kurs({ id: "b", name: "Früh", weekday: 3, startZeit: "18:00" });
     const freitag = kurs({ id: "c", name: "Freitag", weekday: 4, startZeit: "10:00" });
 
-    const namen = naechsteTermine([donnerstagSpaet, freitag, donnerstagFrueh], HEUTE, JETZT).map(
+    const namen = naechsteTermine([donnerstagSpaet, freitag, donnerstagFrueh], HEUTE, [], JETZT).map(
       (t) => t.kursName
     );
     expect(namen).toEqual(["Früh", "Spät", "Freitag"]);
@@ -62,37 +64,37 @@ describe("naechsteTermine", () => {
   it("zählt einen Kurs, der heute stattfindet, als anstehend", () => {
     // Die Anwesenheit wird ja erst während der Stunde erfasst.
     const heutigerKurs = kurs({ weekday: 2 }); // Mittwoch = heute
-    expect(naechsteTermine([heutigerKurs], HEUTE, JETZT)[0].datum).toBe(HEUTE);
+    expect(naechsteTermine([heutigerKurs], HEUTE, [], JETZT)[0].datum).toBe(HEUTE);
   });
 });
 
 describe("fehlendeAnwesenheit", () => {
   it("nennt Termine ohne Eintrag, jüngster zuerst", () => {
-    const offen = fehlendeAnwesenheit([kurs()], new Set(), JETZT);
+    const offen = fehlendeAnwesenheit([kurs()], new Set(), [], JETZT);
     expect(offen).toHaveLength(4);
     expect(offen[0].datum > offen[1].datum).toBe(true);
   });
 
   it("übergeht Termine, für die es Einträge gibt", () => {
-    const alle = fehlendeAnwesenheit([kurs()], new Set(), JETZT);
+    const alle = fehlendeAnwesenheit([kurs()], new Set(), [], JETZT);
     const erfasst = new Set([`k1|${alle[0].datum}`]);
-    const offen = fehlendeAnwesenheit([kurs()], erfasst, JETZT);
+    const offen = fehlendeAnwesenheit([kurs()], erfasst, [], JETZT);
     expect(offen.map((o) => o.datum)).not.toContain(alle[0].datum);
     expect(offen).toHaveLength(3);
   });
 
   it("mahnt ausgefallene Stunden nicht an", () => {
     // Eine Stunde, die nicht stattgefunden hat, kann keine Anwesenheit haben.
-    const alle = fehlendeAnwesenheit([kurs()], new Set(), JETZT);
+    const alle = fehlendeAnwesenheit([kurs()], new Set(), [], JETZT);
     const ausgefallen = alle[0].datum;
-    const offen = fehlendeAnwesenheit([kurs({ pausen: [ausgefallen] })], new Set(), JETZT);
+    const offen = fehlendeAnwesenheit([kurs({ pausen: [ausgefallen] })], new Set(), [], JETZT);
     expect(offen.map((o) => o.datum)).not.toContain(ausgefallen);
   });
 
   it("schweigt, wenn alles erfasst ist", () => {
-    const alle = fehlendeAnwesenheit([kurs()], new Set(), JETZT);
+    const alle = fehlendeAnwesenheit([kurs()], new Set(), [], JETZT);
     const erfasst = new Set(alle.map((o) => `k1|${o.datum}`));
-    expect(fehlendeAnwesenheit([kurs()], erfasst, JETZT)).toEqual([]);
+    expect(fehlendeAnwesenheit([kurs()], erfasst, [], JETZT)).toEqual([]);
   });
 });
 

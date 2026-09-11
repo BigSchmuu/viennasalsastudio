@@ -1,4 +1,9 @@
-import { upcomingOccurrences, viennaWallClockToDate } from "@/lib/scheduling/dates";
+import {
+  upcomingOccurrences,
+  viennaWallClockToDate,
+  type Ferienzeitraum,
+  type Kurszeitraum,
+} from "@/lib/scheduling/dates";
 
 /**
  * Welcher Kurstermin steht als Nächstes an?
@@ -38,6 +43,8 @@ export type AboEingabe = {
   raum: string | null;
   standort: string | null;
   pausenTage: string[];
+  /** PROJ-51: Außerhalb davon findet der Kurs nicht statt. */
+  zeitraum: Kurszeitraum;
 };
 
 export type BuchungEingabe = {
@@ -83,6 +90,7 @@ function bilde(
 export function sammleTermine(
   abos: AboEingabe[],
   buchungen: BuchungEingabe[],
+  ferien: Ferienzeitraum[],
   jetzt: Date = new Date()
 ): Kurstermin[] {
   const termine: Kurstermin[] = [];
@@ -93,6 +101,8 @@ export function sammleTermine(
     for (const datum of upcomingOccurrences(abo.wochentag, {
       count: 2,
       pauseDates: abo.pausenTage,
+      zeitraum: abo.zeitraum,
+      ferien,
       jetzt,
     })) {
       termine.push(
@@ -145,9 +155,10 @@ export type TerminUebersicht = {
 export function naechsteTermine(
   abos: AboEingabe[],
   buchungen: BuchungEingabe[],
+  ferien: Ferienzeitraum[],
   jetzt: Date = new Date()
 ): TerminUebersicht {
-  const alle = sammleTermine(abos, buchungen, jetzt);
+  const alle = sammleTermine(abos, buchungen, ferien, jetzt);
   if (alle.length === 0) {
     return { naechste: [], danach: null };
   }

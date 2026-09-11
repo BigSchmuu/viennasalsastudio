@@ -7,6 +7,7 @@ import {
   daysUntil,
   selfCheckinWindow,
 } from "./dates";
+import { UNBEFRISTET } from "./ferien";
 
 describe("jsDayToWeekday", () => {
   it("maps JS Sunday (0) to app Sonntag (6)", () => {
@@ -49,17 +50,17 @@ describe("upcomingOccurrences", () => {
   });
 
   it("returns the next N Mondays when today is Sunday", () => {
-    const dates = upcomingOccurrences(0, { count: 3 });
+    const dates = upcomingOccurrences(0, { count: 3 , zeitraum: UNBEFRISTET, ferien: [] });
     expect(dates).toEqual(["2026-08-17", "2026-08-24", "2026-08-31"]);
   });
 
   it("includes today itself when today matches the requested weekday", () => {
-    const dates = upcomingOccurrences(6, { count: 2 }); // Sonntag = 6, today is Sunday
+    const dates = upcomingOccurrences(6, { count: 2 , zeitraum: UNBEFRISTET, ferien: [] }); // Sonntag = 6, today is Sunday
     expect(dates).toEqual(["2026-08-16", "2026-08-23"]);
   });
 
   it("skips dates present in pauseDates while keeping the requested count", () => {
-    const dates = upcomingOccurrences(0, { count: 3, pauseDates: ["2026-08-17"] });
+    const dates = upcomingOccurrences(0, { count: 3, pauseDates: ["2026-08-17"] , zeitraum: UNBEFRISTET, ferien: [] });
     expect(dates).toEqual(["2026-08-24", "2026-08-31", "2026-09-07"]);
   });
 });
@@ -76,29 +77,29 @@ describe("pastOccurrences", () => {
   });
 
   it("returns the last N Mondays before today when today is Sunday", () => {
-    const dates = pastOccurrences(0, { count: 3 });
+    const dates = pastOccurrences(0, { count: 3 , zeitraum: UNBEFRISTET, ferien: [] });
     expect(dates).toEqual(["2026-08-10", "2026-08-03", "2026-07-27"]);
   });
 
   it("excludes today even when today matches the requested weekday (PROJ-13: attendance for today comes from the upcoming list, not past)", () => {
-    const dates = pastOccurrences(6, { count: 2 }); // Sonntag = 6, today is Sunday
+    const dates = pastOccurrences(6, { count: 2 , zeitraum: UNBEFRISTET, ferien: [] }); // Sonntag = 6, today is Sunday
     expect(dates).toEqual(["2026-08-09", "2026-08-02"]);
   });
 
   it("skips dates present in pauseDates while keeping the requested count", () => {
-    const dates = pastOccurrences(0, { count: 3, pauseDates: ["2026-08-10"] });
+    const dates = pastOccurrences(0, { count: 3, pauseDates: ["2026-08-10"] , zeitraum: UNBEFRISTET, ferien: [] });
     expect(dates).toEqual(["2026-08-03", "2026-07-27", "2026-07-20"]);
   });
 
   it("returns dates in most-recent-first order", () => {
-    const dates = pastOccurrences(0, { count: 2 });
+    const dates = pastOccurrences(0, { count: 2 , zeitraum: UNBEFRISTET, ferien: [] });
     expect(new Date(dates[0]).getTime()).toBeGreaterThan(new Date(dates[1]).getTime());
   });
 
   it("continues further into the past from an explicit `before` anchor (PROJ-13 'Mehr laden')", () => {
-    const initial = pastOccurrences(0, { count: 3 }); // 2026-08-10, 08-03, 07-27
+    const initial = pastOccurrences(0, { count: 3 , zeitraum: UNBEFRISTET, ferien: [] }); // 2026-08-10, 08-03, 07-27
     const oldest = new Date(initial[initial.length - 1] + "T00:00:00");
-    const more = pastOccurrences(0, { count: 2, before: oldest });
+    const more = pastOccurrences(0, { count: 2, before: oldest , zeitraum: UNBEFRISTET, ferien: [] });
     expect(more).toEqual(["2026-07-20", "2026-07-13"]);
   });
 });
@@ -159,5 +160,77 @@ describe("selfCheckinWindow", () => {
     const { opensAt } = selfCheckinWindow("2026-08-18", "18:00:00", "19:00:00");
     const start = selfCheckinWindow("2026-08-18", "18:00:00", "18:00:00").endsAt;
     expect(start.getTime() - opensAt.getTime()).toBe(30 * 60 * 1000);
+  });
+});
+
+describe("Kurszeitraum und Ferien (PROJ-51)", () => {
+  // 2026-08-27 ist ein Donnerstag; Wochentagskonvention 0=Montag..6=Sonntag.
+  const DONNERSTAG = 3;
+  const JETZT = new Date("2026-08-27T06:00:00Z");
+
+  it("liefert keine Termine nach dem Kursende", () => {
+    const dates = upcomingOccurrences(DONNERSTAG, {
+      count: 4,
+      zeitraum: { von: null, bis: "2026-09-10" },
+      ferien: [],
+      jetzt: JETZT,
+    });
+    expect(dates).toEqual(["2026-08-27", "2026-09-03", "2026-09-10"]);
+  });
+
+  it("liefert nichts, wenn der Kurs bereits ausgelaufen ist", () => {
+    // Ohne Abbruchbedingung würde die Suche hier endlos weiterlaufen.
+    expect(
+      upcomingOccurrences(DONNERSTAG, {
+        count: 4,
+        zeitraum: { von: null, bis: "2026-08-01" },
+        ferien: [],
+        jetzt: JETZT,
+      })
+    ).toEqual([]);
+  });
+
+  it("beginnt erst mit dem Kursstart", () => {
+    const dates = upcomingOccurrences(DONNERSTAG, {
+      count: 2,
+      zeitraum: { von: "2026-09-05", bis: null },
+      ferien: [],
+      jetzt: JETZT,
+    });
+    expect(dates).toEqual(["2026-09-10", "2026-09-17"]);
+  });
+
+  it("lässt Termine in den Ferien aus", () => {
+    const dates = upcomingOccurrences(DONNERSTAG, {
+      count: 3,
+      zeitraum: { von: null, bis: null },
+      ferien: [{ von: "2026-09-01", bis: "2026-09-08" }],
+      jetzt: JETZT,
+    });
+    // Der 3.9. fällt in die Ferien und wird übersprungen.
+    expect(dates).toEqual(["2026-08-27", "2026-09-10", "2026-09-17"]);
+  });
+
+  it("zählt einen Ferientag nicht doppelt, wenn er auch ein Ausfalltag ist", () => {
+    const dates = upcomingOccurrences(DONNERSTAG, {
+      count: 2,
+      pauseDates: ["2026-09-03"],
+      zeitraum: { von: null, bis: null },
+      ferien: [{ von: "2026-09-01", bis: "2026-09-08" }],
+      jetzt: JETZT,
+    });
+    expect(dates).toEqual(["2026-08-27", "2026-09-10"]);
+  });
+
+  it("lässt auch in der Rückschau Ferien und Zeitraum aus", () => {
+    // Für eine Stunde, die nie stattfand, kann keine Anwesenheit fehlen.
+    const dates = pastOccurrences(DONNERSTAG, {
+      count: 3,
+      zeitraum: { von: "2026-08-06", bis: null },
+      ferien: [{ von: "2026-08-10", bis: "2026-08-16" }],
+      before: new Date("2026-08-27T00:00:00"),
+    });
+    // 20.8. und 6.8. bleiben; der 13.8. liegt in den Ferien.
+    expect(dates).toEqual(["2026-08-20", "2026-08-06"]);
   });
 });

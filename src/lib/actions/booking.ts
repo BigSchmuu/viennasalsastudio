@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { bookingSchema } from "@/lib/validations/booking";
 import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
 import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
@@ -35,16 +36,28 @@ async function getValidOccurrenceDates(
   supabase: Awaited<ReturnType<typeof createClient>>,
   courseId: string
 ): Promise<string[]> {
-  const { data: schedule } = await supabase
-    .from("course_schedule")
-    .select("weekday, course_schedule_pauses(pause_date)")
-    .eq("course_id", courseId)
-    .maybeSingle();
+  const [{ data: schedule }, { data: kurs }, ferien] = await Promise.all([
+    supabase
+      .from("course_schedule")
+      .select("weekday, course_schedule_pauses(pause_date)")
+      .eq("course_id", courseId)
+      .maybeSingle(),
+    // PROJ-51: Ein Termin außerhalb des Kurszeitraums ist kein gültiger
+    // Einstiegstermin — sonst böte der Buchungsdialog Daten an, an denen
+    // nichts stattfindet.
+    supabase.from("courses").select("runs_from, runs_until").eq("id", courseId).maybeSingle(),
+    ladeFerien(supabase),
+  ]);
 
   if (!schedule) return [];
 
   const pauseDates = schedule.course_schedule_pauses.map((p) => p.pause_date);
-  return upcomingOccurrences(schedule.weekday, { count: UPCOMING_OCCURRENCES_WINDOW, pauseDates });
+  return upcomingOccurrences(schedule.weekday, {
+    count: UPCOMING_OCCURRENCES_WINDOW,
+    pauseDates,
+    zeitraum: kurszeitraum(kurs ?? {}),
+    ferien,
+  });
 }
 
 export async function createBooking(formData: FormData): Promise<CreateBookingResult> {

@@ -1,4 +1,9 @@
-import { upcomingOccurrences, pastOccurrences } from "@/lib/scheduling/dates";
+import {
+  upcomingOccurrences,
+  pastOccurrences,
+  type Ferienzeitraum,
+  type Kurszeitraum,
+} from "@/lib/scheduling/dates";
 import { isBirthdayWithinDays } from "@/lib/birthdays";
 
 /**
@@ -24,6 +29,8 @@ export type KursEingabe = {
   startZeit: string | null;
   endZeit: string | null;
   pausen: string[];
+  /** PROJ-51: Außerhalb davon findet der Kurs nicht statt. */
+  zeitraum: Kurszeitraum;
   hatVideosatz: boolean;
   fragtRolleAb: boolean;
 };
@@ -55,13 +62,20 @@ export type OffenerTermin = { kursId: string; kursName: string; datum: string };
 export function naechsteTermine(
   kurse: KursEingabe[],
   heute: string,
+  ferien: Ferienzeitraum[],
   jetzt?: Date
 ): Omit<Termin, "rollen" | "letzteNotiz">[] {
   const grenze = tagePlus(heute, FENSTER_TAGE);
 
   const termine = kurse.flatMap((kurs) => {
     if (kurs.weekday === null) return [];
-    return upcomingOccurrences(kurs.weekday, { count: 2, pauseDates: kurs.pausen, jetzt })
+    return upcomingOccurrences(kurs.weekday, {
+      count: 2,
+      pauseDates: kurs.pausen,
+      zeitraum: kurs.zeitraum,
+      ferien,
+      jetzt,
+    })
       .filter((datum) => datum <= grenze)
       .map((datum) => ({
         kursId: kurs.id,
@@ -90,6 +104,7 @@ export function naechsteTermine(
 export function fehlendeAnwesenheit(
   kurse: KursEingabe[],
   erfasst: Set<string>,
+  ferien: Ferienzeitraum[],
   before?: Date
 ): OffenerTermin[] {
   const offen = kurse.flatMap((kurs) => {
@@ -97,6 +112,8 @@ export function fehlendeAnwesenheit(
     return pastOccurrences(kurs.weekday, {
       count: RUECKBLICK_TERMINE,
       pauseDates: kurs.pausen,
+      zeitraum: kurs.zeitraum,
+      ferien,
       before,
     })
       .filter((datum) => !erfasst.has(`${kurs.id}|${datum}`))

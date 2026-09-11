@@ -16,10 +16,68 @@ export function formatDateLocal(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Next `count` upcoming dates (today or later) matching `weekday`, skipping any date in `pauseDates`. */
+/**
+ * Der Zeitraum, in dem ein Kurs überhaupt stattfindet (PROJ-51).
+ *
+ * Beide Seiten dürfen offen sein: `null` heißt „unbefristet" und verhält sich
+ * wie vor PROJ-51.
+ */
+export type Kurszeitraum = { von: string | null; bis: string | null };
+
+/** Ein studioweiter Ferienzeitraum — einschließlich beider Tage. */
+export type Ferienzeitraum = { von: string; bis: string };
+
+/**
+ * Warum `zeitraum` und `ferien` Pflicht sind und nicht optional (PROJ-51).
+ *
+ * Diese beiden Funktionen beantworten an 14 Stellen im Projekt die Frage
+ * „wann findet dieser Kurs statt?". Wären die Angaben optional, funktionierte
+ * alles — bis eine Stelle sie vergisst. Dann rechnet sie still falsch, ohne
+ * Fehlermeldung, und niemand merkt es, bis jemand anruft. Genau so sind bei
+ * PROJ-50 drei Lesestellen durchgerutscht.
+ *
+ * Als Pflichtangabe listet der Compiler beim Umbau alle Aufrufer auf einmal
+ * auf. Wer einen Kurs ohne Zeitraum hat, übergibt ausdrücklich
+ * `{ von: null, bis: null }` — das ist eine Aussage, kein Versehen.
+ */
+function faelltAus(datum: string, pausen: Set<string>, ferien: Ferienzeitraum[]): boolean {
+  if (pausen.has(datum)) return true;
+  // Ferien und einzelne Ausfalltage sind zwei verschiedene Dinge, die
+  // dieselbe Wirkung haben. Ein Termin fällt einmal aus, nicht zweimal.
+  return ferien.some((f) => datum >= f.von && datum <= f.bis);
+}
+
+function imZeitraum(datum: string, zeitraum: Kurszeitraum): boolean {
+  if (zeitraum.von && datum < zeitraum.von) return false;
+  if (zeitraum.bis && datum > zeitraum.bis) return false;
+  return true;
+}
+
+/**
+ * Eine Schranke gegen die Endlosschleife.
+ *
+ * Sucht die Schleife nach `count` Terminen und liegt das Kursende schon
+ * hinter uns, gäbe es ohne diese Grenze keinen Ausstieg. Zehn Jahre sind weit
+ * jenseits allem, was ein Kurs je braucht.
+ */
+const MAX_WOCHEN = 520;
+
+/** Next `count` upcoming dates (today or later) matching `weekday`, skipping pauses, holidays and anything outside the course period. */
 export function upcomingOccurrences(
   weekday: number,
-  { count, pauseDates = [], jetzt }: { count: number; pauseDates?: string[]; jetzt?: Date }
+  {
+    count,
+    pauseDates = [],
+    zeitraum,
+    ferien,
+    jetzt,
+  }: {
+    count: number;
+    pauseDates?: string[];
+    zeitraum: Kurszeitraum;
+    ferien: Ferienzeitraum[];
+    jetzt?: Date;
+  }
 ): string[] {
   const pauseSet = new Set(pauseDates);
   // Der heutige Tag in Wien, als reiner Kalendertag. Vorher der Tag des
@@ -41,9 +99,12 @@ export function upcomingOccurrences(
 
   const dates: string[] = [];
   let cursor = first;
-  while (dates.length < count) {
+  for (let woche = 0; woche < MAX_WOCHEN && dates.length < count; woche++) {
     const dateString = formatDateLocal(cursor);
-    if (!pauseSet.has(dateString)) {
+    // Hinter dem Kursende gibt es nichts mehr zu finden — weitersuchen wäre
+    // vergeblich.
+    if (zeitraum.bis && dateString > zeitraum.bis) break;
+    if (imZeitraum(dateString, zeitraum) && !faelltAus(dateString, pauseSet, ferien)) {
       dates.push(dateString);
     }
     const next = new Date(cursor);
@@ -57,7 +118,19 @@ export function upcomingOccurrences(
  *  Pass `before` (e.g. the oldest currently-loaded occurrence) to continue further into the past — used for "Mehr laden". */
 export function pastOccurrences(
   weekday: number,
-  { count, pauseDates = [], before }: { count: number; pauseDates?: string[]; before?: Date }
+  {
+    count,
+    pauseDates = [],
+    zeitraum,
+    ferien,
+    before,
+  }: {
+    count: number;
+    pauseDates?: string[];
+    zeitraum: Kurszeitraum;
+    ferien: Ferienzeitraum[];
+    before?: Date;
+  }
 ): string[] {
   const pauseSet = new Set(pauseDates);
   const anchor = before ? new Date(before) : new Date();
@@ -71,9 +144,12 @@ export function pastOccurrences(
 
   const dates: string[] = [];
   let cursor = first;
-  while (dates.length < count) {
+  for (let woche = 0; woche < MAX_WOCHEN && dates.length < count; woche++) {
     const dateString = formatDateLocal(cursor);
-    if (!pauseSet.has(dateString)) {
+    // Vor dem Kursbeginn gab es diesen Kurs nicht — eine Stunde, die nie
+    // stattfand, kann auch keine fehlende Anwesenheit haben.
+    if (zeitraum.von && dateString < zeitraum.von) break;
+    if (imZeitraum(dateString, zeitraum) && !faelltAus(dateString, pauseSet, ferien)) {
       dates.push(dateString);
     }
     const prev = new Date(cursor);

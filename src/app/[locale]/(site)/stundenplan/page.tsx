@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
+import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
 import { jsDayToWeekday, formatDateLocal, upcomingOccurrences } from "@/lib/scheduling/dates";
 import { heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
@@ -35,7 +36,7 @@ export default async function StundenplanPage() {
       supabase
         .from("courses")
         .select(
-          "id, name, level, dance_styles(name), rooms(id, name, locations(id, name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled"
+          "id, name, level, dance_styles(name), rooms(id, name, locations(id, name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until"
         ),
       supabase.from("teacher_directory").select("id, full_name"),
       // PROJ-25: In welchen Kursen der Kunde sitzt, entscheidet über den
@@ -79,6 +80,8 @@ export default async function StundenplanPage() {
   );
 
   const myActiveCourseIds = mySubsRes.kursIds;
+  // PROJ-51: einmal für die ganze Woche geladen.
+  const ferien = await ladeFerien(supabase);
 
   // PROJ-26: booking-eligibility data, gathered once for all courses shown this week.
   const occupiedByCourse = new Map((occupancyRes.data ?? []).map((o) => [o.course_id, o.occupied_count]));
@@ -133,6 +136,8 @@ export default async function StundenplanPage() {
         nextOccurrenceDates: upcomingOccurrences(schedule.weekday, {
           count: UPCOMING_OCCURRENCES_WINDOW,
           pauseDates: schedule.course_schedule_pauses.map((p) => p.pause_date),
+          zeitraum: kurszeitraum(course),
+          ferien,
         }),
         hasOpenRegularBooking: myOpenRegularCourseIds.has(course.id),
         // Immer false: dieser Zweig wird nur betreten, wenn der Kunde in

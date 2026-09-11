@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { heuteInWien } from "@/lib/constants/zeitzone";
+import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import {
   naechsteTermine,
   fehlendeAnwesenheit,
@@ -45,7 +46,7 @@ export async function ladeLehrerUebersicht(
   const { data: zuordnungen } = await supabase
     .from("course_teachers")
     .select(
-      "course_id, courses(id, name, video_set_id, role_query_enabled, rooms(name, locations(name)), course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)))"
+      "course_id, courses(id, name, video_set_id, role_query_enabled, runs_from, runs_until, rooms(name, locations(name)), course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)))"
     )
     .eq("teacher_id", userId);
 
@@ -63,6 +64,7 @@ export async function ladeLehrerUebersicht(
         startZeit: plan?.start_time ?? null,
         endZeit: plan?.end_time ?? null,
         pausen: (plan?.course_schedule_pauses ?? []).map((p: { pause_date: string }) => p.pause_date),
+        zeitraum: kurszeitraum(c),
         hatVideosatz: !!c.video_set_id,
         fragtRolleAb: !!c.role_query_enabled,
       };
@@ -73,6 +75,8 @@ export async function ladeLehrerUebersicht(
   }
 
   const kursIds = kurse.map((k) => k.id);
+  // PROJ-51: einmal für alle Kurse dieses Lehrers.
+  const ferien = await ladeFerien(supabase);
 
   // Alles über Funktionen, keine einzige direkte Tabellenabfrage.
   //
@@ -141,7 +145,7 @@ export async function ladeLehrerUebersicht(
   }
 
   const kursById = new Map(kurse.map((k) => [k.id, k]));
-  const roh = naechsteTermine(kurse, heute, jetzt);
+  const roh = naechsteTermine(kurse, heute, ferien, jetzt);
 
   // Die Notiz steht nur beim jeweils nächsten Termin eines Kurses — zweimal
   // dieselbe Notiz wäre Lärm.
@@ -183,6 +187,6 @@ export async function ladeLehrerUebersicht(
     termine,
     probestunden,
     geburtstage: gebs,
-    offeneAnwesenheit: fehlendeAnwesenheit(kurse, erfasst, jetzt),
+    offeneAnwesenheit: fehlendeAnwesenheit(kurse, erfasst, ferien, jetzt),
   };
 }
