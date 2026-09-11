@@ -306,4 +306,29 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
     await todayCellAfter.getByRole("button").click();
     await expect(page.getByText(/Self-Check-In/)).toBeVisible();
   });
+
+  test("Im Stundenplan gibt es kein Einchecken mehr", async ({ page }) => {
+    // Entscheidung vom 2026-09-10: Der Check-in hat seinen Ort ausschließlich
+    // unter „Mein Bereich". Ohne diesen Fall wäre das eine Absicht ohne Wächter
+    // — wer den Knopf versehentlich wieder einbaut, merkt es nie.
+    //
+    // Der Kunde hat heute einen Kurs im Check-in-Fenster; auf dem Stundenplan
+    // darf trotzdem nichts zum Drücken sein.
+    await login(page, CUSTOMER_WITH_ABO);
+    await gehZu(page, "/stundenplan");
+    await page.waitForTimeout(1500);
+
+    const karte = courseCard(page, "E2E25 Im Fenster Kurs");
+    await expect(karte.first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ich bin da" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "✓ Eingecheckt" })).toHaveCount(0);
+
+    // Gegenprobe: Unter „Mein Bereich" gibt es ihn sehr wohl.
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(1500);
+    const irgendeinCheckin = page
+      .getByRole("button", { name: "Ich bin da" })
+      .or(page.getByRole("button", { name: "✓ Eingecheckt" }));
+    await expect(irgendeinCheckin.first()).toBeVisible();
+  });
 });
