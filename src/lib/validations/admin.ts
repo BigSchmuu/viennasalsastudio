@@ -63,8 +63,52 @@ export const courseSchema = z.object({
     })
     .optional()
     .or(z.literal("")),
-});
+  // PROJ-51: Beide leer heißt „unbefristet" — der Kurs verhält sich dann wie
+  // vor dieser Änderung. Das ist der Normalfall, nicht die Ausnahme.
+  runs_from: z.string().trim().optional().or(z.literal("")),
+  runs_until: z.string().trim().optional().or(z.literal("")),
+})
+  .refine(
+    (werte) => !werte.runs_from || !werte.runs_until || werte.runs_until >= werte.runs_from,
+    { message: "Das Kursende darf nicht vor dem Beginn liegen", path: ["runs_until"] }
+  );
 export type CourseInput = z.infer<typeof courseSchema>;
+
+/**
+ * Die vorgemerkte Umwandlung eines Kurses (PROJ-51).
+ *
+ * Aus Beginner 1 wird Beginner 2 — derselbe Kurs, dieselben Kunden, nur Name
+ * und Level ändern sich. Der Preis bleibt bewusst außen vor: Eine
+ * Preisänderung an einem bestehenden Vertrag ist etwas anderes als ein neuer
+ * Kursname und gehört ausdrücklich angekündigt.
+ */
+export const kursUmwandlungSchema = z.object({
+  pending_name: z.string().trim().min(1, "Neuer Name ist erforderlich").max(200),
+  pending_level: z.enum(levelValues, { message: "Bitte ein Level wählen" }),
+  pending_effective_date: z
+    .string()
+    .trim()
+    .min(1, "Bitte einen Stichtag wählen")
+    // Ein rückwirkender Namenswechsel würde die Anwesenheitshistorie umdeuten:
+    // Stunden, die als „Beginner 1" stattfanden, hießen plötzlich anders.
+    .refine((wert) => wert >= new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" }), {
+      message: "Der Stichtag darf nicht in der Vergangenheit liegen",
+    }),
+});
+export type KursUmwandlungInput = z.infer<typeof kursUmwandlungSchema>;
+
+/** PROJ-51: Studioweite Ferien — ein Eintrag statt vierzig Ausfalltage. */
+export const ferienSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name ist erforderlich").max(200),
+    starts_on: z.string().trim().min(1, "Bitte einen Beginn wählen"),
+    ends_on: z.string().trim().min(1, "Bitte ein Ende wählen"),
+  })
+  .refine((werte) => werte.ends_on >= werte.starts_on, {
+    message: "Das Ende darf nicht vor dem Beginn liegen",
+    path: ["ends_on"],
+  });
+export type FerienInput = z.infer<typeof ferienSchema>;
 
 export const videoSetSchema = z.object({
   name: z.string().trim().min(1, "Name ist erforderlich").max(200),

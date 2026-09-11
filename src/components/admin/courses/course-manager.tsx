@@ -56,6 +56,7 @@ import {
   type ScheduleData,
   type PauseData,
 } from "@/components/admin/courses/course-schedule-section";
+import { CourseConversionSection } from "@/components/admin/courses/course-conversion-section";
 import {
   CourseEntryDatesSection,
   type EntryDateData,
@@ -82,6 +83,13 @@ export type CourseRow = {
   maxParticipants: number | null;
   price: number | null;
   prerequisiteNote: string | null;
+  /** PROJ-51: Kurszeitraum — null heißt unbefristet. */
+  runsFrom: string | null;
+  runsUntil: string | null;
+  /** PROJ-51: vorgemerkte Umwandlung, falls eine besteht. */
+  pendingName: string | null;
+  pendingLevel: string | null;
+  pendingEffectiveDate: string | null;
   occupiedCount: number;
   waitlistEntries: WaitlistEntryRow[];
   roleQueryEnabled: boolean;
@@ -303,7 +311,15 @@ export function CourseManager({
         <CourseFormDialog
           open={editing !== null}
           onOpenChange={(open) => !open && setEditing(null)}
-          course={editing === "new" ? null : editing}
+          // Aus der aktuellen Liste holen, nicht aus dem Zustand von damals:
+          // `editing` hält den Kurs, wie er beim Öffnen aussah. Nach einer
+          // Serveraktion mit `revalidatePath` — etwa einer vorgemerkten
+          // Umwandlung — ist die Liste frisch, dieser Abzug aber veraltet, und
+          // der Dialog zeigte weiter das Formular statt der Vormerkung.
+          // Dieselbe Falle wie bei Filtern, die nur die Adresse ändern.
+          course={
+            editing === "new" ? null : courses.find((c) => c.id === editing.id) ?? editing
+          }
           danceStyles={danceStyles}
           locations={locations}
           rooms={rooms}
@@ -391,6 +407,8 @@ function CourseFormDialog({
       prerequisite_note: course?.prerequisiteNote ?? "",
       role_query_enabled: course?.roleQueryEnabled ?? false,
       max_role_difference: course?.maxRoleDifference != null ? String(course.maxRoleDifference) : "",
+      runs_from: course?.runsFrom ?? "",
+      runs_until: course?.runsUntil ?? "",
     },
   });
 
@@ -411,6 +429,8 @@ function CourseFormDialog({
       formData.set("prerequisite_note", values.prerequisite_note ?? "");
       formData.set("role_query_enabled", String(values.role_query_enabled ?? false));
       formData.set("max_role_difference", values.max_role_difference ?? "");
+      formData.set("runs_from", values.runs_from ?? "");
+      formData.set("runs_until", values.runs_until ?? "");
       (values.teacher_ids ?? []).forEach((id) => formData.append("teacher_ids", id));
 
       const result = course
@@ -644,6 +664,45 @@ function CourseFormDialog({
               )}
             />
 
+            {/* PROJ-51: Kurse laufen in Staffeln von vier bis acht Wochen. Beide
+                Felder dürfen leer bleiben — dann ist der Kurs unbefristet und
+                verhält sich wie vorher. Das ist der Normalfall. */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="runs_from"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Läuft von (optional)</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                    <FormDescription>
+                      Vorher erscheint der Kurs nicht im Stundenplan — ab drei Wochen davor mit
+                      Startdatum.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="runs_until"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Läuft bis (optional)</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                    <FormDescription>
+                      Danach verschwindet der Kurs von selbst aus dem Stundenplan.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <FormField
               control={form.control}
               name="prerequisite_note"
@@ -705,6 +764,19 @@ function CourseFormDialog({
           <>
             <CourseScheduleSection courseId={course.id} schedule={course.schedule} pauses={course.pauses} />
             <CourseEntryDatesSection courseId={course.id} entryDates={course.entryDates} />
+            <CourseConversionSection
+              courseId={course.id}
+              aktuellerName={course.name}
+              vormerkung={
+                course.pendingName && course.pendingEffectiveDate
+                  ? {
+                      name: course.pendingName,
+                      level: course.pendingLevel,
+                      datum: course.pendingEffectiveDate,
+                    }
+                  : null
+              }
+            />
           </>
         )}
       </DialogContent>

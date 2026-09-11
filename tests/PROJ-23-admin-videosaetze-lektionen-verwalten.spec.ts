@@ -99,7 +99,7 @@ test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
 
     await page.getByRole("button", { name: "Neuer Videosatz" }).click();
     await page.waitForTimeout(400);
-    await page.getByLabel("Name").fill("E2E23 Videosatz Beginner");
+    await page.getByLabel("Name", { exact: true }).fill("E2E23 Videosatz Beginner");
     await page.getByLabel(/Level/).click();
     await page.getByRole("option", { name: "Beginner" }).click();
     await page.getByRole("button", { name: "Speichern" }).click();
@@ -108,7 +108,7 @@ test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
 
     await page.getByRole("button", { name: "Neuer Videosatz" }).click();
     await page.waitForTimeout(400);
-    await page.getByLabel("Name").fill("e2e23 videosatz beginner");
+    await page.getByLabel("Name", { exact: true }).fill("e2e23 videosatz beginner");
     await page.getByRole("button", { name: "Speichern" }).click();
     await page.waitForTimeout(800);
     await expect(page.getByText("existiert bereits")).toBeVisible();
@@ -167,7 +167,7 @@ test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
     await page.getByRole("button", { name: "Neuer Kurs" }).click();
     await page.waitForTimeout(500);
 
-    await page.getByLabel("Name").fill("E2E23 Kurs ohne Videosatz");
+    await page.getByLabel("Name", { exact: true }).fill("E2E23 Kurs ohne Videosatz");
     // Scoped to the dialog: since PROJ-33 the page behind it also carries
     // "Tanzstil filtern" and "Level filtern", so an unscoped label lookup is
     // ambiguous and Playwright refuses it.
@@ -189,7 +189,7 @@ test.describe("PROJ-23: Admin — Videosätze & Lektionen verwalten", () => {
 
     await page.getByRole("button", { name: "Neuer Kurs" }).click();
     await page.waitForTimeout(500);
-    await page.getByLabel("Name").fill("E2E23 Kurs mit Videosatz");
+    await page.getByLabel("Name", { exact: true }).fill("E2E23 Kurs mit Videosatz");
     await dialog.getByLabel("Tanzstil").click();
     await page.getByRole("option").first().click();
     await dialog.getByLabel("Level").click();

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { courseSchema } from "@/lib/validations/admin";
+import { courseSchema, kursUmwandlungSchema } from "@/lib/validations/admin";
 import { isForeignKeyRestrictError, type ActionResult } from "@/lib/actions/types";
 
 function parseCourseFormData(formData: FormData) {
@@ -18,6 +18,8 @@ function parseCourseFormData(formData: FormData) {
     prerequisite_note: formData.get("prerequisite_note"),
     role_query_enabled: formData.get("role_query_enabled") === "true",
     max_role_difference: formData.get("max_role_difference"),
+    runs_from: formData.get("runs_from"),
+    runs_until: formData.get("runs_until"),
   });
 }
 
@@ -83,6 +85,9 @@ export async function createCourse(formData: FormData): Promise<ActionResult> {
       prerequisite_note: parsed.data.prerequisite_note || null,
       role_query_enabled: parsed.data.role_query_enabled ?? false,
       max_role_difference: parsed.data.max_role_difference ? Number(parsed.data.max_role_difference) : null,
+      // PROJ-51: Leer heißt unbefristet — der Normalfall.
+      runs_from: parsed.data.runs_from || null,
+      runs_until: parsed.data.runs_until || null,
     })
     .select("id")
     .single();
@@ -120,6 +125,9 @@ export async function updateCourse(id: string, formData: FormData): Promise<Acti
       prerequisite_note: parsed.data.prerequisite_note || null,
       role_query_enabled: parsed.data.role_query_enabled ?? false,
       max_role_difference: parsed.data.max_role_difference ? Number(parsed.data.max_role_difference) : null,
+      // PROJ-51: Leer heißt unbefristet — der Normalfall.
+      runs_from: parsed.data.runs_from || null,
+      runs_until: parsed.data.runs_until || null,
     })
     .eq("id", id);
 
@@ -160,5 +168,64 @@ export async function deleteCourse(id: string): Promise<ActionResult> {
   }
 
   revalidatePath("/admin/kurse");
+  return { success: true };
+}
+
+/**
+ * Eine Umwandlung vormerken (PROJ-51).
+ *
+ * Aus Beginner 1 wird Beginner 2 — derselbe Kurs, dieselben Kunden. Deshalb
+ * eine Vormerkung am Kurs und kein neuer Kurs: Abos, Kursplätze, Anwesenheit
+ * und Notizen hängen an der Kurs-Kennung und bleiben ohne Zutun daran.
+ *
+ * Wirksam wird sie zum Stichtag, vollzogen vom nächtlichen Lauf — dasselbe
+ * Muster wie bei den geplanten Abo-Änderungen.
+ */
+export async function kursUmwandlungVormerken(
+  id: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const parsed = kursUmwandlungSchema.safeParse({
+    pending_name: formData.get("pending_name"),
+    pending_level: formData.get("pending_level"),
+    pending_effective_date: formData.get("pending_effective_date"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
+  }
+
+  const { supabase } = await requireAdmin();
+  const { error } = await supabase
+    .from("courses")
+    .update({
+      pending_name: parsed.data.pending_name,
+      pending_level: parsed.data.pending_level,
+      pending_effective_date: parsed.data.pending_effective_date,
+    })
+    .eq("id", id);
+
+  if (error) {
+    return { error: "Umwandlung konnte nicht vorgemerkt werden." };
+  }
+
+  revalidatePath("/admin/kurse");
+  revalidatePath("/stundenplan");
+  return { success: true };
+}
+
+/** Eine vorgemerkte Umwandlung zurücknehmen, solange sie noch nicht gilt. */
+export async function kursUmwandlungZuruecknehmen(id: string): Promise<ActionResult> {
+  const { supabase } = await requireAdmin();
+  const { error } = await supabase
+    .from("courses")
+    .update({ pending_name: null, pending_level: null, pending_effective_date: null })
+    .eq("id", id);
+
+  if (error) {
+    return { error: "Vormerkung konnte nicht zurückgenommen werden." };
+  }
+
+  revalidatePath("/admin/kurse");
+  revalidatePath("/stundenplan");
   return { success: true };
 }

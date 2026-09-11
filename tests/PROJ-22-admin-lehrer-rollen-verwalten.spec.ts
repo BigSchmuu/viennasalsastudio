@@ -165,7 +165,7 @@ test.describe("PROJ-22: Admin — Lehrer-Rollen verwalten", () => {
     await page.goto("/admin/lehrer");
     await page.getByRole("button", { name: "Lehrer einladen" }).click();
     await page.waitForTimeout(400);
-    await page.getByLabel("Name").fill("Duplikat Test");
+    await page.getByLabel("Name", { exact: true }).fill("Duplikat Test");
     await page.getByLabel("E-Mail").fill(TEACHER_NOCOURSE.email);
     await page.getByRole("button", { name: "Einladung senden" }).click();
     await page.waitForTimeout(1500);

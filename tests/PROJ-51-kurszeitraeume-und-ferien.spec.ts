@@ -24,6 +24,19 @@ const KURS_VORBEI = "E2E51 Kurs vorbei";
 const FERIEN_NAME = "E2E51 Ferien";
 const ALLE_NAMEN = [KURS_LAEUFT, KURS_BEGINNT_BALD, KURS_BEGINNT_SPAETER, KURS_VORBEI];
 
+const ADMIN = { email: "e2e8-admin@viennasalsastudio.test", passwort: "CorrectPassword123!" };
+
+
+async function anmelden(page: import("@playwright/test").Page, konto: { email: string; passwort: string }) {
+  await gehZu(page, "/login");
+  await page.waitForTimeout(1200);
+  await page.getByLabel("E-Mail").fill(konto.email);
+  await page.getByLabel("Passwort").fill(konto.passwort);
+  await page.waitForTimeout(1000);
+  await page.getByRole("button", { name: "Einloggen" }).click();
+  await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 20000 });
+}
+
 const dienst = (): SupabaseClient =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -53,6 +66,11 @@ test.beforeAll(async () => {
 
   const { data: raum } = await service.from("rooms").select("id").limit(1).single();
   if (!raum) throw new Error("PROJ-51: Kein Raum vorhanden");
+  // Vollständige Kurse, nicht nur die Pflichtspalten der Datenbank: Das
+  // Kursformular verlangt außerdem Tanzstil und Level. Ohne sie scheitert es
+  // daran zuerst, und eine Prüfung des Zeitraums käme nie zum Zug.
+  const { data: stil } = await service.from("dance_styles").select("id").limit(1).single();
+  if (!stil) throw new Error("PROJ-51: Kein Tanzstil vorhanden");
 
   // Alle vier auf denselben Wochentag, damit ein Reiter sie zusammen zeigt.
   // Zwei Tage voraus: So liegt der Tag sicher in derselben Woche wie heute und
@@ -62,10 +80,10 @@ test.beforeAll(async () => {
   const { data: kurse, error } = await service
     .from("courses")
     .insert([
-      { name: KURS_LAEUFT, room_id: raum.id, role_query_enabled: false, runs_until: tagePlus(10) },
-      { name: KURS_BEGINNT_BALD, room_id: raum.id, role_query_enabled: false, runs_from: tagePlus(9) },
-      { name: KURS_BEGINNT_SPAETER, room_id: raum.id, role_query_enabled: false, runs_from: tagePlus(40) },
-      { name: KURS_VORBEI, room_id: raum.id, role_query_enabled: false, runs_until: tagePlus(-1) },
+      { name: KURS_LAEUFT, room_id: raum.id, dance_style_id: stil.id, level: "beginner", role_query_enabled: false, runs_until: tagePlus(10) },
+      { name: KURS_BEGINNT_BALD, room_id: raum.id, dance_style_id: stil.id, level: "beginner", role_query_enabled: false, runs_from: tagePlus(9) },
+      { name: KURS_BEGINNT_SPAETER, room_id: raum.id, dance_style_id: stil.id, level: "beginner", role_query_enabled: false, runs_from: tagePlus(40) },
+      { name: KURS_VORBEI, room_id: raum.id, dance_style_id: stil.id, level: "beginner", role_query_enabled: false, runs_until: tagePlus(-1) },
     ])
     .select("id, name");
   if (error) throw new Error(`PROJ-51 Testkurse: ${error.message}`);
@@ -78,6 +96,7 @@ test.beforeAll(async () => {
       end_time: "19:00",
     }))
   );
+
 });
 
 test.afterAll(async () => {
@@ -157,5 +176,92 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
     } finally {
       await service.from("studio_holidays").delete().eq("name", FERIEN_NAME);
     }
+  });
+
+  test("AC: Der Betreiber trägt Ferien ein und wieder aus", async ({ page }) => {
+    await anmelden(page, ADMIN);
+    await page.goto("/admin/ferien");
+    await page.waitForTimeout(1500);
+
+    await page.getByLabel("Anlass").fill(FERIEN_NAME);
+    await page.getByLabel("Von").fill(tagePlus(5));
+    await page.getByLabel("Bis").fill(tagePlus(8));
+    await page.getByRole("button", { name: "Ferien eintragen" }).click();
+    await page.waitForTimeout(2500);
+
+    await expect(page.getByText(FERIEN_NAME)).toBeVisible();
+
+    // Und wieder weg — mit Rückfrage, denn danach finden die Termine wieder statt.
+    await page.getByRole("button", { name: "Entfernen" }).first().click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Entfernen" }).click();
+    await page.waitForTimeout(2500);
+    await expect(page.getByText(FERIEN_NAME)).toHaveCount(0);
+  });
+
+  test("AC: Der Betreiber merkt eine Umwandlung vor und nimmt sie zurück", async ({ page }) => {
+    await anmelden(page, ADMIN);
+    await page.goto("/admin/kurse");
+    await page.waitForTimeout(2000);
+
+    await page.locator("tr", { hasText: KURS_LAEUFT }).getByRole("button", { name: "Bearbeiten" }).click();
+    await page.waitForTimeout(1200);
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Kurs umwandeln")).toBeVisible();
+    await dialog.getByLabel("Neuer Name").fill("E2E51 Fortgeschritten");
+    await dialog.getByLabel("Neues Level").click();
+    await page.getByRole("option").first().click();
+    await dialog.getByLabel("Ab wann").fill(tagePlus(12));
+    await dialog.getByRole("button", { name: "Umwandlung vormerken" }).click();
+    await page.waitForTimeout(2500);
+
+    const service = dienst();
+    try {
+      const { data: nachher } = await service
+        .from("courses")
+        .select("pending_name, pending_effective_date")
+        .eq("name", KURS_LAEUFT)
+        .single();
+      expect(nachher?.pending_name, "Die Umwandlung wurde nicht vorgemerkt").toBe(
+        "E2E51 Fortgeschritten"
+      );
+
+      // Der Dialog zeigt die Vormerkung sofort — ohne ihn neu zu öffnen.
+      // Vorher hielt er den Kurs fest, wie er beim Öffnen aussah.
+      await expect(dialog.getByText(/heißt .*dann/)).toBeVisible();
+      await dialog.getByRole("button", { name: "Vormerkung zurücknehmen" }).click();
+      await page.waitForTimeout(2500);
+
+      const { data: danach } = await service
+        .from("courses")
+        .select("pending_name")
+        .eq("name", KURS_LAEUFT)
+        .single();
+      expect(danach?.pending_name, "Die Vormerkung blieb bestehen").toBeNull();
+    } finally {
+      // Ohne dieses Aufräumen vergiftet ein Fehlschlag hier den nächsten Fall —
+      // genau das ist beim ersten Lauf passiert.
+      await service
+        .from("courses")
+        .update({ pending_name: null, pending_level: null, pending_effective_date: null })
+        .eq("name", KURS_LAEUFT);
+    }
+  });
+
+  test("AC: Ein Kursende vor dem Beginn wird abgelehnt", async ({ page }) => {
+    await anmelden(page, ADMIN);
+    await page.goto("/admin/kurse");
+    await page.waitForTimeout(2000);
+
+    await page.locator("tr", { hasText: KURS_LAEUFT }).getByRole("button", { name: "Bearbeiten" }).click();
+    await page.waitForTimeout(1200);
+
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Läuft von (optional)").fill(tagePlus(20));
+    await dialog.getByLabel("Läuft bis (optional)").fill(tagePlus(10));
+    await dialog.getByRole("button", { name: /Speichern|Anlegen/ }).click();
+    await page.waitForTimeout(1500);
+
+    await expect(dialog.getByText("Das Kursende darf nicht vor dem Beginn liegen")).toBeVisible();
   });
 });
