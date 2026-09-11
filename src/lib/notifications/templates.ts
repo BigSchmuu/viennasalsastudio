@@ -159,6 +159,8 @@ export type SepaAnkuendigungDetails = { amount: number; dueDate: string };
  *  why more is owed than the invoice says. */
 /** PROJ-38: which course, and which date fell through. */
 export type KursausfallDetails = { courseName: string; pauseDate: string };
+/** PROJ-51: Der Kurs geht unter neuem Namen weiter — derselbe Kurs, dieselbe Gruppe. */
+export type KursumwandlungDetails = { courseName: string; newName: string; effectiveDate: string };
 export type ZahlungserinnerungDetails = { invoiceNumber: string; grossAmount: number; bounceFee: number };
 /** Jemand hat versucht, sich mit einer bereits vergebenen Adresse zu registrieren. */
 export type KontoExistiertDetails = { attemptedAt: string };
@@ -190,7 +192,13 @@ export type NeueBuchungDetails = { customerName: string; courseName: string; boo
  *  "newsletter", which has its own admin-authored text (PROJ-28), not a
  *  registry template. */
 export function resolveTemplateKey(
-  eventType: NotificationEventGroup | "sepa_ankuendigung" | "zahlungserinnerung" | "kursausfall" | "konto_existiert",
+  eventType:
+    | NotificationEventGroup
+    | "sepa_ankuendigung"
+    | "zahlungserinnerung"
+    | "kursausfall"
+    | "kursumwandlung"
+    | "konto_existiert",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
@@ -199,6 +207,7 @@ export function resolveTemplateKey(
     | SepaAnkuendigungDetails
     | ZahlungserinnerungDetails
     | KursausfallDetails
+    | KursumwandlungDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
     | GuthabenDetails
@@ -222,6 +231,8 @@ export function resolveTemplateKey(
       return "zahlungserinnerung";
     case "kursausfall":
       return "kursausfall";
+    case "kursumwandlung":
+      return "kursumwandlung";
     case "event_tickets": {
       const d = details as EventTicketDetails;
       if (d.subType === "event_cancelled") return "event_abgesagt";
@@ -252,6 +263,7 @@ export function buildNotificationContent(
     | "neue_buchung"
     | "zahlungserinnerung"
     | "kursausfall"
+    | "kursumwandlung"
     | "konto_existiert",
   details:
     | BuchungsstatusDetails
@@ -261,6 +273,7 @@ export function buildNotificationContent(
     | SepaAnkuendigungDetails
     | ZahlungserinnerungDetails
     | KursausfallDetails
+    | KursumwandlungDetails
     | EventTicketDetails
     | ProbestundeNachfassungDetails
     | GuthabenDetails
@@ -349,6 +362,22 @@ export function buildNotificationContent(
       return {
         ...renderTemplate("kursausfall", { kurs: d.courseName, datum: formatDate(d.pauseDate) }, override, "", locale),
         url: "/stundenplan",
+      };
+    }
+    case "kursumwandlung": {
+      const d = details as KursumwandlungDetails;
+      return {
+        ...renderTemplate(
+          "kursumwandlung",
+          { kurs: d.courseName, neu: d.newName, datum: formatDate(d.effectiveDate) },
+          override,
+          "",
+          locale
+        ),
+        // In den eigenen Bereich, nicht in den Stundenplan: Die Nachricht geht
+        // an Leute, die in diesem Kurs sitzen — sie wollen ihren Platz sehen,
+        // nicht das Angebot.
+        url: "/mein-bereich",
       };
     }
     case "konto_existiert": {
@@ -496,6 +525,12 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
       return buildNotificationContent(
         "kursausfall",
         { courseName: "Salsa Beginner 1", pauseDate: "2026-12-01" },
+        fields
+      );
+    case "kursumwandlung":
+      return buildNotificationContent(
+        "kursumwandlung",
+        { courseName: "Salsa Beginner 1", newName: "Salsa Beginner 2", effectiveDate: "2027-01-07" },
         fields
       );
     case "zahlungserinnerung":

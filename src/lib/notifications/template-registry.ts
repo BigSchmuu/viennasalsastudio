@@ -13,6 +13,7 @@ export type TemplateKey =
   | "probestunde_nachfassung_naechster_termin"
   | "zahlungserinnerung"
   | "kursausfall"
+  | "kursumwandlung"
   | "empfehlung_gutgeschrieben"
   | "guthaben_gutgeschrieben"
   | "konto_existiert";
@@ -414,6 +415,28 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
         "the session of {kurs} on {datum} unfortunately has to be cancelled. All other sessions take place as planned. We look forward to seeing you next time!",
       pushTitle: "{kurs} is cancelled",
       pushBody: "The session on {datum} is cancelled.",
+    },
+  },
+  {
+    key: "kursumwandlung",
+    eventGroupLabel: "Kursumwandlung",
+    variantLabel: "Kurs geht unter neuem Namen weiter",
+    placeholders: ["kurs", "neu", "datum"],
+    boldPlaceholder: "neu",
+    samples: { kurs: "Salsa Beginner 1", neu: "Salsa Beginner 2", datum: "07.01.2027" },
+    defaults: {
+      emailSubject: "{kurs} geht ab {datum} als {neu} weiter",
+      emailBody:
+        "dein Kurs {kurs} geht ab {datum} als {neu} weiter — gleicher Termin, gleicher Ort, dieselbe Gruppe. Du musst nichts tun: Dein Platz und dein Abo bleiben unverändert bestehen.",
+      pushTitle: "{kurs} wird zu {neu}",
+      pushBody: "Ab {datum}. Dein Platz bleibt.",
+    },
+    defaultsEn: {
+      emailSubject: "{kurs} continues as {neu} from {datum}",
+      emailBody:
+        "your class {kurs} continues as {neu} from {datum} — same time, same place, same group. There's nothing you need to do: your spot and your subscription stay exactly as they are.",
+      pushTitle: "{kurs} becomes {neu}",
+      pushBody: "From {datum}. Your spot stays.",
     },
   },
 ];

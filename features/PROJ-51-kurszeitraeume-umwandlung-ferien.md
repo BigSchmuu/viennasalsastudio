@@ -1,6 +1,6 @@
 # PROJ-51: Kurszeiträume, Umwandlung und Ferien im Stundenplan
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-09-11
 **Last Updated:** 2026-09-11
 **Priorität:** P1
@@ -196,8 +196,12 @@ zwei Wochen Ferien sind das bis zu vierzig Einträge von Hand.
       trägt das Ende selbst ein. Er kennt die Ferien beim Planen; eine
       automatische Verschiebung liefe im Hintergrund und wäre später nicht
       nachvollziehbar (2026-09-11)
-- [ ] Wie viele Tage vorher soll die Benachrichtigung über eine Umwandlung
-      hinausgehen?
+- [x] **Wie viele Tage vorher soll die Benachrichtigung über eine Umwandlung
+      hinausgehen?** → Sieben. Das ist der Abstand zum letzten Kurstermin unter
+      dem alten Namen. Die drei Wochen des Stundenplans wären zu früh für eine
+      Nachricht: Was man liest und erst in drei Wochen braucht, hat man
+      vergessen. Der Wert steht als `ANKUENDIGUNG_TAGE` an einer Stelle und
+      lässt sich ändern (2026-09-11)
 
 ## Decision Log
 
@@ -212,6 +216,7 @@ zwei Wochen Ferien sind das bis zu vierzig Einträge von Hand.
 | Ferien gelten fürs ganze Studio | Weihnachten ist zu, für alle. Ferien je Standort wären eine zweite Regel für einen Fall, den es noch nicht gibt | 2026-09-11 |
 | Ferien lassen die bestehenden Ausfalltage unberührt | Zwei Wege, einen Termin ausfallen zu lassen — der eine darf den anderen nicht überschreiben. Sonst löscht das Entfernen der Ferien einen Ausfall, der nichts damit zu tun hatte | 2026-09-11 |
 | Ein Abo läuft unabhängig vom Kurs weiter | Vom Betreiber entschieden. Das Abo ist die Zahlungsbeziehung, der Kurs nur der Ort — und über das bestehende Umbuchen (PROJ-9) wechselbar. Kehrseite, bewusst mitgenommen: Der Kunde zahlt weiter für einen Kurs, den es nicht mehr gibt, also muss die App ihn darauf stoßen | 2026-09-11 |
+| Ankündigung der Umwandlung sieben Tage vorher | Der Abstand zum letzten Kurstermin unter dem alten Namen. Drei Wochen — der Vorlauf des Stundenplans — wären zu früh für eine Nachricht; was man liest und erst in drei Wochen braucht, hat man vergessen | 2026-09-11 |
 | Kein wochenweises Blättern im Stundenplan | Der Stundenplan beantwortet „was gibt es?", nicht „was ist am 14. Januar?". Zeiträume gehören in den Eintrag, nicht in eine Navigation | 2026-09-11 |
 
 ### Technical Decisions
@@ -225,6 +230,9 @@ zwei Wochen Ferien sind das bis zu vierzig Einträge von Hand.
 | Vollzogen vom bestehenden nächtlichen Lauf | Dort werden bereits fällige Abo-Änderungen vollzogen, mit Fehlerbehandlung und Sentry-Meldung je Schritt. Ein zweiter Mechanismus für „etwas wird zum Stichtag wirksam" würde früher oder später anders antworten | 2026-09-11 |
 | Der alte Kursname verschwindet mit der Umwandlung | Bewusst in Kauf genommen: Eine Anwesenheitsliste vom November zeigt danach den neuen Namen. Den alten mitzuführen hieße, jeden Termin mit seinem damaligen Namen zu versehen — viel Maschinerie für eine Zeile, die niemand vermisst. Rechnungen und Abos tragen ohnehin eigene Bezeichnungen und bleiben unberührt | 2026-09-11 |
 | Preis bleibt bei der Umwandlung unverändert | Vom Betreiber entschieden. Sonst müsste die Vormerkung auch laufende Abos anfassen — eine Preisänderung an einem bestehenden Vertrag ist etwas anderes als ein neuer Kursname und gehört ausdrücklich angekündigt | 2026-09-11 |
+| Die Ankündigung bekommt jeder Teilnehmer, unabhängig von seinen Benachrichtigungs-Einstellungen | Wie beim Kursausfall betrieblich notwendig: Wer sie abgeschaltet hat, stünde sonst vor einem Kurs, den es unter diesem Namen nicht mehr gibt | 2026-09-11 |
+| Der nächtliche Lauf liest die Teilnehmer aus der Sicht `course_members`, nicht über `get_course_member_ids` | Jene Funktion prüft auf Lehrkraft oder Verwaltung, und im nächtlichen Lauf sitzt niemand. Die Prüfung schlüge fehl und lieferte eine leere Liste — ohne Fehler, also unbemerkt. Die Definition ist dieselbe; nur die Tür ist eine andere | 2026-09-11 |
+| Namen und Datum stehen in der Nutzlast der Benachrichtigung, statt nachgeschlagen zu werden | Am Stichtag löscht der Vollzug die Vormerkung. Ein später wiederholter Versand fände nichts mehr vor und verschickte eine leere Nachricht | 2026-09-11 |
 | Ferien verlängern den Kurszeitraum nicht | Vom Betreiber entschieden. Der Betreiber kennt die Ferien beim Planen; eine automatische Verschiebung wäre eine Rechnung im Hintergrund, die niemand nachvollzieht, wenn sie einmal anders ausfällt als gedacht | 2026-09-11 |
 
 ---
@@ -352,3 +360,37 @@ jeder dieser Tests grün, egal was passiert.
 ### Neue Pakete
 
 Keine. Formulare, Listen, Datumsfelder und Hinweisleisten sind vorhanden.
+
+
+---
+
+## Implementation Notes
+
+**Stand 2026-09-11 — Frontend und Backend gebaut, Migrationen teils offen.**
+
+### Was gebaut wurde
+
+| Teil | Wo |
+|---|---|
+| Zeitraum und Ferien in der Terminrechnung | `src/lib/scheduling/dates.ts` (`zeitraum`/`ferien` als Pflichtparameter), `src/lib/scheduling/ferien.ts` |
+| Anzeigeentscheidung für den Stundenplan | `src/lib/scheduling/kursanzeige.ts` (`VORSCHAU_TAGE`, `imStundenplan`, `zeitraumhinweis`, `anstehendeFerien`) |
+| Stundenplan mit Hinweisen und Ferienleiste | `src/app/[locale]/(site)/stundenplan/page.tsx`, `src/components/schedule/weekly-schedule-view.tsx` |
+| Zeitraumfelder und „Kurs umwandeln" im Kursformular | `src/components/admin/courses/course-manager.tsx`, `src/components/admin/courses/course-conversion-section.tsx` |
+| Ferienverwaltung | `src/app/admin/ferien/`, `src/components/admin/ferien/`, `src/lib/actions/admin/ferien.ts` |
+| Hinweis auf den ausgelaufenen Kurs | `src/components/subscription/my-subscriptions-section.tsx`, `src/components/dashboard/open-items-section.tsx`, Kundenliste und Kundenprofil im Admin |
+| Ankündigung und Vollzug der Umwandlung | `src/lib/courses/umwandlungen.ts`, eingehängt in `src/app/api/cron/notifications/route.ts` |
+| Nachrichtentext (DE/EN) | `src/lib/notifications/template-registry.ts` (`kursumwandlung`), über PROJ-34 im Admin änderbar |
+
+### Migrationen
+
+- `20260911030000_proj51_kurszeitraum_und_ferien.sql` — Zeitraum, Vormerkung, `studio_holidays`
+- `20260911040000_proj51_umwandlung_ankuendigen.sql` — `courses.pending_announced_at`, neuer Ereignistyp `kursumwandlung`
+
+### Abweichungen vom Entwurf
+
+- Die Umbuchen-Liste im Profil bietet **keine ausgelaufenen Kurse** mehr an.
+  Im Entwurf nicht vorgesehen, aber ohne das führte der Weg aus der Sackgasse
+  in die nächste.
+- Das Kriterium „der Betreiber erkennt die betroffenen Abos" ist an **zwei**
+  Stellen umgesetzt statt an einer: Kundenliste *und* Kundenprofil. Nur im
+  Profil hieße, fünfzig Profile zu öffnen, um die drei zu finden.

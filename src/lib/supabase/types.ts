@@ -560,6 +560,7 @@ export type Database = {
           max_participants: number | null
           max_role_difference: number | null
           name: string
+          pending_announced_at: string | null
           pending_effective_date: string | null
           pending_level: string | null
           pending_name: string | null
@@ -579,6 +580,7 @@ export type Database = {
           max_participants?: number | null
           max_role_difference?: number | null
           name: string
+          pending_announced_at?: string | null
           pending_effective_date?: string | null
           pending_level?: string | null
           pending_name?: string | null
@@ -598,6 +600,7 @@ export type Database = {
           max_participants?: number | null
           max_role_difference?: number | null
           name?: string
+          pending_announced_at?: string | null
           pending_effective_date?: string | null
           pending_level?: string | null
           pending_name?: string | null

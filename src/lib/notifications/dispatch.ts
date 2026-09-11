@@ -243,6 +243,15 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         pauseDate: data.pause_date,
       });
     }
+    case "kursumwandlung":
+      // Die einzigen Angaben, die es hier gibt, stehen in der Nutzlast — mit
+      // Absicht. Nachschlagen ginge nicht: Am Stichtag löscht der Vollzug die
+      // Vormerkung, und ein später wiederholter Versand fände nichts mehr vor.
+      return buildNotificationContent("kursumwandlung", {
+        courseName: payload.alter_name as string,
+        newName: payload.neuer_name as string,
+        effectiveDate: payload.datum as string,
+      });
     case "konto_existiert":
       // Die einzige Nachricht hier, die keinen Datensatz nachschlägt: Es gibt
       // nichts nachzuschlagen — der Anlass ist der Versuch selbst.
@@ -325,6 +334,18 @@ export async function processQueueRow(service: ServiceClient, row: QueueRow): Pr
       const emailResult = await trySendEmail(service, row.customer_id, content);
       emailStatus = emailResult.status;
       if (emailResult.error) errors.push(`E-Mail: ${emailResult.error}`);
+    } else if (row.event_type === "kursumwandlung") {
+      // PROJ-51: Wie beim Kursausfall betrieblich notwendig — wer die
+      // Benachrichtigungen abgeschaltet hat, stünde sonst vor einem Kurs, den
+      // es unter diesem Namen nicht mehr gibt.
+      const emailResult = await trySendEmail(service, row.customer_id, content);
+      emailStatus = emailResult.status;
+      if (emailResult.error) errors.push(`E-Mail: ${emailResult.error}`);
+      pushStatus = await sendPushToCustomer(service, row.customer_id, {
+        title: content.pushTitle,
+        body: content.pushBody,
+        url: content.url,
+      });
     } else if (row.event_type === "kursausfall") {
       // PROJ-38: operationally necessary — someone who switched notifications
       // off would otherwise turn up to a locked door. Same reasoning as

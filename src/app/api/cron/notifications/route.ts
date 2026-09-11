@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { runDailyChecks, runFollowupChecks, runEveningChecks, drainPendingQueue } from "@/lib/notifications/dispatch";
 import { vollzieheFaelligeAenderungen } from "@/lib/subscriptions/faellige-aenderungen";
+import { vollzieheFaelligeUmwandlungen } from "@/lib/courses/umwandlungen";
 import { fuehreSchrittAus, laufSammler } from "@/lib/cron/schritt";
 
 export async function GET(request: NextRequest) {
@@ -47,9 +48,21 @@ export async function GET(request: NextRequest) {
         )
       );
 
+  // PROJ-51: Vorgemerkte Kursumwandlungen — eine Woche vorher angekuendigt, am
+  // Stichtag vollzogen. Derselbe Lauf wie beim Abo-Vollzug und aus demselben
+  // Grund: Ein zweiter Mechanismus fuer "etwas wird zum Stichtag wirksam"
+  // wuerde frueher oder spaeter anders antworten.
+  const umwandlung = isEveningRun
+    ? { angekuendigt: 0, umgewandelt: 0 }
+    : lauf.nimm(
+        await fuehreSchrittAus("kursumwandlung", { angekuendigt: 0, umgewandelt: 0 }, () =>
+          vollzieheFaelligeUmwandlungen(service)
+        )
+      );
+
   const drained = lauf.nimm(await fuehreSchrittAus("warteschlange", { processed: 0 }, () => drainPendingQueue(service)));
 
-  const ergebnis = { ...checks, ...vollzug, ...drained };
+  const ergebnis = { ...checks, ...vollzug, ...umwandlung, ...drained };
 
   // Ein halb gelungener Lauf darf nicht wie ein gelungener aussehen: Vercel
   // zeigt in der Cron-Uebersicht nur den Statuscode.

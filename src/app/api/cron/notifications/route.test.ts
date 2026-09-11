@@ -6,12 +6,16 @@ const runFollowupChecks = vi.fn();
 const runEveningChecks = vi.fn();
 const drainPendingQueue = vi.fn();
 const vollzieheFaelligeAenderungen = vi.fn();
+const vollzieheFaelligeUmwandlungen = vi.fn();
 
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: vi.fn(() => ({})),
 }));
 vi.mock("@/lib/subscriptions/faellige-aenderungen", () => ({
   vollzieheFaelligeAenderungen: (...args: unknown[]) => vollzieheFaelligeAenderungen(...args),
+}));
+vi.mock("@/lib/courses/umwandlungen", () => ({
+  vollzieheFaelligeUmwandlungen: (...args: unknown[]) => vollzieheFaelligeUmwandlungen(...args),
 }));
 vi.mock("@/lib/notifications/dispatch", () => ({
   runDailyChecks: (...args: unknown[]) => runDailyChecks(...args),
@@ -30,6 +34,7 @@ describe("GET /api/cron/notifications", () => {
     vollzieheFaelligeAenderungen
       .mockReset()
       .mockResolvedValue({ vollzogen: 2, gekuendigt: 1, freigewordeneKurse: [] });
+    vollzieheFaelligeUmwandlungen.mockReset().mockResolvedValue({ angekuendigt: 1, umgewandelt: 1 });
     process.env.CRON_SECRET = "test-secret";
   });
 
@@ -66,6 +71,7 @@ describe("GET /api/cron/notifications", () => {
     // Der Morgenlauf vollzieht faellige Abo-Aenderungen; die freigewordenen
     // Kurse gehoeren in die Nachrueckung, nicht in die Antwort.
     expect(vollzieheFaelligeAenderungen).toHaveBeenCalledTimes(1);
+    expect(vollzieheFaelligeUmwandlungen).toHaveBeenCalledTimes(1);
     expect(body).toEqual({
       reminders: 2,
       effective: 1,
@@ -73,6 +79,8 @@ describe("GET /api/cron/notifications", () => {
       vollzogen: 2,
       gekuendigt: 1,
       freigewordeneKurse: [],
+      angekuendigt: 1,
+      umgewandelt: 1,
       processed: 3,
     });
   });
@@ -93,7 +101,15 @@ describe("GET /api/cron/notifications", () => {
     // Der Abendlauf vollzieht nichts: Ein Stichtag gehoert an den Tagesanfang,
     // und zweimal taeglich braucht es nicht.
     expect(vollzieheFaelligeAenderungen).not.toHaveBeenCalled();
-    expect(body).toEqual({ evening: 4, vollzogen: 0, gekuendigt: 0, processed: 3 });
+    expect(vollzieheFaelligeUmwandlungen).not.toHaveBeenCalled();
+    expect(body).toEqual({
+      evening: 4,
+      vollzogen: 0,
+      gekuendigt: 0,
+      angekuendigt: 0,
+      umgewandelt: 0,
+      processed: 3,
+    });
   });
 
   it("still requires the bearer token on the evening run", async () => {
@@ -150,6 +166,22 @@ describe("GET /api/cron/notifications", () => {
     expect(body.processed).toBe(3);
     expect(body.vollzogen).toBe(0);
     expect(body.fehler).toEqual(["abo-vollzug: Sperre"]);
+  });
+
+  it("haelt den Rest am Laufen, wenn die Kursumwandlung ausfaellt", async () => {
+    // PROJ-51: Eine klemmende Umwandlung darf nicht den Abo-Vollzug mitnehmen —
+    // der entscheidet darueber, ob weiter abgebucht wird.
+    vollzieheFaelligeUmwandlungen.mockRejectedValue(new Error("Sperre"));
+    const { GET } = await import("./route");
+    const request = new NextRequest("http://localhost/api/cron/notifications", {
+      headers: { authorization: "Bearer test-secret" },
+    });
+    const body = await (await GET(request)).json();
+
+    expect(body.vollzogen).toBe(2);
+    expect(body.processed).toBe(3);
+    expect(body.umgewandelt).toBe(0);
+    expect(body.fehler).toEqual(["kursumwandlung: Sperre"]);
   });
 
   it("nennt jeden ausgefallenen Schritt, nicht nur den ersten", async () => {
