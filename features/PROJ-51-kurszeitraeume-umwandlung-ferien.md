@@ -401,3 +401,11 @@ Keine. Formulare, Listen, Datumsfelder und Hinweisleisten sind vorhanden.
 - Der Buchungsdialog weist auf ein nahes Kursende hin. `runsUntil` ist dafür
   **Pflichtfeld** an `BookingDialogCourse` — der Compiler hat dadurch alle
   sieben Aufrufstellen aufgezählt.
+- **Abwägung beim Lehrerbereich:** Das Kriterium „ein ausgelaufener Kurs steht
+  nicht unter fehlender Anwesenheit" ist umgesetzt — aber es hat einen Preis.
+  Die letzten Stunden eines Kurses haben stattgefunden; fehlt dort die
+  Anwesenheit, fehlt sie wirklich. Mit dem Kursende verschwindet die
+  Erinnerung daran. Dagegen stand: Sonst bliebe eine Liste stehen, die niemand
+  mehr abarbeiten kann. Nachtragen geht weiterhin über die Kursseite. Falls
+  sich das im Betrieb als falsch erweist, wäre eine Schonfrist von ein paar
+  Wochen nach Kursende die naheliegende Korrektur.

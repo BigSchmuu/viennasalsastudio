@@ -83,6 +83,16 @@ describe("fehlendeAnwesenheit", () => {
     expect(offen).toHaveLength(3);
   });
 
+  it("mahnt einen ausgelaufenen Kurs nicht mehr an", () => {
+    // PROJ-51: Sonst bliebe eine Liste stehen, die niemand mehr abarbeiten
+    // kann — der Kurs ist vorbei, die Erinnerung daran nie.
+    const beendet = kurs({ zeitraum: { von: null, bis: "2026-09-08" } });
+    expect(fehlendeAnwesenheit([beendet], new Set(), [], JETZT)).toHaveLength(0);
+    // Am letzten Tag läuft er noch — da gehört er weiter in die Liste.
+    const laeuftHeuteAus = kurs({ zeitraum: { von: null, bis: HEUTE } });
+    expect(fehlendeAnwesenheit([laeuftHeuteAus], new Set(), [], JETZT).length).toBeGreaterThan(0);
+  });
+
   it("mahnt ausgefallene Stunden nicht an", () => {
     // Eine Stunde, die nicht stattgefunden hat, kann keine Anwesenheit haben.
     const alle = fehlendeAnwesenheit([kurs()], new Set(), [], JETZT);

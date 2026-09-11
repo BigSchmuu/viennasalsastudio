@@ -5,6 +5,7 @@ import {
   type Kurszeitraum,
 } from "@/lib/scheduling/dates";
 import { isBirthdayWithinDays } from "@/lib/birthdays";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 
 /**
  * Die Rechenarbeit hinter dem Lehrer-Bereich (PROJ-49).
@@ -100,6 +101,12 @@ export function naechsteTermine(
  * Ausgefallene Stunden stehen gar nicht erst zur Debatte — `pastOccurrences`
  * lässt sie aus. Eine Stunde, die nicht stattgefunden hat, kann keine
  * Anwesenheit haben.
+ *
+ * Ein **ausgelaufener** Kurs steht ebenfalls nicht mehr hier (PROJ-51). Das
+ * ist eine bewusste Abwägung: Seine letzten Stunden haben stattgefunden, und
+ * fehlt dort die Anwesenheit, fehlt sie wirklich. Aber sonst bliebe eine Liste
+ * stehen, die niemand mehr abarbeiten kann — der Kurs ist vorbei, die
+ * Erinnerung daran nie. Nachtragen geht weiter über die Kursseite.
  */
 export function fehlendeAnwesenheit(
   kurse: KursEingabe[],
@@ -107,8 +114,10 @@ export function fehlendeAnwesenheit(
   ferien: Ferienzeitraum[],
   before?: Date
 ): OffenerTermin[] {
+  const heute = heuteInWien(before);
   const offen = kurse.flatMap((kurs) => {
     if (kurs.weekday === null) return [];
+    if (kurs.zeitraum.bis && kurs.zeitraum.bis < heute) return [];
     return pastOccurrences(kurs.weekday, {
       count: RUECKBLICK_TERMINE,
       pauseDates: kurs.pausen,

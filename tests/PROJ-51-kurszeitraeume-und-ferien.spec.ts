@@ -25,6 +25,10 @@ const FERIEN_NAME = "E2E51 Ferien";
 const ALLE_NAMEN = [KURS_LAEUFT, KURS_BEGINNT_BALD, KURS_BEGINNT_SPAETER, KURS_VORBEI];
 
 const ADMIN = { email: "e2e8-admin@viennasalsastudio.test", passwort: "CorrectPassword123!" };
+/** Bestehende Lehrkraft aus PROJ-13 — die Kurse dieser Suite hängt sie sich
+ *  nur für den einen Fall an und danach wieder ab. */
+const LEHRER = { email: "e2e13-lehrer-a@viennasalsastudio.test", passwort: "CorrectPassword123!" };
+const LEHRER_NAME = "E2E13 Lehrer A";
 
 /**
  * Ein eigener Kunde, kein geteilter.
@@ -375,6 +379,139 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
     await zeile.getByRole("link", { name: KUNDE_NAME }).click();
     await page.waitForTimeout(2500);
     await expect(page.getByText("Kurs beendet — Umbuchen nötig")).toBeVisible();
+  });
+
+  test("AC: Ein Termin in den Ferien ist kein nächster Kurs mehr", async ({ page }) => {
+    const service = dienst();
+    // Das Abo nur für diesen Fall: Wäre es dauerhaft da, könnte derselbe Kunde
+    // den Kurs nicht mehr buchen — und der Hinweis-Test oben liefe ins Leere.
+    const { data: kurs } = await service.from("courses").select("id").eq("name", KURS_LAEUFT).single();
+    const { data: abo } = await service
+      .from("subscriptions")
+      .insert({
+        customer_id: kundeId,
+        course_id: kurs!.id,
+        name: "E2E51 Abo laufend",
+        status: "active",
+        price: 45,
+        cycle_anchor_date: tagePlus(-30),
+      })
+      .select("id")
+      .single();
+
+    try {
+      // Erst ohne Ferien: Der Termin ist da. Ohne diese Hälfte wäre die zweite
+      // wertlos — „nicht sichtbar" könnte auch heißen, dass nie etwas da war.
+      await anmelden(page, KUNDE);
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(2500);
+      await expect(page.getByText(KURS_LAEUFT, { exact: true }).first()).toBeVisible();
+
+      await service
+        .from("studio_holidays")
+        .insert({ name: FERIEN_NAME, starts_on: tagePlus(1), ends_on: tagePlus(9) });
+
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(2500);
+      await expect(page.getByText(KURS_LAEUFT, { exact: true })).toHaveCount(0);
+    } finally {
+      await service.from("studio_holidays").delete().eq("name", FERIEN_NAME);
+      if (abo) await service.from("subscriptions").delete().eq("id", abo.id);
+    }
+  });
+
+  test("AC: Der Lehrer sieht weder den ausgelaufenen Kurs noch einen Ferientermin", async ({
+    page,
+  }) => {
+    const service = dienst();
+    const { data: lehrer } = await service
+      .from("teacher_directory")
+      .select("id")
+      .eq("full_name", LEHRER_NAME)
+      .single();
+    const { data: kurse } = await service
+      .from("courses")
+      .select("id, name")
+      .in("name", [KURS_LAEUFT, KURS_VORBEI]);
+
+    await service.from("course_teachers").insert(
+      (kurse ?? []).map((k) => ({ course_id: k.id, teacher_id: lehrer!.id }))
+    );
+
+    try {
+      await anmelden(page, LEHRER);
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(2500);
+
+      // Auf den Abschnitt eingegrenzt: Derselbe Kursname steht weiter unten
+      // auch unter „Anwesenheit nachtragen", und dort gehört er hin —
+      // vergangene Stunden haben stattgefunden.
+      const anstehend = page.locator("section").filter({
+        has: page.getByRole("heading", { name: "Deine nächsten Kurse" }),
+      });
+      await expect(anstehend.getByText(KURS_LAEUFT, { exact: true }).first()).toBeVisible();
+
+      // Ein ausgelaufener Kurs steht nirgends mehr: weder unter den nächsten
+      // Terminen noch unter fehlender Anwesenheit.
+      await expect(page.getByText(KURS_VORBEI, { exact: true })).toHaveCount(0);
+
+      await service
+        .from("studio_holidays")
+        .insert({ name: FERIEN_NAME, starts_on: tagePlus(1), ends_on: tagePlus(9) });
+
+      await gehZu(page, "/mein-bereich");
+      await page.waitForTimeout(2500);
+      // Der Termin liegt in den Ferien — der Abschnitt kennt ihn nicht mehr.
+      // Bleibt kein Termin übrig, fehlt der Abschnitt ganz; beides ist recht.
+      await expect(
+        page
+          .locator("section")
+          .filter({ has: page.getByRole("heading", { name: "Deine nächsten Kurse" }) })
+          .getByText(KURS_LAEUFT, { exact: true })
+      ).toHaveCount(0);
+    } finally {
+      await service.from("studio_holidays").delete().eq("name", FERIEN_NAME);
+      for (const k of kurse ?? []) {
+        await service.from("course_teachers").delete().eq("course_id", k.id);
+      }
+    }
+  });
+
+  test("AC: Ferien zu löschen lässt die einzeln gepflegten Ausfalltage unberührt", async () => {
+    const service = dienst();
+    const { data: kurs } = await service.from("courses").select("id").eq("name", KURS_LAEUFT).single();
+    const { data: plan } = await service
+      .from("course_schedule")
+      .select("id")
+      .eq("course_id", kurs!.id)
+      .single();
+
+    // Ein Ausfalltag aus ganz anderem Grund — der Lehrer ist krank.
+    const ausfalltag = tagePlus(16);
+    await service
+      .from("course_schedule_pauses")
+      .insert({ schedule_id: plan!.id, pause_date: ausfalltag });
+
+    try {
+      await service
+        .from("studio_holidays")
+        .insert({ name: FERIEN_NAME, starts_on: tagePlus(1), ends_on: tagePlus(9) });
+      await service.from("studio_holidays").delete().eq("name", FERIEN_NAME);
+
+      const { count } = await service
+        .from("course_schedule_pauses")
+        .select("id", { count: "exact", head: true })
+        .eq("schedule_id", plan!.id)
+        .eq("pause_date", ausfalltag);
+      expect(count, "Das Löschen der Ferien nahm einen fremden Ausfalltag mit").toBe(1);
+    } finally {
+      await service.from("studio_holidays").delete().eq("name", FERIEN_NAME);
+      await service
+        .from("course_schedule_pauses")
+        .delete()
+        .eq("schedule_id", plan!.id)
+        .eq("pause_date", ausfalltag);
+    }
   });
 
   test("AC: Ein Kursende vor dem Beginn wird abgelehnt", async ({ page }) => {
