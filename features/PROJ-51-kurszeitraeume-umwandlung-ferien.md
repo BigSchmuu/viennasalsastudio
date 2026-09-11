@@ -1,6 +1,6 @@
 # PROJ-51: Kurszeiträume, Umwandlung und Ferien im Stundenplan
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-09-11
 **Last Updated:** 2026-09-11
 **Priorität:** P1
@@ -664,3 +664,47 @@ Ein hängender Mailserver lässt die Buchung eines Kunden minutenlang stehen.
 - **Sicherheit:** keine Befunde (siehe Durchgang 1)
 - **Produktionsreif:** **JA**
 - **Daneben gefunden:** fehlende SMTP-Zeitlimits (Mittel, eigenes Ticket)
+
+---
+
+## Deployment
+
+**Deployed:** 2026-09-11, 17:24 Uhr
+**Produktions-URL:** https://app.viennasalsastudio.at
+**Commit:** `dd7ede2` (12 Commits, 62 Dateien)
+**Tag:** `v1.52.0-PROJ-51`
+
+### Migrationen (alle vor dem Deploy eingespielt)
+
+| Migration | Inhalt |
+|---|---|
+| `20260911030000_proj51_kurszeitraum_und_ferien` | `courses.runs_from/runs_until`, Vormerkung, `studio_holidays` mit RLS |
+| `20260911040000_proj51_umwandlung_ankuendigen` | `courses.pending_announced_at`, Ereignistyp `kursumwandlung` |
+| `20260911050000_proj51_umwandlung_zeitraum` | `courses.pending_runs_until` samt CHECK-Bedingungen |
+
+Alle drei sind rein additiv — deshalb war es unbedenklich, sie vor dem Code
+einzuspielen: Der alte Code liest die neuen Spalten nicht.
+
+### Prüfung nach dem Deploy
+
+- [x] `/`, `/stundenplan`, `/kurse`, `/login`, `/events` antworten mit 200
+- [x] Der Stundenplan rendert seine Wochentage — der Pfad, der die
+      Terminrechnung mit Zeitraum und Ferien benutzt
+- [x] Der Katalog rendert Filter und Buchungsknöpfe — der Pfad mit dem neuen
+      Zeitraumfilter
+- [x] `/admin/ferien` leitet auf den Login statt 404 zu liefern (vor dem Deploy
+      gab es die Route nicht — daran war der Rollout erkennbar)
+- [ ] Vercel-Funktionslogs: **nicht geprüft**, kein CLI-Zugang in dieser Sitzung
+
+### Erster echter Lauf
+
+Die Umwandlung wird vom nächtlichen Lauf um 6 Uhr vollzogen
+(`/api/cron/notifications`). Bis dahin ist in Produktion keine Vormerkung
+gesetzt, der neue Schritt läuft also erstmals ohne Arbeit durch — und meldet
+`angekuendigt: 0, umgewandelt: 0`.
+
+### Offen aus dem QA-Durchgang
+
+Fehlende SMTP-Zeitlimits (Mittel) — gehört nicht zu PROJ-51, braucht ein
+eigenes Ticket. In Produktion heißt das: Ein hängender Mailserver lässt die
+auslösende Handlung eines Kunden minutenlang stehen.
