@@ -69,7 +69,11 @@ test.describe("PROJ-34: Benachrichtigungs-Texte verwalten", () => {
       "Probestunden-Follow-up",
       "Zahlungserinnerung",
     ]) {
-      await expect(page.getByText(group, { exact: true })).toBeVisible();
+      // Auf den Vorlagenbereich eingegrenzt: Seit „Nicht zugestellt" darüber
+      // steht, kommen dieselben Gruppennamen auch dort vor.
+      await expect(
+        page.locator('[data-bereich="vorlagen"]').getByText(group, { exact: true })
+      ).toBeVisible();
     }
     // Keine feste Zahl: Sie müsste bei jeder neuen Vorlage nachgezogen werden
     // und bestätigte am Ende nur, dass jemand sie hochgezählt hat. Die Aussage

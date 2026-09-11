@@ -45,6 +45,11 @@ export default async function NotificationTemplatesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Zuerst, was schiefging: Die Texte kann der Betreiber jederzeit
+          bearbeiten, eine nicht angekommene Bestätigung duldet keinen
+          Aufschub. */}
+      <FailedDeliveries sendungen={sendungen} lesefehler={Boolean(fehlgeschlagen.error)} />
+
       <div>
         <h2 className="font-heading text-xl font-bold">Benachrichtigungs-Texte</h2>
         <p className="text-sm text-muted-foreground">
@@ -52,12 +57,9 @@ export default async function NotificationTemplatesPage() {
         </p>
       </div>
 
-      {/* Zuerst, was schiefging: Die Texte kann der Betreiber jederzeit
-          bearbeiten, eine nicht angekommene Bestätigung duldet keinen
-          Aufschub. */}
-      <FailedDeliveries sendungen={sendungen} lesefehler={Boolean(fehlgeschlagen.error)} />
-
-      <div className="space-y-6">
+      {/* Die Gruppennamen tauchen auch in der Liste oben auf — deshalb ein
+          eigener Bereich, an dem sich beides auseinanderhalten lässt. */}
+      <div className="space-y-6" data-bereich="vorlagen">
         {[...groups.entries()].map(([groupLabel, templates]) => (
           <div key={groupLabel} className="rounded-md border">
             <div className="border-b bg-muted/40 px-4 py-2">
