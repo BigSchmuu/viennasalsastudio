@@ -11,6 +11,7 @@ import { CreditManager, type CreditEntry } from "@/components/admin/customers/cr
 import type { ProfileInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 
 export default async function CustomerDetailPage({
   params,
@@ -40,7 +41,9 @@ export default async function CustomerDetailPage({
     supabase.rpc("admin_list_customer_emails"),
     supabase
       .from("subscriptions")
-      .select("id, name, price, status, course_id, cycle_anchor_date, pending_status, pending_effective_date")
+      .select(
+        "id, name, price, status, course_id, cycle_anchor_date, pending_status, pending_effective_date, courses(runs_until)"
+      )
       .eq("customer_id", id)
       .order("created_at", { ascending: true }),
     supabase
@@ -81,12 +84,15 @@ export default async function CustomerDetailPage({
     gender: (profile.gender as ProfileInput["gender"]) ?? "",
   };
 
+  const heute = heuteInWien();
+
   const subscriptions: SubscriptionRow[] = (subscriptionsRes.data ?? []).map((s) => ({
     id: s.id,
     name: s.name ?? "",
     price: s.price ?? 0,
     status: s.status,
     courseId: s.course_id,
+    kursBeendet: Boolean(s.courses?.runs_until && s.courses.runs_until < heute),
     cycleAnchorDate: s.cycle_anchor_date,
     pendingStatus: s.pending_status,
     pendingEffectiveDate: s.pending_effective_date,

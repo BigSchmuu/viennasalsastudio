@@ -258,7 +258,8 @@
     "cancelSubConfirmAction": "Ja, kündigen",
     "keep": "Abo behalten",
     "pauseSub": "Pausieren",
-    "cancelSub": "Kündigen"
+    "cancelSub": "Kündigen",
+    "courseEnded": "Dieser Kurs ist beendet. Buche auf einen laufenden Kurs um — dein Abo bleibt bestehen."
   },
   "notifications": {
     "event": "Ereignis",
@@ -372,7 +373,10 @@
       "bookingCta": "Buchung ansehen",
       "waitlistTitle": "Du stehst auf der Warteliste",
       "waitlistBody": "{course} — wir sagen dir Bescheid, sobald ein Platz frei wird.",
-      "waitlistCta": "Warteliste ansehen"
+      "waitlistCta": "Warteliste ansehen",
+      "courseEndedTitle": "Dein Kurs ist beendet",
+      "courseEndedBody": "{course} läuft nicht mehr, dein Abo aber schon. Buche auf einen laufenden Kurs um.",
+      "courseEndedCta": "Umbuchen"
     },
     "nextCourse": {
       "heading": "{count, plural, one {Dein nächster Kurs} other {Deine nächsten Kurse}}",

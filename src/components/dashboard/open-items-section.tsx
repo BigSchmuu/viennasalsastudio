@@ -7,7 +7,9 @@ import { DashboardSection } from "./dashboard-section";
 export type OffenerPunkt =
   | { art: "mandat" }
   | { art: "buchung"; kursName: string }
-  | { art: "warteliste"; kursName: string };
+  | { art: "warteliste"; kursName: string }
+  /** PROJ-51: Das Abo läuft weiter, der Kurs dahinter ist ausgelaufen. */
+  | { art: "kursBeendet"; kursName: string };
 
 /**
  * „Zu erledigen".
@@ -22,7 +24,9 @@ export async function OpenItemsSection({ punkte }: { punkte: OffenerPunkt[] }) {
   if (punkte.length === 0) return null;
 
   const t = await getTranslations("dashboard.openItems");
-  const rang = { mandat: 0, buchung: 1, warteliste: 2 } as const;
+  // Nach dem fehlenden Mandat steht der beendete Kurs: Er ist der einzige
+  // andere Punkt, der Geld kostet, solange niemand etwas tut.
+  const rang = { mandat: 0, kursBeendet: 1, buchung: 2, warteliste: 3 } as const;
   const sortiert = [...punkte].sort((a, b) => rang[a.art] - rang[b.art]);
 
   return (
@@ -32,25 +36,32 @@ export async function OpenItemsSection({ punkte }: { punkte: OffenerPunkt[] }) {
           const inhalt =
             punkt.art === "mandat"
               ? { titel: t("mandateTitle"), text: t("mandateBody"), cta: t("mandateCta"), ziel: "/profil#zahlungsweise" }
-              : punkt.art === "buchung"
+              : punkt.art === "kursBeendet"
                 ? {
-                    titel: t("bookingTitle"),
-                    text: t("bookingBody", { course: punkt.kursName }),
-                    cta: t("bookingCta"),
-                    ziel: "/profil#buchungen",
+                    titel: t("courseEndedTitle"),
+                    text: t("courseEndedBody", { course: punkt.kursName }),
+                    cta: t("courseEndedCta"),
+                    ziel: "/profil#abo",
                   }
-                : {
-                    titel: t("waitlistTitle"),
-                    text: t("waitlistBody", { course: punkt.kursName }),
-                    cta: t("waitlistCta"),
-                    ziel: "/profil#warteliste",
-                  };
+                : punkt.art === "buchung"
+                  ? {
+                      titel: t("bookingTitle"),
+                      text: t("bookingBody", { course: punkt.kursName }),
+                      cta: t("bookingCta"),
+                      ziel: "/profil#buchungen",
+                    }
+                  : {
+                      titel: t("waitlistTitle"),
+                      text: t("waitlistBody", { course: punkt.kursName }),
+                      cta: t("waitlistCta"),
+                      ziel: "/profil#warteliste",
+                    };
 
           return (
             <li key={`${punkt.art}-${i}`}>
               <Card
                 className={
-                  punkt.art === "mandat"
+                  punkt.art === "mandat" || punkt.art === "kursBeendet"
                     ? "border-primary/30 bg-primary/[0.04]"
                     : "border-border/60"
                 }
@@ -63,7 +74,9 @@ export async function OpenItemsSection({ punkte }: { punkte: OffenerPunkt[] }) {
                   <Button
                     asChild
                     size="sm"
-                    variant={punkt.art === "mandat" ? "default" : "outline"}
+                    variant={
+                      punkt.art === "mandat" || punkt.art === "kursBeendet" ? "default" : "outline"
+                    }
                     className="shrink-0"
                   >
                     <Link href={inhalt.ziel}>{inhalt.cta}</Link>

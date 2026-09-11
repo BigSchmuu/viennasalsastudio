@@ -275,6 +275,19 @@ export default async function MeinBereichPage() {
   for (const eintrag of (wartelisteRows ?? []) as { course_id: string }[]) {
     offenePunkte.push({ art: "warteliste", kursName: kursnameZuId.get(eintrag.course_id) ?? "—" });
   }
+  // PROJ-51: Der Kurs ist ausgelaufen, das Abo daran läuft weiter — so ist es
+  // gewollt, denn das Abo ist die Zahlungsbeziehung und der Kurs nur der Ort.
+  // Genau deshalb muss die App darauf stoßen: Sonst zahlt jemand weiter für
+  // einen Kurs, den es nicht mehr gibt.
+  //
+  // Nur kursgebundene Abos. An einem Flatrate-Kursplatz hängt kein Geld für
+  // diesen einen Kurs; dort ist ein beendeter Kurs einfach ein beendeter Kurs.
+  for (const abo of abos ?? []) {
+    if (!abo.course_id) continue;
+    const kurs = abo.courses as KursBezug | null;
+    if (!kurs?.runs_until || kurs.runs_until >= heute) continue;
+    offenePunkte.push({ art: "kursBeendet", kursName: kurs.name });
+  }
 
   // --- Videolektionen --------------------------------------------------
 

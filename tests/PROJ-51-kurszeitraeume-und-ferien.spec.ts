@@ -26,6 +26,16 @@ const ALLE_NAMEN = [KURS_LAEUFT, KURS_BEGINNT_BALD, KURS_BEGINNT_SPAETER, KURS_V
 
 const ADMIN = { email: "e2e8-admin@viennasalsastudio.test", passwort: "CorrectPassword123!" };
 
+/**
+ * Ein eigener Kunde, kein geteilter.
+ *
+ * Sein Abo hängt an einem Kurs, der vorbei ist — genau der Zustand, den die
+ * Kriterien zum ausgelaufenen Kurs beschreiben. An einem geteilten Konto wäre
+ * dieses Abo für jede andere Suite ein unerwarteter Eintrag.
+ */
+const KUNDE = { email: "e2e51-kunde@viennasalsastudio.test", passwort: "CorrectPassword123!" };
+const KUNDE_NAME = "E2E51 Kunde Vorbei";
+const ABO_NAME = "E2E51 Abo am beendeten Kurs";
 
 async function anmelden(page: import("@playwright/test").Page, konto: { email: string; passwort: string }) {
   await gehZu(page, "/login");
@@ -58,6 +68,7 @@ function wochentagIn(tage: number): number {
 const WOCHENTAGE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
 
 let wochentag = 0;
+let kundeId = "";
 
 test.beforeAll(async () => {
   const service = dienst();
@@ -97,10 +108,38 @@ test.beforeAll(async () => {
     }))
   );
 
+  // Der Kunde und sein Abo am ausgelaufenen Kurs.
+  const { data: alle } = await service.auth.admin.listUsers({ perPage: 400 });
+  const alt = alle.users.find((u) => u.email === KUNDE.email);
+  if (alt) await service.auth.admin.deleteUser(alt.id);
+  const { data: angelegt, error: anlageFehler } = await service.auth.admin.createUser({
+    email: KUNDE.email,
+    password: KUNDE.passwort,
+    email_confirm: true,
+  });
+  if (anlageFehler) throw new Error(`PROJ-51 Testkunde: ${anlageFehler.message}`);
+  kundeId = angelegt.user.id;
+  await service.from("profiles").update({ full_name: KUNDE_NAME }).eq("id", kundeId);
+
+  const vorbei = (kurse ?? []).find((k) => k.name === KURS_VORBEI);
+  const { error: aboFehler } = await service.from("subscriptions").insert({
+    customer_id: kundeId,
+    course_id: vorbei!.id,
+    name: ABO_NAME,
+    status: "active",
+    price: 45,
+    cycle_anchor_date: tagePlus(-30),
+  });
+  if (aboFehler) throw new Error(`PROJ-51 Testabo: ${aboFehler.message}`);
 });
 
 test.afterAll(async () => {
   const service = dienst();
+  // Erst das Abo, dann der Kurs: Das Abo verweist auf ihn.
+  if (kundeId) {
+    await service.from("subscriptions").delete().eq("customer_id", kundeId);
+    await service.auth.admin.deleteUser(kundeId);
+  }
   await service.from("courses").delete().in("name", ALLE_NAMEN);
   await service.from("studio_holidays").delete().eq("name", FERIEN_NAME);
 });
@@ -246,6 +285,58 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
         .update({ pending_name: null, pending_level: null, pending_effective_date: null })
         .eq("name", KURS_LAEUFT);
     }
+  });
+
+  test("AC: Der Kunde sieht im Profil, dass sein Kurs beendet ist — und kann umbuchen", async ({
+    page,
+  }) => {
+    await anmelden(page, KUNDE);
+    await gehZu(page, "/profil");
+    await page.waitForTimeout(2000);
+
+    await page.getByRole("button", { name: "Mein Abo" }).click();
+    await page.waitForTimeout(800);
+
+    await expect(page.getByText(/Dieser Kurs ist beendet/)).toBeVisible();
+    // Der Hinweis allein hilft nicht — der Weg heraus muss danebenstehen.
+    await expect(page.getByRole("button", { name: "Umbuchen", exact: true })).toBeVisible();
+
+    // Und er führt nicht in die nächste Sackgasse: Ein Kurs, dessen Zeitraum
+    // ebenfalls vorbei ist, steht nicht zur Wahl.
+    await page.getByRole("button", { name: "Umbuchen", exact: true }).click();
+    await page.waitForTimeout(800);
+    await page.getByRole("dialog").getByRole("combobox").click();
+    await page.waitForTimeout(500);
+    await expect(page.getByRole("option", { name: KURS_VORBEI })).toHaveCount(0);
+    await expect(page.getByRole("option", { name: KURS_LAEUFT })).toBeVisible();
+  });
+
+  test("AC: Das Dashboard stößt auf den beendeten Kurs und rechnet keinen Termin mehr", async ({
+    page,
+  }) => {
+    await anmelden(page, KUNDE);
+    await gehZu(page, "/mein-bereich");
+    await page.waitForTimeout(2500);
+
+    await expect(page.getByText("Dein Kurs ist beendet")).toBeVisible();
+    await expect(page.getByText(new RegExp(`${KURS_VORBEI}.*läuft nicht mehr`))).toBeVisible();
+
+    // Der Kurs hat einen Wochentermin in zwei Tagen — außerhalb seines
+    // Zeitraums darf daraus trotzdem kein „nächster Kurs" werden.
+    await expect(page.getByText(KURS_VORBEI, { exact: true })).toHaveCount(0);
+  });
+
+  test("AC: Der Betreiber erkennt das betroffene Abo in Liste und Kundenprofil", async ({ page }) => {
+    await anmelden(page, ADMIN);
+    await page.goto("/admin/kunden?q=E2E51");
+    await page.waitForTimeout(2000);
+
+    const zeile = page.locator("tr", { hasText: KUNDE_NAME });
+    await expect(zeile.getByText("Kurs beendet")).toBeVisible();
+
+    await zeile.getByRole("link", { name: KUNDE_NAME }).click();
+    await page.waitForTimeout(2500);
+    await expect(page.getByText("Kurs beendet — Umbuchen nötig")).toBeVisible();
   });
 
   test("AC: Ein Kursende vor dem Beginn wird abgelehnt", async ({ page }) => {

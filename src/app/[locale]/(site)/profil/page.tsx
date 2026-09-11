@@ -18,6 +18,7 @@ import type { NotificationPreferenceRow } from "@/components/notifications/notif
 import type { MyTicketRow } from "@/components/tickets/my-tickets-section";
 import { createClient } from "@/lib/supabase/server";
 import { upcomingOccurrences, daysUntil } from "@/lib/scheduling/dates";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
 import { TICKET_CANCELLATION_LEAD_DAYS } from "@/lib/constants/events";
 import type { ProfileInput } from "@/lib/validations/auth";
@@ -79,10 +80,12 @@ export default async function ProfilePage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("subscriptions")
-      .select("id, name, price, status, pending_status, pending_effective_date, course_id, courses(name)")
+      .select(
+        "id, name, price, status, pending_status, pending_effective_date, course_id, courses(name, runs_until)"
+      )
       .eq("customer_id", user.id)
       .order("created_at", { ascending: true }),
-    supabase.from("courses").select("id, name").order("name", { ascending: true }),
+    supabase.from("courses").select("id, name, runs_until").order("name", { ascending: true }),
     // PROJ-50: Die Kurse der Flatrate. Offene und beendete zusammen — die
     // beendeten sind der Vorschlag nach einer Pause.
     supabase
@@ -173,11 +176,17 @@ export default async function ProfilePage() {
       .map((b) => [b.subscription_id as string, b.dance_role as string])
   );
 
+  const heute = heuteInWien();
+
   const subscriptions: MySubscriptionRow[] = (subscriptionRows ?? []).map((s) => ({
     id: s.id,
     name: s.name ?? "",
     courseId: s.course_id,
     courseName: s.courses?.name ?? null,
+    // PROJ-51: Der Kurs ist ausgelaufen, das Abo läuft weiter. Ohne Hinweis
+    // merkt der Kunde erst an der nächsten Abbuchung, dass er für einen Ort
+    // zahlt, an dem nichts mehr stattfindet.
+    kursBeendet: Boolean(s.courses?.runs_until && s.courses.runs_until < heute),
     danceRole: rolleJeAbo.get(s.id) ?? null,
     price: s.price,
     status: s.status,
@@ -185,8 +194,11 @@ export default async function ProfilePage() {
     pendingEffectiveDate: s.pending_effective_date,
   }));
 
-  const courses = courseRows ?? [];
-  const courseNameById = new Map(courses.map((c) => [c.id, c.name]));
+  const alleKurse = courseRows ?? [];
+  const courseNameById = new Map(alleKurse.map((c) => [c.id, c.name]));
+  // Umbuchen soll aus einer Sackgasse herausführen, nicht in die nächste:
+  // Ein Kurs, dessen Zeitraum vorbei ist, steht nicht zur Wahl.
+  const courses = alleKurse.filter((c) => !c.runs_until || c.runs_until >= heute);
 
   // PROJ-50: Die Kurse der Flatrate, getrennt in laufende und beendete.
   //

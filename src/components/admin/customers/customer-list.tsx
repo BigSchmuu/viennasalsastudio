@@ -39,6 +39,13 @@ export type CustomerRow = {
    * der Betreiber soll sehen, warum sie hier steht, statt sich zu wundern.
    */
   rolle: string | null;
+  /**
+   * PROJ-51: Mindestens ein laufendes Abo hängt an einem beendeten Kurs.
+   *
+   * In der Liste, nicht nur im Kundenprofil: Sonst müsste der Betreiber
+   * fünfzig Profile öffnen, um die drei zu finden, die er umbuchen muss.
+   */
+  kursBeendet: boolean;
 };
 
 const ROLLEN_BESCHRIFTUNG: Record<string, string> = {
@@ -147,6 +154,11 @@ export function CustomerList({
                   {customer.rolle && (
                     <Badge variant="secondary" className="ml-2 font-normal">
                       {ROLLEN_BESCHRIFTUNG[customer.rolle] ?? customer.rolle}
+                    </Badge>
+                  )}
+                  {customer.kursBeendet && (
+                    <Badge variant="outline" className="ml-2 font-normal text-primary border-primary/40">
+                      Kurs beendet
                     </Badge>
                   )}
                 </TableCell>

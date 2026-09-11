@@ -64,6 +64,8 @@ export type SubscriptionRow = {
   price: number;
   status: string;
   courseId: string | null;
+  /** PROJ-51: Der Zeitraum des zugehörigen Kurses ist abgelaufen. */
+  kursBeendet: boolean;
   cycleAnchorDate: string;
   pendingStatus: string | null;
   pendingEffectiveDate: string | null;
@@ -173,6 +175,12 @@ export function SubscriptionManager({
                 <TableRow key={subscription.id}>
                   <TableCell className="font-medium">
                     {subscription.name}
+                    {/* PROJ-51: Das Abo läuft weiter, sein Kurs nicht mehr.
+                        Wer abrechnet, muss das sehen, ohne es zu suchen —
+                        sonst bucht das Studio monatelang für nichts ab. */}
+                    {subscription.kursBeendet && (
+                      <p className="text-xs font-normal text-primary">Kurs beendet — Umbuchen nötig</p>
+                    )}
                     {pendingLabel && <p className="text-xs font-normal text-amber-600">{pendingLabel}</p>}
                   </TableCell>
                   <TableCell>{formatPrice(subscription.price)}</TableCell>

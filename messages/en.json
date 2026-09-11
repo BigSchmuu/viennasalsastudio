@@ -258,7 +258,8 @@
     "cancelSubConfirmAction": "Yes, cancel it",
     "keep": "Keep subscription",
     "pauseSub": "Pause",
-    "cancelSub": "Cancel subscription"
+    "cancelSub": "Cancel subscription",
+    "courseEnded": "This class has ended. Switch to a running class — your subscription stays as it is."
   },
   "notifications": {
     "event": "Event",
@@ -372,7 +373,10 @@
       "bookingCta": "View booking",
       "waitlistTitle": "You're on the waiting list",
       "waitlistBody": "{course} — we'll tell you as soon as a spot opens up.",
-      "waitlistCta": "View waiting list"
+      "waitlistCta": "View waiting list",
+      "courseEndedTitle": "Your class has ended",
+      "courseEndedBody": "{course} isn't running any more, but your subscription is. Switch to a class that is.",
+      "courseEndedCta": "Switch class"
     },
     "nextCourse": {
       "heading": "{count, plural, one {Your next class} other {Your next classes}}",

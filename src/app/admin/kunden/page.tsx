@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import { CustomerList, type CustomerRow, type CustomerStatus } from "@/components/admin/customers/customer-list";
 
 /** Aktiv > Pausiert > Gekündigt > Kein Abo — see PROJ-33 Decision Log. */
@@ -26,19 +27,28 @@ export default async function CustomersPage({
     // wird deshalb unten nach Zugehörigkeit, nicht in der Abfrage.
     supabase.from("profiles").select("id, full_name, created_at, role"),
     supabase.rpc("admin_list_customer_emails"),
-    supabase.from("subscriptions").select("customer_id, status"),
+    // `courses(runs_until)` nur wegen PROJ-51: Ein Abo an einem beendeten Kurs
+    // soll schon in der Liste auffallen, nicht erst im Profil.
+    supabase.from("subscriptions").select("customer_id, status, courses(runs_until)"),
     supabase.from("sepa_mandates").select("customer_id").is("revoked_at", null),
   ]);
 
   const emailById = new Map((emailsRes.data ?? []).map((e) => [e.id, e.email]));
 
+  const heute = heuteInWien();
   const subscriptionCountById = new Map<string, number>();
   const statusesById = new Map<string, string[]>();
+  const mitBeendetemKurs = new Set<string>();
   for (const s of subscriptionsRes.data ?? []) {
     subscriptionCountById.set(s.customer_id, (subscriptionCountById.get(s.customer_id) ?? 0) + 1);
     const list = statusesById.get(s.customer_id) ?? [];
     list.push(s.status);
     statusesById.set(s.customer_id, list);
+    // Nur solange das Abo auch Geld kostet — an einem gekündigten ist nichts
+    // mehr umzubuchen.
+    if (s.status !== "cancelled" && s.courses?.runs_until && s.courses.runs_until < heute) {
+      mitBeendetemKurs.add(s.customer_id);
+    }
   }
 
   const mitMandat = new Set((mandatesRes.data ?? []).map((m) => m.customer_id));
@@ -63,6 +73,7 @@ export default async function CustomersPage({
       // Nur gesetzt, wenn es nicht die Vorgabe ist — sonst stünde an jeder
       // Zeile ein Wort, das nichts sagt.
       rolle: p.role === "customer" ? null : p.role,
+      kursBeendet: mitBeendetemKurs.has(p.id),
     }));
 
   const q = params.q?.trim().toLowerCase() ?? "";

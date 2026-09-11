@@ -43,6 +43,8 @@ export type MySubscriptionRow = {
   name: string;
   courseId: string | null;
   courseName: string | null;
+  /** PROJ-51: Der Zeitraum dieses Kurses ist abgelaufen. */
+  kursBeendet: boolean;
   /** Leader/Follower/Beide — nur wo der Kurs danach fragt. */
   danceRole: string | null;
   price: number | null;
@@ -51,7 +53,7 @@ export type MySubscriptionRow = {
   pendingEffectiveDate: string | null;
 };
 
-export type SubscriptionCourseOption = { id: string; name: string };
+export type SubscriptionCourseOption = { id: string; name: string; runs_until?: string | null };
 
 function formatPrice(price: number): string {
   return price.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
@@ -182,6 +184,13 @@ export function MySubscriptionsSection({
               {subscription.danceRole && (
                 <Badge variant="secondary">{tb(`danceRoles.${subscription.danceRole}`)}</Badge>
               )}
+              {/* PROJ-51: Das Abo ist die Zahlungsbeziehung, der Kurs nur der
+                  Ort — deshalb läuft es weiter, wenn der Kurs ausläuft. Damit
+                  daraus keine stille Abbuchung für nichts wird, steht der
+                  Hinweis direkt über dem Knopf, der ihn auflöst. */}
+              {subscription.kursBeendet && (
+                <p className="text-sm font-medium text-primary">{t("courseEnded")}</p>
+              )}
               {hint && <p className="text-sm font-medium text-amber-600">{hint}</p>}
               <div className="flex flex-wrap gap-2 pt-1">
                 {canPauseOrCancel && (
@@ -211,7 +220,7 @@ export function MySubscriptionsSection({
                 )}
                 {canSwitch && (
                   <Button
-                    variant="outline"
+                    variant={subscription.kursBeendet ? "default" : "outline"}
                     size="sm"
                     disabled={isLoading}
                     onClick={() => {
