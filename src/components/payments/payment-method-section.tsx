@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { mandateSchema, type MandateInput } from "@/lib/validations/sepa";
 import { upsertMandate, revokeMandate } from "@/lib/actions/mandate";
 import { maskIban } from "@/lib/sepa/iban";
+import { nameWeichtAb } from "@/lib/sepa/kontoinhaber";
 import { SEPA_MANDATE_TEXT } from "@/lib/sepa/mandate-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,14 @@ export type MandateData = {
   consentedAt: string;
 };
 
-export function PaymentMethodSection({ mandate: initialMandate }: { mandate: MandateData | null }) {
+export function PaymentMethodSection({
+  mandate: initialMandate,
+  profilName,
+}: {
+  mandate: MandateData | null;
+  /** PROJ-7: Für die Rückfrage, wenn das Konto auf einen anderen Namen läuft. */
+  profilName: string | null;
+}) {
   const t = useTranslations("profile");
   const [mandate, setMandate] = useState(initialMandate);
   const [showForm, setShowForm] = useState(mandate === null);
@@ -99,6 +107,7 @@ export function PaymentMethodSection({ mandate: initialMandate }: { mandate: Man
             setShowForm(false);
           }}
           onCancel={mandate ? () => setShowForm(false) : undefined}
+          profilName={profilName}
         />
       )}
 
@@ -137,9 +146,11 @@ export function PaymentMethodSection({ mandate: initialMandate }: { mandate: Man
 function MandateForm({
   onSaved,
   onCancel,
+  profilName,
 }: {
   onSaved: (mandate: MandateData) => void;
   onCancel?: () => void;
+  profilName: string | null;
 }) {
   const t = useTranslations("profile");
   const [formError, setFormError] = useState<string | null>(null);
@@ -147,8 +158,22 @@ function MandateForm({
 
   const form = useForm<MandateInput>({
     resolver: zodResolver(mandateSchema),
-    defaultValues: { iban: "", account_holder_name: "", consent: false },
+    defaultValues: {
+      iban: "",
+      account_holder_name: "",
+      consent: false,
+      foreign_holder_confirmed: false,
+    },
   });
+
+  // PROJ-7: Wem eine IBAN gehört, lässt sich beim Lastschriftverfahren nicht
+  // prüfen — der Name auf dem Konto ist der einzige Anhaltspunkt. Eine
+  // Abweichung ist kein Verdacht, sondern der Anlass, einmal nachzufragen.
+  //
+  // Dieselbe Prüfung läuft auf dem Server noch einmal; hier steht sie nur, um
+  // die Frage zu stellen, bevor das Formular abgeschickt wird.
+  const kontoinhaber = form.watch("account_holder_name");
+  const weichtAb = nameWeichtAb(profilName, kontoinhaber ?? "");
 
   async function onSubmit(values: MandateInput) {
     setLoading(true);
@@ -158,6 +183,7 @@ function MandateForm({
       formData.set("iban", values.iban);
       formData.set("account_holder_name", values.account_holder_name);
       formData.set("consent", String(values.consent));
+      formData.set("foreign_holder_confirmed", String(values.foreign_holder_confirmed ?? false));
 
       const result = await upsertMandate(formData);
       if ("error" in result) {
@@ -207,6 +233,32 @@ function MandateForm({
           )}
         />
 
+        {weichtAb && (
+          <FormField
+            control={form.control}
+            name="foreign_holder_confirmed"
+            render={({ field }) => (
+              <FormItem>
+                <Alert>
+                  <AlertDescription className="space-y-2">
+                    <p>{t("holderDiffersHint", { name: profilName ?? "" })}</p>
+                    <div className="flex flex-row items-start gap-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value ?? false}
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal">{t("holderDiffersConfirm")}</FormLabel>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
         <div className="rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-line text-muted-foreground max-h-40 overflow-y-auto">
           {SEPA_MANDATE_TEXT}
         </div>
@@ -231,7 +283,10 @@ function MandateForm({
         />
 
         <div className="flex gap-2">
-          <Button type="submit" disabled={loading}>
+          {/* Gesperrt, solange die Rückfrage offen ist — der Server lehnt es
+              ohnehin ab, aber ein Knopf, der wortlos nichts tut, erklärt
+              nichts. */}
+          <Button type="submit" disabled={loading || (weichtAb && !form.watch("foreign_holder_confirmed"))}>
             {loading ? t("saving") : t("saveMandate")}
           </Button>
           {onCancel && (

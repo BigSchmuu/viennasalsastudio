@@ -14,6 +14,14 @@ export const mandateSchema = z.object({
     }),
   account_holder_name: z.string().trim().min(1, "Kontoinhaber ist erforderlich").max(200, "Name ist zu lang"),
   consent: z.boolean().refine((value) => value === true, "Bitte stimme dem Mandatstext zu"),
+  /**
+   * PROJ-7: Bestätigung, dass das Konto auf einen anderen Namen läuft.
+   *
+   * Nur verlangt, wenn der Kontoinhaber vom Profilnamen abweicht — diese
+   * Bedingung kennt das Schema nicht, sie steht in der Aktion. Hier steht nur,
+   * dass das Feld existiert.
+   */
+  foreign_holder_confirmed: z.boolean().optional(),
 });
 
 export type MandateInput = z.infer<typeof mandateSchema>;

@@ -12,6 +12,7 @@ import type { ProfileInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { heuteInWien } from "@/lib/constants/zeitzone";
+import { nameWeichtAb } from "@/lib/sepa/kontoinhaber";
 
 export default async function CustomerDetailPage({
   params,
@@ -48,7 +49,9 @@ export default async function CustomerDetailPage({
       .order("created_at", { ascending: true }),
     supabase
       .from("sepa_mandates")
-      .select("consented_at")
+      .select(
+        "id, consented_at, account_holder_name, profile_name_at_consent, consent_ip, consent_user_agent"
+      )
       .eq("customer_id", id)
       .is("revoked_at", null)
       .maybeSingle(),
@@ -73,6 +76,17 @@ export default async function CustomerDetailPage({
   ]);
 
   const email = (emailsRes.data ?? []).find((e) => e.id === id)?.email ?? "—";
+
+  // PROJ-7: Nutzen andere Kunden dieselbe IBAN? Bei einer Familie ist das der
+  // Normalfall, bei einem Angreifer das Muster — deshalb eine Zahl, keine
+  // Warnung. Über eine abgesicherte Funktion, weil die Antwort fremde Mandate
+  // betrifft.
+  const mitnutzer = mandateRes.data
+    ? await supabase.rpc("admin_count_mandate_iban_sharers", { p_mandate_id: mandateRes.data.id })
+    : null;
+  if (mitnutzer?.error) {
+    console.error("IBAN-Mitnutzer nicht lesbar", mitnutzer.error);
+  }
   const hasActiveSubscription = (subscriptionsRes.data ?? []).some((s) => s.status === "active");
   const mandate = mandateRes.data;
   const hadMandateBefore = (mandateHistoryRes.count ?? 0) > 0;
@@ -171,6 +185,40 @@ export default async function CustomerDetailPage({
             <Badge variant="outline">Kein Mandat hinterlegt</Badge>
           )}
         </div>
+
+        {/* PROJ-7: Wem eine IBAN gehört, lässt sich beim Lastschriftverfahren
+            nicht prüfen. Was bleibt, sind Anhaltspunkte — nüchtern notiert,
+            nicht als Verdacht: Ein abweichender Kontoname und eine geteilte
+            IBAN sind bei Familien der Normalfall. */}
+        {mandate && (
+          <dl className="mt-3 space-y-1 text-xs text-muted-foreground">
+            {mandate.account_holder_name && (
+              <div>
+                <dt className="inline font-medium">Kontoinhaber: </dt>
+                <dd className="inline">
+                  {mandate.account_holder_name}
+                  {mandate.profile_name_at_consent &&
+                    nameWeichtAb(mandate.profile_name_at_consent, mandate.account_holder_name) &&
+                    ` (abweichend von „${mandate.profile_name_at_consent}“, vom Kunden bestätigt)`}
+                </dd>
+              </div>
+            )}
+            {(mitnutzer?.data ?? 0) > 0 && (
+              <div>
+                <dt className="inline font-medium">Dieselbe IBAN: </dt>
+                <dd className="inline">
+                  wird von {mitnutzer!.data} weiteren {mitnutzer!.data === 1 ? "Kunden" : "Kunden"} genutzt
+                </dd>
+              </div>
+            )}
+            {mandate.consent_ip && (
+              <div>
+                <dt className="inline font-medium">Erteilt von: </dt>
+                <dd className="inline tabular-nums">{mandate.consent_ip}</dd>
+              </div>
+            )}
+          </dl>
+        )}
       </div>
 
       <div className="space-y-3">

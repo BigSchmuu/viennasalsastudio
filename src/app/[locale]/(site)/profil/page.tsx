@@ -375,7 +375,7 @@ export default async function ProfilePage() {
 
         <ProfilGruppe titel={t("groupPayments")} hinweis={t("groupPaymentsHint")}>
           <ProfilAbschnitt wert="zahlungsmethode" titel={t("sectionPayment")} hinweis={t("sectionPaymentHint")}>
-            <PaymentMethodSection mandate={mandate} />
+            <PaymentMethodSection mandate={mandate} profilName={profile?.full_name ?? null} />
           </ProfilAbschnitt>
           <ProfilAbschnitt wert="guthaben" titel={tc("section")} hinweis={tc("sectionHint")}>
             <MyCreditSection

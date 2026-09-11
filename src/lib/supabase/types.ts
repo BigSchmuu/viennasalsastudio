@@ -1338,7 +1338,10 @@ export type Database = {
       sepa_mandates: {
         Row: {
           account_holder_name: string
+          consent_ip: string | null
+          consent_user_agent: string | null
           consented_at: string
+          profile_name_at_consent: string | null
           created_at: string
           customer_id: string
           iban: string
@@ -1348,7 +1351,10 @@ export type Database = {
         }
         Insert: {
           account_holder_name: string
+          consent_ip?: string | null
+          consent_user_agent?: string | null
           consented_at?: string
+          profile_name_at_consent?: string | null
           created_at?: string
           customer_id: string
           iban: string
@@ -1358,7 +1364,10 @@ export type Database = {
         }
         Update: {
           account_holder_name?: string
+          consent_ip?: string | null
+          consent_user_agent?: string | null
           consented_at?: string
+          profile_name_at_consent?: string | null
           created_at?: string
           customer_id?: string
           iban?: string
@@ -1785,6 +1794,10 @@ export type Database = {
           started_on: string
           subscription_id: string
         }
+      }
+      admin_count_mandate_iban_sharers: {
+        Args: { p_mandate_id: string }
+        Returns: number
       }
       admin_list_failed_notifications: {
         Args: { p_limit?: number }

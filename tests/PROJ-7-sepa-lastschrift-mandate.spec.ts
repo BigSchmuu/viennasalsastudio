@@ -171,6 +171,10 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
     await page.waitForTimeout(300);
     await page.getByLabel("IBAN").fill(VALID_IBAN_2);
     await page.getByLabel("Kontoinhaber").fill("E2E7 Solo Kunde Neu");
+    // PROJ-7: „E2E7 Solo Kunde Neu" weicht vom Profilnamen ab — seit
+    // 2026-09-11 fragt das Formular deshalb nach. Der Fall bleibt sonst
+    // derselbe; nur die Rückfrage ist neu.
+    await page.getByLabel(/darf über dieses Konto verfügen/).check();
     await page.getByLabel(/stimme dem SEPA-Lastschriftmandat/).check();
     await page.getByRole("button", { name: "Mandat speichern" }).click();
     await page.waitForTimeout(800);
@@ -250,5 +254,113 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
     await page.getByRole("button", { name: "Als rückgebucht markieren" }).first().click();
     await page.waitForTimeout(600);
     await expect(page.getByText("Rückgebucht").first()).toBeVisible();
+  });
+});
+
+/**
+ * PROJ-7: Wem gehört die IBAN?
+ *
+ * Beim Lastschriftverfahren kann der Zahlungsempfänger das nicht prüfen — das
+ * Mandat *ist* die Erklärung des Zahlers. Ein Kunde kann also eine fremde IBAN
+ * eintragen, und technisch merkt das niemand. Was bleibt: nachfragen, wenn der
+ * Kontoname abweicht, und den Vorgang beweisbar machen.
+ */
+test.describe("PROJ-7: Kontoinhaber und Beweiskraft", () => {
+  const KUNDE = { email: "e2e7-fremdkonto@viennasalsastudio.test", password: "CorrectPassword123!" };
+  const KUNDE_NAME = "E2E7 Fremdkonto Kunde";
+  let kundeId = "";
+
+  test.beforeAll(async () => {
+    const { data: alle } = await service.auth.admin.listUsers({ perPage: 400 });
+    const alt = alle.users.find((u) => u.email === KUNDE.email);
+    if (alt) await service.auth.admin.deleteUser(alt.id);
+    const { data, error } = await service.auth.admin.createUser({
+      email: KUNDE.email,
+      password: KUNDE.password,
+      email_confirm: true,
+    });
+    if (error) throw new Error(`Testkunde: ${error.message}`);
+    kundeId = data.user.id;
+    await service.from("profiles").update({ full_name: KUNDE_NAME }).eq("id", kundeId);
+  });
+
+  test.afterAll(async () => {
+    if (!kundeId) return;
+    await service.from("sepa_mandates").delete().eq("customer_id", kundeId);
+    await service.auth.admin.deleteUser(kundeId);
+  });
+
+  test.beforeEach(async () => {
+    await service.from("sepa_mandates").delete().eq("customer_id", kundeId);
+  });
+
+  test("Ein abweichender Kontoinhaber muss bestätigt werden", async ({ page }) => {
+    await login(page, KUNDE);
+    await openPaymentSection(page);
+    await page.getByLabel("IBAN").fill(VALID_IBAN);
+    await page.getByLabel("Kontoinhaber").fill("Erika Beispiel");
+    await page.getByLabel(/stimme dem SEPA-Lastschriftmandat/).check();
+    await page.waitForTimeout(400);
+
+    // Gesperrt, solange die Rückfrage offen ist — ein Knopf, der wortlos
+    // nichts tut, erklärt nichts.
+    await expect(page.getByText(/Konto läuft auf einen anderen Namen/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mandat speichern" })).toBeDisabled();
+
+    await page.getByLabel(/darf über dieses Konto verfügen/).check();
+    await page.getByRole("button", { name: "Mandat speichern" }).click();
+    await page.waitForTimeout(1500);
+    await expect(page.getByText(/AT61/)).toBeVisible();
+  });
+
+  test("Der eigene Name löst keine Rückfrage aus", async ({ page }) => {
+    await login(page, KUNDE);
+    await openPaymentSection(page);
+    await page.getByLabel("IBAN").fill(VALID_IBAN);
+    // Umlaut- und Reihenfolgeunterschiede sind keine Abweichung.
+    await page.getByLabel("Kontoinhaber").fill("Kunde E2E7 Fremdkonto");
+    await page.waitForTimeout(400);
+    await expect(page.getByText(/Konto läuft auf einen anderen Namen/)).toHaveCount(0);
+  });
+
+  test("Das Mandat hält fest, von wo es erteilt wurde", async ({ page }) => {
+    // Bei einer Rückbuchung „nie erteilt" ist das der Unterschied zwischen
+    // „wir haben nichts" und einem belegbaren Vorgang.
+    await login(page, KUNDE);
+    await openPaymentSection(page);
+    await page.getByLabel("IBAN").fill(VALID_IBAN);
+    await page.getByLabel("Kontoinhaber").fill(KUNDE_NAME);
+    await page.getByLabel(/stimme dem SEPA-Lastschriftmandat/).check();
+    await page.getByRole("button", { name: "Mandat speichern" }).click();
+    await page.waitForTimeout(1500);
+
+    const { data } = await service
+      .from("sepa_mandates")
+      .select("consent_ip, consent_user_agent, profile_name_at_consent")
+      .eq("customer_id", kundeId)
+      .is("revoked_at", null)
+      .single();
+
+    expect(data?.consent_ip, "Keine Adresse festgehalten").toBeTruthy();
+    expect(data?.consent_user_agent, "Keine Browserkennung festgehalten").toBeTruthy();
+    // Der Profilname von damals, nicht der heutige.
+    expect(data?.profile_name_at_consent).toBe(KUNDE_NAME);
+  });
+
+  test("Der Betreiber sieht den abweichenden Kontonamen am Kundenprofil", async ({ page }) => {
+    await login(page, KUNDE);
+    await openPaymentSection(page);
+    await page.getByLabel("IBAN").fill(VALID_IBAN);
+    await page.getByLabel("Kontoinhaber").fill("Erika Beispiel");
+    await page.getByLabel(/darf über dieses Konto verfügen/).check();
+    await page.getByLabel(/stimme dem SEPA-Lastschriftmandat/).check();
+    await page.getByRole("button", { name: "Mandat speichern" }).click();
+    await page.waitForTimeout(1500);
+
+    await login(page, ADMIN);
+    await page.goto(`/admin/kunden/${kundeId}`);
+    await page.waitForTimeout(2000);
+    await expect(page.getByText(/Kontoinhaber:/)).toBeVisible();
+    await expect(page.getByText(/abweichend von/)).toBeVisible();
   });
 });

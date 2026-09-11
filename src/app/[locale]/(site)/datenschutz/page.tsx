@@ -37,7 +37,10 @@ export default function DatenschutzPage() {
           </li>
           <li>
             <span className="font-medium">Zahlungsdaten:</span> IBAN und Kontoinhaber:in für das
-            SEPA-Lastschriftmandat.
+            SEPA-Lastschriftmandat. Bei der Erteilung des Mandats halten wir zusätzlich fest, wann,
+            von welcher IP-Adresse und mit welchem Browser es erteilt wurde. Das dient allein dem
+            Nachweis gegenüber unberechtigten Rücklastschriften (berechtigtes Interesse, Art. 6
+            Abs. 1 lit. f DSGVO) und wird mit dem Mandat gelöscht.
           </li>
           <li>
             <span className="font-medium">Buchungs- und Kursdaten:</span> gebuchte Kurse, Abo-Status, gewählte

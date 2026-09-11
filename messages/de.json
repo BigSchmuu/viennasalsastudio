@@ -261,7 +261,9 @@
     "keep": "Abo behalten",
     "pauseSub": "Pausieren",
     "cancelSub": "Kündigen",
-    "courseEnded": "Dieser Kurs ist beendet. Buche auf einen laufenden Kurs um — dein Abo bleibt bestehen."
+    "courseEnded": "Dieser Kurs ist beendet. Buche auf einen laufenden Kurs um — dein Abo bleibt bestehen.",
+    "holderDiffersHint": "Das Konto läuft auf einen anderen Namen als dein Profil ({name}). Das ist in Ordnung — zum Beispiel, wenn Eltern oder Partner zahlen.",
+    "holderDiffersConfirm": "Ich darf über dieses Konto verfügen oder habe die Erlaubnis des Inhabers."
   },
   "notifications": {
     "event": "Ereignis",

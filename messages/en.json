@@ -261,7 +261,9 @@
     "keep": "Keep subscription",
     "pauseSub": "Pause",
     "cancelSub": "Cancel subscription",
-    "courseEnded": "This class has ended. Switch to a running class — your subscription stays as it is."
+    "courseEnded": "This class has ended. Switch to a running class — your subscription stays as it is.",
+    "holderDiffersHint": "The account is in a different name than your profile ({name}). That's fine — for example if a parent or partner pays.",
+    "holderDiffersConfirm": "I am authorised to use this account, or I have the account holder's permission."
   },
   "notifications": {
     "event": "Event",
