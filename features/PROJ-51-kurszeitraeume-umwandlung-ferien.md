@@ -1,6 +1,6 @@
 # PROJ-51: Kurszeiträume, Umwandlung und Ferien im Stundenplan
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-09-11
 **Last Updated:** 2026-09-11
 **Priorität:** P1
@@ -581,3 +581,86 @@ Firefox ist dort nicht eingerichtet und wurde **nicht** geprüft.
 - **Produktionsreif:** **NEIN** — BUG-1 muss vorher weg
 - **Empfehlung:** BUG-1 bis BUG-3 beheben, dann erneut `/qa`. BUG-4 bis BUG-6
   sind vertretbar für eine spätere Runde
+
+---
+
+## QA Test Results — zweiter Durchgang (nach den Behebungen)
+
+**Getestet:** 2026-09-11
+**Prüfer:** QA Engineer (AI)
+
+### Die sechs Befunde des ersten Durchgangs
+
+| Befund | Stand | Nachgewiesen durch |
+|---|---|---|
+| BUG-1 Kurs verschwindet beim Umwandeln | behoben | „Die neue Staffel bringt ihren eigenen Zeitraum mit" und „Ohne neues Ende läuft die Staffel unbefristet weiter" (`kursumwandlung-vollzug`) |
+| BUG-2 Zweite Vormerkung wird nicht angekündigt | behoben | „Der Betreiber merkt eine Umwandlung vor und nimmt sie zurück" prüft jetzt `pending_announced_at` |
+| BUG-3 Hinweis an gekündigtem Abo | behoben | „Ein gekündigtes Abo bekommt keinen Handlungsaufruf mehr" |
+| BUG-4 Abo-Satz über allen Reitern | behoben | „Wer einen bald endenden Kurs buchen will, erfährt es vorher" prüft beide Reiter |
+| BUG-5 Ausgelaufener Kurs über Detailseite buchbar | behoben | „Ein ausgelaufener Kurs hat auch keine Detailseite mehr" |
+| BUG-6 36-px-Tippfläche | behoben | Sichtprüfung (`min-h-11`) |
+
+**Akzeptanzkriterien: 22 von 22 bestanden.**
+
+### Abweichung von der beschlossenen Lösung
+
+Bei BUG-1 war „der Stichtag wird zum Beginn der neuen Staffel" vereinbart und
+zuerst auch so gebaut. Beim Nachprüfen zeigte sich, dass die Anwesenheitsliste
+des Lehrers ihre Historie über `runs_from` begrenzt
+(`src/app/(staff)/lehrer/[courseId]/page.tsx`): Auf den Stichtag gesetzt wäre
+alles vor der Umwandlung aus der Liste verschwunden — genau das, was das
+Kriterium „die Historie steht unverändert da" schützt. Umgesetzt ist deshalb
+nur das Ende; der Beginn bleibt. Die Lücke zwischen zwei Staffeln trägt sich
+dabei von selbst, weil bis zum Stichtag noch das alte Ende gilt.
+
+### Automatisierte Tests
+
+| Lauf | Ergebnis |
+|---|---|
+| `npm test` (Vitest) | 485 bestanden |
+| `npx tsc --noEmit` / `npm run lint` / `npm run build` | sauber |
+| Voller E2E-Lauf (Chromium + Mobile Safari) | **1073 bestanden, 4 übersprungen, 1 gefallen** von 1078 (2,0 h) |
+
+Der eine Fehlschlag liegt in PROJ-12 (Warteliste), nicht in PROJ-51.
+
+### Befund zur Testzuverlässigkeit — und ein Produktrisiko dahinter
+
+Zwei volle Durchgänge, **verschiedene** Fehlschläge:
+
+| Durchgang | Gefallen | In Einzelläufen |
+|---|---|---|
+| 1 | 9 Fälle in PROJ-8 (Kursbuchung, Chromium) | 16/16 grün; mit PROJ-51 davor 34/34 grün |
+| 2 | 1 Fall in PROJ-12 (Warteliste, Chromium) | 8/8 grün |
+
+Disjunkte Mengen, beide in Einzelläufen grün, dieselben Fälle im selben Lauf
+unter Mobile Safari grün: Das ist Zeitverhalten, keine Regression. Die Ursache
+ließ sich eingrenzen:
+
+Alle betroffenen Fälle senden beim Absenden eine Benachrichtigung. Die
+Server-Aktionen warten darauf **inline** (`await enqueueAndDispatch(...)` in
+`admin/bookings.ts`, `waitlist`, `admin-alerts`), und der Mailversand läuft im
+Test gegen echtes SMTP mit Empfängern auf `.test`. Der Nodemailer-Transport in
+`src/lib/notifications/mailer.ts` setzt **keine Zeitlimits** — es gelten die
+Vorgaben der Bibliothek (Verbindungsaufbau bis 2 Minuten, Socket bis 10). Wird
+ein Versand langsam, läuft der Test in seine feste Wartezeit
+(`waitForTimeout(800)`) und prüft, bevor die Aktion fertig ist.
+
+**Das ist nicht nur ein Testproblem.** Dieselbe Kette bedeutet in Produktion:
+Ein hängender Mailserver lässt die Buchung eines Kunden minutenlang stehen.
+
+- **Schwere:** Mittel
+- **Empfehlung:** `connectionTimeout`, `greetingTimeout` und `socketTimeout` am
+  Transport setzen (wenige Sekunden). Das macht den Versandfehler schnell und
+  sichtbar, statt die auslösende Handlung mitzuziehen — und nimmt der Testsuite
+  ihre Hauptquelle für Zufallsfehler
+- **Zuständig:** nicht PROJ-51. Gehört in ein eigenes Ticket, gefunden bei
+  diesem Durchgang
+
+### Zusammenfassung
+
+- **Akzeptanzkriterien:** 22/22 bestanden
+- **Offene Fehler aus Durchgang 1:** 0 von 6
+- **Neue Fehler in PROJ-51:** keine
+- **Sicherheit:** keine Befunde (siehe Durchgang 1)
+- **Produktionsreif:** **JA**
+- **Daneben gefunden:** fehlende SMTP-Zeitlimits (Mittel, eigenes Ticket)
