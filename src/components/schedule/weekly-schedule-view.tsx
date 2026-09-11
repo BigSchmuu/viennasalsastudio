@@ -4,12 +4,16 @@ import { useMemo, useState } from "react";
 import { weekdayOptions } from "@/lib/constants/weekdays";
 import { levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { formatShortDate } from "@/lib/formatting";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScheduleBookingButton } from "@/components/schedule/schedule-booking-button";
 import type { StudioPricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+
+import type { Zeitraumhinweis } from "@/lib/scheduling/kursanzeige";
 
 export type ScheduleEntry = {
   courseId: string;
@@ -25,6 +29,8 @@ export type ScheduleEntry = {
   endTime: string;
   // PROJ-27: shown on the card whenever set, independent of booking/self-checkin.
   prerequisiteNote: string | null;
+  /** PROJ-51: „noch bis …", „ab …" oder „ab …: Neuer Name" — null, wo es nichts zu sagen gibt. */
+  zeitraumHinweis: Zeitraumhinweis | null;
   // PROJ-26: only set when the customer is not already in this course.
   //
   // Das Einchecken stand hier ebenfalls (PROJ-25); es liegt seit 2026-09-10
@@ -68,6 +74,7 @@ function saalNumber(roomName: string | null): number {
 
 function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
   const t = useTranslations("schedule");
+  const locale = useLocale();
   return (
     <Card className="rounded-card border-border/70 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-soft-lg">
       <CardHeader>
@@ -94,6 +101,21 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
           <p className="text-sm text-muted-foreground">{entry.teacherNames.join(", ")}</p>
         ) : (
           <p className="text-xs text-muted-foreground/70">{t("teacherTba")}</p>
+        )}
+        {/* PROJ-51: Der Zeitraum steht nur da, wo er etwas aussagt. Ein
+            unbefristeter Kurs ohne Vormerkung bekommt keine Zeile — eine
+            Angabe, die immer dasteht, sagt nichts mehr. */}
+        {entry.zeitraumHinweis && (
+          <p className="text-xs font-medium text-primary">
+            {entry.zeitraumHinweis.art === "beginnt"
+              ? t("startsOn", { date: formatShortDate(entry.zeitraumHinweis.datum, locale) })
+              : entry.zeitraumHinweis.art === "wirdZu"
+                ? t("becomes", {
+                    date: formatShortDate(entry.zeitraumHinweis.datum, locale),
+                    course: entry.zeitraumHinweis.neuerName,
+                  })
+                : t("runsUntil", { date: formatShortDate(entry.zeitraumHinweis.datum, locale) })}
+          </p>
         )}
         {entry.prerequisiteNote && (
           <p className="text-xs bg-muted rounded-md px-2 py-1">{entry.prerequisiteNote}</p>
@@ -222,15 +244,19 @@ function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
 export function WeeklyScheduleView({
   entriesByWeekday,
   todayWeekday,
+  ferien,
 }: {
   entriesByWeekday: Record<number, ScheduleEntry[]>;
   todayWeekday: number;
+  /** PROJ-51: laufende und demnächst anstehende Ferien, bereits gefiltert. */
+  ferien: { name: string; von: string; bis: string }[];
 }) {
   const [activeDay, setActiveDay] = useState(String(todayWeekday));
   const [standort, setStandort] = useState(ALLE_STANDORTE);
 
   const t = useTranslations("schedule");
   const tag = useTranslations("weekdays");
+  const locale = useLocale();
 
   // Die Standorte, an denen diese Woche überhaupt etwas stattfindet.
   const standorte = useMemo(() => {
@@ -243,6 +269,19 @@ export function WeeklyScheduleView({
 
   return (
     <Tabs value={activeDay} onValueChange={setActiveDay}>
+      {/* PROJ-51: Über den Wochentagen, weil eine Schließung nicht einen Tag
+          betrifft, sondern den ganzen Zeitraum. */}
+      {ferien.map((f) => (
+        <Alert key={`${f.von}-${f.bis}`} className="mb-4">
+          <AlertDescription>
+            {t("holidayNoticeNamed", {
+              name: f.name,
+              from: formatShortDate(f.von, locale),
+              to: formatShortDate(f.bis, locale),
+            })}
+          </AlertDescription>
+        </Alert>
+      ))}
       {/* Erst ab zwei Standorten sinnvoll — sonst wäre es eine Auswahl ohne
           Wahl. Sie steht über den Wochentagen, weil sie für die ganze Woche
           gilt und nicht je Tag neu getroffen wird. */}

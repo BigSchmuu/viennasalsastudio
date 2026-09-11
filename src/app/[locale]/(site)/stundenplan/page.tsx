@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
-import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
+import { ladeFerien, ladeFerienMitNamen, kurszeitraum } from "@/lib/scheduling/ferien";
+import { imStundenplan, zeitraumhinweis, anstehendeFerien } from "@/lib/scheduling/kursanzeige";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
 import { jsDayToWeekday, formatDateLocal, upcomingOccurrences } from "@/lib/scheduling/dates";
-import { heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
+import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 import { readStudioPricing } from "@/lib/pricing";
 import { getTranslations } from "next-intl/server";
 import { getViewer } from "@/lib/auth/viewer";
@@ -36,7 +37,7 @@ export default async function StundenplanPage() {
       supabase
         .from("courses")
         .select(
-          "id, name, level, dance_styles(name), rooms(id, name, locations(id, name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until"
+          "id, name, level, dance_styles(name), rooms(id, name, locations(id, name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
         ),
       supabase.from("teacher_directory").select("id, full_name"),
       // PROJ-25: In welchen Kursen der Kunde sitzt, entscheidet über den
@@ -94,9 +95,17 @@ export default async function StundenplanPage() {
   const weekDates = currentWeekDates();
   const entriesByWeekday: Record<number, ScheduleEntry[]> = {};
 
+  const heute = heuteInWien();
+
   for (const course of coursesRes.data ?? []) {
     const schedule = course.course_schedule;
     if (!schedule) continue;
+
+    // PROJ-51: Ein ausgelaufener Kurs steht nicht mehr im Plan, ein Kurs, der
+    // erst in fünf Wochen beginnt, noch nicht. Das ist eine
+    // Anzeigeentscheidung — ob ein einzelner Termin stattfindet, beantwortet
+    // die Terminrechnung, nicht diese Zeile.
+    if (!imStundenplan(kurszeitraum(course), heute)) continue;
 
     const thisWeekDate = weekDates[schedule.weekday];
     const isPausedThisWeek = schedule.course_schedule_pauses.some(
@@ -119,6 +128,16 @@ export default async function StundenplanPage() {
       startTime: schedule.start_time,
       endTime: schedule.end_time,
       prerequisiteNote: course.prerequisite_note,
+      zeitraumHinweis: zeitraumhinweis(
+        {
+          zeitraum: kurszeitraum(course),
+          umwandlung:
+            course.pending_name && course.pending_effective_date
+              ? { name: course.pending_name, datum: course.pending_effective_date }
+              : null,
+        },
+        heute
+      ),
     };
 
     // Der Stundenplan zeigt, wann etwas stattfindet — und für Kurse, in denen
@@ -171,7 +190,11 @@ export default async function StundenplanPage() {
         <h1 className="font-heading text-3xl font-bold">{texte("heading")}</h1>
         <p className="text-muted-foreground">{texte("subheading")}</p>
       </div>
-      <WeeklyScheduleView entriesByWeekday={entriesByWeekday} todayWeekday={todayWeekday} />
+      <WeeklyScheduleView
+        entriesByWeekday={entriesByWeekday}
+        todayWeekday={todayWeekday}
+        ferien={anstehendeFerien(await ladeFerienMitNamen(supabase), heute)}
+      />
     </div>
   );
 }

@@ -88,7 +88,12 @@
     "noRoom": "Ohne Saal",
     "unnamedTeacher": "Unbenannter Lehrer",
     "allLocations": "Alle Standorte",
-    "until": "bis"
+    "until": "bis",
+    "runsUntil": "noch bis {date}",
+    "startsOn": "ab {date}",
+    "becomes": "ab {date}: {course}",
+    "holidayNotice": "Vom {from} bis {to} ist das Studio geschlossen.",
+    "holidayNoticeNamed": "{name}: vom {from} bis {to} ist das Studio geschlossen."
   },
   "events": {
     "heading": "Events & Workshops",
