@@ -189,6 +189,7 @@ export async function kursUmwandlungVormerken(
     pending_name: formData.get("pending_name"),
     pending_level: formData.get("pending_level"),
     pending_effective_date: formData.get("pending_effective_date"),
+    pending_runs_until: formData.get("pending_runs_until"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
@@ -201,6 +202,11 @@ export async function kursUmwandlungVormerken(
       pending_name: parsed.data.pending_name,
       pending_level: parsed.data.pending_level,
       pending_effective_date: parsed.data.pending_effective_date,
+      pending_runs_until: parsed.data.pending_runs_until || null,
+      // Eine neue Vormerkung ist noch nicht angekündigt. Ohne diese Zeile hielt
+      // der nächtliche Lauf sie für erledigt, sobald die *vorherige* Vormerkung
+      // einmal angekündigt worden war — und schwieg (QA 2026-09-11, BUG-2).
+      pending_announced_at: null,
     })
     .eq("id", id);
 
@@ -218,7 +224,14 @@ export async function kursUmwandlungZuruecknehmen(id: string): Promise<ActionRes
   const { supabase } = await requireAdmin();
   const { error } = await supabase
     .from("courses")
-    .update({ pending_name: null, pending_level: null, pending_effective_date: null })
+    .update({
+      pending_name: null,
+      pending_level: null,
+      pending_effective_date: null,
+      pending_runs_until: null,
+      // Die Spur der Ankündigung gehört zur Vormerkung und geht mit ihr.
+      pending_announced_at: null,
+    })
     .eq("id", id);
 
   if (error) {

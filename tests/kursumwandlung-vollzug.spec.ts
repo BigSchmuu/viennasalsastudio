@@ -100,7 +100,9 @@ async function legeKursAn(stichtag: string): Promise<void> {
 async function kursZustand() {
   const { data } = await svc
     .from("courses")
-    .select("name, level, pending_name, pending_effective_date, pending_announced_at")
+    .select(
+      "name, level, runs_from, runs_until, pending_name, pending_effective_date, pending_runs_until, pending_announced_at"
+    )
     .eq("id", kursId)
     .single();
   return data!;
@@ -136,6 +138,44 @@ test("Am Stichtag heißt der Kurs neu — und die Kunden bleiben eingeschrieben"
     .single();
   expect(abo!.course_id).toBe(kursId);
   expect(abo!.status).toBe("active");
+});
+
+test("Die neue Staffel bringt ihren eigenen Zeitraum mit", async () => {
+  // QA-Befund vom 2026-09-11 (BUG-1), und es war der Hauptweg: Ein Kurs mit
+  // „läuft bis gestern" und einer Umwandlung auf heute wurde umbenannt, behielt
+  // aber das alte Ende — und blieb damit für immer aus dem Stundenplan
+  // verschwunden, nachdem die Kunden gelesen hatten, dass es weitergeht.
+  const neuesEnde = tageVersetzt(42);
+  await legeKursAn(tageVersetzt(0));
+  await svc
+    .from("courses")
+    .update({ runs_until: tageVersetzt(-1), pending_runs_until: neuesEnde })
+    .eq("id", kursId);
+
+  await cronLaufen();
+
+  const danach = await kursZustand();
+  expect(danach.name).toBe(NEUER_NAME);
+  // Das Ende der neuen Staffel ersetzt das alte …
+  expect(danach.runs_until, "Der Kurs behielt das Ende der alten Staffel").toBe(neuesEnde);
+  expect(danach.pending_runs_until).toBeNull();
+  // … der Beginn aber bleibt, wie er war. Die Anwesenheitsliste des Lehrers
+  // begrenzt ihre Historie daran; auf den Stichtag gesetzt, verschwände alles,
+  // was vor der Umwandlung stattfand.
+  expect(danach.runs_from, "Der Kursbeginn wurde verschoben").toBeNull();
+});
+
+test("Ohne neues Ende läuft die Staffel unbefristet weiter", async () => {
+  // Sonst wäre „kein Ende angegeben" nicht von „das alte Ende gilt weiter" zu
+  // unterscheiden — und genau daraus entstand BUG-1.
+  await legeKursAn(tageVersetzt(0));
+  await svc.from("courses").update({ runs_until: tageVersetzt(-1) }).eq("id", kursId);
+
+  await cronLaufen();
+
+  const danach = await kursZustand();
+  expect(danach.name).toBe(NEUER_NAME);
+  expect(danach.runs_until, "Das alte Ende blieb stehen").toBeNull();
 });
 
 test("Eine Woche vorher wird angekündigt, umgewandelt aber noch nicht", async () => {

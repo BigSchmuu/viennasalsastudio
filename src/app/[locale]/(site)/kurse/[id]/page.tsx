@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import { ladeKurszugehoerigkeit, darfVideosSehen } from "@/lib/flatrate/kurszugehoerigkeit";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
@@ -43,6 +44,19 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   ]);
 
   if (!course) {
+    notFound();
+  }
+
+  // PROJ-51: Ein ausgelaufener Kurs hat keine Seite mehr.
+  //
+  // Stundenplan und Katalog verstecken ihn längst — die Detailseite tat es
+  // nicht, und über einen alten Link oder ein Lesezeichen ließ er sich weiter
+  // buchen und zur Flatrate hinzufügen (QA 2026-09-11, BUG-5).
+  //
+  // Nur das Ende, nicht der Beginn: Ein Kurs, der erst in fünf Wochen
+  // anfängt, existiert schon — er steht nur noch nicht im Plan, und ein Link
+  // darauf soll funktionieren.
+  if (course.runs_until && course.runs_until < heuteInWien()) {
     notFound();
   }
 

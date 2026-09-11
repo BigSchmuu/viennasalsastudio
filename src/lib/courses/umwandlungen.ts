@@ -48,7 +48,9 @@ export async function vollzieheFaelligeUmwandlungen(
 ): Promise<UmwandlungsErgebnis> {
   const { data: vorgemerkt, error } = await service
     .from("courses")
-    .select("id, name, level, pending_name, pending_level, pending_effective_date, pending_announced_at")
+    .select(
+      "id, name, level, pending_name, pending_level, pending_effective_date, pending_runs_until, pending_announced_at"
+    )
     .not("pending_name", "is", null)
     // Der Ankündigungshorizont ist die weitere der beiden Grenzen — ein Kurs,
     // der heute fällig ist, steht hier ebenfalls drin.
@@ -86,9 +88,25 @@ export async function vollzieheFaelligeUmwandlungen(
         // Das Level ist optional an der Vormerkung: Ein Kurs kann den Namen
         // wechseln, ohne die Stufe zu wechseln.
         ...(kurs.pending_level ? { level: kurs.pending_level } : {}),
+        // Das Ende der neuen Staffel ersetzt das alte (BUG-1 aus dem
+        // QA-Durchgang): Sonst wäre der Kurs am Tag seiner Umwandlung schon
+        // abgelaufen, fiele aus dem Stundenplan und käme nie zurück —
+        // nachdem die Kunden eine Woche vorher gelesen hatten, dass es
+        // weitergeht.
+        //
+        // `runs_from` bleibt, wie es war, und das ist wichtig: Die
+        // Anwesenheitsliste des Lehrers begrenzt ihre Historie daran. Auf den
+        // Stichtag gesetzt, verschwände alles, was vor der Umwandlung
+        // stattfand — und genau das darf laut Kriterium nicht passieren.
+        //
+        // Die Lücke zwischen den Staffeln trägt sich selbst: Bis zum Stichtag
+        // gilt noch das alte Ende, der Kurs ist in dieser Zeit also ohnehin
+        // aus dem Plan.
+        runs_until: kurs.pending_runs_until,
         pending_name: null,
         pending_level: null,
         pending_effective_date: null,
+        pending_runs_until: null,
         pending_announced_at: null,
       })
       .eq("id", kurs.id)

@@ -40,7 +40,7 @@ export function CourseConversionSection({
 }: {
   courseId: string;
   aktuellerName: string;
-  vormerkung: { name: string; level: string | null; datum: string } | null;
+  vormerkung: { name: string; level: string | null; datum: string; laeuftBis: string | null } | null;
 }) {
   const [fehler, setFehler] = useState<string | null>(null);
   const [laeuft, starte] = useTransition();
@@ -66,8 +66,9 @@ export function CourseConversionSection({
       <div>
         <h3 className="font-medium">Kurs umwandeln</h3>
         <p className="text-sm text-muted-foreground">
-          Für die nächste Staffel: Der Kurs bekommt zum Stichtag einen neuen Namen und ein neues
-          Level. Die eingeschriebenen Kunden bleiben dabei, ebenso Anwesenheiten und Notizen.
+          Für die nächste Staffel: Der Kurs bekommt zum Stichtag einen neuen Namen, ein neues Level
+          und einen neuen Zeitraum. Die eingeschriebenen Kunden bleiben dabei, ebenso Anwesenheiten
+          und Notizen. Der Stichtag wird zum Beginn der neuen Staffel.
         </p>
       </div>
 
@@ -83,7 +84,11 @@ export function CourseConversionSection({
             <span>
               Ab <strong>{formatShortDate(vormerkung.datum)}</strong> heißt {aktuellerName} dann{" "}
               <strong>{vormerkung.name}</strong>
-              {vormerkung.level ? ` (${levelLabel(vormerkung.level)})` : ""}.
+              {vormerkung.level ? ` (${levelLabel(vormerkung.level)})` : ""} und läuft{" "}
+              {vormerkung.laeuftBis
+                ? `bis ${formatShortDate(vormerkung.laeuftBis)}`
+                : "unbefristet weiter"}
+              .
             </span>
             <Button variant="outline" size="sm" onClick={zuruecknehmen} disabled={laeuft}>
               Vormerkung zurücknehmen
@@ -114,6 +119,13 @@ export function CourseConversionSection({
           <div>
             <Label htmlFor="pending-date">Ab wann</Label>
             <Input id="pending-date" name="pending_effective_date" type="date" required />
+          </div>
+          <div>
+            {/* Ohne dieses Feld behielt der Kurs das Ende der *alten* Staffel
+                und verschwand am Tag seiner Umwandlung aus dem Stundenplan
+                (QA 2026-09-11, BUG-1). Leer heißt unbefristet. */}
+            <Label htmlFor="pending-bis">Neue Staffel läuft bis (optional)</Label>
+            <Input id="pending-bis" name="pending_runs_until" type="date" />
           </div>
           <Button type="submit" disabled={laeuft}>
             Umwandlung vormerken

@@ -108,9 +108,12 @@ export function FerienManager({ ferien }: { ferien: FerienZeile[] }) {
                 <TableCell className="tabular-nums">{formatShortDate(f.von)}</TableCell>
                 <TableCell className="tabular-nums">{formatShortDate(f.bis)}</TableCell>
                 <TableCell className="text-right">
+                  {/* min-h-11 = 44 px, die Projektnorm für Tippflächen.
+                      `size="sm"` allein wären 36 px (QA 2026-09-11, BUG-6). */}
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="min-h-11"
                     onClick={() => setZuEntfernen(f)}
                     disabled={laeuft}
                   >

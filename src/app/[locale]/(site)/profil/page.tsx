@@ -186,7 +186,13 @@ export default async function ProfilePage() {
     // PROJ-51: Der Kurs ist ausgelaufen, das Abo läuft weiter. Ohne Hinweis
     // merkt der Kunde erst an der nächsten Abbuchung, dass er für einen Ort
     // zahlt, an dem nichts mehr stattfindet.
-    kursBeendet: Boolean(s.courses?.runs_until && s.courses.runs_until < heute),
+    //
+    // Nicht bei einem gekündigten Abo: Dort wird nichts mehr abgebucht, es
+    // gibt nichts umzubuchen, und der Knopf dazu fehlt ohnehin. Der Hinweis
+    // wäre ein Handlungsaufruf ins Leere (QA 2026-09-11, BUG-3).
+    kursBeendet:
+      s.status !== "cancelled" &&
+      Boolean(s.courses?.runs_until && s.courses.runs_until < heute),
     danceRole: rolleJeAbo.get(s.id) ?? null,
     price: s.price,
     status: s.status,

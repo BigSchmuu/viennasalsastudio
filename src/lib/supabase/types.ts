@@ -563,6 +563,7 @@ export type Database = {
           pending_announced_at: string | null
           pending_effective_date: string | null
           pending_level: string | null
+          pending_runs_until: string | null
           pending_name: string | null
           prerequisite_note: string | null
           price: number | null
@@ -583,6 +584,7 @@ export type Database = {
           pending_announced_at?: string | null
           pending_effective_date?: string | null
           pending_level?: string | null
+          pending_runs_until?: string | null
           pending_name?: string | null
           prerequisite_note?: string | null
           price?: number | null
@@ -603,6 +605,7 @@ export type Database = {
           pending_announced_at?: string | null
           pending_effective_date?: string | null
           pending_level?: string | null
+          pending_runs_until?: string | null
           pending_name?: string | null
           prerequisite_note?: string | null
           price?: number | null

@@ -92,7 +92,11 @@ export default async function CustomerDetailPage({
     price: s.price ?? 0,
     status: s.status,
     courseId: s.course_id,
-    kursBeendet: Boolean(s.courses?.runs_until && s.courses.runs_until < heute),
+    // Nicht bei einem gekündigten Abo — dort ist nichts mehr umzubuchen
+    // (QA 2026-09-11, BUG-3). Dieselbe Bedingung wie in der Kundenliste.
+    kursBeendet:
+      s.status !== "cancelled" &&
+      Boolean(s.courses?.runs_until && s.courses.runs_until < heute),
     cycleAnchorDate: s.cycle_anchor_date,
     pendingStatus: s.pending_status,
     pendingEffectiveDate: s.pending_effective_date,

@@ -269,6 +269,7 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
     await dialog.getByLabel("Neues Level").click();
     await page.getByRole("option").first().click();
     await dialog.getByLabel("Ab wann").fill(tagePlus(12));
+    await dialog.getByLabel("Neue Staffel läuft bis (optional)").fill(tagePlus(50));
     await dialog.getByRole("button", { name: "Umwandlung vormerken" }).click();
     await page.waitForTimeout(2500);
 
@@ -276,12 +277,15 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
     try {
       const { data: nachher } = await service
         .from("courses")
-        .select("pending_name, pending_effective_date")
+        .select("pending_name, pending_effective_date, pending_runs_until, pending_announced_at")
         .eq("name", KURS_LAEUFT)
         .single();
       expect(nachher?.pending_name, "Die Umwandlung wurde nicht vorgemerkt").toBe(
         "E2E51 Fortgeschritten"
       );
+      // Ohne den Zeitraum der neuen Staffel behielte der Kurs das Ende der
+      // alten und verschwände am Tag seiner Umwandlung (BUG-1).
+      expect(nachher?.pending_runs_until, "Der neue Zeitraum fehlt").toBe(tagePlus(50));
 
       // Der Dialog zeigt die Vormerkung sofort — ohne ihn neu zu öffnen.
       // Vorher hielt er den Kurs fest, wie er beim Öffnen aussah.
@@ -291,10 +295,14 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
 
       const { data: danach } = await service
         .from("courses")
-        .select("pending_name")
+        .select("pending_name, pending_runs_until, pending_announced_at")
         .eq("name", KURS_LAEUFT)
         .single();
       expect(danach?.pending_name, "Die Vormerkung blieb bestehen").toBeNull();
+      expect(danach?.pending_runs_until, "Der neue Zeitraum blieb stehen").toBeNull();
+      // BUG-2: Bleibt die Spur der Ankündigung stehen, hält der nächtliche
+      // Lauf die *nächste* Vormerkung für erledigt und schweigt.
+      expect(danach?.pending_announced_at, "Die Ankündigungsspur blieb stehen").toBeNull();
     } finally {
       // Ohne dieses Aufräumen vergiftet ein Fehlschlag hier den nächsten Fall —
       // genau das ist beim ersten Lauf passiert.
@@ -318,7 +326,20 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
       .click();
     await page.waitForTimeout(1200);
 
-    await expect(page.getByRole("dialog").getByText(/läuft nur noch bis/)).toBeVisible();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText(/läuft nur noch bis/)).toBeVisible();
+
+    // Der Satz über das Abo gehört in den Reiter, in dem eines entsteht — bei
+    // Probestunde und Drop-in gibt es keines (BUG-4). Der Hinweis auf das
+    // Kursende steht über allen dreien.
+    await dialog.getByRole("tab", { name: "Probestunde" }).click();
+    await page.waitForTimeout(600);
+    await expect(dialog.getByText(/läuft nur noch bis/)).toBeVisible();
+    await expect(dialog.getByText(/Dein Abo läuft danach weiter/)).toHaveCount(0);
+
+    await dialog.getByRole("tab", { name: "Anmeldung" }).click();
+    await page.waitForTimeout(600);
+    await expect(dialog.getByText(/Dein Abo läuft danach weiter/)).toBeVisible();
   });
 
   test("AC: Ein ausgelaufener Kurs steht auch im Katalog nicht mehr", async ({ page }) => {
@@ -327,6 +348,25 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
     await oeffneKatalog(page);
     await expect(page.getByText(KURS_LAEUFT, { exact: true })).toBeVisible();
     await expect(page.getByText(KURS_VORBEI, { exact: true })).toHaveCount(0);
+  });
+
+  test("Ein ausgelaufener Kurs hat auch keine Detailseite mehr", async ({ page }) => {
+    // Über einen alten Link oder ein Lesezeichen ließ er sich weiter buchen
+    // und zur Flatrate hinzufügen, obwohl Plan und Katalog ihn verstecken
+    // (QA 2026-09-11, BUG-5).
+    const service = dienst();
+    const { data: kurs } = await service.from("courses").select("id").eq("name", KURS_VORBEI).single();
+
+    await gehZu(page, `/kurse/${kurs!.id}`);
+    await page.waitForTimeout(1500);
+    await expect(page.getByText(KURS_VORBEI, { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Jetzt buchen|Flatrate/ })).toHaveCount(0);
+
+    // Der laufende dagegen schon — die Prüfung trifft nicht zu viel.
+    const { data: laeuft } = await service.from("courses").select("id").eq("name", KURS_LAEUFT).single();
+    await gehZu(page, `/kurse/${laeuft!.id}`);
+    await page.waitForTimeout(1500);
+    await expect(page.getByText(KURS_LAEUFT, { exact: true }).first()).toBeVisible();
   });
 
   test("AC: Der Kunde sieht im Profil, dass sein Kurs beendet ist — und kann umbuchen", async ({
@@ -351,6 +391,27 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
     await page.waitForTimeout(500);
     await expect(page.getByRole("option", { name: KURS_VORBEI })).toHaveCount(0);
     await expect(page.getByRole("option", { name: KURS_LAEUFT })).toBeVisible();
+  });
+
+  test("Ein gekündigtes Abo bekommt keinen Handlungsaufruf mehr", async ({ page }) => {
+    // „Buche auf einen laufenden Kurs um — dein Abo bleibt bestehen" stimmte
+    // bei einem gekündigten Abo in beiden Hälften nicht, und der Knopf dazu
+    // fehlt dort ohnehin (QA 2026-09-11, BUG-3).
+    const service = dienst();
+    await service.from("subscriptions").update({ status: "cancelled" }).eq("name", ABO_NAME);
+
+    try {
+      await anmelden(page, KUNDE);
+      await gehZu(page, "/profil");
+      await page.waitForTimeout(2000);
+      await page.getByRole("button", { name: "Mein Abo" }).click();
+      await page.waitForTimeout(800);
+
+      await expect(page.getByText(ABO_NAME)).toBeVisible();
+      await expect(page.getByText(/Dieser Kurs ist beendet/)).toHaveCount(0);
+    } finally {
+      await service.from("subscriptions").update({ status: "active" }).eq("name", ABO_NAME);
+    }
   });
 
   test("AC: Das Dashboard stößt auf den beendeten Kurs und rechnet keinen Termin mehr", async ({
@@ -523,8 +584,8 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
     await page.waitForTimeout(1200);
 
     const dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Läuft von (optional)").fill(tagePlus(20));
-    await dialog.getByLabel("Läuft bis (optional)").fill(tagePlus(10));
+    await dialog.getByLabel("Läuft von (optional)", { exact: true }).fill(tagePlus(20));
+    await dialog.getByLabel("Läuft bis (optional)", { exact: true }).fill(tagePlus(10));
     await dialog.getByRole("button", { name: /Speichern|Anlegen/ }).click();
     await page.waitForTimeout(1500);
 

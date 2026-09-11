@@ -90,6 +90,8 @@ export type CourseRow = {
   pendingName: string | null;
   pendingLevel: string | null;
   pendingEffectiveDate: string | null;
+  /** PROJ-51: Das Ende der neuen Staffel, leer heißt unbefristet. */
+  pendingRunsUntil: string | null;
   occupiedCount: number;
   waitlistEntries: WaitlistEntryRow[];
   roleQueryEnabled: boolean;
@@ -773,6 +775,7 @@ function CourseFormDialog({
                       name: course.pendingName,
                       level: course.pendingLevel,
                       datum: course.pendingEffectiveDate,
+                      laeuftBis: course.pendingRunsUntil,
                     }
                   : null
               }

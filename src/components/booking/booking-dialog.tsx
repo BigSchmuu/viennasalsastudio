@@ -113,6 +113,7 @@ export function BookingDialog({
   const t = useTranslations("booking");
   const locale = useLocale();
   const router = useRouter();
+  const endetBald = laeuftBaldAus(course.runsUntil);
   const defaultTab =
     course.entryDates.length > 0 ? "regular" : course.nextOccurrenceDates.length > 0 ? "trial" : "dropin";
   const [tab, setTab] = useState(defaultTab);
@@ -291,8 +292,13 @@ export function BookingDialog({
         {/* PROJ-51: Vor der Auswahl, nicht darunter — wer bucht, soll wissen,
             worauf er sich einlässt, bevor er einen Tarif anklickt. Derselbe
             Horizont wie im Stundenplan: Ein Ende in vier Monaten sagt bei
-            einem Monatsabo nichts, eines in zehn Tagen alles. */}
-        {laeuftBaldAus(course.runsUntil) && (
+            einem Monatsabo nichts, eines in zehn Tagen alles.
+            
+            Der Satz hier gilt für alle drei Reiter und spricht deshalb nur vom
+            Kurs. Was mit dem *Abo* danach passiert, steht im Reiter
+            „Anmeldung" — bei Probestunde und Drop-in gibt es keines
+            (QA 2026-09-11, BUG-4). */}
+        {endetBald && (
           <Alert>
             <AlertDescription>
               {t("courseEndsSoon", { date: formatEnddatum(course.runsUntil!, locale) })}
@@ -314,6 +320,9 @@ export function BookingDialog({
           </TabsList>
 
           <TabsContent value="regular" className="space-y-3 pt-2">
+            {endetBald && (
+              <p className="text-sm text-muted-foreground">{t("courseEndsSoonSubscription")}</p>
+            )}
             {course.hasActiveSubscription ? (
               <Alert>
                 <AlertDescription>

@@ -82,19 +82,27 @@ export type CourseInput = z.infer<typeof courseSchema>;
  * Preisänderung an einem bestehenden Vertrag ist etwas anderes als ein neuer
  * Kursname und gehört ausdrücklich angekündigt.
  */
-export const kursUmwandlungSchema = z.object({
-  pending_name: z.string().trim().min(1, "Neuer Name ist erforderlich").max(200),
-  pending_level: z.enum(levelValues, { message: "Bitte ein Level wählen" }),
-  pending_effective_date: z
-    .string()
-    .trim()
-    .min(1, "Bitte einen Stichtag wählen")
-    // Ein rückwirkender Namenswechsel würde die Anwesenheitshistorie umdeuten:
-    // Stunden, die als „Beginner 1" stattfanden, hießen plötzlich anders.
-    .refine((wert) => wert >= new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" }), {
-      message: "Der Stichtag darf nicht in der Vergangenheit liegen",
-    }),
-});
+export const kursUmwandlungSchema = z
+  .object({
+    pending_name: z.string().trim().min(1, "Neuer Name ist erforderlich").max(200),
+    pending_level: z.enum(levelValues, { message: "Bitte ein Level wählen" }),
+    pending_effective_date: z
+      .string()
+      .trim()
+      .min(1, "Bitte einen Stichtag wählen")
+      // Ein rückwirkender Namenswechsel würde die Anwesenheitshistorie umdeuten:
+      // Stunden, die als „Beginner 1" stattfanden, hießen plötzlich anders.
+      .refine((wert) => wert >= new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" }), {
+        message: "Der Stichtag darf nicht in der Vergangenheit liegen",
+      }),
+    // Das Ende der **neuen** Staffel. Leer heißt unbefristet — dann läuft der
+    // Kurs nach der Umwandlung weiter, bis der Betreiber ihn beendet.
+    pending_runs_until: z.string().trim().optional().or(z.literal("")),
+  })
+  .refine(
+    (werte) => !werte.pending_runs_until || werte.pending_runs_until >= werte.pending_effective_date,
+    { message: "Das Ende darf nicht vor dem Stichtag liegen", path: ["pending_runs_until"] }
+  );
 export type KursUmwandlungInput = z.infer<typeof kursUmwandlungSchema>;
 
 /** PROJ-51: Studioweite Ferien — ein Eintrag statt vierzig Ausfalltage. */

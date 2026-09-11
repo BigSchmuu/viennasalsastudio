@@ -21,7 +21,7 @@ export default async function CoursesPage({
   let coursesQuery = supabase
     .from("courses")
     .select(
-      "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date, notified_at)), course_entry_dates(id, entry_date), max_participants, price, prerequisite_note, role_query_enabled, max_role_difference, runs_from, runs_until, pending_name, pending_level, pending_effective_date"
+      "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date, notified_at)), course_entry_dates(id, entry_date), max_participants, price, prerequisite_note, role_query_enabled, max_role_difference, runs_from, runs_until, pending_name, pending_level, pending_effective_date, pending_runs_until"
     )
     .order("created_at", { ascending: true });
 
@@ -169,6 +169,7 @@ export default async function CoursesPage({
     pendingName: c.pending_name,
     pendingLevel: c.pending_level,
     pendingEffectiveDate: c.pending_effective_date,
+    pendingRunsUntil: c.pending_runs_until,
     occupiedCount: occupiedByCourse.get(c.id) ?? 0,
     waitlistEntries: waitlistByCourse.get(c.id) ?? [],
     roleQueryEnabled: c.role_query_enabled,
