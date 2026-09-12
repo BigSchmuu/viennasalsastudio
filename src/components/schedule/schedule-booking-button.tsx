@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
 import type { StudioPricing } from "@/lib/pricing";
 import type { ProbestundenStand } from "@/lib/bookings/probestunde";
-import { buchungsknopf } from "@/lib/bookings/knopfzustand";
+import { buchungsknopf, knopfText } from "@/lib/bookings/knopfzustand";
 
 export function ScheduleBookingButton({
   course,
@@ -105,11 +105,7 @@ export function ScheduleBookingButton({
         {/* Derselbe Zustand wie im Katalog, aus derselben Funktion: Vorher
             stand hier immer „Buchen", auch bei offener Anfrage oder
             Wartelistenplatz — erfahren hat der Kunde es erst im Dialog. */}
-        {zustand === "anfrageOffen"
-          ? tb("btnPending")
-          : zustand === "warteliste"
-            ? tb("btnWaitlist")
-            : tb("btnBook")}
+        {knopfText(zustand, tb, tb("btnBook"))}
       </Button>
 
       {bookingOpen && (

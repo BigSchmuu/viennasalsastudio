@@ -10,7 +10,7 @@ import { ladeTestUmgebung } from "./env";
  * — Zusicherungen über die Beschriftung stehen weiterhin ausdrücklich dort,
  * wo sie geprüft wird.
  */
-const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste/;
+const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste|Du bist in diesem Kurs/;
 
 
 try {
@@ -116,10 +116,16 @@ test.beforeAll(async () => {
   kundeId = angelegt.user.id;
   // Ohne Herkunftsangabe verlangt der Dialog sie bei der ersten Buchung — das
   // gehört zu PROJ-8 und nicht hierher.
-  await service
+  //
+  // Der Wert muss aus der CHECK-Liste an `profiles` stammen („instagram" tat
+  // es nicht). Und der Fehler wird ausgewertet: Ein still fehlgeschlagenes
+  // Update sah genauso aus wie ein Kunde ohne Herkunftsangabe, und der Dialog
+  // blieb gesperrt — vier Tests lang unerklärlich.
+  const { error: profilFehler } = await service
     .from("profiles")
-    .update({ full_name: "E2E52 Kunde", referral_source: "instagram" })
+    .update({ full_name: "E2E52 Kunde", referral_source: "social_media" })
     .eq("id", kundeId);
+  if (profilFehler) throw new Error(`PROJ-52 Profil: ${profilFehler.message}`);
 });
 
 test.afterAll(async () => {
@@ -209,7 +215,7 @@ test.describe("PROJ-52: Eine Probestunde je Kunde", () => {
       .from("course_bookings")
       .insert({
         customer_id: kundeId,
-        course_id: kursAId,
+        course_id: kursBId,
         type: "trial",
         status: "confirmed",
         chosen_date: tagePlus(3),
@@ -218,9 +224,11 @@ test.describe("PROJ-52: Eine Probestunde je Kunde", () => {
       .single();
 
     await anmelden(page);
-    const dialog = await oeffneDialog(page, kursBId);
+    // Ziel ist Kurs A: Kurs B fragt die Tanzrolle ab, und dieser Fall soll vom
+    // Umbuchen handeln, nicht von der Rollenwahl.
+    const dialog = await oeffneDialog(page, kursAId);
 
-    await expect(dialog.getByText(new RegExp(`Probestunde in ${KURS_A}`))).toBeVisible();
+    await expect(dialog.getByText(new RegExp(`Probestunde in ${KURS_B}`))).toBeVisible();
 
     await dialog.getByRole("combobox").first().click();
     await page.waitForTimeout(400);
@@ -232,7 +240,7 @@ test.describe("PROJ-52: Eine Probestunde je Kunde", () => {
     const nachher = await probestunden();
     const aktive = nachher.filter((b) => b.status === "confirmed" || b.status === "open");
     expect(aktive, "Es gibt nicht genau eine aktive Probestunde").toHaveLength(1);
-    expect(aktive[0].course_id, "Sie liegt nicht im Zielkurs").toBe(kursBId);
+    expect(aktive[0].course_id, "Sie liegt nicht im Zielkurs").toBe(kursAId);
     expect(
       nachher.find((b) => b.id === alt!.id)?.status,
       "Die alte Buchung wurde nicht storniert"
@@ -296,14 +304,18 @@ test.describe("PROJ-52: Eine Probestunde je Kunde", () => {
       .insert({ course_id: kursAId, entry_date: tagePlus(7) })
       .select("id")
       .single();
-    await service.from("course_bookings").insert({
+    // `desired_plan` stammt aus einer CHECK-Liste („once_weekly" tat es
+    // nicht), und der Fehler wird ausgewertet: Ein still fehlgeschlagenes
+    // Insert sah genauso aus wie ein Kunde ohne Anfrage.
+    const { error: anfrageFehler } = await service.from("course_bookings").insert({
       customer_id: kundeId,
       course_id: kursAId,
       type: "regular",
       status: "open",
       chosen_date: tagePlus(7),
-      desired_plan: "once_weekly",
+      desired_plan: "single_course",
     });
+    if (anfrageFehler) throw new Error(`Anfrage anlegen: ${anfrageFehler.message}`);
 
     try {
       await anmelden(page);

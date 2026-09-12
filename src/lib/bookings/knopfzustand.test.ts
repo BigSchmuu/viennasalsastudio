@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buchungsknopf } from "./knopfzustand";
+import { buchungsknopf, knopfText } from "./knopfzustand";
 
 const kurs = (ueber: Partial<Parameters<typeof buchungsknopf>[0]> = {}) => ({
   hasActiveSubscription: false,
@@ -34,5 +34,22 @@ describe("buchungsknopf", () => {
     expect(buchungsknopf(kurs({ hasOpenRegularBooking: true, isOnWaitlist: true }))).toBe(
       "anfrageOffen"
     );
+  });
+});
+
+describe("knopfText", () => {
+  const t = (s: string) => s;
+
+  it("nennt jeden Zustand", () => {
+    expect(knopfText("eingeschrieben", t, "Jetzt buchen")).toBe("btnEnrolled");
+    expect(knopfText("anfrageOffen", t, "Jetzt buchen")).toBe("btnPending");
+    expect(knopfText("warteliste", t, "Jetzt buchen")).toBe("btnWaitlist");
+  });
+
+  it("lässt dem Aufrufer den Buchen-Text", () => {
+    // Der Katalog sagt „Jetzt buchen", die enge Stundenplan-Karte nur
+    // „Buchen" — der einzige erlaubte Unterschied zwischen den drei Orten.
+    expect(knopfText("buchen", t, "Buchen")).toBe("Buchen");
+    expect(knopfText("buchen", t, "Jetzt buchen")).toBe("Jetzt buchen");
   });
 });

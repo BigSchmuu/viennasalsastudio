@@ -8,7 +8,7 @@ import { gehZu } from "./navigation";
  * — Zusicherungen über die Beschriftung stehen weiterhin ausdrücklich dort,
  * wo sie geprüft wird.
  */
-const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste/;
+const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste|Du bist in diesem Kurs/;
 
 
 const CUSTOMER_EMAIL = "qa-proj5-customer@viennasalsastudio.test";

@@ -13,7 +13,7 @@ import type { StudioPricing } from "@/lib/pricing";
 import { CoursePriceLine } from "@/components/catalog/course-price-line";
 import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
 import type { ProbestundenStand } from "@/lib/bookings/probestunde";
-import { buchungsknopf } from "@/lib/bookings/knopfzustand";
+import { buchungsknopf, knopfText } from "@/lib/bookings/knopfzustand";
 import {
   Select,
   SelectContent,
@@ -297,27 +297,13 @@ export function CourseCatalog({
                        oder wartet, darf weiterhin eine Probestunde oder ein
                        Drop-in buchen. Nur wer eingeschrieben ist, hat hier
                        nichts mehr zu tun. */
-                    (() => {
-                      const zustand = buchungsknopf(course);
-                      if (zustand === "eingeschrieben") {
-                        return (
-                          <p className="w-full text-sm text-muted-foreground">{tb("btnEnrolled")}</p>
-                        );
-                      }
-                      return (
-                        <Button
-                          variant="outline"
-                          className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
-                          onClick={() => handleBook(course)}
-                        >
-                          {zustand === "anfrageOffen"
-                            ? tb("btnPending")
-                            : zustand === "warteliste"
-                              ? tb("btnWaitlist")
-                              : t("book")}
-                        </Button>
-                      );
-                    })()
+                    <Button
+                      variant="outline"
+                      className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
+                      onClick={() => handleBook(course)}
+                    >
+                      {knopfText(buchungsknopf(course), tb, t("book"))}
+                    </Button>
                   )}
                 </CardFooter>
               </Card>

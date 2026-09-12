@@ -29,3 +29,30 @@ export function buchungsknopf(kurs: {
   if (kurs.isOnWaitlist) return "warteliste";
   return "buchen";
 }
+
+/**
+ * Die Beschriftung zum Zustand.
+ *
+ * Steht hier, damit Katalog, Kursdetail und Stundenplan denselben Satz
+ * benutzen — drei Kopien einer Kette aus Bedingungen liefen auseinander.
+ *
+ * `buchenText` kommt vom Aufrufer: Der Katalog sagt „Jetzt buchen", die enge
+ * Stundenplan-Karte nur „Buchen". Das ist der einzige Unterschied, den es
+ * zwischen den drei Orten geben darf.
+ */
+export function knopfText(
+  zustand: Buchungsknopf,
+  t: (schluessel: string) => string,
+  buchenText: string
+): string {
+  switch (zustand) {
+    case "eingeschrieben":
+      return t("btnEnrolled");
+    case "anfrageOffen":
+      return t("btnPending");
+    case "warteliste":
+      return t("btnWaitlist");
+    case "buchen":
+      return buchenText;
+  }
+}

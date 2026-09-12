@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BookingDialog } from "@/components/booking/booking-dialog";
 import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
 import type { ProbestundenStand } from "@/lib/bookings/probestunde";
+import { buchungsknopf, knopfText } from "@/lib/bookings/knopfzustand";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import type { StudioPricing } from "@/lib/pricing";
@@ -45,6 +46,11 @@ export function CourseDetailBooking({
 }) {
   const router = useRouter();
   const t = useTranslations("flatrate");
+  const tb = useTranslations("booking");
+  // Die Detailseite sagt „Jetzt buchen" wie der Katalog, nicht „Buchen" wie
+  // die enge Stundenplan-Karte.
+  const tc = useTranslations("courses");
+  const zustand = buchungsknopf(course);
   const [bookingOpen, setBookingOpen] = useState(false);
 
   function handleBook() {
@@ -96,7 +102,12 @@ export function CourseDetailBooking({
 
   return (
     <>
-      <Button className="rounded-full" onClick={handleBook}>Jetzt buchen</Button>
+      {/* Dieselbe Funktion wie in Katalog und Stundenplan: Drei Seiten zeigen
+          denselben Kurs, und drei Fassungen liefen auseinander. Vorher stand
+          hier immer „Jetzt buchen" — auch bei laufender Anfrage. */}
+      <Button className="rounded-full" onClick={handleBook}>
+        {knopfText(zustand, tb, tc("book"))}
+      </Button>
 
       {bookingOpen && (
         <BookingDialog

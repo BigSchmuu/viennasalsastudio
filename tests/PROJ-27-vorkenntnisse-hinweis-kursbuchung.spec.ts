@@ -10,7 +10,7 @@ import { ladeTestUmgebung } from "./env";
  * — Zusicherungen über die Beschriftung stehen weiterhin ausdrücklich dort,
  * wo sie geprüft wird.
  */
-const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste/;
+const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste|Du bist in diesem Kurs/;
 
 
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
