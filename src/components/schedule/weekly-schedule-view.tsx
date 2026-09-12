@@ -22,6 +22,8 @@ export type ScheduleEntry = {
   level: string | null;
   locationId: string;
   locationName: string;
+  /** Anschrift des Standorts, falls hinterlegt. */
+  locationAddress: string | null;
   roomId: string;
   roomName: string | null;
   teacherNames: string[];
@@ -263,12 +265,28 @@ export function WeeklyScheduleView({
 
   // Die Standorte, an denen diese Woche überhaupt etwas stattfindet.
   const standorte = useMemo(() => {
-    const gefunden = new Map<string, string>();
+    const gefunden = new Map<string, { name: string; adresse: string | null }>();
     for (const eintrag of Object.values(entriesByWeekday).flat()) {
-      gefunden.set(eintrag.locationId, eintrag.locationName);
+      gefunden.set(eintrag.locationId, {
+        name: eintrag.locationName,
+        adresse: eintrag.locationAddress,
+      });
     }
-    return [...gefunden].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    return [...gefunden]
+      .map(([id, { name, adresse }]) => ({ id, name, adresse }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [entriesByWeekday]);
+
+  // Die Anschrift steht nur da, wenn klar ist, welche gemeint ist: Bei „Alle
+  // Standorte" wären es mehrere, und eine davon zu zeigen wäre schlimmer als
+  // keine. Gibt es überhaupt nur einen Standort, ist er ohnehin gemeint —
+  // dann fehlt der Filter, die Anschrift aber nicht.
+  const gezeigterStandort =
+    standort !== ALLE_STANDORTE
+      ? standorte.find((o) => o.id === standort)
+      : standorte.length === 1
+        ? standorte[0]
+        : undefined;
 
   return (
     <Tabs value={activeDay} onValueChange={setActiveDay}>
@@ -307,6 +325,12 @@ export function WeeklyScheduleView({
             </button>
           ))}
         </div>
+      )}
+
+      {gezeigterStandort?.adresse && (
+        <p className="mb-4 text-sm text-muted-foreground">
+          {gezeigterStandort.name}: {gezeigterStandort.adresse}
+        </p>
       )}
 
       <div className="overflow-x-auto">

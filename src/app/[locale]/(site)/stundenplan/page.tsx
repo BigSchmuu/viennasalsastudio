@@ -37,7 +37,7 @@ export default async function StundenplanPage() {
       supabase
         .from("courses")
         .select(
-          "id, name, level, dance_styles(name), rooms(id, name, locations(id, name)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
+          "id, name, level, dance_styles(name), rooms(id, name, locations(id, name, address)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
         ),
       supabase.from("teacher_directory").select("id, full_name"),
       // PROJ-25: In welchen Kursen der Kunde sitzt, entscheidet über den
@@ -127,6 +127,10 @@ export default async function StundenplanPage() {
       level: course.level,
       locationId: course.rooms?.locations?.id ?? "unassigned",
       locationName: course.rooms?.locations?.name ?? "—",
+      // PROJ-6: Steht unter dem Standortfilter, sobald genau einer gewählt
+      // ist. Gepflegt wird sie im Admin unter „Standorte" — dort gab es das
+      // Feld längst, nur sah es niemand.
+      locationAddress: course.rooms?.locations?.address ?? null,
       roomId: course.rooms?.id ?? "unassigned",
       roomName: course.rooms?.name ?? null,
       teacherNames: course.course_teachers
