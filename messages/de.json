@@ -274,7 +274,19 @@
     "cancelSub": "Kündigen",
     "courseEnded": "Dieser Kurs ist beendet. Buche auf einen laufenden Kurs um — dein Abo bleibt bestehen.",
     "holderDiffersHint": "Das Konto läuft auf einen anderen Namen als dein Profil ({name}). Das ist in Ordnung — zum Beispiel, wenn Eltern oder Partner zahlen.",
-    "holderDiffersConfirm": "Ich darf über dieses Konto verfügen oder habe die Erlaubnis des Inhabers."
+    "holderDiffersConfirm": "Ich darf über dieses Konto verfügen oder habe die Erlaubnis des Inhabers.",
+    "bookingTypeRegular": "Buchungsanfrage",
+    "bookingTypeTrial": "Probestunde",
+    "bookingTypeDropin": "Drop-in",
+    "bookingStatusOpen": "Offen",
+    "bookingStatusConfirmed": "Bestätigt",
+    "bookingStatusRejected": "Abgelehnt",
+    "bookingStatusCancelled": "Storniert",
+    "planSingleCourse": "Nur diesen Kurs",
+    "planFlatrate": "Flatrate (alle Kurse)",
+    "pastBookings": "Frühere Buchungen",
+    "pastBookingsHint": "{count, plural, one {Ein erledigter Eintrag} other {# erledigte Einträge}} — abgelehnt, storniert oder beendet.",
+    "noCurrentBookings": "Derzeit keine offenen Buchungen."
   },
   "notifications": {
     "event": "Ereignis",

@@ -274,7 +274,19 @@
     "cancelSub": "Cancel subscription",
     "courseEnded": "This class has ended. Switch to a running class — your subscription stays as it is.",
     "holderDiffersHint": "The account is in a different name than your profile ({name}). That's fine — for example if a parent or partner pays.",
-    "holderDiffersConfirm": "I am authorised to use this account, or I have the account holder's permission."
+    "holderDiffersConfirm": "I am authorised to use this account, or I have the account holder's permission.",
+    "bookingTypeRegular": "Booking request",
+    "bookingTypeTrial": "Trial class",
+    "bookingTypeDropin": "Drop-in",
+    "bookingStatusOpen": "Pending",
+    "bookingStatusConfirmed": "Confirmed",
+    "bookingStatusRejected": "Declined",
+    "bookingStatusCancelled": "Cancelled",
+    "planSingleCourse": "This class only",
+    "planFlatrate": "Flat rate (all classes)",
+    "pastBookings": "Past bookings",
+    "pastBookingsHint": "{count, plural, one {One finished entry} other {# finished entries}} — declined, cancelled or ended.",
+    "noCurrentBookings": "No open bookings at the moment."
   },
   "notifications": {
     "event": "Event",

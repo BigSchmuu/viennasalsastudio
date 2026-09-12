@@ -74,7 +74,7 @@ export default async function ProfilePage() {
     supabase
       .from("course_bookings")
       .select(
-        "id, type, status, chosen_date, desired_plan, price, dance_role, subscription_id, courses(name, runs_from, runs_until, course_schedule(weekday, course_schedule_pauses(pause_date)))"
+        "id, type, status, chosen_date, desired_plan, price, dance_role, subscription_id, subscriptions(status), courses(name, runs_from, runs_until, course_schedule(weekday, course_schedule_pauses(pause_date)))"
       )
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false }),
@@ -163,6 +163,9 @@ export default async function ProfilePage() {
       // war, nicht mehr loswerden — obwohl sie niemand angenommen hatte.
       canCancel: isActive && (b.status === "open" || withinLeadTime),
       canRebook: isActive && withinLeadTime && b.type !== "regular",
+      // PROJ-8: Entscheidet, ob eine bestätigte Anfrage noch aktuell ist oder
+      // in die früheren Buchungen rutscht.
+      aboStatus: b.subscriptions?.status ?? null,
       availableDates,
     };
   });

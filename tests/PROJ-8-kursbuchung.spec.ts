@@ -120,6 +120,15 @@ async function openBookingsSection(page: Page) {
 // breaks this file's exact-count assertions whenever the suites run together.
 // Always scope profile bookings to this file's own course — exact text, since
 // "E2E8 Kurs" is a prefix of "E2E8 Kurs Ohne Einstieg".
+/** „Frühere Buchungen" aufklappen — dort liegt alles Erledigte (PROJ-8). */
+async function oeffneFruehereBuchungen(page: Page) {
+  const bereich = page.getByText("Frühere Buchungen");
+  if ((await bereich.count()) > 0) {
+    await bereich.first().click();
+    await page.waitForTimeout(400);
+  }
+}
+
 function bookingItems(page: Page, type: string) {
   return page
     .locator("li")
@@ -317,6 +326,11 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await gehZu(page, "/profil");
     await page.waitForTimeout(600);
     await openBookingsSection(page);
+    // Seit 2026-09-12 liegt Erledigtes in einem zugeklappten Bereich: Die
+    // Liste zeigte jede Buchung, die je bestand, und eine abgelehnte sah aus
+    // wie eine laufende. Der Kunde sieht sie weiterhin — nur einen Klick
+    // weiter.
+    await oeffneFruehereBuchungen(page);
     await expect(bookingItems(page, "Drop-in").getByText("Abgelehnt")).toBeVisible();
   });
 

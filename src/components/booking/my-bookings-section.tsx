@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { cancelBooking, rebookBooking } from "@/lib/actions/booking";
-import { bookingTypeLabel, bookingStatusLabel, bookingStatusColor, desiredPlanLabel } from "@/lib/constants/booking";
+import { bookingStatusColor } from "@/lib/constants/booking";
+import { istFrueher } from "@/lib/bookings/verlauf";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -34,10 +36,39 @@ export type MyBookingRow = {
   status: string;
   chosenDate: string;
   desiredPlan: string | null;
+  /** PROJ-8: Status des Abos, das aus dieser Anfrage entstand — für „frühere". */
+  aboStatus: string | null;
   price: number | null;
   canCancel: boolean;
   canRebook: boolean;
   availableDates: string[];
+};
+
+/**
+ * Beschriftungen aus den Sprachdateien, nicht aus `constants/booking.ts`.
+ *
+ * Dort stehen sie fest auf Deutsch, und genau das sah der englische Kunde:
+ * „My bookings" als Überschrift, darunter „Buchungsanfrage · Bestätigt · Nur
+ * diesen Kurs". Gemeldet aus dem Betrieb am 2026-09-12 — dieselbe Klasse
+ * Stelle wie „Wie hast du von uns erfahren" bei PROJ-43.
+ *
+ * Die Konstanten bleiben, wo sie sind: Der Admin-Bereich ist einsprachig
+ * deutsch und liest sie weiter.
+ */
+const TYP_SCHLUESSEL: Record<string, string> = {
+  regular: "bookingTypeRegular",
+  trial: "bookingTypeTrial",
+  dropin: "bookingTypeDropin",
+};
+const STATUS_SCHLUESSEL: Record<string, string> = {
+  open: "bookingStatusOpen",
+  confirmed: "bookingStatusConfirmed",
+  rejected: "bookingStatusRejected",
+  cancelled: "bookingStatusCancelled",
+};
+const TARIF_SCHLUESSEL: Record<string, string> = {
+  single_course: "planSingleCourse",
+  flatrate: "planFlatrate",
 };
 
 function formatPrice(price: number): string {
@@ -46,12 +77,20 @@ function formatPrice(price: number): string {
 
 export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyBookingRow[] }) {
   const t = useTranslations("profile");
+
   const [bookings, setBookings] = useState(initialBookings);
   const [error, setError] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [rebookTarget, setRebookTarget] = useState<MyBookingRow | null>(null);
   const [newDate, setNewDate] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // PROJ-8: Aktuelles oben, Erledigtes eingeklappt. Gelöscht wird nichts — der
+  // Kunde soll nachsehen können, wann er was gebucht hat, ohne dass fünf tote
+  // Zeilen die Liste verstopfen.
+  const heute = heuteInWien();
+  const aktuell = bookings.filter((b) => !istFrueher(b, heute));
+  const frueher = bookings.filter((b) => istFrueher(b, heute));
 
   async function handleCancel(bookingId: string) {
     setLoadingId(bookingId);
@@ -90,6 +129,9 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
           price: result.booking.price,
           canCancel: true,
           canRebook: true,
+          // Umgebucht wird nur bei Probestunde und Drop-in — dort gibt es kein
+          // Abo, an dem die Buchung hängt.
+          aboStatus: null,
           availableDates: rebookTarget.availableDates,
         },
       ]);
@@ -111,19 +153,24 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {aktuell.length === 0 && frueher.length > 0 && (
+        <p className="text-sm text-muted-foreground">{t("noCurrentBookings")}</p>
+      )}
       <ul className="space-y-2">
-        {bookings.map((booking) => (
+        {aktuell.map((booking) => (
           <li key={booking.id} className="rounded-md border p-3 text-sm space-y-1">
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium">{booking.courseName}</span>
               <Badge style={{ backgroundColor: bookingStatusColor(booking.status), color: "white" }}>
-                {bookingStatusLabel(booking.status)}
+                {t(STATUS_SCHLUESSEL[booking.status] ?? "bookingStatusOpen")}
               </Badge>
             </div>
             <p className="text-muted-foreground">
-              {bookingTypeLabel[booking.type as keyof typeof bookingTypeLabel] ?? booking.type} ·{" "}
+              {TYP_SCHLUESSEL[booking.type] ? t(TYP_SCHLUESSEL[booking.type]) : booking.type} ·{" "}
               {formatDate(booking.chosenDate)}
-              {booking.desiredPlan && ` · ${desiredPlanLabel(booking.desiredPlan)}`}
+              {booking.desiredPlan &&
+                TARIF_SCHLUESSEL[booking.desiredPlan] &&
+                ` · ${t(TARIF_SCHLUESSEL[booking.desiredPlan])}`}
               {booking.price !== null && ` · ${formatPrice(booking.price)}`}
             </p>
             {(booking.canCancel || booking.canRebook) && (
@@ -160,6 +207,40 @@ export function MyBookingsSection({ bookings: initialBookings }: { bookings: MyB
           </li>
         ))}
       </ul>
+
+      {frueher.length > 0 && (
+        <details className="rounded-md border px-3 py-2">
+          <summary className="cursor-pointer text-sm font-medium">
+            {t("pastBookings")}{" "}
+            <span className="font-normal text-muted-foreground">({frueher.length})</span>
+          </summary>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("pastBookingsHint", { count: frueher.length })}
+          </p>
+          <ul className="mt-2 space-y-2">
+            {frueher.map((booking) => (
+              <li key={booking.id} className="rounded-md border p-3 text-sm space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{booking.courseName}</span>
+                  <Badge
+                    style={{ backgroundColor: bookingStatusColor(booking.status), color: "white" }}
+                  >
+                    {t(STATUS_SCHLUESSEL[booking.status] ?? "bookingStatusOpen")}
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground">
+                  {TYP_SCHLUESSEL[booking.type] ? t(TYP_SCHLUESSEL[booking.type]) : booking.type} ·{" "}
+                  {formatDate(booking.chosenDate)}
+                  {booking.desiredPlan &&
+                    TARIF_SCHLUESSEL[booking.desiredPlan] &&
+                    ` · ${t(TARIF_SCHLUESSEL[booking.desiredPlan])}`}
+                  {booking.price !== null && ` · ${formatPrice(booking.price)}`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <Dialog open={rebookTarget !== null} onOpenChange={(open) => !open && setRebookTarget(null)}>
         <DialogContent>
