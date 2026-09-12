@@ -93,7 +93,8 @@
     "startsOn": "from {date}",
     "becomes": "from {date}: {course}",
     "holidayNotice": "The studio is closed from {from} to {to}.",
-    "holidayNoticeNamed": "{name}: the studio is closed from {from} to {to}."
+    "holidayNoticeNamed": "{name}: the studio is closed from {from} to {to}.",
+    "openInMap": "(open in map)"
   },
   "events": {
     "heading": "Events & workshops",

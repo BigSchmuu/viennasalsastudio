@@ -305,6 +305,15 @@ test.describe("Stundenplan: Standortwahl", () => {
     await page.waitForTimeout(800);
     await expect(page.getByText(/leOrama: Blumauergasse 6/)).toBeVisible();
 
+    // Die Adresse führt auf eine Karte — als gewöhnlicher Link, nicht als
+    // eingebettete Karte: So verlässt erst beim Klick etwas die Seite.
+    const kartenlink = page.getByRole("link", { name: /Blumauergasse 6/ });
+    await expect(kartenlink).toHaveAttribute("href", /openstreetmap\.org.*Blumauergasse/);
+    await expect(kartenlink).toHaveAttribute("rel", /noreferrer/);
+    // Kein Einbetten: Wäre die Karte eingebunden, träfe jeden Besucher die
+    // Übertragung schon beim Öffnen des Plans.
+    await expect(page.locator('iframe[src*="openstreetmap"], iframe[src*="google"]')).toHaveCount(0);
+
     await page.getByRole("button", { name: "Alle Standorte" }).click();
     await page.waitForTimeout(800);
     await expect(page.getByText("Blumauergasse 6")).toHaveCount(0);

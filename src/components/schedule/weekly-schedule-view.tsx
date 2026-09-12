@@ -329,7 +329,27 @@ export function WeeklyScheduleView({
 
       {gezeigterStandort?.adresse && (
         <p className="mb-4 text-sm text-muted-foreground">
-          {gezeigterStandort.name}: {gezeigterStandort.adresse}
+          {gezeigterStandort.name}:{" "}
+          {/* Ein gewöhnlicher Link, keine eingebettete Karte: So verlässt erst
+              beim Klick etwas die Seite. Eine eingebundene Karte würde bei
+              jedem Seitenaufruf die IP-Adresse jedes Besuchers übertragen —
+              auch der, die nur nachsehen, wann ihr Kurs ist.
+
+              `noreferrer` hält zusätzlich zurück, von welcher Seite der Klick
+              kam. OpenStreetMap statt Google Maps: Es setzt keine Cookies und
+              erstellt kein Profil, und die Adresse landet am Ziel ohnehin in
+              der App, die der Kunde ohnehin benutzt. */}
+          <a
+            href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(
+              gezeigterStandort.adresse
+            )}`}
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            {gezeigterStandort.adresse}
+            <span className="sr-only"> {t("openInMap")}</span>
+          </a>
         </p>
       )}
 

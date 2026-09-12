@@ -106,6 +106,13 @@ export default function DatenschutzPage() {
           <li>
             Kreditinstitute und Zahlungsdienstleister im Rahmen der Abwicklung des SEPA-Lastschrifteinzugs.
           </li>
+          <li>
+            <span className="font-medium">OpenStreetMap Foundation</span> — Kartendienst hinter den
+            Adress-Links im Stundenplan. Die Karte ist <span className="font-medium">nicht</span> in
+            unsere Seite eingebettet: Erst wenn du auf eine Adresse klickst, öffnet sich
+            openstreetmap.org, und erst dann erfährt der Dienst deine IP-Adresse. Solange du nicht
+            klickst, wird nichts übertragen.
+          </li>
         </ul>
         <p>
           Einige dieser Anbieter verarbeiten Daten auch außerhalb der EU/des EWR (insbesondere USA). In diesen
