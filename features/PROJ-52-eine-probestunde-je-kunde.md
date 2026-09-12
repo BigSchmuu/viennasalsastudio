@@ -1,6 +1,6 @@
 # PROJ-52: Eine Probestunde je Kunde
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-09-12
 **Last Updated:** 2026-09-12
 **Priorität:** P0 (vor Start)
@@ -230,3 +230,42 @@ da" — Zeitverhalten am Ende eines langen Laufs.
 - **Produktionsreif:** **JA** — kein kritischer oder hoher Fehler
 - **Empfehlung:** Deployen. BUG-1 als eigenes Ticket nachziehen; er verschlechtert
   den Stand nicht, er stand vorher genauso offen
+
+---
+
+## Deployment
+
+**Deployed:** 2026-09-12, 20:56 Uhr
+**Produktions-URL:** https://app.viennasalsastudio.at
+**Commit:** `c00c127`
+**Tag:** `v1.54.0-PROJ-52`
+
+### Reihenfolge — hier ausnahmsweise Code vor Migration
+
+Die Migration `20260912100000` ist **nicht** rückwärtskompatibel: Sie löscht die
+alte Signatur von `create_self_service_booking` und legt eine mit
+`p_dance_role` an. Der alte Code hätte die neue nicht gefunden, der neue findet
+die alte nicht. Deshalb: erst deployen, dann sofort das SQL.
+
+Zwischen 20:56 und dem Einspielen scheiterten Probestunden- und
+Drop-in-Buchungen mit einer Fehlermeldung. Reguläre Anmeldungen, Warteliste,
+Abo-Verwaltung, Lastschriften und der Lehrerbereich waren nicht betroffen —
+die laufen über andere Funktionen. Kein Datenschaden, kein stiller Fehler.
+
+### Prüfung nach dem Deploy
+
+- [x] Öffentliche Seiten antworten mit 200, Stundenplan und Katalog rendern
+- [x] Beide neuen Datenschutz-Absätze ausgeliefert
+- [x] **Probestunde in Produktion gebucht — geht durch** (vom Betreiber geprüft)
+- [ ] Vercel-Funktionslogs: nicht geprüft, kein CLI-Zugang in dieser Sitzung
+
+Die Datenbankseite ließ sich von hier nicht prüfen: Der Zugang ist auf das
+Testprojekt begrenzt, und das gilt auch für Umwege über den öffentlichen
+Schlüssel. Die eine Prüfung, die zählte — eine echte Probestundenbuchung —
+hat der Betreiber übernommen.
+
+### Offen
+
+**BUG-1 aus dem QA-Durchgang** (Mittel, geerbt): Die Terminprüfung steht nur in
+der Server-Aktion. Direkt aufgerufen entsteht eine bestätigte Selbstbuchung auf
+einem beliebigen Tag. Eigenes Ticket, gehört zu PROJ-8/PROJ-39.
