@@ -475,8 +475,14 @@ export default async function MeinBereichPage() {
 
         {istMitglied && anzeigen.length === 0 ? (
           <section>
+            {/* Der Zähler ist Pflicht: Die Überschrift ist eine
+                Plural-Nachricht, und `getTranslations` gibt ohne ihn den rohen
+                ICU-Text aus — „{count, plural, one {…} other {…}}" stand so
+                auf der Seite. Gemeldet aus dem Betrieb am 2026-09-12; der
+                Fehler steckte dort, seit die Überschrift bei PROJ-45 plural
+                wurde. Hier ist der Leerzustand gemeint, also null. */}
             <h2 className="font-heading text-lg font-bold tracking-[-0.5px]">
-              {t("nextCourse.heading")}
+              {t("nextCourse.heading", { count: 0 })}
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
               {t("noUpcoming")}{" "}

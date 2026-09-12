@@ -529,6 +529,24 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
     // Der Kurs hat einen Wochentermin in zwei Tagen — außerhalb seines
     // Zeitraums darf daraus trotzdem kein „nächster Kurs" werden.
     await expect(page.getByText(KURS_VORBEI, { exact: true })).toHaveCount(0);
+
+    // Dieser Kunde ist Mitglied **ohne** anstehenden Kurs — genau der
+    // Leerzustand, in dem die Überschrift lange unformatiert dastand
+    // („{count, plural, …}"). Der Wächter gilt für die ganze Seite, damit er
+    // auch künftige Plural-Nachrichten ohne Zähler erwischt.
+    // Dieser Kunde ist Mitglied **ohne** anstehenden Kurs — der Leerzustand,
+    // in dem die Überschrift lange den technischen Schlüssel zeigte
+    // („nextCourse.heading"), weil der Plural-Zähler fehlte.
+    //
+    // Der Wächter prüft zwei Arten misslungener Übersetzung auf einmal: den
+    // rohen ICU-Text und einen sichtbaren Schlüssel. Beide sehen im Test
+    // harmlos aus, wenn man nur nach erwarteten Wörtern sucht — genau daran
+    // ist es lange vorbeigelaufen.
+    const seitentext = await page.locator("body").innerText();
+    expect(seitentext, "Unformatierter ICU-Text auf dem Dashboard").not.toContain("plural,");
+    const ueberschriften = await page.locator("h1, h2, h3").allInnerTexts();
+    const schluesselhaft = ueberschriften.filter((h) => /^[a-z][a-zA-Z]*(\.[a-zA-Z]+)+$/.test(h.trim()));
+    expect(schluesselhaft, "Sichtbarer Übersetzungsschlüssel statt Text").toEqual([]);
   });
 
   test("AC: Der Betreiber erkennt das betroffene Abo in Liste und Kundenprofil", async ({ page }) => {

@@ -81,5 +81,10 @@ test.describe("PROJ-45: Kunden-Dashboard", () => {
     expect(page.url()).toContain("/en/");
     expect(text).toContain("Your next class");
     expect(text).not.toContain("Dein nächster Kurs");
+    // „Your next class" steckt auch im **rohen** ICU-Text
+    // („{count, plural, one {Your next class} …}") — diese Zusicherung allein
+    // bestand also auch bei unformatierter Ausgabe. Genau das ist am
+    // 2026-09-12 in Produktion passiert, ohne dass ein Test es sah.
+    expect(text, "Unformatierter ICU-Text auf der Seite").not.toContain("plural,");
   });
 });
