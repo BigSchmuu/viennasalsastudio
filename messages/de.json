@@ -191,7 +191,11 @@
     "trialPendingSameCourse": "Du hast für diesen Kurs schon eine Probestunde am {date}. Du kannst den Termin hier ändern.",
     "trialPendingOtherCourse": "Du hast am {date} eine Probestunde in {course}. Du kannst sie auf diesen Kurs umbuchen — deine bisherige Buchung wird dabei storniert.",
     "trialRebookSubmit": "Probestunde umbuchen",
-    "toastTrialRebooked": "Probestunde umgebucht."
+    "toastTrialRebooked": "Probestunde umgebucht.",
+    "btnPending": "Anfrage läuft",
+    "btnWaitlist": "Auf der Warteliste",
+    "btnEnrolled": "Du bist in diesem Kurs",
+    "btnBook": "Buchen"
   },
   "profile": {
     "heading": "Mein Profil",

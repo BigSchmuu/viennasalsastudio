@@ -3,6 +3,16 @@ import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
+/**
+ * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
+ * Bei offener Anfrage steht „Anfrage läuft" darauf, auf der Warteliste „Auf
+ * der Warteliste". Wer den Dialog nur öffnen will, darf daran nicht scheitern
+ * — Zusicherungen über die Beschriftung stehen weiterhin ausdrücklich dort,
+ * wo sie geprüft wird.
+ */
+const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste/;
+
+
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
 // the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
 try {
@@ -97,7 +107,7 @@ test.describe("PROJ-26: Kursbuchung direkt von /stundenplan aus", () => {
     await login(page, CUSTOMER_NO_SUB);
     await page.goto("/stundenplan");
     const card = courseCard(page, "E2E26 Buchbar Kurs");
-    await card.getByRole("button", { name: "Buchen" }).click();
+    await card.getByRole("button", { name: BUCHUNGSKNOPF }).click();
 
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("tab", { name: "Anmeldung" })).toBeVisible();
@@ -110,7 +120,7 @@ test.describe("PROJ-26: Kursbuchung direkt von /stundenplan aus", () => {
   }) => {
     await page.goto("/stundenplan");
     const card = courseCard(page, "E2E26 Buchbar Kurs");
-    await card.getByRole("button", { name: "Buchen" }).click();
+    await card.getByRole("button", { name: BUCHUNGSKNOPF }).click();
     await page.waitForTimeout(500);
     await expect(page).toHaveURL(/\/login\?redirect=\/stundenplan/);
   });
@@ -147,7 +157,7 @@ test.describe("PROJ-26: Kursbuchung direkt von /stundenplan aus", () => {
     await page.goto("/stundenplan");
 
     const card = courseCard(page, "E2E26 Buchbar Kurs");
-    await card.getByRole("button", { name: "Buchen" }).click();
+    await card.getByRole("button", { name: BUCHUNGSKNOPF }).click();
     await page.getByRole("tab", { name: "Drop-in" }).click();
     await page.waitForTimeout(300);
 

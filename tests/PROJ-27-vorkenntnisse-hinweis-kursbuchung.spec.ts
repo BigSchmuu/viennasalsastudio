@@ -3,6 +3,16 @@ import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
+/**
+ * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
+ * Bei offener Anfrage steht „Anfrage läuft" darauf, auf der Warteliste „Auf
+ * der Warteliste". Wer den Dialog nur öffnen will, darf daran nicht scheitern
+ * — Zusicherungen über die Beschriftung stehen weiterhin ausdrücklich dort,
+ * wo sie geprüft wird.
+ */
+const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste/;
+
+
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
 // the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
 try {
@@ -126,7 +136,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     await expect(card).toBeVisible();
     await expect(card.getByText(HINWEIS_TEXT)).not.toBeVisible();
 
-    await card.getByRole("button", { name: "Jetzt buchen" }).click();
+    await card.getByRole("button", { name: BUCHUNGSKNOPF }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText(CONFIRM_LABEL)).not.toBeVisible();
@@ -139,7 +149,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     await loadAllCourses(page);
 
     const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E27 Mit Hinweis Kurs" });
-    await card.getByRole("button", { name: "Jetzt buchen" }).click();
+    await card.getByRole("button", { name: BUCHUNGSKNOPF }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
@@ -157,7 +167,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     await loadAllCourses(page);
 
     const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E27 Mit Hinweis Kurs" });
-    await card.getByRole("button", { name: "Jetzt buchen" }).click();
+    await card.getByRole("button", { name: BUCHUNGSKNOPF }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("tab", { name: "Probestunde" }).click();
 
@@ -178,7 +188,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     await loadAllCourses(page);
 
     const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E27 Mit Hinweis Kurs" });
-    await card.getByRole("button", { name: "Jetzt buchen" }).click();
+    await card.getByRole("button", { name: BUCHUNGSKNOPF }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("tab", { name: "Probestunde" }).click();
 
@@ -225,7 +235,7 @@ test.describe("PROJ-27: Vorkenntnisse-Hinweis bei Kursbuchung", () => {
     const card = page.locator(".rounded-lg.border").filter({ hasText: "E2E27 Mit Hinweis Kurs" });
     await expect(card.getByText(HINWEIS_TEXT)).not.toBeVisible();
 
-    await card.getByRole("button", { name: "Jetzt buchen" }).click();
+    await card.getByRole("button", { name: BUCHUNGSKNOPF }).click();
     const bookingDialog = page.getByRole("dialog");
     await expect(bookingDialog.getByText(CONFIRM_LABEL)).not.toBeVisible();
   });

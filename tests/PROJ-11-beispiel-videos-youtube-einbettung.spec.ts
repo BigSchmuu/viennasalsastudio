@@ -1,6 +1,16 @@
 import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
 
+/**
+ * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
+ * Bei offener Anfrage steht „Anfrage läuft" darauf, auf der Warteliste „Auf
+ * der Warteliste". Wer den Dialog nur öffnen will, darf daran nicht scheitern
+ * — Zusicherungen über die Beschriftung stehen weiterhin ausdrücklich dort,
+ * wo sie geprüft wird.
+ */
+const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste/;
+
+
 // Permanente Fixtures (angelegt während /frontend und /qa von PROJ-11):
 // Videosatz "E2E11 Videosatz" mit 2 Lektionen (Lektion 1 hat ein Kunden-Video,
 // Lektion 2 nicht), Kurs "E2E11 Kurs mit Video" (dieser Videosatz zugeordnet).
@@ -119,7 +129,7 @@ test.describe("PROJ-11: Beispiel-Videos (YouTube-Einbettung)", () => {
     await page.goto("/kurse");
     await loadAllCourses(page);
     const card = page.locator(".rounded-lg.border.bg-card").filter({ hasText: "E2E11 Kurs mit Video" });
-    await card.getByRole("button", { name: "Jetzt buchen" }).click();
+    await card.getByRole("button", { name: BUCHUNGSKNOPF }).click();
     await page.waitForTimeout(300);
     await expect(page).toHaveURL(/\/kurse$/);
     await expect(page.getByRole("dialog")).toBeVisible();

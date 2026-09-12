@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
 import type { StudioPricing } from "@/lib/pricing";
 import type { ProbestundenStand } from "@/lib/bookings/probestunde";
+import { buchungsknopf } from "@/lib/bookings/knopfzustand";
 
 export function ScheduleBookingButton({
   course,
@@ -29,6 +30,7 @@ export function ScheduleBookingButton({
   // gemeint ist er allgemein, und zwei Fassungen desselben Satzes liefen
   // früher oder später auseinander.
   const t = useTranslations("flatrate");
+  const tb = useTranslations("booking");
   const [bookingOpen, setBookingOpen] = useState(false);
 
   function handleClick() {
@@ -38,6 +40,8 @@ export function ScheduleBookingButton({
     }
     setBookingOpen(true);
   }
+
+  const zustand = buchungsknopf(course);
 
   // Wer mit einem kursgebundenen Abo drin sitzt, hat hier nichts zu tun: Sein
   // Abo hängt an genau diesem Kurs, heraus kommt er über „Umbuchen" oder
@@ -98,7 +102,14 @@ export function ScheduleBookingButton({
         className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
         onClick={handleClick}
       >
-        Buchen
+        {/* Derselbe Zustand wie im Katalog, aus derselben Funktion: Vorher
+            stand hier immer „Buchen", auch bei offener Anfrage oder
+            Wartelistenplatz — erfahren hat der Kunde es erst im Dialog. */}
+        {zustand === "anfrageOffen"
+          ? tb("btnPending")
+          : zustand === "warteliste"
+            ? tb("btnWaitlist")
+            : tb("btnBook")}
       </Button>
 
       {bookingOpen && (

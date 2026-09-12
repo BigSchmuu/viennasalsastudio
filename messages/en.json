@@ -191,7 +191,11 @@
     "trialPendingSameCourse": "You already have a trial class in this course on {date}. You can change the date here.",
     "trialPendingOtherCourse": "You have a trial class in {course} on {date}. You can move it to this course — your existing booking will be cancelled.",
     "trialRebookSubmit": "Move trial class",
-    "toastTrialRebooked": "Trial class moved."
+    "toastTrialRebooked": "Trial class moved.",
+    "btnPending": "Request pending",
+    "btnWaitlist": "On the waiting list",
+    "btnEnrolled": "You're in this course",
+    "btnBook": "Book"
   },
   "profile": {
     "heading": "My profile",

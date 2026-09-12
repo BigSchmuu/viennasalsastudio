@@ -13,6 +13,7 @@ import type { StudioPricing } from "@/lib/pricing";
 import { CoursePriceLine } from "@/components/catalog/course-price-line";
 import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
 import type { ProbestundenStand } from "@/lib/bookings/probestunde";
+import { buchungsknopf } from "@/lib/bookings/knopfzustand";
 import {
   Select,
   SelectContent,
@@ -80,6 +81,9 @@ export function CourseCatalog({
   probestunde: ProbestundenStand;
 }) {
   const t = useTranslations("courses");
+  // Die Knopfzustände stehen im Buchungs-Namensraum: Stundenplan und Katalog
+  // zeigen denselben Satz, und zwei Fassungen liefen auseinander.
+  const tb = useTranslations("booking");
   const router = useRouter();
   const pathname = usePathname();
 
@@ -284,13 +288,36 @@ export function CourseCatalog({
                       className="w-full border border-primary/30 bg-transparent text-primary hover:bg-primary hover:text-primary-foreground"
                     />
                   ) : (
-                    <Button
-                      variant="outline"
-                      className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
-                      onClick={() => handleBook(course)}
-                    >
-                      {t("book")}
-                    </Button>
+                    /* Der Knopf sagt, woran der Kunde bei *diesem* Kurs ist.
+                       Vorher stand überall „Jetzt buchen", und die offene
+                       Anfrage erfuhr er erst im Dialog — nach einem Klick, der
+                       ins Leere führte (gemeldet 2026-09-12).
+
+                       Angeklickt bleibt er trotzdem: Wer eine Anfrage offen hat
+                       oder wartet, darf weiterhin eine Probestunde oder ein
+                       Drop-in buchen. Nur wer eingeschrieben ist, hat hier
+                       nichts mehr zu tun. */
+                    (() => {
+                      const zustand = buchungsknopf(course);
+                      if (zustand === "eingeschrieben") {
+                        return (
+                          <p className="w-full text-sm text-muted-foreground">{tb("btnEnrolled")}</p>
+                        );
+                      }
+                      return (
+                        <Button
+                          variant="outline"
+                          className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
+                          onClick={() => handleBook(course)}
+                        >
+                          {zustand === "anfrageOffen"
+                            ? tb("btnPending")
+                            : zustand === "warteliste"
+                              ? tb("btnWaitlist")
+                              : t("book")}
+                        </Button>
+                      );
+                    })()
                   )}
                 </CardFooter>
               </Card>

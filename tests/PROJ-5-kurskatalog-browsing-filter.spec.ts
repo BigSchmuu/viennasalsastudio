@@ -1,6 +1,16 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { gehZu } from "./navigation";
 
+/**
+ * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
+ * Bei offener Anfrage steht „Anfrage läuft" darauf, auf der Warteliste „Auf
+ * der Warteliste". Wer den Dialog nur öffnen will, darf daran nicht scheitern
+ * — Zusicherungen über die Beschriftung stehen weiterhin ausdrücklich dort,
+ * wo sie geprüft wird.
+ */
+const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste/;
+
+
 const CUSTOMER_EMAIL = "qa-proj5-customer@viennasalsastudio.test";
 const PASSWORD = "CorrectPassword123!";
 
@@ -135,7 +145,7 @@ test.describe("PROJ-5: Kurskatalog (Browsing & Filter)", () => {
   test("Jetzt-buchen-Button leitet anonyme Besucher zum Login", async ({ page }) => {
     await page.goto("/kurse");
     await loadAllCourses(page);
-    await courseCard(page, "E2E5 Kizomba Beginner").getByRole("button", { name: "Jetzt buchen" }).click();
+    await courseCard(page, "E2E5 Kizomba Beginner").getByRole("button", { name: BUCHUNGSKNOPF }).click();
     await page.waitForTimeout(500);
     await expect(page).toHaveURL(/\/login\?redirect=\/kurse/);
   });

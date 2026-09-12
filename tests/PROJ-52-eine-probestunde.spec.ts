@@ -3,6 +3,16 @@ import { gehZu } from "./navigation";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
+/**
+ * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
+ * Bei offener Anfrage steht „Anfrage läuft" darauf, auf der Warteliste „Auf
+ * der Warteliste". Wer den Dialog nur öffnen will, darf daran nicht scheitern
+ * — Zusicherungen über die Beschriftung stehen weiterhin ausdrücklich dort,
+ * wo sie geprüft wird.
+ */
+const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste/;
+
+
 try {
   ladeTestUmgebung();
 } catch {
@@ -58,7 +68,7 @@ async function anmelden(page: Page) {
 async function oeffneDialog(page: Page, kursId: string) {
   await gehZu(page, `/kurse/${kursId}`);
   await page.waitForTimeout(1800);
-  await page.getByRole("button", { name: "Jetzt buchen" }).click();
+  await page.getByRole("button", { name: BUCHUNGSKNOPF }).click();
   await page.waitForTimeout(1000);
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("tab", { name: "Probestunde" }).click();
@@ -275,6 +285,40 @@ test.describe("PROJ-52: Eine Probestunde je Kunde", () => {
       .eq("id", gebucht[0].id)
       .single();
     expect(data?.dance_role, "Die Tanzrolle wurde nicht gespeichert").toBe("leader");
+  });
+
+  test("Der Knopf sagt, dass die Anfrage noch läuft — schon in der Kursliste", async ({ page }) => {
+    // Vorher stand dort „Jetzt buchen", und der Kunde erfuhr es erst im Dialog:
+    // nach einem Klick, der ins Leere führte (gemeldet 2026-09-12).
+    const service = dienst();
+    const { data: termin } = await service
+      .from("course_entry_dates")
+      .insert({ course_id: kursAId, entry_date: tagePlus(7) })
+      .select("id")
+      .single();
+    await service.from("course_bookings").insert({
+      customer_id: kundeId,
+      course_id: kursAId,
+      type: "regular",
+      status: "open",
+      chosen_date: tagePlus(7),
+      desired_plan: "once_weekly",
+    });
+
+    try {
+      await anmelden(page);
+      await gehZu(page, `/kurse/${kursAId}`);
+      await page.waitForTimeout(1800);
+      await expect(page.getByRole("button", { name: "Anfrage läuft" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Jetzt buchen" })).toHaveCount(0);
+
+      // Angeklickt bleibt er: Probestunde und Drop-in gehen weiterhin.
+      await page.getByRole("button", { name: "Anfrage läuft" }).click();
+      await page.waitForTimeout(1000);
+      await expect(page.getByRole("dialog")).toBeVisible();
+    } finally {
+      if (termin) await service.from("course_entry_dates").delete().eq("id", termin.id);
+    }
   });
 
   test("Sicherheit: Die zweite Probestunde scheitert auch am Dialog vorbei", async () => {

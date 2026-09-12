@@ -3,6 +3,16 @@ import { gehZu } from "./navigation";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
+/**
+ * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
+ * Bei offener Anfrage steht „Anfrage läuft" darauf, auf der Warteliste „Auf
+ * der Warteliste". Wer den Dialog nur öffnen will, darf daran nicht scheitern
+ * — Zusicherungen über die Beschriftung stehen weiterhin ausdrücklich dort,
+ * wo sie geprüft wird.
+ */
+const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste/;
+
+
 try {
   ladeTestUmgebung();
 } catch {
@@ -414,7 +424,7 @@ test.describe("PROJ-51: Kurszeiträume und Ferien im Stundenplan", () => {
     await page
       .locator(".rounded-lg.border.bg-card")
       .filter({ has: page.getByText(KURS_LAEUFT, { exact: true }) })
-      .getByRole("button", { name: "Jetzt buchen" })
+      .getByRole("button", { name: BUCHUNGSKNOPF })
       .click();
     await page.waitForTimeout(1200);
 

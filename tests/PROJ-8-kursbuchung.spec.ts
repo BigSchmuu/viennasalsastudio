@@ -3,6 +3,16 @@ import { gehZu, oeffnePreise } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 
+/**
+ * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
+ * Bei offener Anfrage steht „Anfrage läuft" darauf, auf der Warteliste „Auf
+ * der Warteliste". Wer den Dialog nur öffnen will, darf daran nicht scheitern
+ * — Zusicherungen über die Beschriftung stehen weiterhin ausdrücklich dort,
+ * wo sie geprüft wird.
+ */
+const BUCHUNGSKNOPF = /Jetzt buchen|Buchen|Anfrage läuft|Auf der Warteliste/;
+
+
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
 // the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
 try {
@@ -138,7 +148,7 @@ async function openBookingDialog(page: Page, courseName: string) {
   await page
     .locator(".rounded-lg.border.bg-card")
     .filter({ has: page.getByText(courseName, { exact: true }) })
-    .getByRole("button", { name: "Jetzt buchen" })
+    .getByRole("button", { name: BUCHUNGSKNOPF })
     .click();
   await page.waitForTimeout(400);
 }
@@ -428,7 +438,7 @@ test.describe("PROJ-8: Kursbuchung", () => {
       await login(page, CUSTOMER);
       await page.goto(`/kurse/${course!.id}`);
       await page.waitForTimeout(1500);
-      await page.getByRole("button", { name: "Jetzt buchen" }).first().click();
+      await page.getByRole("button", { name: BUCHUNGSKNOPF }).first().click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
 
