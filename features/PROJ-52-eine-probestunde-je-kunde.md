@@ -1,6 +1,6 @@
 # PROJ-52: Eine Probestunde je Kunde
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-09-12
 **Last Updated:** 2026-09-12
 **Priorität:** P0 (vor Start)
@@ -146,3 +146,87 @@ Zeitverhalten am Ende eines langen Laufs, nicht dieses Feature.
 - **Zwölf Testdateien** griffen den Buchungsknopf über seine Beschriftung, um
   den Dialog zu öffnen. Sie tun das jetzt über einen Lokator, der alle
   Beschriftungen kennt.
+
+---
+
+## QA Test Results
+
+**Getestet:** 2026-09-12
+**Umgebung:** lokal gegen die Testdatenbank (Migration `20260912100000` eingespielt)
+**Prüfer:** QA Engineer (AI)
+
+### Akzeptanzkriterien — 8 von 8
+
+- [x] Wer noch keine hatte, bucht eine wie bisher
+- [x] Vergangene Probestunde → „verbraucht" als Satz, kein toter Knopf, keine Terminauswahl
+- [x] Anstehende Probestunde, **anderer** Kurs → umbuchbar; alte Buchung storniert, genau eine aktive bleibt
+- [x] Anstehende Probestunde, **selber** Kurs → Termin änderbar (Hinweis *und* vollzogene Änderung geprüft)
+- [x] Beim Umbuchen nie beides und nie keines — ein Fehler mitten im Vorgang nimmt die Stornierung zurück
+- [x] Stornierte Probestunde gibt sie wieder frei
+- [x] Am Dialog vorbei lehnt die Datenbank die zweite ab (`trial already used`)
+- [x] Zielkurs mit Vorkenntnis-Hinweis verlangt die Bestätigung — auch beim direkten Aufruf
+
+### Sicherheitsprüfung (Red Team)
+
+Direkt gegen die Funktionen, als angemeldeter Kunde und anonym:
+
+| Versuch | Ergebnis |
+|---|---|
+| Fremde Buchung umbuchen | abgewehrt — `booking not found` (`customer_id` im SELECT) |
+| Reguläre Anfrage über die Umbuchungs-Funktion verschieben | abgewehrt — `not rebookable` |
+| Ohne Anmeldung umbuchen | abgewehrt — `permission denied for function` (nur `authenticated`) |
+| Zweite Probestunde am Dialog vorbei | abgewehrt — `trial already used` |
+| Vorkenntnis-Bestätigung überspringen | abgewehrt — `prerequisite not confirmed`, alte Buchung blieb intakt |
+| **Probestunde auf einen beliebigen Termin legen** | **offen — siehe BUG-1** |
+
+### Automatisierte Tests
+
+| Lauf | Ergebnis |
+|---|---|
+| PROJ-52 (eigene Suite) | 9/9 grün |
+| `npm test` | 526 bestanden |
+| Voller E2E-Lauf (Chromium + Mobile Safari) | 1112 bestanden, 6 übersprungen, 2 gefallen von 1120 |
+
+Die zwei Fehlschläge (PROJ-41 Admin-Bestätigung, PROJ-49 Lehrer-Link) treten nur
+unter Mobile Safari auf, liegen außerhalb dieses Features und laufen isoliert auf
+demselben Browser grün (32 bestanden). Signatur „das Erwartete war noch nicht
+da" — Zeitverhalten am Ende eines langen Laufs.
+
+### Gefundene Fehler
+
+#### BUG-1: Eine Selbstbuchung lässt sich auf einen beliebigen Termin legen
+- **Schwere:** Mittel
+- **Nicht von diesem Feature verursacht** — die Lücke bestand schon vorher; die
+  neue Umbuchungs-Funktion erbt sie.
+- **Schritte:**
+  1. Als Kunde anmelden, `create_self_service_booking` direkt aufrufen
+  2. `p_chosen_date` auf einen Tag setzen, an dem der Kurs nicht stattfindet
+     (anderer Wochentag, Jahre in der Zukunft)
+  3. Erwartet: Ablehnung
+  4. Tatsächlich: Buchung entsteht mit Status `confirmed`. Nachgestellt mit
+     einem Samstagskurs und dem 01.01.2031, einem Mittwoch
+- **Warum das zählt:** Die Terminprüfung steht nur in der Server-Aktion
+  (`getValidOccurrenceDates`). Genau dieser Unterschied war bei PROJ-39 der
+  Befund: „the abuse path bypasses this action entirely". Die anderen Prüfungen
+  wanderten damals in die Funktion, die Terminprüfung blieb zurück.
+- **Folgen:** Ein Kunde kann seine eine Probestunde auf einen Fantasietermin
+  legen und sie damit dauerhaft „offen" halten; im Dashboard erscheint der
+  Termin als nächster Kurs, und der Betreiber sieht eine Buchung für einen Tag,
+  an dem nichts stattfindet.
+- **Vorschlag, bewusst knapp gehalten:** Wochentag gegen `course_schedule` und
+  Datum gegen `courses.runs_from/runs_until` prüfen — sechs Zeilen SQL. Die
+  volle Terminrechnung (Ausfalltage, Ferien) gehört laut Entscheidung vom
+  2026-09-11 **nicht** in die Datenbank; eine Buchung auf einen ausgefallenen
+  Termin ist das kleinere Übel als eine fünf Jahre entfernte.
+- **Priorität:** Nächste Runde, eigenes Ticket — gehört zu PROJ-8/PROJ-39, nicht
+  zu PROJ-52
+
+### Zusammenfassung
+
+- **Akzeptanzkriterien:** 8/8 bestanden
+- **Fehler:** 1 (0 kritisch, 0 hoch, 1 mittel, 0 niedrig) — und dieser bestand
+  schon vor diesem Feature
+- **Sicherheit:** fünf von sechs Angriffen abgewehrt; der sechste ist BUG-1
+- **Produktionsreif:** **JA** — kein kritischer oder hoher Fehler
+- **Empfehlung:** Deployen. BUG-1 als eigenes Ticket nachziehen; er verschlechtert
+  den Stand nicht, er stand vorher genauso offen

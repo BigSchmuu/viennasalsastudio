@@ -260,6 +260,22 @@ test.describe("PROJ-52: Eine Probestunde je Kunde", () => {
     await anmelden(page);
     const dialog = await oeffneDialog(page, kursAId);
     await expect(dialog.getByText(/schon eine Probestunde am .* Termin hier ändern/)).toBeVisible();
+
+    // Und der Termin ändert sich wirklich — der Hinweis allein wäre nur die
+    // halbe Zusicherung.
+    await dialog.getByRole("combobox").first().click();
+    await page.waitForTimeout(400);
+    const termine = page.getByRole("option");
+    await termine.nth(1).click();
+    await dialog.locator("#terms-accepted-booking").check();
+    await dialog.getByRole("button", { name: "Probestunde umbuchen" }).click();
+    await page.waitForTimeout(2500);
+
+    const nachher = await probestunden();
+    const aktive = nachher.filter((b) => b.status === "confirmed" || b.status === "open");
+    expect(aktive, "Es gibt nicht genau eine aktive Probestunde").toHaveLength(1);
+    expect(aktive[0].course_id, "Der Kurs hat sich geändert").toBe(kursAId);
+    expect(aktive[0].chosen_date, "Der Termin ist derselbe geblieben").not.toBe(tagePlus(3));
   });
 
   test("Die Rollenwahl steht im Probestunden-Reiter — nicht nur bei der Anmeldung", async ({
