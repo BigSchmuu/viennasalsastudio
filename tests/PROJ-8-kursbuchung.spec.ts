@@ -45,6 +45,14 @@ test.beforeAll(async () => {
 
   await service.from("profiles").update({ referral_source: null }).eq("id", customerId);
   await service.from("course_bookings").delete().eq("customer_id", customerId).eq("course_id", course.id);
+  // PROJ-52: Seit jeder Kunde nur **eine** Probestunde bekommt, blockiert eine
+  // Probestunde in einem *anderen* Kurs die Geschichte dieser Suite — die
+  // Einschränkung oben auf `course.id` reicht dafür nicht mehr.
+  await service
+    .from("course_bookings")
+    .delete()
+    .eq("customer_id", customerId)
+    .eq("type", "trial");
   // Stornieren statt löschen: Abos, die schon in einem SEPA-Lauf abgerechnet
   // wurden, hängen an sepa_collection_items — das Löschen scheiterte dort still
   // am Fremdschlüssel, weshalb sich 23 aktive Abos desselben Kunden für

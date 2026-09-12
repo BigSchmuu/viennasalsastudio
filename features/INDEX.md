@@ -75,6 +75,8 @@
 
 | PROJ-51 | Kurszeiträume, Umwandlung und Ferien im Stundenplan | Deployed | [PROJ-51](../features/PROJ-51-kurszeitraeume-umwandlung-ferien.md) | 2026-09-11 |
 
+| PROJ-52 | Eine Probestunde je Kunde | In Progress | [PROJ-52](../features/PROJ-52-eine-probestunde-je-kunde.md) | 2026-09-12 |
+
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-52
+## Next Available ID: PROJ-53

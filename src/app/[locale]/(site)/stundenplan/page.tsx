@@ -8,6 +8,7 @@ import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 import { readStudioPricing } from "@/lib/pricing";
 import { getTranslations } from "next-intl/server";
 import { getViewer } from "@/lib/auth/viewer";
+import { ladeProbestundenStand } from "@/lib/bookings/probestunde-laden";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -199,6 +200,7 @@ export default async function StundenplanPage() {
         entriesByWeekday={entriesByWeekday}
         todayWeekday={todayWeekday}
         ferien={anstehendeFerien(await ladeFerienMitNamen(supabase), heute)}
+        probestunde={await ladeProbestundenStand(supabase, user?.id ?? null)}
       />
     </div>
   );

@@ -1965,10 +1965,45 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      rebook_self_service_booking: {
+        Args: {
+          p_booking_id: string
+          p_course_id: string
+          p_chosen_date: string
+          p_prerequisite_confirmed?: boolean
+          p_terms_accepted?: boolean
+          p_terms_version?: string
+        }
+        Returns: {
+          chosen_date: string
+          coupon_id: string | null
+          course_id: string
+          created_at: string
+          customer_id: string
+          dance_role: string | null
+          desired_plan: string | null
+          id: string
+          note: string | null
+          price: number | null
+          status: string
+          subscription_id: string | null
+          terms_accepted_at: string | null
+          terms_version: string | null
+          type: string
+          wants_student_price: boolean | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "course_bookings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_self_service_booking: {
         Args: {
           p_chosen_date: string
           p_course_id: string
+          p_dance_role?: string
           p_prerequisite_confirmed?: boolean
           p_terms_accepted?: boolean
           p_terms_version?: string

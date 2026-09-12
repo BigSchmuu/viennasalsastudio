@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { createBooking } from "@/lib/actions/booking";
+import { createBooking, rebookBooking } from "@/lib/actions/booking";
 import { checkCouponCode, type CouponCheckResult } from "@/lib/actions/coupons";
 import { joinWaitlist } from "@/lib/actions/waitlist";
 import {
@@ -24,6 +24,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PlanPriceTiles } from "@/components/booking/plan-price-tiles";
 import { useLocale, useTranslations } from "next-intl";
 import { buchungsHindernis } from "@/lib/bookings/hindernis";
+import type { ProbestundenStand } from "@/lib/bookings/probestunde";
 import { VORSCHAU_TAGE } from "@/lib/scheduling/kursanzeige";
 import { formatPrice, type StudioPricing } from "@/lib/pricing";
 import { TermsConsent } from "@/components/booking/terms-consent";
@@ -102,6 +103,7 @@ export function BookingDialog({
   hasMandate,
   hasReferralSource,
   pricing,
+  probestunde,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -109,6 +111,12 @@ export function BookingDialog({
   hasMandate: boolean;
   hasReferralSource: boolean;
   pricing: StudioPricing;
+  /**
+   * PROJ-52: Jeder Kunde bekommt genau eine Probestunde. Der Stand gehört zum
+   * Kunden, nicht zum Kurs — deshalb steht er hier neben `hasMandate` und
+   * nicht in `BookingDialogCourse`.
+   */
+  probestunde: ProbestundenStand;
 }) {
   const t = useTranslations("booking");
   const locale = useLocale();
@@ -186,6 +194,7 @@ export function BookingDialog({
     bereitsAngefragt: course.hasOpenRegularBooking,
     bereitsEingeschrieben: course.hasActiveSubscription,
     aufWarteliste: course.isOnWaitlist,
+    probestundeVerbraucht: probestunde.art === "verbraucht",
   });
   const canSubmit = hindernis === null;
 
@@ -194,10 +203,33 @@ export function BookingDialog({
     ? t(`blocked${hindernis.charAt(0).toUpperCase()}${hindernis.slice(1)}` as never)
     : null;
 
+  // PROJ-52: Steht die Probestunde schon, führt der Knopf nicht in eine zweite
+  // Buchung, sondern verschiebt die bestehende — auf diesen Kurs oder auf einen
+  // anderen Termin.
+  const verschiebtProbestunde = tab === "trial" && probestunde.art === "offen";
+
   async function handleSubmit() {
     setLoading(true);
     setError(null);
     try {
+      if (verschiebtProbestunde && probestunde.art === "offen") {
+        const result = await rebookBooking(
+          probestunde.buchungId,
+          trialDate,
+          termsAccepted,
+          course.id,
+          prerequisiteConfirmed
+        );
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
+        toast.success(t("toastTrialRebooked"));
+        onOpenChange(false);
+        router.refresh();
+        return;
+      }
+
       if (showWaitlistForm) {
         const formData = new FormData();
         formData.set("course_id", course.id);
@@ -229,11 +261,14 @@ export function BookingDialog({
       formData.set("prerequisite_confirmed", String(prerequisiteConfirmed));
       formData.set("terms_accepted", String(termsAccepted));
 
+      // Für alle drei Arten: Der Kurs fragt die Rolle ab oder nicht — das
+      // hängt am Kurs, nicht an der Buchungsart.
+      formData.set("dance_role", danceRole);
+
       if (tab === "regular") {
         formData.set("chosen_date", regularDate);
         formData.set("desired_plan", desiredPlan);
         formData.set("note", note);
-        formData.set("dance_role", danceRole);
         formData.set("coupon_code", couponCode.trim());
         formData.set("wants_student_price", String(wantsStudentPrice));
       } else if (tab === "trial") {
@@ -396,27 +431,6 @@ export function BookingDialog({
                     </Label>
                   </div>
                 </div>
-                {course.roleQueryEnabled && (
-                  <div className="space-y-2">
-                    <Label>{t("danceRole")}</Label>
-                    <RadioGroup
-                      value={danceRole}
-                      onValueChange={(v) => {
-                        setDanceRole(v as DanceRole);
-                        setRoleImbalance(false);
-                      }}
-                    >
-                      {danceRoleOptions.map((option) => (
-                        <div key={option.value} className="flex items-center gap-2">
-                          <RadioGroupItem value={option.value} id={`role-${option.value}`} />
-                          <Label htmlFor={`role-${option.value}`} className="font-normal">
-                            {t(`danceRoles.${option.value}`)}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  </div>
-                )}
                 {!course.isFull && !roleImbalance && (
                   <>
                     <div className="space-y-1">
@@ -458,7 +472,31 @@ export function BookingDialog({
           </TabsContent>
 
           <TabsContent value="trial" className="space-y-3 pt-2">
-            {course.nextOccurrenceDates.length === 0 ? (
+            {/* PROJ-52: Drei Zustände, drei verschiedene Dinge zu tun. Ein
+                gesperrter Knopf ohne Erklärung lässt den Kunden den Fehler bei
+                sich suchen. */}
+            {probestunde.art === "verbraucht" && (
+              <Alert>
+                <AlertDescription>
+                  {t("trialUsedUp", { date: formatEnddatum(probestunde.datum, locale) })}
+                </AlertDescription>
+              </Alert>
+            )}
+            {probestunde.art === "offen" && (
+              <Alert>
+                <AlertDescription>
+                  {probestunde.kursId === course.id
+                    ? t("trialPendingSameCourse", {
+                        date: formatEnddatum(probestunde.datum, locale),
+                      })
+                    : t("trialPendingOtherCourse", {
+                        date: formatEnddatum(probestunde.datum, locale),
+                        course: probestunde.kursName,
+                      })}
+                </AlertDescription>
+              </Alert>
+            )}
+            {probestunde.art === "verbraucht" ? null : course.nextOccurrenceDates.length === 0 ? (
               <Alert>
                 <AlertDescription>{t("noWeeklySlot")}</AlertDescription>
               </Alert>
@@ -520,6 +558,39 @@ export function BookingDialog({
           </TabsContent>
         </Tabs>
 
+        {/* Die Rollenwahl gilt für jede Art der Buchung und steht deshalb
+            **unter** den Reitern, nicht in einem davon.
+
+            Vorher steckte sie im Reiter „Anmeldung", und zwar in dem Zweig,
+            der nur erscheint, wenn dort auch gebucht werden kann. Der Knopf
+            war aber auf allen Reitern gesperrt, solange keine Rolle gewählt
+            war. Wer eine Probestunde wollte, musste also erst in den anderen
+            Reiter — und ein Kunde ohne SEPA-Mandat sah dort nur den
+            Mandatshinweis: Für ihn war die Probestunde gar nicht buchbar.
+            Ausgerechnet für den Menschen, für den eine Probestunde gedacht
+            ist. Gemeldet aus dem Betrieb am 2026-09-12. */}
+        {course.roleQueryEnabled && (
+          <div className="space-y-2 border-t pt-4">
+            <Label>{t("danceRole")}</Label>
+            <RadioGroup
+              value={danceRole}
+              onValueChange={(v) => {
+                setDanceRole(v as DanceRole);
+                setRoleImbalance(false);
+              }}
+            >
+              {danceRoleOptions.map((option) => (
+                <div key={option.value} className="flex items-center gap-2">
+                  <RadioGroupItem value={option.value} id={`role-${option.value}`} />
+                  <Label htmlFor={`role-${option.value}`} className="font-normal">
+                    {t(`danceRoles.${option.value}`)}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+        )}
+
         {course.prerequisiteNote && (
           <div className="space-y-2 pt-2 border-t">
             <Alert>
@@ -568,7 +639,9 @@ export function BookingDialog({
           <Button disabled={loading || !canSubmit} onClick={handleSubmit}>
             {loading
               ? t("submitting")
-              : showWaitlistForm
+              : verschiebtProbestunde
+                ? t("trialRebookSubmit")
+                : showWaitlistForm
                 ? // Ein Wartelisten-Eintrag verpflichtet zu nichts — hier wäre
                   // "verbindlich buchen" schlicht falsch.
                   t("submitWaitlist")

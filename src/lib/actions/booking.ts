@@ -226,12 +226,27 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     p_prerequisite_confirmed: parsed.data.prerequisite_confirmed ?? false,
     p_terms_accepted: parsed.data.terms_accepted ?? false,
     p_terms_version: AGB_VERSION,
+    // PROJ-52: Auch bei Probestunde und Drop-in. Vorher verlangte der Dialog
+    // die Rolle und warf sie weg — dabei liest der Lehrer sie gerade beim Gast.
+    p_dance_role: parsed.data.dance_role ?? "",
   });
 
   if (error) {
     // PROJ-39 BUG-1: the guards live in the RPC because the abuse path bypasses
     // this action entirely — but a customer who simply double-clicked deserves
     // a real explanation rather than "could not be saved".
+    // PROJ-52: Die Oberfläche bietet einem Kunden mit verbrauchter Probestunde
+    // keinen Buchungsknopf mehr an. Diese Meldungen greifen, wenn der Aufruf
+    // trotzdem hier ankommt — aus einem alten Tab oder direkt.
+    if (error.message.includes("trial already used")) {
+      return { error: "Du hast deine Probestunde bereits verbraucht." };
+    }
+    if (error.message.includes("trial already booked")) {
+      return {
+        error:
+          "Du hast schon eine Probestunde gebucht. Du kannst sie auf diesen Kurs oder einen anderen Termin umbuchen.",
+      };
+    }
     if (error.message.includes("terms not accepted")) {
       return { error: "Bitte bestätige zuerst die AGB." };
     }
@@ -329,7 +344,14 @@ type RebookResult = { error: string } | { success: true; booking: BookingRow };
 export async function rebookBooking(
   bookingId: string,
   newDate: string,
-  termsAccepted: boolean
+  termsAccepted: boolean,
+  /**
+   * PROJ-52: Zielkurs, falls die Probestunde auf einen anderen Kurs wandert.
+   * Fehlt er, bleibt sie in ihrem Kurs und nur der Termin ändert sich.
+   */
+  newCourseId?: string,
+  /** Vorkenntnis-Hinweis des **Zielkurses**, falls er einen hat. */
+  prerequisiteConfirmed?: boolean
 ): Promise<RebookResult> {
   const supabase = await createClient();
   const {
@@ -365,34 +387,59 @@ export async function rebookBooking(
     return { error: "Die Frist zum Umbuchen ist abgelaufen." };
   }
 
-  const validDates = await getValidOccurrenceDates(supabase, booking.course_id);
+  // PROJ-52: Der Zielkurs kann ein anderer sein — dann gilt sein Terminraster,
+  // nicht das des alten Kurses.
+  const zielKursId = newCourseId ?? booking.course_id;
+  const validDates = await getValidOccurrenceDates(supabase, zielKursId);
   if (!validDates.includes(newDate)) {
     return { error: "Ungültiger Termin." };
   }
 
-  // Rebooking only changes the date of an already-accepted trial/dropin
-  // booking — it isn't a fresh prerequisite decision, so the confirmation
-  // from the original booking still applies here.
-  const { data: newBooking, error: insertError } = await supabase.rpc("create_self_service_booking", {
-    p_course_id: booking.course_id,
-    p_type: booking.type,
-    p_chosen_date: newDate,
-    p_wants_student_price: booking.wants_student_price ?? false,
-    p_prerequisite_confirmed: true,
-    p_terms_accepted: true,
-    p_terms_version: AGB_VERSION,
-  });
+  // Beim Wechsel in einen anderen Kurs ist der Vorkenntnis-Hinweis eine neue
+  // Entscheidung: Der des alten Kurses sagt nichts über den neuen. Bleibt der
+  // Kurs derselbe, gilt die Bestätigung von damals weiter.
+  const { data: zielKurs } = await supabase
+    .from("courses")
+    .select("prerequisite_note")
+    .eq("id", zielKursId)
+    .single();
+  const hinweisBestaetigt =
+    zielKursId === booking.course_id ? true : prerequisiteConfirmed === true;
+  if (zielKurs?.prerequisite_note && !hinweisBestaetigt) {
+    return { error: "Bitte bestätige den Hinweis zu den Vorkenntnissen." };
+  }
+
+  // Stornieren und neu buchen in **einem** Vorgang (PROJ-52).
+  //
+  // Vorher lief es in zwei Schritten, und das ging aus zwei Gründen nicht mehr:
+  // Mit der Regel „eine Probestunde je Kunde" hätte das Einfügen an der noch
+  // aktiven alten Buchung scheitern müssen. Und schon vorher steckte darin ein
+  // Fehler — schlug das Stornieren fehl, hatte der Kunde zwei Buchungen.
+  const { data: newBooking, error: insertError } = await supabase.rpc(
+    "rebook_self_service_booking",
+    {
+      p_booking_id: bookingId,
+      p_course_id: zielKursId,
+      p_chosen_date: newDate,
+      p_prerequisite_confirmed: hinweisBestaetigt,
+      p_terms_accepted: true,
+      p_terms_version: AGB_VERSION,
+    }
+  );
 
   if (insertError?.message.includes("already booked")) {
     return { error: "Für diesen Termin hast du bereits eine Buchung." };
+  }
+  if (insertError?.message.includes("booking rate limit")) {
+    return { error: "Zu viele Buchungen in kurzer Zeit. Bitte versuch es später noch einmal." };
   }
   if (insertError || !newBooking) {
     return { error: "Umbuchung konnte nicht gespeichert werden." };
   }
 
-  await supabase.from("course_bookings").update({ status: "cancelled" }).eq("id", bookingId);
-
   revalidatePath("/profil");
+  revalidatePath("/kurse");
+  revalidatePath("/stundenplan");
   return {
     success: true,
     booking: {

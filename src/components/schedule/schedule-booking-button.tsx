@@ -7,6 +7,7 @@ import { BookingDialog, type BookingDialogCourse } from "@/components/booking/bo
 import { Button } from "@/components/ui/button";
 import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
 import type { StudioPricing } from "@/lib/pricing";
+import type { ProbestundenStand } from "@/lib/bookings/probestunde";
 
 export function ScheduleBookingButton({
   course,
@@ -14,12 +15,14 @@ export function ScheduleBookingButton({
   hasMandate,
   hasReferralSource,
   pricing,
+  probestunde,
 }: {
   course: BookingDialogCourse;
   isLoggedIn: boolean;
   hasMandate: boolean;
   hasReferralSource: boolean;
   pricing: StudioPricing;
+  probestunde: ProbestundenStand;
 }) {
   const router = useRouter();
   // Der Satz steht im Namensraum „flatrate", weil er dort entstanden ist —
@@ -77,6 +80,7 @@ export function ScheduleBookingButton({
             hasMandate={hasMandate}
             hasReferralSource={hasReferralSource}
             pricing={pricing}
+            probestunde={probestunde}
           />
         )}
       </>
@@ -105,6 +109,7 @@ export function ScheduleBookingButton({
           hasMandate={hasMandate}
           hasReferralSource={hasReferralSource}
           pricing={pricing}
+          probestunde={probestunde}
         />
       )}
     </>

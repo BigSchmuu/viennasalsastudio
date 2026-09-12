@@ -185,7 +185,13 @@
       "both": "Both"
     },
     "courseEndsSoon": "Heads up: this class only runs until {date}.",
-    "courseEndsSoonSubscription": "Your subscription continues afterwards — you can switch it to another class at any time."
+    "courseEndsSoonSubscription": "Your subscription continues afterwards — you can switch it to another class at any time.",
+    "blockedProbestundeVerbraucht": "You've already used your trial class.",
+    "trialUsedUp": "You had your trial class on {date}. Every customer gets one — for more classes there's the drop-in or a subscription.",
+    "trialPendingSameCourse": "You already have a trial class in this course on {date}. You can change the date here.",
+    "trialPendingOtherCourse": "You have a trial class in {course} on {date}. You can move it to this course — your existing booking will be cancelled.",
+    "trialRebookSubmit": "Move trial class",
+    "toastTrialRebooked": "Trial class moved."
   },
   "profile": {
     "heading": "My profile",

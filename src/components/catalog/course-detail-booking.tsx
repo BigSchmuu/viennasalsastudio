@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookingDialog } from "@/components/booking/booking-dialog";
 import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
+import type { ProbestundenStand } from "@/lib/bookings/probestunde";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import type { StudioPricing } from "@/lib/pricing";
@@ -33,12 +34,14 @@ export function CourseDetailBooking({
   hasMandate,
   hasReferralSource,
   pricing,
+  probestunde,
 }: {
   course: CourseDetailData;
   isLoggedIn: boolean;
   hasMandate: boolean;
   hasReferralSource: boolean;
   pricing: StudioPricing;
+  probestunde: ProbestundenStand;
 }) {
   const router = useRouter();
   const t = useTranslations("flatrate");
@@ -83,6 +86,7 @@ export function CourseDetailBooking({
             course={course}
             hasMandate={hasMandate}
             hasReferralSource={hasReferralSource}
+            probestunde={probestunde}
             pricing={pricing}
           />
         )}
@@ -101,6 +105,7 @@ export function CourseDetailBooking({
           course={course}
           hasMandate={hasMandate}
           hasReferralSource={hasReferralSource}
+          probestunde={probestunde}
           pricing={pricing}
         />
       )}

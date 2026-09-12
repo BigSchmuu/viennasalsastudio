@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import type { StudioPricing } from "@/lib/pricing";
 import { CoursePriceLine } from "@/components/catalog/course-price-line";
 import { FlatrateCourseButton } from "@/components/booking/flatrate-course-button";
+import type { ProbestundenStand } from "@/lib/bookings/probestunde";
 import {
   Select,
   SelectContent,
@@ -66,6 +67,7 @@ export function CourseCatalog({
   hasMandate,
   hasReferralSource,
   pricing,
+  probestunde,
 }: {
   courses: CatalogCourseRow[];
   danceStyles: SimpleOption[];
@@ -74,6 +76,8 @@ export function CourseCatalog({
   hasMandate: boolean;
   hasReferralSource: boolean;
   pricing: StudioPricing;
+  /** PROJ-52: Der Probestunden-Stand des Kunden — gehört zu ihm, nicht zum Kurs. */
+  probestunde: ProbestundenStand;
 }) {
   const t = useTranslations("courses");
   const router = useRouter();
@@ -310,6 +314,7 @@ export function CourseCatalog({
           hasMandate={hasMandate}
           hasReferralSource={hasReferralSource}
           pricing={pricing}
+          probestunde={probestunde}
         />
       )}
     </div>

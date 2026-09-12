@@ -24,7 +24,9 @@ export type BuchungsHindernis =
   | "mandat"
   | "bereitsAngefragt"
   | "bereitsEingeschrieben"
-  | "warteliste";
+  | "warteliste"
+  /** PROJ-52: Die eine Probestunde ist vorbei — daran ändert kein Formular etwas. */
+  | "probestundeVerbraucht";
 
 export type BuchungsZustand = {
   art: "regular" | "trial" | "dropin";
@@ -42,6 +44,8 @@ export type BuchungsZustand = {
   bereitsAngefragt: boolean;
   bereitsEingeschrieben: boolean;
   aufWarteliste: boolean;
+  /** PROJ-52: Nur bei „trial": Die Probestunde dieses Kunden ist verbraucht. */
+  probestundeVerbraucht: boolean;
 };
 
 export function buchungsHindernis(z: BuchungsZustand): BuchungsHindernis | null {
@@ -53,6 +57,11 @@ export function buchungsHindernis(z: BuchungsZustand): BuchungsHindernis | null 
     if (z.aufWarteliste) return "warteliste";
     if (!z.hatMandat) return "mandat";
   }
+
+  // PROJ-52: Eine verbrauchte Probestunde ist endgültig. Sie steht vor der
+  // Terminwahl, weil jede weitere Eingabe daran nichts ändert — dieselbe
+  // Reihenfolge wie bei den Gründen, die den Kurs als Ganzes betreffen.
+  if (z.art === "trial" && z.probestundeVerbraucht) return "probestundeVerbraucht";
 
   if (!z.terminGewaehlt) return "termin";
   if (z.art === "regular" && !z.aboArtGewaehlt) return "aboArt";

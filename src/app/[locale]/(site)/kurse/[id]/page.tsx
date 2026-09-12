@@ -16,6 +16,7 @@ import { readStudioPricing } from "@/lib/pricing";
 import { formatShortDate } from "@/lib/formatting";
 import { CoursePriceLine } from "@/components/catalog/course-price-line";
 import { getViewer } from "@/lib/auth/viewer";
+import { ladeProbestundenStand } from "@/lib/bookings/probestunde-laden";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -236,6 +237,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
         hasMandate={hasMandate}
         hasReferralSource={hasReferralSource}
         pricing={readStudioPricing(pricingRow)}
+        probestunde={await ladeProbestundenStand(supabase, user?.id ?? null)}
       />
 
       {lessons.length > 0 && (

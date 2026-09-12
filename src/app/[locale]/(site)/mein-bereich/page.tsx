@@ -23,6 +23,7 @@ import { ThisWeekSection, type WochenEvent } from "@/components/dashboard/this-w
 import { AttendanceSection } from "@/components/dashboard/attendance-section";
 import { CreditReferralSection } from "@/components/dashboard/credit-referral-section";
 import { levelValues } from "@/lib/constants/levels";
+import { ladeProbestundenStand } from "@/lib/bookings/probestunde-laden";
 
 export const dynamic = "force-dynamic";
 
@@ -464,6 +465,7 @@ export default async function MeinBereichPage() {
             hasMandate={hatMandat}
             hasReferralSource={false}
             pricing={pricing}
+            probestunde={await ladeProbestundenStand(supabase, user.id)}
           />
         ) : null}
 

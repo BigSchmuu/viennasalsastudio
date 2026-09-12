@@ -14,6 +14,7 @@ const probestunde: BuchungsZustand = {
   bereitsAngefragt: false,
   bereitsEingeschrieben: false,
   aufWarteliste: false,
+  probestundeVerbraucht: false,
 };
 
 describe("buchungsHindernis", () => {
@@ -74,5 +75,28 @@ describe("buchungsHindernis", () => {
   it("nennt Rolle und Vorkenntnisse, wenn der Kurs sie verlangt", () => {
     expect(buchungsHindernis({ ...probestunde, rolleFehlt: true })).toBe("rolle");
     expect(buchungsHindernis({ ...probestunde, vorkenntnisseOffen: true })).toBe("vorkenntnisse");
+  });
+});
+
+describe("Probestunde verbraucht (PROJ-52)", () => {
+  it("nennt die verbrauchte Probestunde", () => {
+    expect(buchungsHindernis({ ...probestunde, probestundeVerbraucht: true })).toBe(
+      "probestundeVerbraucht"
+    );
+  });
+
+  it("nennt sie vor der fehlenden Terminwahl", () => {
+    // Jede weitere Eingabe ändert daran nichts — der Hinweis soll nicht zum
+    // Ausfüllen auffordern.
+    expect(
+      buchungsHindernis({ ...probestunde, terminGewaehlt: false, probestundeVerbraucht: true })
+    ).toBe("probestundeVerbraucht");
+  });
+
+  it("hält ein Drop-in nicht auf", () => {
+    // Drop-ins sind bezahlt und bleiben unbegrenzt.
+    expect(
+      buchungsHindernis({ ...probestunde, art: "dropin", probestundeVerbraucht: true })
+    ).toBeNull();
   });
 });

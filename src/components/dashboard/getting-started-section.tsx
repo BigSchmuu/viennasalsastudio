@@ -6,6 +6,7 @@ import { useTranslations, useFormatter } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookingDialog, type BookingDialogCourse } from "@/components/booking/booking-dialog";
+import type { ProbestundenStand } from "@/lib/bookings/probestunde";
 import type { StudioPricing } from "@/lib/pricing";
 import { levelBadgeStyle, levelLabel } from "@/lib/constants/levels";
 
@@ -35,11 +36,13 @@ export function GettingStartedSection({
   hasMandate,
   hasReferralSource,
   pricing,
+  probestunde,
 }: {
   vorschlaege: Kursvorschlag[];
   hasMandate: boolean;
   hasReferralSource: boolean;
   pricing: StudioPricing;
+  probestunde: ProbestundenStand;
 }) {
   const t = useTranslations("dashboard.start");
   const format = useFormatter();
@@ -130,6 +133,7 @@ export function GettingStartedSection({
           hasMandate={hasMandate}
           hasReferralSource={hasReferralSource}
           pricing={pricing}
+          probestunde={probestunde}
         />
       ) : null}
     </section>

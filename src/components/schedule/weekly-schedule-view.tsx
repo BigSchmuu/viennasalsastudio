@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScheduleBookingButton } from "@/components/schedule/schedule-booking-button";
 import type { StudioPricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import type { ProbestundenStand } from "@/lib/bookings/probestunde";
 
 import type { Zeitraumhinweis } from "@/lib/scheduling/kursanzeige";
 
@@ -76,7 +77,13 @@ function saalNumber(roomName: string | null): number {
   return match ? Number(match[1]) : Infinity;
 }
 
-function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
+function ScheduleCard({
+  entry,
+  probestunde,
+}: {
+  entry: ScheduleEntry;
+  probestunde: ProbestundenStand;
+}) {
   const t = useTranslations("schedule");
   const locale = useLocale();
   return (
@@ -145,6 +152,7 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
             hasMandate={entry.booking.hasMandate}
             hasReferralSource={entry.booking.hasReferralSource}
             pricing={entry.booking.pricing}
+            probestunde={probestunde}
           />
         )}
       </CardContent>
@@ -156,7 +164,13 @@ function ScheduleCard({ entry }: { entry: ScheduleEntry }) {
 const PX_PER_MINUTE = 3;
 
 /** Kurse mit gleicher Anfangszeit stehen innerhalb eines Saals nebeneinander. */
-function SaalSpalte({ entries }: { entries: ScheduleEntry[] }) {
+function SaalSpalte({
+  entries,
+  probestunde,
+}: {
+  entries: ScheduleEntry[];
+  probestunde: ProbestundenStand;
+}) {
   const slots = new Map<string, ScheduleEntry[]>();
   for (const entry of entries) {
     if (!slots.has(entry.startTime)) slots.set(entry.startTime, []);
@@ -170,7 +184,7 @@ function SaalSpalte({ entries }: { entries: ScheduleEntry[] }) {
         <div key={zeit} className="flex flex-wrap gap-4">
           {slots.get(zeit)!.map((entry) => (
             <div key={entry.courseId} className="min-w-[240px] flex-1">
-              <ScheduleCard entry={entry} />
+              <ScheduleCard entry={entry} probestunde={probestunde} />
             </div>
           ))}
         </div>
@@ -196,7 +210,13 @@ function SaalSpalte({ entries }: { entries: ScheduleEntry[] }) {
  * Spalten auf 390 px waren nicht lesbar, die letzte wurde abgeschnitten. Dort
  * entfällt auch der Versatz — untereinander bedeutet er nichts.
  */
-function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
+function DaySchedule({
+  entries,
+  probestunde,
+}: {
+  entries: ScheduleEntry[];
+  probestunde: ProbestundenStand;
+}) {
   const t = useTranslations("schedule");
 
   const raeume = new Map<string, { name: string; entries: ScheduleEntry[] }>();
@@ -217,7 +237,7 @@ function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
   });
 
   if (raumIds.length <= 1) {
-    return <SaalSpalte entries={entries} />;
+    return <SaalSpalte entries={entries} probestunde={probestunde} />;
   }
 
   const fruehesterStart = Math.min(...entries.map((e) => minutesFromTime(e.startTime)));
@@ -237,7 +257,7 @@ function DaySchedule({ entries }: { entries: ScheduleEntry[] }) {
             <p className="nav-label mb-3 text-muted-foreground">{raum.name}</p>
             {/* Der Versatz greift erst ab sm — untereinander sagt er nichts. */}
             <div style={{ ["--versatz" as string]: `${versatzPx}px` }} className="sm:mt-[var(--versatz)]">
-              <SaalSpalte entries={raum.entries} />
+              <SaalSpalte entries={raum.entries} probestunde={probestunde} />
             </div>
           </div>
         );
@@ -250,11 +270,14 @@ export function WeeklyScheduleView({
   entriesByWeekday,
   todayWeekday,
   ferien,
+  probestunde,
 }: {
   entriesByWeekday: Record<number, ScheduleEntry[]>;
   todayWeekday: number;
   /** PROJ-51: laufende und demnächst anstehende Ferien, bereits gefiltert. */
   ferien: { name: string; von: string; bis: string }[];
+  /** PROJ-52: Probestunden-Stand des Kunden, für den Buchungsdialog. */
+  probestunde: ProbestundenStand;
 }) {
   const [activeDay, setActiveDay] = useState(String(todayWeekday));
   const [standort, setStandort] = useState(ALLE_STANDORTE);
@@ -374,7 +397,7 @@ export function WeeklyScheduleView({
                 {t("emptyDay")}
               </p>
             ) : (
-              <DaySchedule entries={entries} />
+              <DaySchedule entries={entries} probestunde={probestunde} />
             )}
           </TabsContent>
         );

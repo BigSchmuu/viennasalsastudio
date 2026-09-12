@@ -8,6 +8,7 @@ import { heuteInWien } from "@/lib/constants/zeitzone";
 import { readStudioPricing } from "@/lib/pricing";
 import { getTranslations } from "next-intl/server";
 import { getViewer } from "@/lib/auth/viewer";
+import { ladeProbestundenStand } from "@/lib/bookings/probestunde-laden";
 
 const UPCOMING_OCCURRENCES_WINDOW = 4;
 
@@ -84,6 +85,8 @@ export default async function KurskatalogPage() {
 
   // PROJ-51: einmal für die ganze Liste geladen, nicht je Kurs.
   const ferien = await ladeFerien(supabase);
+  // PROJ-52: einmal je Seite, nicht je Kurskarte — der Stand gehört zum Kunden.
+  const probestunde = await ladeProbestundenStand(supabase, user?.id ?? null);
 
   // PROJ-51: Dieselbe Regel wie im Stundenplan. Ein ausgelaufener Kurs gehört
   // nicht ins Schaufenster — wer ihn dort noch buchen könnte, zahlte für etwas,
@@ -155,6 +158,7 @@ export default async function KurskatalogPage() {
         hasMandate={hasMandate}
         hasReferralSource={hasReferralSource}
         pricing={readStudioPricing(pricingRes.data)}
+        probestunde={probestunde}
       />
     </div>
   );
