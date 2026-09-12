@@ -1,6 +1,6 @@
 # PROJ-52: Eine Probestunde je Kunde
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-09-12
 **Last Updated:** 2026-09-12
 **Priorität:** P0 (vor Start)
@@ -93,3 +93,56 @@ tanzen.
 | Das Umbuchen wird zu **einem** Datenbankvorgang | Bisher legte es eine neue Buchung an und stornierte danach die alte — mit der neuen Regel hätte es sich selbst blockiert, weil die alte beim Einfügen noch aktiv ist. In einer SQL-Funktion ist beides eine Transaktion: Schlägt das Einfügen fehl, ist die Stornierung mit zurückgenommen. Nebenbei verschwindet ein bestehender Fehler — bisher konnte der Kunde bei einem Fehler zwischen Einfügen und Stornieren zwei Buchungen haben | 2026-09-12 |
 | Die Regel steht in der Datenbank, nicht nur in der Oberfläche | Die Oberfläche erklärt, die Datenbank entscheidet. Genau dieser Weg war bei PROJ-39 der Missbrauchspfad: Der Aufruf kam an der Oberfläche vorbei | 2026-09-12 |
 | Ein gemeinsamer Begriff „Probestunden-Stand" | Vier Stellen zeigen den Buchungsdialog (Katalog, Kursdetail, Stundenplan, Dashboard). Vier eigene Rechnungen dazu liefen auseinander — dieselbe Lehre wie bei `course_members` in PROJ-50 | 2026-09-12 |
+
+---
+
+## Implementation Notes
+
+**Stand 2026-09-12 — gebaut und geprüft.**
+
+| Teil | Wo |
+|---|---|
+| Die Regel selbst | `create_self_service_booking` (Migration `20260912100000`), zwei unterscheidbare Fehler: `trial already used` / `trial already booked` |
+| Umbuchen als ein Vorgang | `rebook_self_service_booking` — Stornieren und Neubuchen in einer Transaktion |
+| Der Stand für die Oberfläche | `src/lib/bookings/probestunde.ts` (rein, 10 Unit-Tests) + `probestunde-laden.ts` |
+| Drei Zustände im Dialog | `src/components/booking/booking-dialog.tsx`, Reiter „Probestunde" |
+| „Verbraucht" sperrt den Knopf mit Begründung | `src/lib/bookings/hindernis.ts` (`probestundeVerbraucht`) |
+| Zielkurs beim Umbuchen | `rebookBooking` in `src/lib/actions/booking.ts` |
+
+### Was über die Spec hinaus nötig war
+
+- **Die Rollenwahl war eine Sackgasse.** Sie stand im Reiter „Anmeldung", in dem
+  Zweig, der nur erscheint, wenn dort auch gebucht werden kann — der Knopf war
+  aber auf allen Reitern gesperrt, solange keine Rolle gewählt war. Für einen
+  Kunden **ohne SEPA-Mandat** zeigt jener Reiter nur den Mandatshinweis: In
+  einem Kurs mit Rollenabfrage war die Probestunde für ihn gar nicht buchbar.
+  Ausgerechnet für den Menschen, für den eine Probestunde gedacht ist. Die
+  Wahl steht jetzt unter den Reitern, also bei jeder Buchungsart.
+- **Die Tanzrolle wurde verlangt und weggeworfen** — gespeichert hat sie nur die
+  reguläre Anmeldung. Jetzt auch bei Probestunde und Drop-in, und beim Umbuchen
+  wandert sie mit. Der Lehrer liest sie in Anwesenheitsliste und Rollenbalance.
+- **Der Zielkurs kann Vorkenntnisse verlangen.** Beim Wechsel in einen anderen
+  Kurs gilt die Bestätigung des alten nicht — dieselbe Klasse von Lücke wie die
+  `p_carry_terms_from`-Hintertür aus PROJ-42.
+
+### Tests
+
+| Lauf | Ergebnis |
+|---|---|
+| PROJ-52 (eigene Suite) | 9/9 grün |
+| `npm test` | 526 bestanden |
+| Voller E2E-Lauf | 1112 bestanden, 6 übersprungen, 2 gefallen von 1120 (2,1 h) |
+
+Die zwei Fehlschläge liegen in PROJ-41 (Admin-Bestätigung) und PROJ-49
+(Lehrer-Link), **beide nur unter Mobile Safari**, beide in Bereichen, die dieses
+Feature nicht berührt, und beide isoliert auf demselben Browser grün (32
+bestanden). Signatur in beiden Fällen „das Erwartete war noch nicht da" — also
+Zeitverhalten am Ende eines langen Laufs, nicht dieses Feature.
+
+### Fixtures, die mitziehen mussten
+
+- **PROJ-8** löschte Buchungen nur für ihren eigenen Kurs; eine Probestunde in
+  einem beliebigen anderen blockiert jetzt ihre Geschichte.
+- **Zwölf Testdateien** griffen den Buchungsknopf über seine Beschriftung, um
+  den Dialog zu öffnen. Sie tun das jetzt über einen Lokator, der alle
+  Beschriftungen kennt.
