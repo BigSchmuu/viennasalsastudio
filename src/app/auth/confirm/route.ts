@@ -21,6 +21,15 @@ export async function GET(request: NextRequest) {
       const destination = safeRedirectPath(next, "/profil", origin);
       return NextResponse.redirect(`${origin}${destination}`);
     }
+    // Warum ein Link abgelehnt wurde, stand bisher nirgends: abgelaufen, schon
+    // einmal geöffnet oder durch eine neuere Mail ersetzt — das ließ sich nur
+    // raten (gemeldet 2026-09-13). Supabases Code sagt es. Weder Token noch
+    // Adresse gehören ins Log.
+    console.error("auth/confirm: Link abgelehnt", { type, code: error.code, status: error.status });
+  } else {
+    // Fehlt `type`, ist die Mailvorlage im Supabase-Dashboard falsch
+    // zusammengesetzt — siehe PROJ-2, Nachtrag vom 2026-08-13.
+    console.error("auth/confirm: Link unvollständig", { tokenHash: Boolean(token_hash), type });
   }
 
   return NextResponse.redirect(`${origin}/login?error=confirm_failed`);

@@ -221,6 +221,55 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     ).toBeVisible();
   });
 
+  // Gemeldet am 2026-09-13: Wer abschickte, bevor React die Seite übernommen
+  // hatte, sah gar nichts. React spielt so einen Klick nach der Hydration über
+  // die `action` des Formulars nach, nicht über onSubmit — und dort wurde das
+  // Ergebnis verworfen. Wer deshalb noch einmal abschickte, bekam eine zweite
+  // Mail, die den Link der ersten ungültig machte.
+  //
+  // Die Skripte werden zurückgehalten, bis geklickt ist: So erlebt es ein Kunde
+  // mit langsamer Verbindung. Keine der beiden Adressen hat ein Konto, es geht
+  // also keine Mail hinaus.
+  for (const fall of [
+    {
+      pfad: "/login",
+      felder: [
+        ["E-Mail", "niemand-e2e@viennasalsastudio.test"],
+        ["Passwort", "FalschesPasswort1"],
+      ],
+      knopf: "Einloggen",
+      ergebnis: "E-Mail oder Passwort falsch",
+    },
+    {
+      pfad: "/passwort-vergessen",
+      felder: [["E-Mail", "niemand-e2e@viennasalsastudio.test"]],
+      knopf: "Reset-Link anfordern",
+      ergebnis: "Falls ein Konto mit dieser E-Mail-Adresse existiert",
+    },
+  ]) {
+    test(`Abschicken vor der Hydration zeigt trotzdem das Ergebnis: ${fall.pfad}`, async ({ page }) => {
+      let freigeben!: () => void;
+      const freigabe = new Promise<void>((resolve) => {
+        freigeben = resolve;
+      });
+      // Nur Skripte: Hielte der Test auch die Stylesheets zurück, würde die
+      // Seite gar nicht gezeichnet, und es ließe sich nichts ausfüllen.
+      await page.route("**/_next/**", async (route) => {
+        if (route.request().resourceType() === "script") await freigabe;
+        await route.continue();
+      });
+
+      await page.goto(fall.pfad, { waitUntil: "domcontentloaded" });
+      for (const [feld, wert] of fall.felder) {
+        await page.getByLabel(feld).fill(wert);
+      }
+      await page.getByRole("button", { name: fall.knopf }).click();
+      freigeben();
+
+      await expect(page.getByText(fall.ergebnis)).toBeVisible({ timeout: 20000 });
+    });
+  }
+
   test("Profil bearbeiten und speichern zeigt aktualisierte Daten; Rollenfeld ist nicht vorhanden", async ({
     page,
   }) => {

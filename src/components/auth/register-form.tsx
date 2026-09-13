@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterInput } from "@/lib/validations/auth";
 import { signUp } from "@/lib/actions/auth";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -20,6 +19,7 @@ import {
   FormLabel,
 } from "@/components/ui/form";
 import { AuthFormMessage } from "@/components/auth/auth-form-message";
+import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { fehlertext } from "@/lib/auth/fehler";
 
 export function RegisterForm() {
@@ -33,15 +33,11 @@ export function RegisterForm() {
     defaultValues: { email: "", password: "" },
   });
 
-
-  async function onSubmit(values: RegisterInput) {
+  // Ein Weg für beide Auslöser, onSubmit und `action` — Begründung am Formular.
+  async function absenden(formData: FormData) {
     setLoading(true);
     setFormError(null);
     try {
-      const formData = new FormData();
-      formData.set("email", values.email);
-      formData.set("password", values.password);
-
       const result = await signUp(formData);
 
       if ("error" in result) {
@@ -57,6 +53,13 @@ export function RegisterForm() {
     }
   }
 
+  async function onSubmit(values: RegisterInput) {
+    const formData = new FormData();
+    formData.set("email", values.email);
+    formData.set("password", values.password);
+    await absenden(formData);
+  }
+
   if (submitted) {
     return (
       <Alert>
@@ -69,13 +72,18 @@ export function RegisterForm() {
 
   return (
     <Form {...form}>
-      {/* action={signUp}: progressive-enhancement fallback so a pre-hydration
-          click still POSTs via the real Server Action instead of leaking the
-          password into a native GET URL — see PROJ-2 QA BUG-1. */}
+      {/* `action` hat zwei Aufgaben, und für die Formulare Login, Passwort
+          vergessen und Passwort zurücksetzen gilt dasselbe:
+
+          1. Ohne sie fiele ein Klick vor der Hydration auf ein natives GET
+             zurück, samt Passwort in der URL (PROJ-2 QA BUG-1).
+          2. React spielt so einen Klick nach der Hydration über `action` nach,
+             nicht über onSubmit. Bis 2026-09-13 verwarf `action` das Ergebnis:
+             Der Kunde sah keine Bestätigung, schickte noch einmal ab — und die
+             zweite Mail machte den Link der ersten ungültig. Deshalb laufen
+             beide Auslöser durch `absenden`. */}
       <form
-        action={async (formData) => {
-          await signUp(formData);
-        }}
+        action={absenden}
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4"
         noValidate
@@ -115,9 +123,9 @@ export function RegisterForm() {
           )}
         />
 
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? t("registering") : t("register")}
-        </Button>
+        <AuthSubmitButton loading={loading} loadingText={t("registering")} className="w-full">
+          {t("register")}
+        </AuthSubmitButton>
 
         <p className="text-center text-sm text-muted-foreground">
           {t("haveAccount")}{" "}

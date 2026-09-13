@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { forgotPasswordSchema, type ForgotPasswordInput } from "@/lib/validations/auth";
 import { requestPasswordReset } from "@/lib/actions/auth";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTranslations } from "next-intl";
@@ -18,6 +17,7 @@ import {
   FormLabel,
 } from "@/components/ui/form";
 import { AuthFormMessage } from "@/components/auth/auth-form-message";
+import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { fehlertext } from "@/lib/auth/fehler";
 
 export function ForgotPasswordForm() {
@@ -31,14 +31,13 @@ export function ForgotPasswordForm() {
     defaultValues: { email: "" },
   });
 
-
-  async function onSubmit(values: ForgotPasswordInput) {
+  // Ein Weg für beide Auslöser, onSubmit und `action` — warum, steht in
+  // register-form.tsx. Hier wiegt es am schwersten: Jede zweite Anfrage macht
+  // den Link der ersten Mail ungültig.
+  async function absenden(formData: FormData) {
     setLoading(true);
     setFormError(null);
     try {
-      const formData = new FormData();
-      formData.set("email", values.email);
-
       const result = await requestPasswordReset(formData);
 
       if ("error" in result) {
@@ -50,6 +49,12 @@ export function ForgotPasswordForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function onSubmit(values: ForgotPasswordInput) {
+    const formData = new FormData();
+    formData.set("email", values.email);
+    await absenden(formData);
   }
 
   if (submitted) {
@@ -64,12 +69,10 @@ export function ForgotPasswordForm() {
 
   return (
     <Form {...form}>
-      {/* action={requestPasswordReset}: progressive-enhancement fallback —
-          see PROJ-2 QA BUG-1. */}
+      {/* `action` ist mehr als ein Rückfall für Klicks vor der Hydration —
+          siehe register-form.tsx. */}
       <form
-        action={async (formData) => {
-          await requestPasswordReset(formData);
-        }}
+        action={absenden}
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4"
         noValidate
@@ -94,9 +97,9 @@ export function ForgotPasswordForm() {
           )}
         />
 
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? t("sending") : t("requestResetLink")}
-        </Button>
+        <AuthSubmitButton loading={loading} loadingText={t("sending")} className="w-full">
+          {t("requestResetLink")}
+        </AuthSubmitButton>
 
         <p className="text-center text-sm text-muted-foreground">
           <Link href="/login" className="text-primary hover:underline">

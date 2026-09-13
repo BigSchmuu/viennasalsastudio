@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +20,7 @@ import {
   FormLabel,
 } from "@/components/ui/form";
 import { AuthFormMessage } from "@/components/auth/auth-form-message";
+import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { fehlertext } from "@/lib/auth/fehler";
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
@@ -28,22 +29,23 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
+  // Die Adresse des Versuchs, der an der fehlenden Bestätigung scheiterte. Kam
+  // er vor der Hydration, steht sie nicht im Formularzustand.
+  const letzteAdresse = useRef("");
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
 
-
-  async function onSubmit(values: LoginInput) {
+  // Ein Weg für beide Auslöser, onSubmit und `action` — warum, steht in
+  // register-form.tsx.
+  async function absenden(formData: FormData) {
     setLoading(true);
     setFormError(null);
     setNeedsConfirmation(false);
+    letzteAdresse.current = String(formData.get("email") ?? "");
     try {
-      const formData = new FormData();
-      formData.set("email", values.email);
-      formData.set("password", values.password);
-
       const result = await signIn(formData);
 
       if ("error" in result) {
@@ -67,23 +69,25 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
     }
   }
 
+  async function onSubmit(values: LoginInput) {
+    const formData = new FormData();
+    formData.set("email", values.email);
+    formData.set("password", values.password);
+    await absenden(formData);
+  }
+
   async function handleResend() {
     setResendState("sending");
-    await resendConfirmationEmail(form.getValues("email"));
+    await resendConfirmationEmail(letzteAdresse.current);
     setResendState("sent");
   }
 
   return (
     <Form {...form}>
-      {/* `action={signIn}` is a progressive-enhancement fallback: if a click
-          reaches the browser before React has hydrated, the form still POSTs
-          to the real Server Action instead of falling back to a native GET
-          (which would leak the password into the URL/history/server logs).
-          Once hydrated, onSubmit's preventDefault takes over as usual. */}
+      {/* `action` ist mehr als ein Rückfall für Klicks vor der Hydration —
+          siehe register-form.tsx. */}
       <form
-        action={async (formData) => {
-          await signIn(formData);
-        }}
+        action={absenden}
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4"
         noValidate
@@ -149,9 +153,9 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           </Link>
         </div>
 
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? t("loggingIn") : t("login")}
-        </Button>
+        <AuthSubmitButton loading={loading} loadingText={t("loggingIn")} className="w-full">
+          {t("login")}
+        </AuthSubmitButton>
 
         <p className="text-center text-sm text-muted-foreground">
           {t("noAccount")}{" "}

@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { resetPasswordSchema, type ResetPasswordInput } from "@/lib/validations/auth";
 import { resetPassword } from "@/lib/actions/auth";
-import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -17,6 +16,7 @@ import {
   FormLabel,
 } from "@/components/ui/form";
 import { AuthFormMessage } from "@/components/auth/auth-form-message";
+import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { fehlertext } from "@/lib/auth/fehler";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -31,15 +31,12 @@ export function ResetPasswordForm() {
     defaultValues: { password: "", confirmPassword: "" },
   });
 
-
-  async function onSubmit(values: ResetPasswordInput) {
+  // Ein Weg für beide Auslöser, onSubmit und `action` — warum, steht in
+  // register-form.tsx.
+  async function absenden(formData: FormData) {
     setLoading(true);
     setFormError(null);
     try {
-      const formData = new FormData();
-      formData.set("password", values.password);
-      formData.set("confirmPassword", values.confirmPassword);
-
       const result = await resetPassword(formData);
 
       if ("error" in result) {
@@ -53,14 +50,19 @@ export function ResetPasswordForm() {
     }
   }
 
+  async function onSubmit(values: ResetPasswordInput) {
+    const formData = new FormData();
+    formData.set("password", values.password);
+    formData.set("confirmPassword", values.confirmPassword);
+    await absenden(formData);
+  }
+
   return (
     <Form {...form}>
-      {/* action={resetPassword}: progressive-enhancement fallback so the new
-          password can't leak into a native GET URL — see PROJ-2 QA BUG-1. */}
+      {/* `action` ist mehr als ein Rückfall für Klicks vor der Hydration —
+          siehe register-form.tsx. */}
       <form
-        action={async (formData) => {
-          await resetPassword(formData);
-        }}
+        action={absenden}
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4"
         noValidate
@@ -106,9 +108,9 @@ export function ResetPasswordForm() {
           )}
         />
 
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? t("savingPassword") : t("savePassword")}
-        </Button>
+        <AuthSubmitButton loading={loading} loadingText={t("savingPassword")} className="w-full">
+          {t("savePassword")}
+        </AuthSubmitButton>
       </form>
     </Form>
   );

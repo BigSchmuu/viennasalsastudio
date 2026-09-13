@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 import { heuteInWien } from "@/lib/constants/zeitzone";
+import { bestaetigtesKonto } from "@/lib/auth/bestehendes-konto";
 import {
   anmeldefehler,
   registrierungsfehler,
@@ -55,6 +56,12 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
     return { error: parsed.error.issues[0]?.message ?? "errInvalidInput" };
   }
 
+  // Vor der Registrierung nachsehen, nicht danach: signUp legt eine neue
+  // Adresse sofort an, und die Suche danach fand das eben angelegte Konto. Jede
+  // Neuregistrierung bekam deshalb neben der Bestätigungsmail auch „Du hast
+  // bereits ein Konto bei uns". Gemeldet aus dem Betrieb am 2026-09-13.
+  const bestehendesKonto = await findeBestaetigtesKonto(parsed.data.email);
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
@@ -64,7 +71,7 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
     },
   });
 
-  // Supabase antwortet bei einer bereits vergebenen Adresse absichtlich genau
+  // Supabase antwortet bei einer bereits bestätigten Adresse absichtlich genau
   // wie bei einer neuen und verschickt nichts — „an obfuscated user response
   // with no verification email sent. This prevents user enumeration attacks."
   // Für den Besucher am Formular bleibt das so: Wer fremde Adressen
@@ -74,7 +81,9 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   // Zugriff auf das Postfach hat, bekommt die Information, und das ist genau
   // der Richtige. Vorher stand der Kunde vor einer Seite, die eine Mail
   // versprach, die nie kam.
-  await benachrichtigeUeberBestehendesKonto(parsed.data.email);
+  if (bestehendesKonto) {
+    await benachrichtigeUeberBestehendesKonto(bestehendesKonto);
+  }
 
   if (error) {
     // Mit eingeschaltetem Schutz gegen geleakte Passwörter weist Supabase
@@ -156,32 +165,44 @@ export async function signOut(): Promise<void> {
 }
 
 /**
- * Schickt dem Inhaber einer bereits registrierten Adresse eine Nachricht, dass
- * jemand versucht hat, sich damit erneut zu registrieren.
+ * Die ID des bestätigten Kontos mit dieser Adresse — oder `null`. Wer die
+ * Nachricht bekommt und wer nicht, steht in `lib/auth/bestehendes-konto.ts`.
  *
- * Scheitert nie nach außen: Die Registrierung darf daran nicht hängen, und der
- * Rückgabewert des Formulars bleibt in jedem Fall derselbe — sonst wäre am
- * Antwortverhalten doch wieder ablesbar, ob es das Konto gibt.
+ * Scheitert nie nach außen: Ohne Auskunft geht eben keine Nachricht hinaus,
+ * die Registrierung selbst darf daran nicht hängen.
  */
-async function benachrichtigeUeberBestehendesKonto(email: string): Promise<void> {
+async function findeBestaetigtesKonto(email: string): Promise<string | null> {
   try {
     const service = createServiceClient();
     // `profiles` kennt keine E-Mail-Adresse, die liegt in `auth.users`. Bei
     // rund 75 Konten genügt eine Seite; wächst das Studio in die Tausende,
     // gehört hier eine gezielte Suche hin statt einer vollen Liste.
     const { data } = await service.auth.admin.listUsers({ perPage: 1000 });
-    const gesucht = email.trim().toLowerCase();
-    const vorhanden = data?.users.find((u) => u.email?.toLowerCase() === gesucht);
-    if (!vorhanden) return;
+    return bestaetigtesKonto(data?.users ?? [], email);
+  } catch (fehler) {
+    console.error("findeBestaetigtesKonto fehlgeschlagen", fehler);
+    return null;
+  }
+}
 
+/**
+ * Schickt dem Inhaber eines bestehenden Kontos eine Nachricht, dass jemand
+ * versucht hat, sich mit seiner Adresse erneut zu registrieren.
+ *
+ * Scheitert nie nach außen: Die Registrierung darf daran nicht hängen, und der
+ * Rückgabewert des Formulars bleibt in jedem Fall derselbe — sonst wäre am
+ * Antwortverhalten doch wieder ablesbar, ob es das Konto gibt.
+ */
+async function benachrichtigeUeberBestehendesKonto(kontoId: string): Promise<void> {
+  try {
     const heute = heuteInWien();
     await enqueueAndDispatch({
-      customerId: vorhanden.id,
+      customerId: kontoId,
       eventType: "konto_existiert",
       payload: { attemptedAt: heute },
       // Höchstens eine Nachricht je Konto und Tag. Ohne diese Sperre ließe sich
       // über das offene Registrierungsformular ein fremdes Postfach zuschütten.
-      dedupeKey: `konto_existiert:${vorhanden.id}:${heute}`,
+      dedupeKey: `konto_existiert:${kontoId}:${heute}`,
     });
   } catch (fehler) {
     console.error("benachrichtigeUeberBestehendesKonto fehlgeschlagen", fehler);

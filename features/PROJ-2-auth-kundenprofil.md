@@ -332,3 +332,15 @@ Zwei Probleme gleichzeitig: (1) `{{ .SiteURL }}` löste zu `localhost:3000` auf 
 4. Authentication → Email Templates → **„Reset Password"** verlinkt entsprechend mit `type=recovery&next=/passwort-zuruecksetzen`
 
 Diese vier Punkte sind rein Dashboard-seitig und werden von keinem Git-Commit/Deploy abgedeckt — sie können bei einem Supabase-Projekt-Reset oder manueller Fehlkonfiguration jederzeit wieder auf die (falschen) Standardwerte zurückfallen.
+
+### Nachtrag (2026-09-13): Zwei Mails bei der Registrierung, Reset-Link „ungültig oder abgelaufen"
+
+**Gemeldet:** Eine Neuregistrierung brachte zwei Mails — die Bestätigung von Supabase und „Du hast bereits ein Konto bei uns". Der Link aus einer Mail zum Passwort-Zurücksetzen endete auf „Der Bestätigungslink ist ungültig oder abgelaufen" (`/login?error=confirm_failed`, also von `/auth/confirm` abgelehnt).
+
+**Ursache 1 — belegt:** `signUp` suchte erst *nach* der Registrierung nach einem bestehenden Konto und fand das eben angelegte. Jetzt wird vorher gesucht, und nur ein **bestätigtes** Konto bekommt die Nachricht; bei einem nie bestätigten schickt Supabase die Bestätigungsmail selbst noch einmal (`src/lib/auth/bestehendes-konto.ts`). Der neue Unit-Test `src/lib/actions/auth.test.ts` schlägt gegen den alten Code an (2 von 3 rot).
+
+**Ursache 2 — plausibel, nicht belegt:** Einen Klick vor der Hydration spielt React danach über die `action` des Formulars nach, nicht über `onSubmit`. Alle vier Auth-Formulare verwarfen dort das Ergebnis: keine Bestätigung, keine Fehlermeldung, kein gesperrter Knopf. Wer es deshalb später noch einmal versuchte, löste eine zweite Mail aus — Supabase ersetzt dabei das Token, der Link der ersten Mail ist danach ungültig. (Innerhalb einer Minute lehnt Supabase eine zweite Mail an dieselbe Adresse ab.) Jetzt laufen beide Auslöser durch denselben Weg, und `AuthSubmitButton` sperrt über `useFormStatus` auch während des nachgespielten Absendens. Zwei E2E-Tests halten die Skripte bis nach dem Klick zurück; gegen die alten Formulare schlagen beide an, mit den neuen ist PROJ-2 in beiden Browsern grün (38/38).
+
+**Diagnose für den nächsten Fall:** `/auth/confirm` schreibt jetzt ins Vercel-Log, warum ein Link abgelehnt wurde (`code`, `status`, `type` — weder Token noch Adresse) oder dass er unvollständig war (dann stimmt die Mailvorlage im Dashboard nicht, siehe Nachtrag vom 2026-08-13).
+
+**Offen:** Welche Ursache den gemeldeten Reset-Link traf, zeigt erst das Supabase-Auth-Log der Produktion. Weitere Kandidaten, falls der Link schon beim ersten Öffnen abgelehnt wird: ein Mail-Programm oder Virenscanner, der Links vorab aufruft und das Einmal-Token verbraucht.
