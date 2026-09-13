@@ -343,4 +343,6 @@ Diese vier Punkte sind rein Dashboard-seitig und werden von keinem Git-Commit/De
 
 **Diagnose für den nächsten Fall:** `/auth/confirm` schreibt jetzt ins Vercel-Log, warum ein Link abgelehnt wurde (`code`, `status`, `type` — weder Token noch Adresse) oder dass er unvollständig war (dann stimmt die Mailvorlage im Dashboard nicht, siehe Nachtrag vom 2026-08-13).
 
+**Ausgeliefert:** 2026-09-14, Commits `84c48c8` (übersetzte Auth-Fehler, eigene Meldung beim Mail-Limit) und `fbce5d3` (dieser Nachtrag) — https://app.viennasalsastudio.at, keine Migration.
+
 **Offen:** Welche Ursache den gemeldeten Reset-Link traf, zeigt erst das Supabase-Auth-Log der Produktion. Weitere Kandidaten, falls der Link schon beim ersten Öffnen abgelehnt wird: ein Mail-Programm oder Virenscanner, der Links vorab aufruft und das Einmal-Token verbraucht.
