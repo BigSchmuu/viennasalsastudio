@@ -6,6 +6,7 @@ import {
   resetPasswordSchema,
   profileSchema,
 } from "./auth";
+import de from "../../../messages/de.json";
 
 describe("loginSchema", () => {
   it("accepts a valid email/password", () => {
@@ -63,11 +64,19 @@ describe("registerSchema", () => {
   });
 
   it("nennt in der Meldung die vollständige Anforderung, nicht nur die Länge", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", password: "passwortt" });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].message).toContain("Ziffer");
+    // Seit 2026-09-13 liefert das Schema Schlüssel statt deutscher Sätze (das
+    // Formular übersetzt sie). Die Absicht bleibt: Jeder Verstoß — Länge,
+    // Ziffer, Groß- oder Kleinbuchstabe — führt auf dieselbe vollständige
+    // Anforderung, nie auf eine Meldung, die nur die Länge nennt.
+    for (const password of ["Passw1r", "Passwortt", "passwort1", "PASSWORT1"]) {
+      const result = registerSchema.safeParse({ email: "a@b.com", password });
+      expect(result.success, password).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message, password).toBe("passwordHint");
+      }
     }
+    // Und der Text hinter dem Schlüssel nennt die Ziffer tatsächlich.
+    expect(de.auth.passwordHint).toContain("Ziffer");
   });
 });
 

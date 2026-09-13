@@ -362,7 +362,19 @@
     "weakPassword": "This password appears in known data breaches and is therefore unsafe. Please choose a different one.",
     "passwordHint": "At least 8 characters, including upper and lower case letters and at least one digit",
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errSignupFailed": "Sign-up failed. Please try again.",
+    "errResendFailed": "The confirmation email could not be sent.",
+    "errLinkExpired": "This link has expired or was already used. Please request a new one.",
+    "errEmailRateLimit": "Too many emails were sent just now. Please try again in about an hour.",
+    "errRequestRateLimit": "Too many attempts in a short time. Please wait a moment and try again.",
+    "errInvalidInput": "Invalid input",
+    "valEmailRequired": "Email is required",
+    "valEmailInvalid": "Invalid email address",
+    "valPasswordRequired": "Password is required",
+    "valConfirmRequired": "Please confirm your password",
+    "valPasswordsDiffer": "Passwords don't match"
   },
   "legal": {
     "termsTitle": "Terms and Conditions",

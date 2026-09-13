@@ -15,8 +15,9 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
+import { AuthFormMessage } from "@/components/auth/auth-form-message";
+import { fehlertext } from "@/lib/auth/fehler";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 
@@ -42,9 +43,7 @@ export function ResetPasswordForm() {
       const result = await resetPassword(formData);
 
       if ("error" in result) {
-        setFormError(
-          result.error === "weak_password" ? t("weakPassword") : result.error
-        );
+        setFormError(fehlertext(t, result.error));
         return;
       }
 
@@ -70,8 +69,9 @@ export function ResetPasswordForm() {
           <Alert variant="destructive">
             <AlertDescription>
               {formError}{" "}
+              {/* Stand fest auf Deutsch, obwohl der Schlüssel längst existierte. */}
               <Link href="/passwort-vergessen" className="underline">
-                Neuen Link anfordern
+                {t("requestNewLink")}
               </Link>
             </AlertDescription>
           </Alert>
@@ -87,7 +87,7 @@ export function ResetPasswordForm() {
                 <PasswordInput autoComplete="new-password" {...field} />
               </FormControl>
               <FormDescription>{t("passwordHint")}</FormDescription>
-              <FormMessage />
+              <AuthFormMessage />
             </FormItem>
           )}
         />
@@ -101,7 +101,7 @@ export function ResetPasswordForm() {
               <FormControl>
                 <PasswordInput autoComplete="new-password" {...field} />
               </FormControl>
-              <FormMessage />
+              <AuthFormMessage />
             </FormItem>
           )}
         />

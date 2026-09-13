@@ -18,8 +18,9 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
+import { AuthFormMessage } from "@/components/auth/auth-form-message";
+import { fehlertext } from "@/lib/auth/fehler";
 
 export function RegisterForm() {
   const t = useTranslations("auth");
@@ -44,9 +45,9 @@ export function RegisterForm() {
       const result = await signUp(formData);
 
       if ("error" in result) {
-        setFormError(
-          result.error === "weak_password" ? t("weakPassword") : result.error
-        );
+        // Auch das Mailversand-Limit hat jetzt eine eigene Meldung — vorher war
+        // es nicht von „Registrierung fehlgeschlagen" zu unterscheiden.
+        setFormError(fehlertext(t, result.error));
         return;
       }
 
@@ -94,7 +95,7 @@ export function RegisterForm() {
               <FormControl>
                 <Input type="email" autoComplete="email" placeholder={t("emailPlaceholder")} {...field} />
               </FormControl>
-              <FormMessage />
+              <AuthFormMessage />
             </FormItem>
           )}
         />
@@ -109,7 +110,7 @@ export function RegisterForm() {
                 <PasswordInput autoComplete="new-password" {...field} />
               </FormControl>
               <FormDescription>{t("passwordHint")}</FormDescription>
-              <FormMessage />
+              <AuthFormMessage />
             </FormItem>
           )}
         />

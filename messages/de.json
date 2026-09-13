@@ -362,7 +362,19 @@
     "weakPassword": "Dieses Passwort taucht in bekannten Datenlecks auf und ist damit unsicher. Bitte wähle ein anderes.",
     "passwordHint": "Mindestens 8 Zeichen mit Groß- und Kleinbuchstaben und mindestens einer Ziffer",
     "showPassword": "Passwort anzeigen",
-    "hidePassword": "Passwort verbergen"
+    "hidePassword": "Passwort verbergen",
+    "errInvalidCredentials": "E-Mail oder Passwort falsch",
+    "errSignupFailed": "Registrierung fehlgeschlagen. Bitte versuche es erneut.",
+    "errResendFailed": "Bestätigungs-E-Mail konnte nicht gesendet werden.",
+    "errLinkExpired": "Der Link ist abgelaufen oder wurde bereits verwendet. Bitte fordere einen neuen Link an.",
+    "errEmailRateLimit": "Gerade wurden zu viele E-Mails verschickt. Bitte versuche es in etwa einer Stunde erneut.",
+    "errRequestRateLimit": "Zu viele Versuche in kurzer Zeit. Bitte warte einen Moment und versuche es dann erneut.",
+    "errInvalidInput": "Ungültige Eingabe",
+    "valEmailRequired": "E-Mail ist erforderlich",
+    "valEmailInvalid": "Ungültige E-Mail-Adresse",
+    "valPasswordRequired": "Passwort ist erforderlich",
+    "valConfirmRequired": "Bitte bestätige dein Passwort",
+    "valPasswordsDiffer": "Passwörter stimmen nicht überein"
   },
   "legal": {
     "termsTitle": "Allgemeine Geschäftsbedingungen",

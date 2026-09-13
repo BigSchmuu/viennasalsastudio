@@ -18,8 +18,9 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
+import { AuthFormMessage } from "@/components/auth/auth-form-message";
+import { fehlertext } from "@/lib/auth/fehler";
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const t = useTranslations("auth");
@@ -49,7 +50,9 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         if (result.error === "email_not_confirmed") {
           setNeedsConfirmation(true);
         } else {
-          setFormError(result.error);
+          // Ein Schlüssel, in der Sprache der Seite angezeigt — vorher stand
+          // „E-Mail oder Passwort falsch" auch auf der englischen Seite.
+          setFormError(fehlertext(t, result.error));
         }
         return;
       }
@@ -121,7 +124,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
               <FormControl>
                 <Input type="email" autoComplete="email" placeholder={t("emailPlaceholder")} {...field} />
               </FormControl>
-              <FormMessage />
+              <AuthFormMessage />
             </FormItem>
           )}
         />
@@ -135,7 +138,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
               <FormControl>
                 <PasswordInput autoComplete="current-password" {...field} />
               </FormControl>
-              <FormMessage />
+              <AuthFormMessage />
             </FormItem>
           )}
         />

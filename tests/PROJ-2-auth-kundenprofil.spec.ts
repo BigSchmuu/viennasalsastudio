@@ -45,11 +45,16 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
       await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
       await page.waitForTimeout(1000);
       await page.getByRole("button", { name: "Einloggen" }).click();
-      await page.waitForTimeout(2500);
 
-      expect(page.url()).not.toContain("example.com");
+      // Erst auf das Ziel warten, dann prüfen. Vorher las der Test die URL nach
+      // einer festen Wartezeit — kompilierte der Dev-Server /mein-bereich
+      // länger, stand dort noch „/login?redirect=https%3A%2F%2Fexample.com…",
+      // und die Zusicherung schlug an einem harmlosen Parameter an, obwohl
+      // die Weiterleitung korrekt ankam (2026-09-13).
       // Seit PROJ-45 ist /mein-bereich der Rückfall für Kunden, nicht /profil.
-      await expect(page).toHaveURL(/\/mein-bereich$/);
+      await expect(page).toHaveURL(/\/mein-bereich$/, { timeout: 20000 });
+      // Jetzt aussagekräftig: der Host, nicht ein Teilstring irgendwo in der URL.
+      expect(new URL(page.url()).hostname).not.toBe("example.com");
 
       // Zum Abmelden ins Profil: dort steht der Knopf auf der Seite selbst.
       // Der in der Navigation liegt am Telefon hinter dem Menü.

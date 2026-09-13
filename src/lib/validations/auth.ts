@@ -19,8 +19,11 @@ import { z } from "zod";
  * muessen sich weiterhin anmelden koennen. Die Regel gilt nur, wenn ein
  * Passwort neu gesetzt wird.
  */
-const PASSWORT_HINWEIS =
-  "Mindestens 8 Zeichen mit Groß- und Kleinbuchstaben und mindestens einer Ziffer";
+// Schlüssel im Namensraum `auth`, keine fertigen Sätze (2026-09-13): Die
+// Formulare übersetzen sie über `AuthFormMessage`. Vorher standen die
+// deutschen Sätze auch auf der englischen Seite. `passwordHint` ist derselbe
+// Text, der schon als Hinweis unter dem Feld steht.
+const PASSWORT_HINWEIS = "passwordHint";
 
 const neuesPasswort = z
   .string()
@@ -30,21 +33,21 @@ const neuesPasswort = z
   .regex(/[0-9]/, PASSWORT_HINWEIS);
 
 export const loginSchema = z.object({
-  email: z.string().min(1, "E-Mail ist erforderlich").email("Ungültige E-Mail-Adresse"),
-  password: z.string().min(1, "Passwort ist erforderlich"),
+  email: z.string().min(1, "valEmailRequired").email("valEmailInvalid"),
+  password: z.string().min(1, "valPasswordRequired"),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
 export const registerSchema = z.object({
-  email: z.string().min(1, "E-Mail ist erforderlich").email("Ungültige E-Mail-Adresse"),
+  email: z.string().min(1, "valEmailRequired").email("valEmailInvalid"),
   password: neuesPasswort,
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().min(1, "E-Mail ist erforderlich").email("Ungültige E-Mail-Adresse"),
+  email: z.string().min(1, "valEmailRequired").email("valEmailInvalid"),
 });
 
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
@@ -52,10 +55,10 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export const resetPasswordSchema = z
   .object({
     password: neuesPasswort,
-    confirmPassword: z.string().min(1, "Bitte bestätige dein Passwort"),
+    confirmPassword: z.string().min(1, "valConfirmRequired"),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwörter stimmen nicht überein",
+    message: "valPasswordsDiffer",
     path: ["confirmPassword"],
   });
 

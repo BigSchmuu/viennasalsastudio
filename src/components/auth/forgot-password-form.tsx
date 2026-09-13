@@ -16,8 +16,9 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
+import { AuthFormMessage } from "@/components/auth/auth-form-message";
+import { fehlertext } from "@/lib/auth/fehler";
 
 export function ForgotPasswordForm() {
   const t = useTranslations("auth");
@@ -41,7 +42,7 @@ export function ForgotPasswordForm() {
       const result = await requestPasswordReset(formData);
 
       if ("error" in result) {
-        setFormError(result.error);
+        setFormError(fehlertext(t, result.error));
         return;
       }
 
@@ -88,7 +89,7 @@ export function ForgotPasswordForm() {
               <FormControl>
                 <Input type="email" autoComplete="email" placeholder={t("emailPlaceholder")} {...field} />
               </FormControl>
-              <FormMessage />
+              <AuthFormMessage />
             </FormItem>
           )}
         />

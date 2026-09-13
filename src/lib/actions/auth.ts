@@ -5,6 +5,12 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 import { heuteInWien } from "@/lib/constants/zeitzone";
 import {
+  anmeldefehler,
+  registrierungsfehler,
+  bestaetigungsfehler,
+  zuruecksetzfehler,
+} from "@/lib/auth/fehler";
+import {
   loginSchema,
   registerSchema,
   forgotPasswordSchema,
@@ -22,17 +28,17 @@ export async function signIn(formData: FormData): Promise<SignInResult> {
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
+    return { error: parsed.error.issues[0]?.message ?? "errInvalidInput" };
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
-    if (error.code === "email_not_confirmed") {
-      return { error: "email_not_confirmed" };
-    }
-    return { error: "E-Mail oder Passwort falsch" };
+    // Ein Schlüssel statt eines Satzes — das Formular übersetzt ihn. Und ein
+    // erreichtes Limit wird benannt, statt als „falsches Passwort" zu
+    // erscheinen (siehe lib/auth/fehler.ts).
+    return { error: anmeldefehler(error.code) };
   }
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single();
@@ -46,7 +52,7 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
+    return { error: parsed.error.issues[0]?.message ?? "errInvalidInput" };
   }
 
   const supabase = await createClient();
@@ -76,10 +82,10 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
     // der Kunde „bitte versuche es erneut" — und derselbe Versuch schlüge
     // wieder fehl, endlos. Der Code wird wie email_not_confirmed vom Formular
     // übersetzt.
-    if (error.code === "weak_password") {
-      return { error: "weak_password" };
-    }
-    return { error: "Registrierung fehlgeschlagen. Bitte versuche es erneut." };
+    // Bisher wurde alles außer „schwaches Passwort" zu „Registrierung
+    // fehlgeschlagen, bitte erneut" — auch ein erreichtes Mailversand-Limit,
+    // bei dem der nächste Versuch genauso scheitert.
+    return { error: registrierungsfehler(error.code) };
   }
 
   return { success: true };
@@ -88,7 +94,7 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
 export async function resendConfirmationEmail(email: string): Promise<ActionResult> {
   const parsed = forgotPasswordSchema.safeParse({ email });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
+    return { error: parsed.error.issues[0]?.message ?? "errInvalidInput" };
   }
 
   const supabase = await createClient();
@@ -98,7 +104,7 @@ export async function resendConfirmationEmail(email: string): Promise<ActionResu
   });
 
   if (error) {
-    return { error: "Bestätigungs-E-Mail konnte nicht gesendet werden." };
+    return { error: bestaetigungsfehler(error.code) };
   }
 
   return { success: true };
@@ -109,7 +115,7 @@ export async function requestPasswordReset(formData: FormData): Promise<ActionRe
     email: formData.get("email"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
+    return { error: parsed.error.issues[0]?.message ?? "errInvalidInput" };
   }
 
   const supabase = await createClient();
@@ -128,7 +134,7 @@ export async function resetPassword(formData: FormData): Promise<ActionResult> {
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
+    return { error: parsed.error.issues[0]?.message ?? "errInvalidInput" };
   }
 
   const supabase = await createClient();
@@ -138,10 +144,7 @@ export async function resetPassword(formData: FormData): Promise<ActionResult> {
     // Vor der Link-Meldung prüfen: ein abgelehntes Passwort hat mit dem Link
     // nichts zu tun, und „Link abgelaufen" schickt den Kunden auf die falsche
     // Fährte.
-    if (error.code === "weak_password") {
-      return { error: "weak_password" };
-    }
-    return { error: "Der Link ist abgelaufen oder wurde bereits verwendet. Bitte fordere einen neuen Link an." };
+    return { error: zuruecksetzfehler(error.code) };
   }
 
   return { success: true };
