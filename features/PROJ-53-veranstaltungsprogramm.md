@@ -1,6 +1,6 @@
 # PROJ-53: Veranstaltungsprogramm
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-09-14
 **Last Updated:** 2026-09-14
 
@@ -342,7 +342,8 @@ Keine neuen Pakete.
 ### Automatisierte Tests
 - **Unit- und Datenbanktests:** 53 Dateien, 597 Tests grün. Neu: Status-Regel, Terminzeile, Adressen, Event-Daten, Schema und 11 Datenbanktests (`tests/PROJ-53-events-db.test.ts`).
 - **Neue E2E-Tests** `tests/PROJ-53-veranstaltungsprogramm.spec.ts`: 19 Tests × 2 Browser, 38/38 grün.
-- **Regression** (PROJ-2, PROJ-8, PROJ-14, PROJ-42, PROJ-43, PROJ-45): 216/222 im ersten Lauf. Zwei Tests (je beide Browser) erwarteten die alte Überschrift „Events & Workshops" bzw. „Events & workshops" — gewollte Textänderung, Tests angepasst, im Nachtest grün. PROJ-14 „AC5, AC10" bleibt in beiden Browsern rot → BUG-1.
+- **Regression** (PROJ-2, PROJ-8, PROJ-14, PROJ-42, PROJ-43, PROJ-45): 216/222 im ersten Lauf. Zwei Tests (je beide Browser) erwarteten die alte Überschrift „Events & Workshops" bzw. „Events & workshops" — gewollte Textänderung, Tests angepasst, im Nachtest grün. PROJ-14 „AC5, AC10" war in beiden Browsern rot → BUG-1; nach der Behebung grün.
+- **Nachtest nach Behebung von BUG-1 und BUG-2:** PROJ-14 komplett und PROJ-53 in beiden Browsern 62/62 grün; Unit- und Datenbanktests 54 Dateien, 601 Tests (davon 4 neue für die Fehlerschlüssel beim Ticketkauf).
 - **Komplette E2E-Suite:** bewusst noch nicht gelaufen. Sie läuft einmal nach PROJ-54 bis PROJ-56, vor dem gemeinsamen Deploy (Absprache mit dem Betreiber vom 2026-09-14).
 
 ### Acceptance Criteria Status
@@ -366,7 +367,7 @@ Keine neuen Pakete.
 - [x] Filter nur mit Arten, zu denen es kommende Events gibt (E2E)
 - [x] Filter ohne Treffer: Hinweis und „Filter zurücksetzen" (E2E)
 - [x] Leerzustand ohne kommende Events (Code geprüft — in der geteilten Testdatenbank nicht herstellbar)
-- [ ] **BUG-1:** Die Karte soll bei „Tickets in der App" die Verfügbarkeit zeigen — für Kunden mit Ticket fehlt sie
+- [x] Die Karte zeigt bei „Tickets in der App" die Verfügbarkeit, auch für Kunden mit Ticket (BUG-1 behoben; E2E)
 - [x] Termin: ein Abend als von–bis, mehrere Tage als Zeitraum (Unit)
 - [x] „Nur anzeigen": „Eintritt vor Ort" statt Verfügbarkeit, kein Kaufknopf (E2E)
 - [x] Laufendes Event bleibt sichtbar und bis zum Ende kaufbar (E2E und Datenbanktest)
@@ -377,7 +378,7 @@ Keine neuen Pakete.
 - [x] Abgesagt oder vorbei: Hinweis statt Kaufknopf, kein „nicht gefunden" (E2E)
 - [x] Nach dem Login zurück auf dieselbe Eventseite in derselben Sprache (E2E, Englisch)
 - [x] „Du hast ein Ticket" statt „Ticket kaufen", mit Link in den geöffneten Ticket-Abschnitt (E2E)
-- [ ] **BUG-2:** Auf Englisch sollen alle festen Texte englisch sein — die Fehlermeldungen beim Ticketkauf sind deutsch
+- [x] Auf Englisch sind alle festen Texte englisch, auch die Fehlermeldungen beim Ticketkauf (BUG-2 behoben; Unit-Test für jede Ablehnung und beide Sprachen)
 
 #### Google-Suche
 - [x] Lesbare Adresse aus dem Namen (E2E Anlegen), eindeutig bei gleichem Namen (Unit und eindeutige Spalte)
@@ -404,7 +405,7 @@ Keine neuen Pakete.
 - [x] „Nur anzeigen" ohne Preis zeigt keine Preiszeile (E2E)
 - [x] Umstellen ohne verkaufte Tickets ist erlaubt (Code; die Datenbank-Sperre greift nur bei gültigen Tickets)
 - [x] Kauf während einer laufenden Veranstaltung nennt die abgelaufene Stornofrist (E2E)
-- [ ] Nicht bestätigt: Ausgebucht, dann Storno zeigt die Verfügbarkeit sofort wieder — der PROJ-14-Test bricht vorher an BUG-1 ab
+- [x] Storno gibt den Platz sofort frei, die Verfügbarkeit steigt wieder (PROJ-14 „AC5, AC10", nach der Behebung von BUG-1 grün)
 - [x] Bestand ohne Art und Adresse: Die Migration vergibt beides (Pflichtfelder in der Testdatenbank gesetzt)
 
 ### Security Audit Results
@@ -427,6 +428,7 @@ Keine neuen Pakete.
   4. Actual: „Du hast ein Ticket" steht an der Stelle der Verfügbarkeit, die freien Plätze fehlen
 - **Ursache:** `EventVerfuegbarkeit` (`src/components/events/event-angaben.tsx`) zeigt bei „ticketVorhanden" nur das Abzeichen statt zusätzlich die Verfügbarkeit.
 - **Priority:** Fix before deployment
+- **Status:** Behoben (2026-09-14). `EventVerfuegbarkeit` zeigt bei vorhandenem Ticket das Abzeichen und dazu die freien Plätze bzw. „Ausgebucht"; der PROJ-53-Test „Kunde mit Ticket" prüft das, PROJ-14 „AC5, AC10" ist wieder grün.
 
 #### BUG-2: Fehlermeldungen beim Ticketkauf auf der englischen Seite deutsch
 - **Severity:** Low
@@ -435,17 +437,19 @@ Keine neuen Pakete.
   2. Expected: englische Fehlermeldung
   3. Actual: z. B. „Dieses Event ist nicht mehr buchbar." — die Server-Aktion `purchaseTicket` liefert feste deutsche Sätze. Bestand schon vor PROJ-53; „ausgebucht" und „Mandat fehlt" sind bereits übersetzt.
 - **Priority:** Nice to have — vor dem gemeinsamen Deploy sinnvoll, weil PROJ-53 englische Texte zusagt
+- **Status:** Behoben (2026-09-14). `purchaseTicket` liefert Schlüssel (`errNotLoggedIn`, `errTermsRequired`, `errEventClosed`, `errPurchaseFailed`), der Kaufdialog übersetzt sie; die deutschen Texte sind wortgleich geblieben. `src/lib/actions/events.test.ts` prüft jede Ablehnung und beide Sprachen.
 
 ### Beobachtungen ohne Befund
 - Der Testserver meldet beim PROJ-43-Test „Rücksetz-Link aus der E-Mail" wiederholt „aborted": Der Test verlässt die Seite, während sie noch lädt. Kein Zusammenhang mit PROJ-53.
 - Der abgebrochene PROJ-14-Test hinterlässt je Browser ein reserviertes Ticket für „E2E14 Kaufen Event"; das Zurücksetzen der Testdaten in PROJ-14 storniert es beim nächsten Lauf.
+- **Nicht Teil von PROJ-53, eigenes Ticket sinnvoll:** Der Profil-Abschnitt „Meine Tickets" ist auf Englisch weitgehend deutsch — Storno-Meldungen der Server-Aktion `cancelTicket`, der Bestätigungstext, das Datum (fest `de-AT`), Zahlungsart und Ticketstatus. Auch `booking.ts` und `self-checkin.ts` liefern feste deutsche Fehlersätze. Bestand schon vor PROJ-53.
 
 ### Summary
-- **Acceptance Criteria:** 32/34 bestanden
-- **Bugs Found:** 2 (0 Critical, 1 High, 0 Medium, 1 Low)
+- **Acceptance Criteria:** 34/34 bestanden (nach der Behebung)
+- **Bugs Found:** 2 (0 Critical, 1 High, 0 Medium, 1 Low) — beide behoben und nachgetestet
 - **Security:** bestanden
-- **Production Ready:** NEIN — BUG-1 vorher beheben
-- **Recommendation:** BUG-1 und BUG-2 beheben, gezielt nachtesten (PROJ-14, PROJ-53); die komplette Suite nach PROJ-54 bis PROJ-56
+- **Production Ready:** JA — ausgeliefert wird gemeinsam mit PROJ-54 bis PROJ-56, nach der kompletten E2E-Suite
+- **Recommendation:** Weiter mit PROJ-54. Vor dem gemeinsamen Deploy: komplette Suite, dann die Migrationen in der Produktion, dann der Code
 
 ## Deployment
 _To be added by /deploy_

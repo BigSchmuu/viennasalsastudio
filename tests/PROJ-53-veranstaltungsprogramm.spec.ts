@@ -313,6 +313,8 @@ test.describe("PROJ-53: Veranstaltungsprogramm", () => {
     await gehZu(page, "/events/e2e53-bachata-workshop");
     await expect(page.getByText("Du hast ein Ticket")).toBeVisible();
     await expect(page.getByRole("button", { name: "Ticket kaufen" })).toHaveCount(0);
+    // BUG-1: Das Abzeichen ersetzt nur den Kaufknopf — die freien Plätze bleiben sichtbar.
+    await expect(page.getByText(/Noch \d+ Plätze frei/)).toBeVisible();
 
     await page.waitForTimeout(1500);
     await page.getByRole("link", { name: "Zum Ticket" }).click();

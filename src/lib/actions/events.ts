@@ -16,8 +16,16 @@ type TicketRow = {
   status: string;
 };
 
+/**
+ * Fehler beim Ticketkauf als Schlüssel im Namensraum `events` — der Kaufdialog
+ * übersetzt sie in die Sprache der Seite. Vorher kamen feste deutsche Sätze,
+ * und auf der englischen Eventseite stand „Dieses Event ist nicht mehr
+ * buchbar." (PROJ-53, BUG-2). Die deutschen Texte sind wortgleich geblieben.
+ */
+export type TicketKaufFehler = "errNotLoggedIn" | "errTermsRequired" | "errEventClosed" | "errPurchaseFailed";
+
 type PurchaseTicketResult =
-  | { error: string }
+  | { error: TicketKaufFehler }
   | { needsMandate: true }
   | { full: true }
   | { success: true; ticket: TicketRow };
@@ -35,11 +43,11 @@ export async function purchaseTicket(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { error: "Nicht eingeloggt" };
+    return { error: "errNotLoggedIn" };
   }
 
   if (!termsAccepted) {
-    return { error: "Bitte bestätige zuerst die AGB." };
+    return { error: "errTermsRequired" };
   }
 
   const { data, error } = await supabase.rpc("purchase_event_ticket", {
@@ -57,10 +65,11 @@ export async function purchaseTicket(
     if (error.message.includes("event is full")) {
       return { full: true };
     }
+    // „event not open": abgesagt, vorbei oder „Nur anzeigen" (PROJ-53).
     if (error.message.includes("event not open")) {
-      return { error: "Dieses Event ist nicht mehr buchbar." };
+      return { error: "errEventClosed" };
     }
-    return { error: "Ticket-Kauf war nicht möglich. Bitte versuche es erneut." };
+    return { error: "errPurchaseFailed" };
   }
 
   const ticket = data as TicketRow;

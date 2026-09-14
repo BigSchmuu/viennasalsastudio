@@ -40,7 +40,20 @@ export function EventVerfuegbarkeit({ zustand, plaetze }: { zustand: EventZustan
     case "ausgebucht":
       return <Badge variant="destructive">{t("soldOut")}</Badge>;
     case "ticketVorhanden":
-      return <Badge variant="secondary">{t("hasTicket")}</Badge>;
+      // Das Abzeichen kommt dazu, die Verfügbarkeit bleibt: „Du hast ein
+      // Ticket" ersetzt nur den Kaufknopf. Ohne die Zahl fehlte Ticket-
+      // Inhabern die Auskunft, ob Freunde noch einen Platz finden
+      // (PROJ-53, BUG-1).
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">{t("hasTicket")}</Badge>
+          {plaetze === null ? null : plaetze === 0 ? (
+            <Badge variant="destructive">{t("soldOut")}</Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">{t("spotsLeft", { count: plaetze })}</span>
+          )}
+        </div>
+      );
     case "nurAnzeigen":
       return <p className="text-sm text-muted-foreground">{t("onSite")}</p>;
     case "abgesagt":

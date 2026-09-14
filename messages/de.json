@@ -135,7 +135,11 @@
     "orPayOnSite": "oder vor Ort zahlen.",
     "paymentSepa": "SEPA-Lastschrift",
     "paymentOnsite": "Vor Ort zahlen",
-    "sepaInstant": "sofort bestätigt"
+    "sepaInstant": "sofort bestätigt",
+    "errNotLoggedIn": "Nicht eingeloggt",
+    "errTermsRequired": "Bitte bestätige zuerst die AGB.",
+    "errEventClosed": "Dieses Event ist nicht mehr buchbar.",
+    "errPurchaseFailed": "Ticket-Kauf war nicht möglich. Bitte versuche es erneut."
   },
   "booking": {
     "tabRegular": "Anmeldung",

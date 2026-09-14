@@ -135,7 +135,11 @@
     "orPayOnSite": "or pay on site.",
     "paymentSepa": "SEPA direct debit",
     "paymentOnsite": "Pay on site",
-    "sepaInstant": "confirmed instantly"
+    "sepaInstant": "confirmed instantly",
+    "errNotLoggedIn": "You're not logged in.",
+    "errTermsRequired": "Please accept the terms first.",
+    "errEventClosed": "This event can no longer be booked.",
+    "errPurchaseFailed": "The ticket purchase didn't go through. Please try again."
   },
   "booking": {
     "tabRegular": "Enrol",

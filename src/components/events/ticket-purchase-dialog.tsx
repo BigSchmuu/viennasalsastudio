@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { purchaseTicket } from "@/lib/actions/events";
 import type { TicketPaymentMethod } from "@/lib/constants/events";
+import { fehlertext } from "@/lib/auth/fehler";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/pricing";
@@ -64,7 +65,8 @@ export function TicketPurchaseDialog({
       const result = await purchaseTicket(event.id, paymentMethod, wantsStudentPrice, termsAccepted);
 
       if ("error" in result) {
-        setError(result.error);
+        // Ein Schlüssel, in der Sprache der Seite angezeigt (PROJ-53, BUG-2).
+        setError(fehlertext(t, result.error));
         return;
       }
       if ("needsMandate" in result) {
