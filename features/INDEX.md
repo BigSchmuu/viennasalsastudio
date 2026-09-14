@@ -85,6 +85,8 @@
 
 | PROJ-56 | Ticketarten, Pässe & Einheiten | Planned | [PROJ-56](../features/PROJ-56-ticketarten-paesse.md) | 2026-09-14 |
 
+| PROJ-57 | Suchmaschinen-Grundlagen für öffentliche Seiten (Sitemap, DE/EN-Verknüpfung) | Roadmap | — | 2026-09-14 |
+
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-57
+## Next Available ID: PROJ-58
