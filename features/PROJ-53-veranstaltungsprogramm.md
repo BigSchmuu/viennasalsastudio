@@ -300,6 +300,38 @@ Keine neuen Pakete.
 - **Bestandsdaten**: Start-Eventart und Adresse aus dem Namen für bestehende Test-Events.
 - Danach `types.ts` erzeugen und mit der Handfassung abgleichen.
 
+## Implementation Notes (Backend)
+
+**Stand 2026-09-14:** Die Migration `supabase/migrations/20260914100000_proj53_veranstaltungsprogramm.sql` ist in der **Testdatenbank** eingespielt (vom Betreiber). Alle Unit- und Datenbanktests sind grün: 53 Dateien, 597 Tests, davon 11 neue in `tests/PROJ-53-events-db.test.ts`. In der Produktion ist sie noch **nicht** eingespielt.
+
+### Datenbank
+- **`event_types`**: Name 1–60 Zeichen, eindeutig ohne Groß-/Kleinschreibung; RLS lesen für alle, schreiben nur Admin (Muster Tanzstile).
+- **`events`**: neu `event_type_id` (Pflicht, Fremdschlüssel mit Löschsperre), `sales_mode` (`display` oder `tickets`, Vorgabe `tickets`) und `slug` (Pflicht, eindeutig, Format `a-z0-9` mit Bindestrichen). `capacity`, `price_normal` und `price_student` dürfen leer sein; die Prüfregel `events_tickets_vollstaendig` verlangt sie bei `tickets`.
+- **`event_previous_slugs`**: frühere Adressen mit Verweis aufs Event (bei dessen Löschung mit gelöscht), `slug` eindeutig; RLS lesen für alle, schreiben nur Admin.
+- **Bestand**: Die Test-Events bekamen die Start-Eventart „Workshop" und eine Adresse aus ihrem Namen; gleich lautende Namen den Anfang ihrer Kennung angehängt.
+- **Trigger `events_verkaufsart_pruefen`**: lehnt den Wechsel auf `display` ab, solange gültige Tickets bestehen. Läuft als SECURITY DEFINER — mit den Rechten des Aufrufers könnte eine RLS-Regel die Tickets verbergen, und die Sperre ließe stumm durch.
+- **`purchase_event_ticket`**: kaufbar bis zum Ende, ohne Ende bis Mitternacht Wiener Zeit; bei `display` abgelehnt; Kapazität nur geprüft, wenn gesetzt. Gleiche Signatur wie in PROJ-42, deshalb `create or replace` ohne `drop` — die Berechtigungen der Funktion bleiben erhalten, die AGB-Prüfung ebenso.
+
+### Server
+- Keine neuen API-Routen: Events laufen wie bisher über Server-Aktionen und RLS.
+- Die Admin-Aktion übersetzt den Trigger-Fehler in dieselbe Meldung wie ihre Vorabprüfung — für den Fall, dass zwischen Prüfung und Speichern ein Ticket verkauft wird.
+
+### Tests gegen die Testdatenbank (`tests/PROJ-53-events-db.test.ts`)
+- Kauf während eines laufenden Events klappt; nach dem Ende und bei einem Event ohne Ende nach Mitternacht Wiener Zeit nicht.
+- „Nur anzeigen" verkauft nichts, auch nicht per direktem Aufruf der Kauffunktion.
+- Der Wechsel auf „Nur anzeigen" ist mit gültigen Tickets gesperrt, auch mit Service-Rechten.
+- Bei Tickets sind Kapazität und Preise Pflicht, bei „Nur anzeigen" nicht; Adressen nur im lesbaren Format.
+- Eine Eventart mit zugeordneten Events lässt sich nicht löschen.
+- Besucher ohne Konto lesen Eventarten und frühere Adressen (geprüft an einer echten Zeile, nicht nur „kein Fehler"); Kunden können keine Eventart anlegen.
+
+### Auslieferung
+- **Produktion: erst die Migration** (Betreiber, SQL-Editor), **dann der Code**. Der bisher ausgelieferte Code legt Events ohne Eventart und Adresse an und scheitert nach der Migration daran — in den Minuten dazwischen kein Event anlegen.
+- `src/lib/supabase/types.ts` ist weiterhin von Hand ergänzt. Tabellen- und Spaltennamen stimmen mit der eingespielten Migration überein (der Datenbanktest verwendet dieselben); neu erzeugen, sobald die Supabase-Verbindung wieder steht.
+
+### Offen für `/qa`
+- E2E-Tests zu PROJ-14 und PROJ-45 an die neuen Karten, die Überschrift „Events & Partys", die Kaufgrenze und die Verkaufsart anpassen.
+- Neue E2E-Tests für Eventseite, Filter, Weiterleitung früherer Adressen, Admin „Eventarten", Profil-Anker und die englische Seite.
+
 ## QA Test Results
 _To be added by /qa_
 
