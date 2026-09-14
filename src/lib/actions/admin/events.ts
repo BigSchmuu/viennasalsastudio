@@ -184,6 +184,13 @@ export async function updateEvent(eventId: string, formData: FormData): Promise<
     if (error.code === "23505") {
       return { error: "Die neue Adresse wurde gerade vergeben. Bitte noch einmal speichern." };
     }
+    // Die Datenbank sperrt „Nur anzeigen" bei gültigen Tickets auch dann, wenn
+    // zwischen der Prüfung oben und dem Speichern ein Ticket verkauft wurde.
+    if (error.message.includes("event has valid tickets")) {
+      return {
+        error: "Für dieses Event wurden inzwischen Tickets verkauft. „Nur anzeigen“ ist erst möglich, wenn keine gültigen Tickets mehr bestehen.",
+      };
+    }
     console.error("Event konnte nicht gespeichert werden", error);
     return { error: "Event konnte nicht gespeichert werden." };
   }
