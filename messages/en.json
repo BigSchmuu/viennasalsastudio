@@ -97,8 +97,8 @@
     "openInMap": "(open in map)"
   },
   "events": {
-    "heading": "Events & workshops",
-    "subheading": "Special occasions beyond the regular schedule",
+    "heading": "Events & parties",
+    "subheading": "Parties, workshops and more — see what's on at the studio.",
     "empty": "No events are scheduled right now.",
     "soldOut": "Sold out",
     "loginToBuy": "Log in to buy a ticket",
@@ -111,7 +111,31 @@
     "full": "This event has sold out in the meantime.",
     "confirmed": "Ticket confirmed! You'll find it with its QR code in your profile.",
     "reserved": "Ticket reserved! Please pay on site.",
-    "studentPriceLabel": "students {price}"
+    "studentPriceLabel": "students {price}",
+    "sectionSpecial": "Special events",
+    "filterLabel": "Filter by event type",
+    "filterAll": "All",
+    "filterEmpty": "There are no upcoming events of this type right now.",
+    "filterReset": "Reset filter",
+    "onSite": "Pay at the door",
+    "hasTicket": "You have a ticket",
+    "viewTicket": "View ticket",
+    "cancelled": "Cancelled",
+    "past": "Already took place",
+    "cancelledHint": "This event has been cancelled.",
+    "pastHint": "This event has already taken place.",
+    "backToOverview": "All events",
+    "priceFree": "Free",
+    "noCancellation": "The cancellation period has already ended — you won't be able to cancel this ticket yourself.",
+    "when": "When",
+    "where": "Where",
+    "metaDescription": "{type} at Vienna Salsa Studio · {date}",
+    "noMandate": "No SEPA mandate on file.",
+    "addMandate": "Add one now",
+    "orPayOnSite": "or pay on site.",
+    "paymentSepa": "SEPA direct debit",
+    "paymentOnsite": "Pay on site",
+    "sepaInstant": "confirmed instantly"
   },
   "booking": {
     "tabRegular": "Enrol",
@@ -467,7 +491,9 @@
       "soldOut": "Sold out",
       "hasTicket": "You have a ticket",
       "buy": "Get a ticket",
-      "allEvents": "See all events"
+      "allEvents": "See all events",
+      "comingUp": "Coming up at the studio",
+      "onSite": "Pay at the door"
     },
     "attendance": {
       "heading": "Your attendance",

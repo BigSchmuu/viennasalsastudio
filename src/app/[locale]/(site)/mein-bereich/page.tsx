@@ -20,6 +20,7 @@ import {
 import { GettingStartedSection, type Kursvorschlag } from "@/components/dashboard/getting-started-section";
 import { PracticeSection, type Lektion } from "@/components/dashboard/practice-section";
 import { ThisWeekSection, type WochenEvent } from "@/components/dashboard/this-week-section";
+import { eventEnde, eventZustand, stornierbar, type SalesMode } from "@/lib/events/event-zustand";
 import { AttendanceSection } from "@/components/dashboard/attendance-section";
 import { CreditReferralSection } from "@/components/dashboard/credit-referral-section";
 import { levelValues } from "@/lib/constants/levels";
@@ -137,13 +138,17 @@ export default async function MeinBereichPage() {
       .in("status", ["open", "confirmed"]),
     supabase.rpc("list_my_waitlist"),
     supabase.rpc("get_my_todays_attendance"),
+    // PROJ-53: Nicht mehr nur die nächsten 7 Tage — ist die Woche leer, zeigt
+    // der Abschnitt die nächsten drei Events. Das Fenster wird deshalb erst
+    // unten gezogen. Die Datenbank wählt grob vor; laufende Events bleiben bis
+    // zu ihrem Ende sichtbar, eines ohne Ende höchstens einen Tag.
     supabase
       .from("events")
-      .select("id, name, location, starts_at, capacity, price_normal, price_student")
+      .select("id, name, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug")
       .eq("status", "geplant")
-      .gt("starts_at", jetzt.toISOString())
-      .lt("starts_at", fensterEnde)
-      .order("starts_at", { ascending: true }),
+      .or(`ends_at.gt.${jetzt.toISOString()},starts_at.gt.${new Date(jetzt.getTime() - 24 * 60 * 60 * 1000).toISOString()}`)
+      .order("starts_at", { ascending: true })
+      .limit(20),
     supabase.rpc("get_event_occupancy"),
     supabase
       .from("tickets")
@@ -430,13 +435,35 @@ export default async function MeinBereichPage() {
     ((belegung ?? []) as { event_id: string; ticket_count: number }[]).map((o) => [o.event_id, o.ticket_count])
   );
   const meineEventIds = new Set((meineTickets ?? []).map((t) => t.event_id));
-  const wochenEvents: WochenEvent[] = (events ?? []).map((e) => ({
-    event: { id: e.id, name: e.name, priceNormal: e.price_normal, priceStudent: e.price_student },
-    startsAt: e.starts_at,
-    location: e.location,
-    ausgebucht: (belegtProEvent.get(e.id) ?? 0) >= e.capacity,
-    hatTicket: meineEventIds.has(e.id),
-  }));
+  // PROJ-53: Was eine Zeile anbietet, entscheidet dieselbe Regel wie auf
+  // Karte und Eventseite — sonst sagte „Mein Bereich" etwas anderes als /events.
+  const kommendeEvents: WochenEvent[] = (events ?? [])
+    .filter((e) => eventEnde(e.starts_at, e.ends_at) > jetzt)
+    .map((e) => ({
+      // Wer Tickets verkauft, hat Preise — das Formular verlangt sie.
+      event: { id: e.id, name: e.name, priceNormal: e.price_normal ?? 0, priceStudent: e.price_student ?? 0 },
+      slug: e.slug,
+      startsAt: e.starts_at,
+      location: e.location,
+      zustand: eventZustand(
+        {
+          status: e.status,
+          salesMode: e.sales_mode as SalesMode,
+          startsAt: e.starts_at,
+          endsAt: e.ends_at,
+          capacity: e.capacity,
+          occupied: belegtProEvent.get(e.id) ?? 0,
+          hatTicket: meineEventIds.has(e.id),
+        },
+        jetzt
+      ),
+      stornierbar: stornierbar(e.starts_at, jetzt),
+    }));
+  const eventsDieseWoche = kommendeEvents.filter((e) => new Date(e.startsAt) < new Date(fensterEnde));
+  // In einer ruhigen Woche die nächsten drei — sonst verschwände das Programm
+  // genau dann aus dem Blick, wenn es nichts Nahes gibt.
+  const eventsDemnaechst = eventsDieseWoche.length === 0;
+  const wochenEvents = eventsDemnaechst ? kommendeEvents.slice(0, 3) : eventsDieseWoche;
 
   // --- Guthaben --------------------------------------------------------
 
@@ -493,7 +520,7 @@ export default async function MeinBereichPage() {
           </section>
         ) : null}
 
-        <ThisWeekSection events={wochenEvents} hasMandate={hatMandat} />
+        <ThisWeekSection events={wochenEvents} hasMandate={hatMandat} demnaechst={eventsDemnaechst} />
 
         <AttendanceSection anzahl={anwesenheitAnzahl ?? 0} />
 

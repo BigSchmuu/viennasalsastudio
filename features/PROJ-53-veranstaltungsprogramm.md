@@ -1,6 +1,6 @@
 # PROJ-53: Veranstaltungsprogramm
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-09-14
 **Last Updated:** 2026-09-14
 
@@ -261,6 +261,44 @@ Keine neuen Pakete.
 - **Kauffunktion:** Beim Ersetzen müssen ihre bisherigen Berechtigungen erhalten bleiben; die Zustimmung zu den AGB (PROJ-42) bleibt Teil des Kaufs.
 - **Tests:** Die E2E-Tests zu PROJ-14 (Eventkarten, Kaufgrenze) und PROJ-45 („Diese Woche im Studio") müssen an Karten mit Link, die neue Kaufgrenze und die Verkaufsart angepasst werden.
 - **Navigation:** Der Admin-Bereich bekommt den Eintrag „Eventarten"; der öffentliche Link „Events" bleibt.
+
+## Implementation Notes (Frontend)
+
+**Stand 2026-09-14:** Frontend fertig. Im Browser läuft es erst mit der Migration aus `/backend` — die Seiten lesen die neuen Felder. Unit-Tests (586), Typprüfung und Lint grün.
+
+### Gebaut
+- **Gemeinsame Status-Regel** `src/lib/events/event-zustand.ts`: abgesagt, vorbei, Ticket vorhanden, nur anzeigen, ausgebucht, kaufen. Stornierbarkeit rechnet wie `cancel_event_ticket` in Wiener Kalendertagen. Ein Event ohne Ende gilt bis Mitternacht Wien (`tagesendeInWien` in `src/lib/constants/zeitzone.ts`, auch am Tag der Zeitumstellung getestet).
+- **Terminzeile** `src/lib/events/termin.ts`: ohne Ende, ein Abend (Ende am Folgetag vor 6 Uhr zählt noch dazu) oder Zeitraum über mehrere Tage.
+- **Lesbare Adressen** `src/lib/events/adresse.ts`: Umlaute ausgeschrieben, bei Doppelung mit angehängter Zahl.
+- **Event-Daten für Google** `src/lib/events/strukturierte-daten.ts`: schema.org `Event` mit Status, Ort, Angebot und Veranstalter; ohne persönliches Ticket; `<` maskiert.
+- **Übersicht `/events`**: Filter-Chips (`?art=<Kennung>`, nur Arten mit kommenden Events), Bereich „Besondere Events", Leerzustand und Filter-Leerzustand mit „Filter zurücksetzen", Seitentitel und Beschreibung. Laufende Events bleiben bis zu ihrem Ende sichtbar.
+- **Eventseite `/events/[adresse]`** (neu): Hinweis bei Absage oder vorbei, Beschreibung mit Absätzen, Kaufbereich, Seitentitel, Beschreibung, Link-Vorschau, Canonical, Event-Daten. Frühere Adressen leiten dauerhaft weiter, unbekannte zeigen „nicht gefunden".
+- **Gemeinsame Bausteine** `event-aktion.tsx` (Knopf: kaufen, einloggen, Zum Ticket, ausgebucht) und `event-angaben.tsx` (Preis, Verfügbarkeit). Die ganze Karte führt zur Eventseite, der Knopf bleibt eigenständig bedienbar.
+- **Kaufdialog**: Hinweis, wenn die Stornofrist beim Kauf schon abgelaufen ist; alle festen Texte übersetzt.
+- **Admin `/admin/eventarten`** (neu, Muster Tanzstile): Löschen wird gar nicht erst angeboten, solange Events zugeordnet sind, und nennt deren Zahl; Eintrag in der Admin-Navigation.
+- **Admin Event-Formular**: Eventart (Pflicht), Verkaufsart, Kapazität und Preise bei „Nur anzeigen" optional, Hinweis zu Partys über Mitternacht. Tabelle mit Eventart, „Nur anzeigen" statt Belegung und „Seite ansehen".
+- **Admin-Aktionen**: Adresse beim Anlegen (zweiter Versuch bei gleichzeitiger Vergabe); beim Umbenennen wird die alte Adresse gemerkt, eine Rückbenennung räumt sie wieder auf; Umstellen auf „Nur anzeigen" mit gültigen Tickets wird mit deren Zahl abgelehnt.
+- **Mein Bereich**: dieselbe Status-Regel, Zeilen führen zur Eventseite, „Eintritt vor Ort"; ist die Woche leer, die nächsten drei Events unter „Demnächst im Studio".
+
+### Nebenbei behoben
+- **Profil-Anker öffneten nichts:** „Mein Bereich" verlinkte auf `#abo`, `#buchungen` und `#warteliste`, aber kein Abschnitt trug diese Kennung, und keiner klappte auf. Jetzt trägt jeder Abschnitt seine Kennung, und `ProfilAkkordeon` öffnet den Abschnitt aus der Adresse.
+- **„Mandat hinterlegen"** zeigte auf `#zahlungsweise`; der Abschnitt heißt `zahlungsmethode`.
+- **Sprache:** Kaufdialog, „Diese Woche im Studio", „Zu erledigen" und der Login-Link der Eventkarte liefen über `next/link` und warfen englische Besucher ins Deutsche.
+
+### Abweichungen und Offenes
+- Der Bereich „Regelmäßig" wird noch nicht gerendert — ohne Serien (PROJ-54) entfällt er laut Kriterium ohnehin.
+- `src/lib/supabase/types.ts` ist **vorläufig von Hand** um `event_types`, `event_previous_slugs` und die neuen Event-Spalten ergänzt, weil die Supabase-Verbindung getrennt war. Nach der Migration neu erzeugen und abgleichen.
+- Fehlermeldungen der Server-Aktion beim Ticketkauf bleiben wie bisher deutsch.
+- E2E-Tests zu PROJ-14 und PROJ-45 sind noch nicht angepasst → `/qa`.
+
+### Was `/backend` liefern muss
+- Tabelle **`event_types`**: Name eindeutig unabhängig von Groß-/Kleinschreibung; RLS lesen für alle, schreiben nur Admin.
+- **`events`**: `event_type_id` (Pflicht, Fremdschlüssel mit Löschsperre), `sales_mode` (`display` oder `tickets`, Vorgabe `tickets`), `slug` (Pflicht, eindeutig); `capacity`, `price_normal`, `price_student` dürfen leer sein, bei `tickets` sind sie Pflicht.
+- Tabelle **`event_previous_slugs`**: `slug` eindeutig; RLS lesen für alle, schreiben nur Admin.
+- **Sperre in der Datenbank**, die `display` ablehnt, solange gültige Tickets bestehen.
+- **`purchase_event_ticket`**: Kauf bis zum Ende (ohne Ende bis Mitternacht Wien), `display` ablehnen; Berechtigungen und AGB-Prüfung (PROJ-42) erhalten.
+- **Bestandsdaten**: Start-Eventart und Adresse aus dem Namen für bestehende Test-Events.
+- Danach `types.ts` erzeugen und mit der Handfassung abgleichen.
 
 ## QA Test Results
 _To be added by /qa_

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { purchaseTicket } from "@/lib/actions/events";
-import { ticketPaymentMethodLabel, type TicketPaymentMethod } from "@/lib/constants/events";
+import type { TicketPaymentMethod } from "@/lib/constants/events";
+import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/pricing";
 import { useLocale, useTranslations } from "next-intl";
@@ -28,11 +28,14 @@ export function TicketPurchaseDialog({
   onOpenChange,
   event,
   hasMandate,
+  stornierbar = true,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event: TicketPurchaseEvent;
   hasMandate: boolean;
+  /** PROJ-53: Tickets sind bis zum Ende kaufbar — auch dann, wenn die Stornofrist schon vorbei ist. */
+  stornierbar?: boolean;
 }) {
   const router = useRouter();
   const t = useTranslations("events");
@@ -118,11 +121,13 @@ export function TicketPurchaseDialog({
             {!hasMandate && (
               <Alert>
                 <AlertDescription>
-                  Kein SEPA-Mandat hinterlegt.{" "}
-                  <Link href="/profil" className="underline">
-                    Jetzt hinterlegen
+                  {t("noMandate")}{" "}
+                  {/* Der Abschnitt heißt `zahlungsmethode`. Der alte Link ging
+                      auf /profil ohne Anker und in die falsche Sprache. */}
+                  <Link href="/profil#zahlungsmethode" className="underline">
+                    {t("addMandate")}
                   </Link>{" "}
-                  oder vor Ort zahlen.
+                  {t("orPayOnSite")}
                 </AlertDescription>
               </Alert>
             )}
@@ -131,18 +136,24 @@ export function TicketPurchaseDialog({
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="sepa" id="payment-sepa" />
                   <Label htmlFor="payment-sepa" className="font-normal">
-                    {ticketPaymentMethodLabel.sepa} — sofort bestätigt
+                    {t("paymentSepa")} — {t("sepaInstant")}
                   </Label>
                 </div>
               )}
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="onsite" id="payment-onsite" />
                 <Label htmlFor="payment-onsite" className="font-normal">
-                  {ticketPaymentMethodLabel.onsite}
+                  {t("paymentOnsite")}
                 </Label>
               </div>
             </RadioGroup>
           </div>
+
+          {!stornierbar ? (
+            <Alert>
+              <AlertDescription>{t("noCancellation")}</AlertDescription>
+            </Alert>
+          ) : null}
         </div>
 
         <TermsConsent checked={termsAccepted} onCheckedChange={setTermsAccepted} id="terms-accepted-ticket" />

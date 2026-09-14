@@ -20,6 +20,7 @@ import {
   Bell,
   TicketPercent,
   CalendarOff,
+  Tags,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,8 @@ const groups: NavGroup[] = [
     links: [
       { href: "/admin/kurse", label: "Kurse", icon: GraduationCap },
       { href: "/admin/events", label: "Events", icon: CalendarDays },
+      // PROJ-53: gleich neben den Events, denen sie zugeordnet werden.
+      { href: "/admin/eventarten", label: "Eventarten", icon: Tags },
       { href: "/admin/standorte", label: "Standorte", icon: MapPin },
       // PROJ-51: Ferien gelten fürs ganze Studio und gehören deshalb zum
       // Programm, nicht zu einem einzelnen Kurs.

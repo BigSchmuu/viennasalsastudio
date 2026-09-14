@@ -97,8 +97,8 @@
     "openInMap": "(auf der Karte öffnen)"
   },
   "events": {
-    "heading": "Events & Workshops",
-    "subheading": "Sonderveranstaltungen abseits des regulären Kursplans",
+    "heading": "Events & Partys",
+    "subheading": "Partys, Workshops und mehr — hier siehst du, was bei uns los ist.",
     "empty": "Aktuell sind keine Events geplant.",
     "soldOut": "Ausgebucht",
     "loginToBuy": "Zum Ticket-Kauf einloggen",
@@ -111,7 +111,31 @@
     "full": "Dieses Event ist mittlerweile ausgebucht.",
     "confirmed": "Ticket bestätigt! Du findest es mit QR-Code in deinem Profil.",
     "reserved": "Ticket reserviert! Zahlung bitte vor Ort.",
-    "studentPriceLabel": "Studierende {price}"
+    "studentPriceLabel": "Studierende {price}",
+    "sectionSpecial": "Besondere Events",
+    "filterLabel": "Nach Eventart filtern",
+    "filterAll": "Alle",
+    "filterEmpty": "Für diese Eventart gibt es gerade keine kommenden Events.",
+    "filterReset": "Filter zurücksetzen",
+    "onSite": "Eintritt vor Ort",
+    "hasTicket": "Du hast ein Ticket",
+    "viewTicket": "Zum Ticket",
+    "cancelled": "Abgesagt",
+    "past": "Hat bereits stattgefunden",
+    "cancelledHint": "Dieses Event wurde abgesagt.",
+    "pastHint": "Dieses Event hat bereits stattgefunden.",
+    "backToOverview": "Alle Events",
+    "priceFree": "Kostenlos",
+    "noCancellation": "Die Frist zum Stornieren ist schon abgelaufen — dieses Ticket kannst du nicht mehr selbst stornieren.",
+    "when": "Wann",
+    "where": "Wo",
+    "metaDescription": "{type} bei Vienna Salsa Studio · {date}",
+    "noMandate": "Kein SEPA-Mandat hinterlegt.",
+    "addMandate": "Jetzt hinterlegen",
+    "orPayOnSite": "oder vor Ort zahlen.",
+    "paymentSepa": "SEPA-Lastschrift",
+    "paymentOnsite": "Vor Ort zahlen",
+    "sepaInstant": "sofort bestätigt"
   },
   "booking": {
     "tabRegular": "Anmeldung",
@@ -467,7 +491,9 @@
       "soldOut": "Ausgebucht",
       "hasTicket": "Du hast ein Ticket",
       "buy": "Ticket sichern",
-      "allEvents": "Alle Events ansehen"
+      "allEvents": "Alle Events ansehen",
+      "comingUp": "Demnächst im Studio",
+      "onSite": "Eintritt vor Ort"
     },
     "attendance": {
       "heading": "Deine Anwesenheit",

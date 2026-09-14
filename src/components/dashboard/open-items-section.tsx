@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DashboardSection } from "./dashboard-section";
@@ -19,6 +19,10 @@ export type OffenerPunkt =
  *
  * Die Reihenfolge ist nicht die Eingabereihenfolge: das fehlende Mandat steht
  * immer oben, weil es das Einzige ist, das den Kunden wirklich blockiert.
+ *
+ * Die Ziele sind Anker auf die Profil-Abschnitte, die sich seit PROJ-53 dort
+ * aufklappen. Der Anker muss dem `wert` des Abschnitts entsprechen — das
+ * Mandat zeigte auf `#zahlungsweise`, der Abschnitt heißt `zahlungsmethode`.
  */
 export async function OpenItemsSection({ punkte }: { punkte: OffenerPunkt[] }) {
   if (punkte.length === 0) return null;
@@ -35,7 +39,7 @@ export async function OpenItemsSection({ punkte }: { punkte: OffenerPunkt[] }) {
         {sortiert.map((punkt, i) => {
           const inhalt =
             punkt.art === "mandat"
-              ? { titel: t("mandateTitle"), text: t("mandateBody"), cta: t("mandateCta"), ziel: "/profil#zahlungsweise" }
+              ? { titel: t("mandateTitle"), text: t("mandateBody"), cta: t("mandateCta"), ziel: "/profil#zahlungsmethode" }
               : punkt.art === "kursBeendet"
                 ? {
                     titel: t("courseEndedTitle"),
@@ -79,6 +83,8 @@ export async function OpenItemsSection({ punkte }: { punkte: OffenerPunkt[] }) {
                     }
                     className="shrink-0"
                   >
+                    {/* Sprachbewusst: `next/link` warf englische Kunden ins
+                        deutsche Profil zurück. */}
                     <Link href={inhalt.ziel}>{inhalt.cta}</Link>
                   </Button>
                 </CardContent>

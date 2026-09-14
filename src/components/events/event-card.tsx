@@ -1,14 +1,12 @@
-"use client";
-
-import { useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLocale, useTranslations } from "next-intl";
-import { formatPrice } from "@/lib/pricing";
-import { formatDateTime } from "@/lib/formatting";
+import { MapPin } from "lucide-react";
+import { useLocale } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
-import { TicketPurchaseDialog } from "@/components/events/ticket-purchase-dialog";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { EventAktion } from "@/components/events/event-aktion";
+import { EventPreis, EventVerfuegbarkeit } from "@/components/events/event-angaben";
+import { eventTermin } from "@/lib/events/termin";
+import type { EventZustand, SalesMode } from "@/lib/events/event-zustand";
 
 export type PublicEventRow = {
   id: string;
@@ -17,12 +15,20 @@ export type PublicEventRow = {
   location: string | null;
   startsAt: string;
   endsAt: string | null;
-  capacity: number;
-  priceNormal: number;
-  priceStudent: number;
-  occupied: number;
+  priceNormal: number | null;
+  priceStudent: number | null;
+  salesMode: SalesMode;
+  slug: string;
+  typeName: string | null;
+  zustand: EventZustand;
+  freiePlaetze: number | null;
+  stornierbar: boolean;
 };
 
+/**
+ * Ein Event in der Übersicht (PROJ-53). Die ganze Karte führt zur Eventseite;
+ * der Knopf liegt darüber und bleibt eigenständig bedienbar.
+ */
 export function EventCard({
   event,
   isLoggedIn,
@@ -32,57 +38,59 @@ export function EventCard({
   isLoggedIn: boolean;
   hasMandate: boolean;
 }) {
-  const t = useTranslations("events");
   const locale = useLocale();
-  const [purchaseOpen, setPurchaseOpen] = useState(false);
-  const isFull = event.occupied >= event.capacity;
-  const remaining = event.capacity - event.occupied;
 
   return (
-    <Card className="flex flex-col rounded-card shadow-soft">
-      <CardHeader>
-        <CardTitle className="font-heading">{event.name}</CardTitle>
-        <CardDescription>{formatDateTime(event.startsAt, locale)}</CardDescription>
+    <Card className="relative flex flex-col rounded-card shadow-soft transition-shadow focus-within:ring-2 focus-within:ring-ring hover:shadow-lg">
+      <CardHeader className="space-y-2">
+        {event.typeName ? (
+          <Badge variant="secondary" className="w-fit">
+            {event.typeName}
+          </Badge>
+        ) : null}
+        <CardTitle className="font-heading leading-snug">
+          {/* Der Link spannt sich über die ganze Karte. Ein Link um die ganze
+              Karte ginge nicht: Der Kaufknopf darin wäre dann ein Knopf in
+              einem Link — für Screenreader und Tastatur unbedienbar. */}
+          <Link
+            href={`/events/${event.slug}`}
+            className="after:absolute after:inset-0 after:rounded-card focus-visible:outline-none"
+          >
+            {event.name}
+          </Link>
+        </CardTitle>
+        <CardDescription>{eventTermin(event.startsAt, event.endsAt, locale)}</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 space-y-2">
-        {event.location && <p className="text-sm text-muted-foreground">📍 {event.location}</p>}
-        {event.description && <p className="text-sm">{event.description}</p>}
-        <p className="text-sm font-medium">
-          {formatPrice(event.priceNormal, locale)}
-          {event.priceStudent !== event.priceNormal && (
-            <span className="text-muted-foreground"> · {t("studentPriceLabel", { price: formatPrice(event.priceStudent, locale) })}</span>
-          )}
-        </p>
-        {isFull ? (
-          <Badge variant="destructive">{t("soldOut")}</Badge>
-        ) : (
-          <p className="text-xs text-muted-foreground">{t("spotsLeft", { count: remaining })}</p>
-        )}
-      </CardContent>
-      <CardFooter>
-        {isFull ? (
-          <Button disabled className="w-full">
-            {t("soldOut")}
-          </Button>
-        ) : isLoggedIn ? (
-          <Button className="w-full" onClick={() => setPurchaseOpen(true)}>
-            {t("buyTicket")}
-          </Button>
-        ) : (
-          <Button className="w-full" asChild>
-            <Link href={`/login?redirect=/events`}>{t("loginToBuy")}</Link>
-          </Button>
-        )}
-      </CardFooter>
 
-      {isLoggedIn && (
-        <TicketPurchaseDialog
-          open={purchaseOpen}
-          onOpenChange={setPurchaseOpen}
-          event={{ id: event.id, name: event.name, priceNormal: event.priceNormal, priceStudent: event.priceStudent }}
+      <CardContent className="flex-1 space-y-2">
+        {event.location ? (
+          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+            {event.location}
+          </p>
+        ) : null}
+        {event.description ? <p className="line-clamp-3 text-sm">{event.description}</p> : null}
+        <EventPreis priceNormal={event.priceNormal} priceStudent={event.priceStudent} />
+        <EventVerfuegbarkeit zustand={event.zustand} plaetze={event.freiePlaetze} />
+      </CardContent>
+
+      <CardFooter className="relative z-10 empty:hidden">
+        <EventAktion
+          event={{
+            id: event.id,
+            name: event.name,
+            slug: event.slug,
+            // Wer Tickets verkauft, hat Preise — das Formular verlangt sie.
+            priceNormal: event.priceNormal ?? 0,
+            priceStudent: event.priceStudent ?? 0,
+          }}
+          zustand={event.zustand}
+          isLoggedIn={isLoggedIn}
           hasMandate={hasMandate}
+          stornierbar={event.stornierbar}
+          className="w-full"
         />
-      )}
+      </CardFooter>
     </Card>
   );
 }

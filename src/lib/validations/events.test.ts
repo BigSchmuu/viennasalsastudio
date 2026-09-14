@@ -5,12 +5,20 @@ const validEvent = {
   name: "Salsa Congress",
   description: "Ein tolles Event",
   location: "Studio Saal 1",
+  // PROJ-53: Jedes Event hat eine Eventart und eine Verkaufsart.
+  event_type_id: "3f6f1c1e-8a0b-4b7a-9d0e-2c4a5b6d7e8f",
+  sales_mode: "tickets",
   starts_at: "2099-09-01T20:00",
   ends_at: "",
   capacity: "50",
   price_normal: "25",
   price_student: "15",
 };
+
+function fehlerfelder(eingabe: Record<string, string>) {
+  const ergebnis = eventSchema.safeParse(eingabe);
+  return ergebnis.success ? [] : ergebnis.error.issues.map((issue) => issue.path[0]);
+}
 
 describe("eventSchema", () => {
   it("accepts a valid event", () => {
@@ -43,6 +51,32 @@ describe("eventSchema", () => {
   it("accepts a past starts_at (editing an event whose date has already passed must remain possible)", () => {
     const result = eventSchema.safeParse({ ...validEvent, starts_at: "2020-01-01T20:00" });
     expect(result.success).toBe(true);
+  });
+});
+
+describe("eventSchema — Eventart und Verkaufsart (PROJ-53)", () => {
+  it("verlangt bei „Tickets in der App“ Kapazität und Preise", () => {
+    expect(fehlerfelder({ ...validEvent, capacity: "", price_normal: "", price_student: "" })).toEqual(
+      expect.arrayContaining(["capacity", "price_normal", "price_student"])
+    );
+  });
+
+  it("lässt bei „Nur anzeigen“ Kapazität und Preise leer", () => {
+    expect(
+      fehlerfelder({ ...validEvent, sales_mode: "display", capacity: "", price_normal: "", price_student: "" })
+    ).toEqual([]);
+  });
+
+  it("prüft einen eingetragenen Preis auch bei „Nur anzeigen“", () => {
+    expect(fehlerfelder({ ...validEvent, sales_mode: "display", price_normal: "-5" })).toContain("price_normal");
+  });
+
+  it("verlangt eine Eventart", () => {
+    expect(fehlerfelder({ ...validEvent, event_type_id: "" })).toContain("event_type_id");
+  });
+
+  it("kennt nur die beiden Verkaufsarten", () => {
+    expect(fehlerfelder({ ...validEvent, sales_mode: "gratis" })).toContain("sales_mode");
   });
 });
 

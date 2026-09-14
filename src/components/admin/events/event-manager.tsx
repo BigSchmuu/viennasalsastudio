@@ -9,12 +9,15 @@ import { toast } from "sonner";
 import { eventSchema, createEventSchema, type EventInput } from "@/lib/validations/events";
 import { createEvent, updateEvent, cancelEvent, getEventGuestList, type EventGuestRow } from "@/lib/actions/admin/events";
 import { ticketPaymentMethodLabel, ticketStatusLabel, ticketStatusColor } from "@/lib/constants/events";
+import type { SalesMode } from "@/lib/events/event-zustand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import {
   Dialog,
@@ -33,7 +36,15 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 export type EventRow = {
   id: string;
@@ -42,12 +53,18 @@ export type EventRow = {
   location: string | null;
   startsAt: string;
   endsAt: string | null;
-  capacity: number;
-  priceNormal: number;
-  priceStudent: number;
+  capacity: number | null;
+  priceNormal: number | null;
+  priceStudent: number | null;
   status: string;
+  salesMode: SalesMode;
+  slug: string;
+  eventTypeId: string;
+  eventTypeName: string;
   ticketCount: number;
 };
+
+export type EventTypeOption = { id: string; name: string };
 
 function toDatetimeLocal(iso: string): string {
   const d = new Date(iso);
@@ -59,7 +76,11 @@ function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("de-AT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export function EventManager({ events }: { events: EventRow[] }) {
+function zahlAlsText(zahl: number | null): string {
+  return zahl === null ? "" : String(zahl);
+}
+
+export function EventManager({ events, eventTypes }: { events: EventRow[]; eventTypes: EventTypeOption[] }) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EventRow | null>(null);
@@ -95,8 +116,9 @@ export function EventManager({ events }: { events: EventRow[] }) {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
+            <TableHead>Eventart</TableHead>
             <TableHead>Termin</TableHead>
-            <TableHead>Kapazität</TableHead>
+            <TableHead>Plätze</TableHead>
             <TableHead>Status</TableHead>
             <TableHead />
           </TableRow>
@@ -105,11 +127,16 @@ export function EventManager({ events }: { events: EventRow[] }) {
           {events.map((event) => (
             <TableRow key={event.id}>
               <TableCell className="font-medium">{event.name}</TableCell>
+              <TableCell className="text-muted-foreground">{event.eventTypeName}</TableCell>
               <TableCell className="whitespace-nowrap text-muted-foreground">
                 {formatDateTime(event.startsAt)}
               </TableCell>
               <TableCell>
-                {event.ticketCount} / {event.capacity}
+                {event.salesMode === "display" ? (
+                  <span className="text-muted-foreground">Nur anzeigen</span>
+                ) : (
+                  `${event.ticketCount} / ${event.capacity ?? "–"}`
+                )}
               </TableCell>
               <TableCell>
                 <Badge variant={event.status === "abgesagt" ? "destructive" : "secondary"}>
@@ -117,9 +144,16 @@ export function EventManager({ events }: { events: EventRow[] }) {
                 </Badge>
               </TableCell>
               <TableCell className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => openGuestList(event)}>
-                  Gästeliste
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href={`/events/${event.slug}`} target="_blank" rel="noopener noreferrer">
+                    Seite ansehen
+                  </Link>
                 </Button>
+                {event.salesMode === "tickets" || event.ticketCount > 0 ? (
+                  <Button variant="outline" size="sm" onClick={() => openGuestList(event)}>
+                    Gästeliste
+                  </Button>
+                ) : null}
                 <Button
                   variant="outline"
                   size="sm"
@@ -140,7 +174,7 @@ export function EventManager({ events }: { events: EventRow[] }) {
           ))}
           {events.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-muted-foreground">
+              <TableCell colSpan={6} className="text-center text-muted-foreground">
                 Noch keine Events angelegt.
               </TableCell>
             </TableRow>
@@ -152,6 +186,7 @@ export function EventManager({ events }: { events: EventRow[] }) {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         event={editing}
+        eventTypes={eventTypes}
         onSaved={() => router.refresh()}
       />
 
@@ -160,8 +195,8 @@ export function EventManager({ events }: { events: EventRow[] }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Event absagen?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{cancelTarget?.name}&rdquo; wird als abgesagt markiert und verschwindet von der öffentlichen Seite.
-              Bereits gekaufte Tickets bleiben als Datensatz erhalten.
+              „{cancelTarget?.name}&rdquo; wird als abgesagt markiert und verschwindet aus dem Programm. Seine Seite
+              bleibt erreichbar und zeigt die Absage. Bereits gekaufte Tickets bleiben als Datensatz erhalten.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -204,11 +239,13 @@ function EventFormDialog({
   open,
   onOpenChange,
   event,
+  eventTypes,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event: EventRow | null;
+  eventTypes: EventTypeOption[];
   onSaved: () => void;
 }) {
   const [formError, setFormError] = useState<string | null>(null);
@@ -220,13 +257,19 @@ function EventFormDialog({
       name: event?.name ?? "",
       description: event?.description ?? "",
       location: event?.location ?? "",
+      event_type_id: event?.eventTypeId ?? "",
+      sales_mode: event?.salesMode ?? "tickets",
       starts_at: event ? toDatetimeLocal(event.startsAt) : "",
       ends_at: event?.endsAt ? toDatetimeLocal(event.endsAt) : "",
-      capacity: event ? String(event.capacity) : "",
-      price_normal: event ? String(event.priceNormal) : "",
-      price_student: event ? String(event.priceStudent) : "",
+      capacity: zahlAlsText(event?.capacity ?? null),
+      price_normal: zahlAlsText(event?.priceNormal ?? null),
+      price_student: zahlAlsText(event?.priceStudent ?? null),
     },
   });
+
+  const nurAnzeigen = form.watch("sales_mode") === "display";
+  const optional = nurAnzeigen ? " (optional)" : "";
+  const keineArten = eventTypes.length === 0;
 
   async function onSubmit(values: EventInput) {
     setLoading(true);
@@ -262,6 +305,17 @@ function EventFormDialog({
           </Alert>
         )}
 
+        {keineArten ? (
+          <Alert>
+            <AlertDescription>
+              Es gibt noch keine Eventarten, und jedes Event braucht eine.{" "}
+              <Link href="/admin/eventarten" className="underline">
+                Zuerst eine Eventart anlegen
+              </Link>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <FormField
@@ -279,13 +333,38 @@ function EventFormDialog({
             />
             <FormField
               control={form.control}
+              name="event_type_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Eventart</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Eventart wählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {eventTypes.map((art) => (
+                        <SelectItem key={art.id} value={art.id}>
+                          {art.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="description"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Beschreibung (optional)</FormLabel>
                   <FormControl>
-                    <Textarea {...field} />
+                    <Textarea rows={5} {...field} />
                   </FormControl>
+                  <FormDescription>Absätze bleiben auf der Eventseite erhalten.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -322,7 +401,7 @@ function EventFormDialog({
                 name="ends_at"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ende (optional, mehrtägig)</FormLabel>
+                    <FormLabel>Ende (optional)</FormLabel>
                     <FormControl>
                       <Input type="datetime-local" {...field} />
                     </FormControl>
@@ -331,12 +410,49 @@ function EventFormDialog({
                 )}
               />
             </div>
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Ohne Ende gilt das Event bis Mitternacht. Für Partys über Mitternacht das Ende eintragen.
+            </p>
+
+            <FormField
+              control={form.control}
+              name="sales_mode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Verkauf</FormLabel>
+                  <FormControl>
+                    <RadioGroup value={field.value} onValueChange={field.onChange} className="gap-3">
+                      <div className="flex items-start gap-2">
+                        <RadioGroupItem value="tickets" id="sales-mode-tickets" className="mt-0.5" />
+                        <Label htmlFor="sales-mode-tickets" className="font-normal leading-snug">
+                          Tickets in der App
+                          <span className="block text-xs text-muted-foreground">
+                            Kunden kaufen Tickets mit QR-Code, die Kapazität wird gezählt
+                          </span>
+                        </Label>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <RadioGroupItem value="display" id="sales-mode-display" className="mt-0.5" />
+                        <Label htmlFor="sales-mode-display" className="font-normal leading-snug">
+                          Nur anzeigen
+                          <span className="block text-xs text-muted-foreground">
+                            Eintritt vor Ort, ohne Ticketverkauf in der App
+                          </span>
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="capacity"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Kapazität</FormLabel>
+                  <FormLabel>Kapazität{optional}</FormLabel>
                   <FormControl>
                     <Input type="number" min={1} {...field} />
                   </FormControl>
@@ -350,7 +466,7 @@ function EventFormDialog({
                 name="price_normal"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Preis normal (€)</FormLabel>
+                    <FormLabel>Preis normal (€){optional}</FormLabel>
                     <FormControl>
                       <Input type="number" min={0} step="0.01" {...field} />
                     </FormControl>
@@ -363,7 +479,7 @@ function EventFormDialog({
                 name="price_student"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Preis Studierende (€)</FormLabel>
+                    <FormLabel>Preis Studierende (€){optional}</FormLabel>
                     <FormControl>
                       <Input type="number" min={0} step="0.01" {...field} />
                     </FormControl>
@@ -372,8 +488,14 @@ function EventFormDialog({
                 )}
               />
             </div>
+            {nurAnzeigen ? (
+              <p className="-mt-2 text-xs text-muted-foreground">
+                Ein eingetragener Preis erscheint als Eintrittspreis. 0 € wird als „Kostenlos&quot; angezeigt.
+              </p>
+            ) : null}
+
             <DialogFooter>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading || keineArten}>
                 {loading ? "Wird gespeichert…" : "Speichern"}
               </Button>
             </DialogFooter>

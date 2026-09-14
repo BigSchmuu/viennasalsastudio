@@ -40,3 +40,37 @@ export function heuteAlsDatumInWien(jetzt: Date = new Date()): Date {
   const [jahr, monat, tag] = heuteInWien(jetzt).split("-").map(Number);
   return new Date(jahr, monat - 1, tag, 12, 0, 0, 0);
 }
+
+/**
+ * Mitternacht am Ende des Wiener Kalendertags, in den `zeitpunkt` fällt — als
+ * echter Zeitpunkt, nicht als Datum.
+ *
+ * Für Events ohne eingetragenes Ende (PROJ-53): Sie gelten bis zum Ende ihres
+ * Veranstaltungstags. In UTC gerechnet endete dieser Tag im Sommer schon um
+ * 2 Uhr früh Wiener Zeit.
+ *
+ * Die Umstellung auf Sommer- oder Winterzeit liegt in Wien um 2 bzw. 3 Uhr,
+ * nie um Mitternacht. Der Versatz des Folgetags um 0 Uhr ist deshalb eindeutig;
+ * die zweite Messung fängt nur den Fall ab, dass die Schätzung auf der anderen
+ * Seite einer Umstellung landet.
+ */
+export function tagesendeInWien(zeitpunkt: Date): Date {
+  const [jahr, monat, tag] = heuteInWien(zeitpunkt).split("-").map(Number);
+  const mitternachtUtc = Date.UTC(jahr, monat - 1, tag + 1);
+  const versatz = wienerVersatzMinuten(new Date(mitternachtUtc));
+  const ergebnis = new Date(mitternachtUtc - versatz * 60_000);
+  const nachgemessen = wienerVersatzMinuten(ergebnis);
+  return nachgemessen === versatz ? ergebnis : new Date(mitternachtUtc - nachgemessen * 60_000);
+}
+
+/** Versatz der Wiener Zeit gegenüber UTC in Minuten, z. B. 120 im Sommer. */
+function wienerVersatzMinuten(zeitpunkt: Date): number {
+  const angabe =
+    new Intl.DateTimeFormat("en-US", { timeZone: STUDIO_TIMEZONE, timeZoneName: "longOffset" })
+      .formatToParts(zeitpunkt)
+      .find((teil) => teil.type === "timeZoneName")?.value ?? "GMT";
+  const treffer = angabe.match(/GMT([+-])(\d{2}):(\d{2})/);
+  if (!treffer) return 0;
+  const minuten = Number(treffer[2]) * 60 + Number(treffer[3]);
+  return treffer[1] === "-" ? -minuten : minuten;
+}

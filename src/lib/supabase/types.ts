@@ -765,47 +765,111 @@ export type Database = {
         }
         Relationships: []
       }
+      event_previous_slugs: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_previous_slugs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
-          capacity: number
+          capacity: number | null
           created_at: string
           description: string | null
           ends_at: string | null
+          event_type_id: string
           id: string
           location: string | null
           name: string
-          price_normal: number
-          price_student: number
+          price_normal: number | null
+          price_student: number | null
+          sales_mode: string
+          slug: string
           starts_at: string
           status: string
         }
         Insert: {
-          capacity: number
+          capacity?: number | null
           created_at?: string
           description?: string | null
           ends_at?: string | null
+          event_type_id: string
           id?: string
           location?: string | null
           name: string
-          price_normal: number
-          price_student: number
+          price_normal?: number | null
+          price_student?: number | null
+          sales_mode?: string
+          slug: string
           starts_at: string
           status?: string
         }
         Update: {
-          capacity?: number
+          capacity?: number | null
           created_at?: string
           description?: string | null
           ends_at?: string | null
+          event_type_id?: string
           id?: string
           location?: string | null
           name?: string
-          price_normal?: number
-          price_student?: number
+          price_normal?: number | null
+          price_student?: number | null
+          sales_mode?: string
+          slug?: string
           starts_at?: string
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_number_counters: {
         Row: {

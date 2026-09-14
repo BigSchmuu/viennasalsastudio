@@ -77,7 +77,7 @@
 
 | PROJ-52 | Eine Probestunde je Kunde | Deployed | [PROJ-52](../features/PROJ-52-eine-probestunde-je-kunde.md) | 2026-09-12 |
 
-| PROJ-53 | Veranstaltungsprogramm | Architected | [PROJ-53](../features/PROJ-53-veranstaltungsprogramm.md) | 2026-09-14 |
+| PROJ-53 | Veranstaltungsprogramm | In Progress | [PROJ-53](../features/PROJ-53-veranstaltungsprogramm.md) | 2026-09-14 |
 
 | PROJ-54 | Event-Serien (regelmäßige Veranstaltungen) | Planned | [PROJ-54](../features/PROJ-54-event-serien.md) | 2026-09-14 |
 
