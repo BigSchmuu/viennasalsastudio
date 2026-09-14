@@ -355,4 +355,6 @@ Wer mehrfach aufruft, zeigt das Log nicht (Supabase sieht nur den App-Server). �
 
 **Tests:** Ein E2E-Test erzeugt per `generateLink` einen echten Reset-Link (ohne Mail), ruft ihn wie ein Scanner dreimal ab und löst ihn danach per Knopf ein; ein zweiter Aufruf im angemeldeten Browser führt zum Ziel. Gegen die alte Route scheitert er und landet auf `/login?error=confirm_failed` — genau das Bild aus dem Log. Ein zweiter Test prüft, dass ein ungültiger Link ohne Anmeldung auf der Fehlermeldung endet. Unit 548, Typen und Lint sauber, PROJ-2 in beiden Browsern 42/42.
 
+**Ausgeliefert:** 2026-09-14, Commit `5bf8205` — https://app.viennasalsastudio.at, keine Migration, keine Dashboard-Änderung.
+
 **Keine Änderung im Supabase-Dashboard nötig:** Die Vorlagen zeigen weiter auf `/auth/confirm?token_hash=…&type=…&next=…`; die Checkliste aus dem Nachtrag vom 2026-08-13 gilt unverändert.
