@@ -2,7 +2,9 @@
 
 ## Status: Deployed
 **Created:** 2026-08-18
-**Last Updated:** 2026-08-18
+**Last Updated:** 2026-09-14
+
+> **Weiterentwicklung (Refine 2026-09-14):** Aus „Events mit Tickets" wird ein Veranstaltungsprogramm, das Kunden zeigt, was das Studio anbietet — wöchentliche und monatliche Partys, Workshops und mehr. Aufgeteilt in PROJ-53 (Veranstaltungsprogramm), PROJ-54 (Event-Serien), PROJ-55 (Bilder & Videos) und PROJ-56 (Ticketarten & Pässe). Überholt sind damit die Out-of-Scope-Punkte „Mehrere Einzeltermine pro Event" (→ PROJ-54, PROJ-56) sowie die einheitliche Stornofrist und die feste Zahlungsartenwahl (→ PROJ-56). Die Warteliste bleibt ausgeschlossen. Dieses Dokument beschreibt den ausgelieferten Stand vom 2026-08-18.
 
 ## Dependencies
 - Requires: PROJ-2 (Auth & Kundenprofil) — Ticket-Kauf erfordert Login
@@ -81,6 +83,9 @@
 | Check-in-Berechtigung für Admin UND Lehrer-Rolle | Ermöglicht Check-in auch, wenn der Admin selbst nicht vor Ort ist | 2026-08-18 |
 | Bei Event-Absage: Event wird als „abgesagt" markiert (nicht gelöscht), alle Ticket-Inhaber werden benachrichtigt, Event verschwindet von der öffentlichen Seite | Erhält den Datensatz für Nachvollziehbarkeit; Rückerstattung läuft bewusst außerhalb der App | 2026-08-18 |
 | Ticket-Bestätigung/-Absage wird ein neuer, vom Kunden ein-/ausschaltbarer Ereignistyp in PROJ-16 (E-Mail + Push) | Explizite Nutzerentscheidung — keine rechtliche Informationspflicht wie bei SEPA, daher wie die übrigen Ereignisse einstellbar statt fix | 2026-08-18 |
+| Refine: Events werden zum Veranstaltungsprogramm und in PROJ-53 bis PROJ-56 weiterentwickelt | Betreiber: Kunden sollen vor allem sehen, was angeboten wird — wöchentliche und monatliche Party, Workshops; dazu Serien, Bilder/Videos, Pässe und Zahlungsarten pro Event | 2026-09-14 |
+| Refine: „Mehrere Einzeltermine pro Event" ist nicht mehr ausgeschlossen (→ PROJ-54 Serien, PROJ-56 Einheiten) | Regelmäßige Partys und Workshop-Wochenenden brauchen mehrere Termine | 2026-09-14 |
+| Refine: Stornofrist und Zahlungsarten werden pro Event einstellbar (→ PROJ-56) | Workshops brauchen längere Fristen; manche Events nur bar oder nur SEPA | 2026-09-14 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->

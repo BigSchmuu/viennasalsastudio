@@ -77,6 +77,14 @@
 
 | PROJ-52 | Eine Probestunde je Kunde | Deployed | [PROJ-52](../features/PROJ-52-eine-probestunde-je-kunde.md) | 2026-09-12 |
 
+| PROJ-53 | Veranstaltungsprogramm | Planned | [PROJ-53](../features/PROJ-53-veranstaltungsprogramm.md) | 2026-09-14 |
+
+| PROJ-54 | Event-Serien (regelmäßige Veranstaltungen) | Planned | [PROJ-54](../features/PROJ-54-event-serien.md) | 2026-09-14 |
+
+| PROJ-55 | Bilder & Videos für Events | Planned | [PROJ-55](../features/PROJ-55-event-bilder-videos.md) | 2026-09-14 |
+
+| PROJ-56 | Ticketarten, Pässe & Einheiten | Planned | [PROJ-56](../features/PROJ-56-ticketarten-paesse.md) | 2026-09-14 |
+
 <!-- Add features above this line -->
 
-## Next Available ID: PROJ-53
+## Next Available ID: PROJ-57
