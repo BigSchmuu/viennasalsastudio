@@ -1,6 +1,6 @@
 # PROJ-53: Veranstaltungsprogramm
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-09-14
 **Last Updated:** 2026-09-14
 
@@ -333,7 +333,119 @@ Keine neuen Pakete.
 - Neue E2E-Tests für Eventseite, Filter, Weiterleitung früherer Adressen, Admin „Eventarten", Profil-Anker und die englische Seite.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-09-14
+**Umgebung:** lokaler Testserver (Port 3100) gegen die Testdatenbank mit eingespielter Migration `20260914100000_proj53_veranstaltungsprogramm.sql`
+**Browser:** Chromium (Desktop, 1280 px) und Mobile Safari (iPhone 13, 390 px). Firefox ist in Playwright nicht eingerichtet; Tablet (768 px) nicht eigens geprüft.
+**Tester:** QA Engineer (AI)
+
+### Automatisierte Tests
+- **Unit- und Datenbanktests:** 53 Dateien, 597 Tests grün. Neu: Status-Regel, Terminzeile, Adressen, Event-Daten, Schema und 11 Datenbanktests (`tests/PROJ-53-events-db.test.ts`).
+- **Neue E2E-Tests** `tests/PROJ-53-veranstaltungsprogramm.spec.ts`: 19 Tests × 2 Browser, 38/38 grün.
+- **Regression** (PROJ-2, PROJ-8, PROJ-14, PROJ-42, PROJ-43, PROJ-45): 216/222 im ersten Lauf. Zwei Tests (je beide Browser) erwarteten die alte Überschrift „Events & Workshops" bzw. „Events & workshops" — gewollte Textänderung, Tests angepasst, im Nachtest grün. PROJ-14 „AC5, AC10" bleibt in beiden Browsern rot → BUG-1.
+- **Komplette E2E-Suite:** bewusst noch nicht gelaufen. Sie läuft einmal nach PROJ-54 bis PROJ-56, vor dem gemeinsamen Deploy (Absprache mit dem Betreiber vom 2026-09-14).
+
+### Acceptance Criteria Status
+
+#### Eventarten (Admin)
+- [x] Anlegen, danach im Event-Formular wählbar (E2E)
+- [x] Umbenennen erscheint bei allen zugeordneten Events (E2E Umbenennen; die Anzeige kommt über die Verknüpfung)
+- [x] Entfernen gesperrt, solange Events zugeordnet sind, mit Anzahl (E2E und Datenbanktest)
+- [x] Event ohne Eventart ergibt einen Validierungsfehler (E2E und Unit)
+- [x] Englische Seite zeigt denselben Namen (E2E)
+
+#### Verkaufsart (Admin)
+- [x] Wahl „Nur anzeigen" oder „Tickets in der App", vorausgewählt „Tickets in der App" (Code und E2E Anlegen)
+- [x] „Nur anzeigen": Kapazität und Preise optional, kein Kauf (E2E und Datenbanktest)
+- [x] Umstellen mit verkauften Tickets verhindert, mit Zahl (E2E; Datenbank-Sperre zusätzlich im Datenbanktest)
+
+#### Übersicht
+- [x] „Besondere Events": nur kommende, nicht abgesagte, nach Beginn sortiert (E2E)
+- [x] Ohne Serien kein Bereich „Regelmäßig" (E2E)
+- [x] Filter steht in der Adresse, ein geteilter Link öffnet denselben Filter (E2E)
+- [x] Filter nur mit Arten, zu denen es kommende Events gibt (E2E)
+- [x] Filter ohne Treffer: Hinweis und „Filter zurücksetzen" (E2E)
+- [x] Leerzustand ohne kommende Events (Code geprüft — in der geteilten Testdatenbank nicht herstellbar)
+- [ ] **BUG-1:** Die Karte soll bei „Tickets in der App" die Verfügbarkeit zeigen — für Kunden mit Ticket fehlt sie
+- [x] Termin: ein Abend als von–bis, mehrere Tage als Zeitraum (Unit)
+- [x] „Nur anzeigen": „Eintritt vor Ort" statt Verfügbarkeit, kein Kaufknopf (E2E)
+- [x] Laufendes Event bleibt sichtbar und bis zum Ende kaufbar (E2E und Datenbanktest)
+
+#### Eventseite
+- [x] Name, Eventart, Termin, Ort, vollständige Beschreibung mit Absätzen, Preise, Knopf (E2E)
+- [x] Ohne Login erreichbar; Link-Vorschau mit Name und Termin (E2E für den Titel der Vorschau)
+- [x] Abgesagt oder vorbei: Hinweis statt Kaufknopf, kein „nicht gefunden" (E2E)
+- [x] Nach dem Login zurück auf dieselbe Eventseite in derselben Sprache (E2E, Englisch)
+- [x] „Du hast ein Ticket" statt „Ticket kaufen", mit Link in den geöffneten Ticket-Abschnitt (E2E)
+- [ ] **BUG-2:** Auf Englisch sollen alle festen Texte englisch sein — die Fehlermeldungen beim Ticketkauf sind deutsch
+
+#### Google-Suche
+- [x] Lesbare Adresse aus dem Namen (E2E Anlegen), eindeutig bei gleichem Namen (Unit und eindeutige Spalte)
+- [x] Umbenennen: alte Links leiten dauerhaft (308) weiter (E2E über die Verwaltung und über eine gespeicherte frühere Adresse)
+- [x] Seitentitel, Beschreibung, Canonical und Event-Daten (E2E)
+- [x] Abgesagt und ausgebucht stehen in den Event-Daten (Unit)
+- [x] „Nur anzeigen" mit Eintrittspreis in den Event-Daten (Unit)
+
+#### Mein Bereich
+- [x] Events der Woche; eine Zeile führt zur Eventseite (E2E)
+- [x] Leere Woche zeigt die nächsten drei unter „Demnächst im Studio" (Code geprüft — in der geteilten Testdatenbank nicht herstellbar)
+- [x] „Nur anzeigen" steht als „Eintritt vor Ort" (E2E)
+- [x] Vorhandenes Ticket wie bisher (bestehende PROJ-45-Tests grün)
+- [x] Link zum Programm behält die Sprache (Code geprüft: sprachbewusste Navigation)
+
+### Edge Cases Status
+- [x] Eventart umbenannt, Filter-Link geteilt: Der Filter arbeitet mit der Kennung (Code)
+- [x] Art nur mit vergangenen Events erscheint nicht im Filter (E2E)
+- [x] Event ohne Ort zeigt keine leere Ortszeile (E2E)
+- [x] Sehr lange Beschreibung: Karte gekürzt, Eventseite vollständig (E2E)
+- [x] Unbekannte Adresse liefert 404 (E2E)
+- [x] Zwei gleiche Namen bekommen verschiedene Adressen (Unit)
+- [x] Mehrfaches Umbenennen: Jede frühere Adresse wird gespeichert (Code; E2E für eine Umbenennung)
+- [x] „Nur anzeigen" ohne Preis zeigt keine Preiszeile (E2E)
+- [x] Umstellen ohne verkaufte Tickets ist erlaubt (Code; die Datenbank-Sperre greift nur bei gültigen Tickets)
+- [x] Kauf während einer laufenden Veranstaltung nennt die abgelaufene Stornofrist (E2E)
+- [ ] Nicht bestätigt: Ausgebucht, dann Storno zeigt die Verfügbarkeit sofort wieder — der PROJ-14-Test bricht vorher an BUG-1 ab
+- [x] Bestand ohne Art und Adresse: Die Migration vergibt beides (Pflichtfelder in der Testdatenbank gesetzt)
+
+### Security Audit Results
+- [x] **Autorisierung:** Admin-Aktionen für Eventarten und Events prüfen die Admin-Rolle vor jedem Schreiben; RLS lässt nur Admins schreiben (Datenbanktest: ein Kunde kann keine Eventart anlegen)
+- [x] **Umgehung der Oberfläche:** Die Kauffunktion lehnt „Nur anzeigen" und vergangene Events auch bei direktem Aufruf ab (Datenbanktest)
+- [x] **Stumm leere Prüfungen:** Die Datenbank-Sperre für „Nur anzeigen" läuft als SECURITY DEFINER mit festem `search_path` — RLS kann sie nicht leerlaufen lassen
+- [x] **XSS:** Ein Skript in Eventname und Beschreibung wird nicht ausgeführt; die Event-Daten maskieren `<` (E2E und Unit)
+- [x] **Datenschutz:** Öffentlich nur die Belegung als Zahl; frühere Adressen enthalten nichts als Adressen
+- [x] **Injection:** Eingaben aus der Adresse (`art`, Eventadresse) werden nur verglichen oder parametrisiert abgefragt
+- [x] **Offene Weiterleitung:** Der Login-Rückweg führt nur auf eigene Pfade (bestehende Prüfung `safeRedirectPath`)
+
+### Bugs Found
+
+#### BUG-1: Kunden mit Ticket sehen keine freien Plätze mehr
+- **Severity:** High — als Regression gewertet: bricht den bestehenden PROJ-14-Test „AC5, AC10" und ein Kriterium der Karte. Die Auswirkung für Kunden ist gering.
+- **Steps to Reproduce:**
+  1. Als Kunde für ein Event mit Tickets ein Ticket kaufen
+  2. `/events` oder die Eventseite öffnen
+  3. Expected: „Du hast ein Ticket" ersetzt nur den Kaufknopf, „Noch X Plätze frei" bleibt sichtbar
+  4. Actual: „Du hast ein Ticket" steht an der Stelle der Verfügbarkeit, die freien Plätze fehlen
+- **Ursache:** `EventVerfuegbarkeit` (`src/components/events/event-angaben.tsx`) zeigt bei „ticketVorhanden" nur das Abzeichen statt zusätzlich die Verfügbarkeit.
+- **Priority:** Fix before deployment
+
+#### BUG-2: Fehlermeldungen beim Ticketkauf auf der englischen Seite deutsch
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. `/en/events/…` öffnen, einloggen und ein Ticket kaufen, während das Event gerade schließt oder die AGB-Zustimmung fehlt
+  2. Expected: englische Fehlermeldung
+  3. Actual: z. B. „Dieses Event ist nicht mehr buchbar." — die Server-Aktion `purchaseTicket` liefert feste deutsche Sätze. Bestand schon vor PROJ-53; „ausgebucht" und „Mandat fehlt" sind bereits übersetzt.
+- **Priority:** Nice to have — vor dem gemeinsamen Deploy sinnvoll, weil PROJ-53 englische Texte zusagt
+
+### Beobachtungen ohne Befund
+- Der Testserver meldet beim PROJ-43-Test „Rücksetz-Link aus der E-Mail" wiederholt „aborted": Der Test verlässt die Seite, während sie noch lädt. Kein Zusammenhang mit PROJ-53.
+- Der abgebrochene PROJ-14-Test hinterlässt je Browser ein reserviertes Ticket für „E2E14 Kaufen Event"; das Zurücksetzen der Testdaten in PROJ-14 storniert es beim nächsten Lauf.
+
+### Summary
+- **Acceptance Criteria:** 32/34 bestanden
+- **Bugs Found:** 2 (0 Critical, 1 High, 0 Medium, 1 Low)
+- **Security:** bestanden
+- **Production Ready:** NEIN — BUG-1 vorher beheben
+- **Recommendation:** BUG-1 und BUG-2 beheben, gezielt nachtesten (PROJ-14, PROJ-53); die komplette Suite nach PROJ-54 bis PROJ-56
 
 ## Deployment
 _To be added by /deploy_

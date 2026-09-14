@@ -242,7 +242,8 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
 
       await page.goto("/en/events");
       await page.waitForTimeout(1200);
-      await expect(page.getByRole("heading", { name: "Events & workshops" })).toBeVisible();
+      // PROJ-53: Aus „Events & workshops" wurde das Programm „Events & parties".
+      await expect(page.getByRole("heading", { level: 1, name: "Events & parties" })).toBeVisible();
     });
 
     test("Beträge folgen der Sprache, die Währung bleibt Euro", async ({ page }) => {

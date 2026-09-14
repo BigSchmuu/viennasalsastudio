@@ -149,7 +149,8 @@ function guestRow(page: Page, name: string): Locator {
 test.describe("PROJ-14: Events & Workshops (Tickets, QR-Check-in)", () => {
   test("AC1: Event-Übersicht zeigt kommende Events mit Termin, Preis und Kapazitäts-Hinweis", async ({ page }) => {
     await gehZu(page, "/events");
-    await expect(page.getByRole("heading", { name: "Events & Workshops" })).toBeVisible();
+    // PROJ-53: Aus „Events & Workshops" wurde das Programm „Events & Partys".
+    await expect(page.getByRole("heading", { level: 1, name: "Events & Partys" })).toBeVisible();
 
     const card = eventCard(page, "E2E14 Kaufen Event");
     await expect(card).toBeVisible();
