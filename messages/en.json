@@ -374,7 +374,18 @@
     "valEmailInvalid": "Invalid email address",
     "valPasswordRequired": "Password is required",
     "valConfirmRequired": "Please confirm your password",
-    "valPasswordsDiffer": "Passwords don't match"
+    "valPasswordsDiffer": "Passwords don't match",
+    "linkTitle": "Almost done",
+    "linkIntroConfirm": "Tap the button to confirm your email address.",
+    "linkIntroPassword": "Tap the button to set a new password.",
+    "linkIntroInvite": "Tap the button to accept your invitation.",
+    "linkIntroLogin": "Tap the button to log in.",
+    "linkButtonConfirm": "Confirm email address",
+    "linkButtonPassword": "Set new password",
+    "linkButtonInvite": "Accept invitation",
+    "linkButtonLogin": "Log in",
+    "linkWorking": "One moment…",
+    "linkWhy": "Why this extra step? Some email apps open links in advance to check them. Without this button, your link would already be used up."
   },
   "legal": {
     "termsTitle": "Terms and Conditions",

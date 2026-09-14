@@ -345,4 +345,14 @@ Diese vier Punkte sind rein Dashboard-seitig und werden von keinem Git-Commit/De
 
 **Ausgeliefert:** 2026-09-14, Commits `84c48c8` (übersetzte Auth-Fehler, eigene Meldung beim Mail-Limit) und `fbce5d3` (dieser Nachtrag) — https://app.viennasalsastudio.at, keine Migration.
 
-**Offen:** Welche Ursache den gemeldeten Reset-Link traf, zeigt erst das Supabase-Auth-Log der Produktion. Weitere Kandidaten, falls der Link schon beim ersten Öffnen abgelehnt wird: ein Mail-Programm oder Virenscanner, der Links vorab aufruft und das Einmal-Token verbraucht.
+### Nachtrag (2026-09-14): Ursache des ungültigen Links belegt — Links wurden mehrfach aufgerufen
+
+**Befund aus dem Supabase-Auth-Log der Produktion** (vom Betreiber geliefert, nur Uhrzeit, Pfad, Status, Meldung): Der Bestätigungslink und der erste Reset-Link wurden je **einmal erfolgreich** eingelöst (`POST /verify` 200) und in derselben bzw. der nächsten Sekunde noch ein- bis zweimal aufgerufen (403 „One-time token not found"), etwa 35 Sekunden später noch einmal. Der Kunde sah einen der abgelehnten Aufrufe. Mailvorlage und Site URL waren also richtig; Ursache 2 aus dem Nachtrag oben (zweite Anforderung ersetzt den ersten Link) war es **nicht** — der erste Reset-Link scheiterte, bevor ein zweiter angefordert wurde.
+
+Wer mehrfach aufruft, zeigt das Log nicht (Supabase sieht nur den App-Server). Üblich: eine Mail-App oder ein Scanner, der Links vorab prüft, oder der Browser der Mail-App, der den Link an Safari/Chrome weiterreicht.
+
+**Behebung:** `/auth/confirm` löst beim Öffnen nichts mehr ein, sondern leitet an die neue Seite `/bestaetigen` weiter. Dort löst erst der Knopf den Link ein (Server-Aktion `linkEinloesen`, `src/lib/auth/einmal-link.ts`). Ist der Link schon eingelöst und der Browser angemeldet, geht es zum Ziel statt zur Fehlerseite. Das ist die Abhilfe, die Supabase für „email prefetching" selbst vorschlägt. Für Kunden: ein Tipp mehr, mit kurzer Erklärung auf der Seite.
+
+**Tests:** Ein E2E-Test erzeugt per `generateLink` einen echten Reset-Link (ohne Mail), ruft ihn wie ein Scanner dreimal ab und löst ihn danach per Knopf ein; ein zweiter Aufruf im angemeldeten Browser führt zum Ziel. Gegen die alte Route scheitert er und landet auf `/login?error=confirm_failed` — genau das Bild aus dem Log. Ein zweiter Test prüft, dass ein ungültiger Link ohne Anmeldung auf der Fehlermeldung endet. Unit 548, Typen und Lint sauber, PROJ-2 in beiden Browsern 42/42.
+
+**Keine Änderung im Supabase-Dashboard nötig:** Die Vorlagen zeigen weiter auf `/auth/confirm?token_hash=…&type=…&next=…`; die Checkliste aus dem Nachtrag vom 2026-08-13 gilt unverändert.

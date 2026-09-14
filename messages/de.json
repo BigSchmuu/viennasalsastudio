@@ -374,7 +374,18 @@
     "valEmailInvalid": "Ungültige E-Mail-Adresse",
     "valPasswordRequired": "Passwort ist erforderlich",
     "valConfirmRequired": "Bitte bestätige dein Passwort",
-    "valPasswordsDiffer": "Passwörter stimmen nicht überein"
+    "valPasswordsDiffer": "Passwörter stimmen nicht überein",
+    "linkTitle": "Fast geschafft",
+    "linkIntroConfirm": "Tippe auf den Knopf, um deine E-Mail-Adresse zu bestätigen.",
+    "linkIntroPassword": "Tippe auf den Knopf, um ein neues Passwort festzulegen.",
+    "linkIntroInvite": "Tippe auf den Knopf, um deine Einladung anzunehmen.",
+    "linkIntroLogin": "Tippe auf den Knopf, um dich anzumelden.",
+    "linkButtonConfirm": "E-Mail-Adresse bestätigen",
+    "linkButtonPassword": "Neues Passwort festlegen",
+    "linkButtonInvite": "Einladung annehmen",
+    "linkButtonLogin": "Anmelden",
+    "linkWorking": "Einen Moment…",
+    "linkWhy": "Warum dieser Zwischenschritt? Manche Mailprogramme öffnen Links vorab, um sie zu prüfen. Ohne diesen Knopf wäre dein Link danach schon verbraucht."
   },
   "legal": {
     "termsTitle": "Allgemeine Geschäftsbedingungen",

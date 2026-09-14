@@ -270,6 +270,52 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     });
   }
 
+  // Belegt durch das Supabase-Log vom 2026-09-13: Jeder Link aus einer Mail
+  // wurde einmal erfolgreich eingelöst und in derselben Sekunde noch ein-,
+  // zweimal aufgerufen — von der Mail-App oder einem Scanner, der Links vorab
+  // prüft. Der Kunde sah danach „ungültig oder abgelaufen“. Seitdem löst erst
+  // ein Knopf den Link ein.
+  test("Ein Link aus der Mail übersteht Vorab-Aufrufe und wird erst per Knopf eingelöst", async ({ page }) => {
+    const service = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    // generateLink erzeugt den Link, ohne eine Mail zu verschicken.
+    const { data, error } = await service.auth.admin.generateLink({
+      type: "recovery",
+      email: CONFIRMED_EMAIL,
+    });
+    expect(error).toBeNull();
+    const tokenHash = data.properties?.hashed_token;
+    expect(tokenHash).toBeTruthy();
+    const link = `/auth/confirm?token_hash=${tokenHash}&type=recovery&next=/passwort-zuruecksetzen`;
+
+    // Wie ein Scanner: dreimal abrufen, jeder Weiterleitung folgend.
+    for (let i = 0; i < 3; i++) {
+      expect((await page.request.get(link)).ok()).toBe(true);
+    }
+
+    await page.goto(link);
+    await expect(page).toHaveURL(/\/bestaetigen\?/);
+    await page.getByRole("button", { name: "Neues Passwort festlegen" }).click();
+    await expect(page).toHaveURL(/\/passwort-zuruecksetzen$/, { timeout: 20000 });
+    await expect(page.getByLabel("Neues Passwort", { exact: true })).toBeVisible();
+
+    // Derselbe Link ein zweites Mal, in diesem Browser schon angemeldet: weiter
+    // statt Fehlerseite.
+    await page.goto(link);
+    await page.getByRole("button", { name: "Neues Passwort festlegen" }).click();
+    await expect(page).toHaveURL(/\/passwort-zuruecksetzen$/, { timeout: 20000 });
+  });
+
+  test("Ein ungültiger Link endet ohne Anmeldung auf der Fehlermeldung", async ({ page }) => {
+    await page.goto("/auth/confirm?token_hash=pkce_ungueltig&type=recovery&next=/passwort-zuruecksetzen");
+    await page.getByRole("button", { name: "Neues Passwort festlegen" }).click();
+    await expect(page).toHaveURL(/\/login\?error=confirm_failed/, { timeout: 20000 });
+    await expect(page.getByText("Der Bestätigungslink ist ungültig oder abgelaufen")).toBeVisible();
+  });
+
   test("Profil bearbeiten und speichern zeigt aktualisierte Daten; Rollenfeld ist nicht vorhanden", async ({
     page,
   }) => {
