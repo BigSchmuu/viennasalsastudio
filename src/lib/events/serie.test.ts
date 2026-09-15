@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { serientermine, naechsterTermin, ferienpauseBis, uhrzeitKurz, type SerienRegel } from "./serie";
+import { serientermine, ferienpauseBis, inFerienzeit, terminBleibt, uhrzeitKurz, type SerienRegel } from "./serie";
 
 // Donnerstag, 2026-10-01. Der Freitag der Serie ist also der 02.10.
 const JETZT = new Date("2026-10-01T09:00:00Z");
@@ -50,13 +50,44 @@ describe("serientermine", () => {
   });
 });
 
-describe("naechsterTermin", () => {
-  it("nennt den nächsten stattfindenden Termin", () => {
-    expect(naechsterTermin(freitags, { ferien: [], jetzt: JETZT })).toBe("2026-10-02");
+describe("terminBleibt", () => {
+  // Ein angelegter Termin ist mehr als ein Eintrag im Kalender: An ihm können
+  // verkaufte Tickets hängen. Deshalb entscheidet diese Regel, ob eine
+  // Serienänderung ihn anrührt.
+  const gueltig = new Set(["2026-10-02", "2026-10-16"]);
+  const imRhythmus = new Set(["2026-10-02", "2026-10-09", "2026-10-16"]);
+
+  it("lässt einen Termin stehen, der weiter im Rhythmus liegt", () => {
+    expect(terminBleibt("2026-10-02", { gueltig, imRhythmus })).toBe(true);
   });
 
-  it("ist null, wenn im Fenster keiner mehr liegt", () => {
-    expect(naechsterTermin({ ...freitags, endsOn: "2026-09-30" }, { ferien: [], jetzt: JETZT })).toBeNull();
+  it("lässt einen Termin stehen, dem nur die Ferien im Weg stehen", () => {
+    // Nachträglich eingetragene Ferien sagen nichts ab — eine Absage trifft
+    // zahlende Gäste und braucht eine bewusste Entscheidung (QA-Befund BUG-1).
+    expect(terminBleibt("2026-10-09", { gueltig, imRhythmus })).toBe(true);
+  });
+
+  it("gibt einen Termin frei, der aus dem Rhythmus selbst gefallen ist", () => {
+    // Anderer Wochentag oder Serie früher zu Ende: Der gehört weg.
+    expect(terminBleibt("2026-10-23", { gueltig, imRhythmus })).toBe(false);
+  });
+});
+
+describe("inFerienzeit", () => {
+  const ferien = [{ von: "2026-10-05", bis: "2026-10-11" }];
+
+  it("erkennt einen Tag mitten in den Ferien", () => {
+    expect(inFerienzeit("2026-10-09", ferien)).toBe(true);
+  });
+
+  it("zählt den ersten und den letzten Ferientag mit", () => {
+    expect(inFerienzeit("2026-10-05", ferien)).toBe(true);
+    expect(inFerienzeit("2026-10-11", ferien)).toBe(true);
+  });
+
+  it("lässt den Tag davor und danach in Ruhe", () => {
+    expect(inFerienzeit("2026-10-04", ferien)).toBe(false);
+    expect(inFerienzeit("2026-10-12", ferien)).toBe(false);
   });
 });
 

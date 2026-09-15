@@ -496,7 +496,8 @@ function SerieFormDialog({
                     </Label>
                   </div>
                   <FormDescription>
-                    Termine in den Studioferien werden dann gar nicht erst angelegt. Bereits angelegte Termine bleiben.
+                    Termine in den Studioferien werden dann gar nicht erst angelegt. Bereits angelegte Termine bleiben
+                    stehen — auch wenn die Ferien erst später dazukommen; absagen kannst du sie unter &bdquo;Termine&ldquo;.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -640,6 +641,16 @@ function TermineDialog({ serie, onOpenChange }: { serie: SerieRow | null; onOpen
           <DialogTitle>Termine — {serie?.name}</DialogTitle>
         </DialogHeader>
 
+        {termine?.some((termin) => termin.inFerien && !termin.abgesagt) ? (
+          <Alert>
+            <AlertDescription>
+              Einzelne Termine liegen in den Studioferien — meist, weil die Ferien erst später eingetragen wurden. Sie
+              bleiben bestehen, bis du sie hier absagst. Bei Terminen mit Tickets werden die Inhaber dann
+              benachrichtigt.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         {termine === null ? (
           <p className="text-sm text-muted-foreground">Wird geladen…</p>
         ) : termine.length === 0 ? (
@@ -657,6 +668,7 @@ function TermineDialog({ serie, onOpenChange }: { serie: SerieRow | null; onOpen
                   <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {termin.abgesagt ? <Badge variant="destructive">Fällt aus</Badge> : null}
                     {termin.verlegt ? <Badge variant="secondary">Verlegt</Badge> : null}
+                    {termin.inFerien && !termin.abgesagt ? <Badge variant="outline">In Studioferien</Badge> : null}
                     {termin.ticketCount > 0 ? `${termin.ticketCount} Tickets` : "keine Tickets"}
                   </p>
                 </div>

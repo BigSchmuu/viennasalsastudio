@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EventCard, type PublicEventRow } from "@/components/events/event-card";
 import { SerieKarte, type PublicSerieRow } from "@/components/events/serie-karte";
 import { eventEnde, eventZustand, freiePlaetze, stornierbar, type SalesMode } from "@/lib/events/event-zustand";
-import { ferienpauseBis, naechsterTermin, SERIE_AKTIV } from "@/lib/events/serie";
+import { ferienpauseBis, SERIE_AKTIV } from "@/lib/events/serie";
 import { ladeFerien } from "@/lib/scheduling/ferien";
 
 const GUELTIGE_TICKETS = ["reserved", "confirmed", "checked_in"];
@@ -37,7 +37,8 @@ export default async function EventsPage({ searchParams }: Props) {
   // also nie länger als einen Tag nach Beginn.
   const vorEinemTag = new Date(jetzt.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [eventsRes, serienRes, ferien, occupancyRes, mandateRes, ticketsRes, locale, t] = await Promise.all([
+  const [eventsRes, serienRes, serienTermineRes, ferien, occupancyRes, mandateRes, ticketsRes, locale, t] =
+    await Promise.all([
     supabase
       .from("events")
       .select(
@@ -56,6 +57,17 @@ export default async function EventsPage({ searchParams }: Props) {
       )
       .eq("status", SERIE_AKTIV)
       .order("weekday", { ascending: true }),
+    // PROJ-54: Der nächste Termin einer Serie ist der nächste, der wirklich
+    // stattfindet — nicht der, den der Rhythmus vorsieht. Ein abgesagter oder
+    // verlegter Abend schickte den Gast sonst an einem Tag los, an dem nichts
+    // ist (QA-Befund BUG-2).
+    supabase
+      .from("events")
+      .select("series_id, starts_at, ends_at")
+      .not("series_id", "is", null)
+      .eq("status", "geplant")
+      .or(`ends_at.gt.${jetzt.toISOString()},starts_at.gt.${vorEinemTag}`)
+      .order("starts_at", { ascending: true }),
     ladeFerien(supabase),
     // tickets is RLS-scoped to "own row or staff" — this SECURITY DEFINER
     // function returns aggregate counts only, safe for anonymous visitors
@@ -76,6 +88,17 @@ export default async function EventsPage({ searchParams }: Props) {
   }
   if (serienRes.error) {
     console.error("Serien konnten nicht geladen werden", serienRes.error);
+  }
+  if (serienTermineRes.error) {
+    console.error("Serientermine konnten nicht geladen werden", serienTermineRes.error);
+  }
+
+  // Aufsteigend sortiert, also gewinnt der erste Treffer je Serie.
+  const naechsteTermine = new Map<string, string>();
+  for (const termin of serienTermineRes.data ?? []) {
+    if (!termin.series_id || naechsteTermine.has(termin.series_id)) continue;
+    if (eventEnde(termin.starts_at, termin.ends_at) <= jetzt) continue;
+    naechsteTermine.set(termin.series_id, termin.starts_at);
   }
 
   const belegt = new Map((occupancyRes.data ?? []).map((o) => [o.event_id, o.ticket_count]));
@@ -99,7 +122,7 @@ export default async function EventsPage({ searchParams }: Props) {
       startTime: s.start_time,
       endTime: s.end_time,
       eventTypeId: s.event_type_id,
-      naechsterTermin: naechsterTermin(regel, { ferien, jetzt }),
+      naechsterTermin: naechsteTermine.get(s.id) ?? null,
       ferienpauseBis: ferienpauseBis(regel, { ferien, jetzt }),
     };
   });

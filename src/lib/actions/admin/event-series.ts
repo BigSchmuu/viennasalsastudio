@@ -6,7 +6,7 @@ import { eventSeriesSchema, terminVerlegenSchema, type EventSeriesInput } from "
 import { enqueueNotification } from "@/lib/notifications/dispatch";
 import { eindeutigeAdresse, eventAdresse } from "@/lib/events/adresse";
 import { vergebeneAdressen } from "@/lib/actions/admin/adressen";
-import { serientermine, SERIE_AKTIV, SERIE_BEENDET } from "@/lib/events/serie";
+import { inFerienzeit, serientermine, terminBleibt, SERIE_AKTIV, SERIE_BEENDET } from "@/lib/events/serie";
 import {
   geerbteSpalten,
   legeSerienTermineAn,
@@ -207,17 +207,17 @@ export async function updateEventSeries(id: string, formData: FormData): Promise
  */
 async function richteKuenftigeTermineAus(supabase: AdminSupabase, serie: SerieZeile): Promise<void> {
   const ferien = await ladeFerien(supabase);
-  const gueltig = new Set(
-    serientermine(
-      {
-        weekday: serie.weekday,
-        startsOn: serie.starts_on,
-        endsOn: serie.ends_on,
-        pausiertInFerien: serie.pause_in_holidays,
-      },
-      { ferien }
-    )
-  );
+  const regel = {
+    weekday: serie.weekday,
+    startsOn: serie.starts_on,
+    endsOn: serie.ends_on,
+    pausiertInFerien: serie.pause_in_holidays,
+  };
+  const gueltig = new Set(serientermine(regel, { ferien }));
+  // Derselbe Rhythmus, ohne Ferien gerechnet: Was nur ihretwegen fehlt, bleibt
+  // stehen. Sonst sagte jede beliebige Serienänderung Termine ab, die nach dem
+  // Eintragen von Ferien in einer Ferienwoche liegen — mitsamt ihren Tickets.
+  const imRhythmus = new Set(serientermine({ ...regel, pausiertInFerien: false }, { ferien }));
 
   const { data: kuenftige, error } = await supabase
     .from("events")
@@ -237,7 +237,7 @@ async function richteKuenftigeTermineAus(supabase: AdminSupabase, serie: SerieZe
     // Fällt der Termin nach der Änderung aus dem Rhythmus, verschwindet er —
     // es sei denn, jemand hat schon ein Ticket. Dann wird er abgesagt, damit
     // die Inhaber es erfahren.
-    if (!gueltig.has(termin.occurrence_date)) {
+    if (!terminBleibt(termin.occurrence_date, { gueltig, imRhythmus })) {
       const { count } = await supabase
         .from("tickets")
         .select("id", { count: "exact", head: true })
@@ -364,23 +364,31 @@ export type SerienTerminZeile = {
   endsAt: string | null;
   abgesagt: boolean;
   verlegt: boolean;
+  /** Liegt in den Studioferien, obwohl die Serie darin pausiert (QA-Befund BUG-1). */
+  inFerien: boolean;
   ticketCount: number;
 };
 
 /** Die Termine einer Serie für die Verwaltung — vergangene bleiben außen vor. */
 export async function getSeriesOccurrences(seriesId: string): Promise<SerienTerminZeile[]> {
   const { supabase } = await requireAdmin();
-  const { data, error } = await supabase
-    .from("events")
-    .select("id, slug, starts_at, ends_at, status, overridden, tickets(status)")
-    .eq("series_id", seriesId)
-    .gt("starts_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-    .order("starts_at", { ascending: true });
+  const [{ data, error }, { data: serie }, ferien] = await Promise.all([
+    supabase
+      .from("events")
+      .select("id, slug, starts_at, ends_at, occurrence_date, status, overridden, tickets(status)")
+      .eq("series_id", seriesId)
+      .gt("starts_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .order("starts_at", { ascending: true }),
+    supabase.from("event_series").select("pause_in_holidays").eq("id", seriesId).maybeSingle(),
+    ladeFerien(supabase),
+  ]);
 
   if (error) {
     console.error("Serientermine nicht lesbar", error);
     return [];
   }
+
+  const pausiert = serie?.pause_in_holidays ?? false;
 
   return (data ?? []).map((termin) => ({
     id: termin.id,
@@ -389,6 +397,9 @@ export async function getSeriesOccurrences(seriesId: string): Promise<SerienTerm
     endsAt: termin.ends_at,
     abgesagt: termin.status === "abgesagt",
     verlegt: termin.overridden,
+    // Ferien, die erst nach dem Termin eingetragen wurden, sagen ihn nicht ab.
+    // Die Verwaltung soll ihn aber erkennen und selbst entscheiden können.
+    inFerien: pausiert && termin.occurrence_date !== null && inFerienzeit(termin.occurrence_date, ferien),
     ticketCount: termin.tickets.filter((ticket) => ticket.status !== "cancelled").length,
   }));
 }

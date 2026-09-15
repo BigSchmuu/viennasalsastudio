@@ -57,6 +57,15 @@ function alsZeitpunkt(iso: string): string {
   });
 }
 
+/** Wie die Karte den nächsten Termin schreibt — ohne Wochentag, siehe alsZeitpunkt. */
+function alsKurzdatum(datum: string): string {
+  return new Date(`${datum}T12:00:00Z`).toLocaleDateString("de-AT", {
+    timeZone: "Europe/Vienna",
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
 function alsDatum(datum: string): string {
   return new Date(`${datum}T12:00:00Z`).toLocaleDateString("de-AT", {
     timeZone: "Europe/Vienna",
@@ -234,14 +243,37 @@ test.beforeAll(async () => {
     name: "E2E54 Ferienserie",
     slug: FERIEN_SLUG,
     event_type_id: arten.party,
-    sales_mode: "display",
+    sales_mode: "tickets",
     weekday: TAG,
     start_time: "20:00",
     end_time: null,
     starts_on: tage[0],
     pause_in_holidays: true,
+    capacity: 20,
+    price_normal: 10,
+    price_student: 8,
     status: "aktiv",
   });
+  // Dieser Termin war zuerst da; die Ferien kommen gleich danach. Genau der
+  // Fall, in dem eine Serienänderung ihn nicht absagen darf (QA-Befund BUG-1).
+  termine.inFerien = await terminAnlegen({
+    name: "E2E54 Ferienserie",
+    slug: `${FERIEN_SLUG}-${tage[0]}`,
+    event_type_id: arten.party,
+    sales_mode: "tickets",
+    series_id: serien.ferien,
+    occurrence_date: tage[0],
+    starts_at: beginn(tage[0], "20:00"),
+    ends_at: null,
+    capacity: 20,
+    price_normal: 10,
+    price_student: 8,
+    status: "geplant",
+  });
+  const { error: ferienTicketFehler } = await service
+    .from("tickets")
+    .insert({ event_id: termine.inFerien, customer_id: fremder.id, payment_method: "onsite", price: 10, status: "reserved" });
+  if (ferienTicketFehler) throw new Error(`PROJ-54 Ferien-Ticket: ${ferienTicketFehler.message}`);
   const { data: ferien, error: ferienFehler } = await service
     .from("studio_holidays")
     .insert({ name: "E2E54 Testferien", starts_on: tage[0], ends_on: plusTage(tage[0], 3) })
@@ -405,6 +437,14 @@ test.describe("PROJ-54: Event-Serien", () => {
     await gehZu(page, `/events/${PARTY_SLUG}`);
     await expect(terminZeile(page, alsZeitpunkt(beginn(tage[0], "21:00"))).getByText("Fällt aus")).toBeVisible();
 
+    // Die Übersicht darf jetzt nicht mehr den abgesagten Abend als nächsten
+    // nennen — sonst führe jemand hin (QA-Befund BUG-2).
+    await gehZu(page, "/events");
+    const kartentext = await karte(page, "E2E54 Freitagsparty").textContent();
+    expect(kartentext).toContain(alsKurzdatum(tage[1]));
+    // Das abgesagte Datum darf auf der Karte überhaupt nicht mehr vorkommen.
+    expect(kartentext).not.toContain(alsKurzdatum(tage[0]));
+
     await gehZu(page, "/admin/events");
     await page.getByRole("row").filter({ hasText: "E2E54 Freitagsparty" }).getByRole("button", { name: "Termine" }).click();
     const wieder = page.getByRole("dialog").locator("li").filter({ hasText: alsZeitpunkt(beginn(tage[0], "21:00")) });
@@ -446,6 +486,28 @@ test.describe("PROJ-54: Event-Serien", () => {
     await expect(dialog.getByText("Serie beenden?")).toBeVisible();
     await expect(dialog.getByText(/Betroffen sind aktuell \d+ Tickets/)).toBeVisible({ timeout: 15000 });
     await dialog.getByRole("button", { name: "Abbrechen" }).click();
+  });
+
+  test("Admin: Nachträgliche Ferien sagen einen Termin mit Ticket nicht ab", async ({ page }) => {
+    await login(page, ADMIN);
+    await gehZu(page, "/admin/events");
+
+    // Eine ganz beliebige Änderung an der Serie — hier nur die Beschreibung.
+    const reihe = page.getByRole("row").filter({ hasText: "E2E54 Ferienserie" });
+    await reihe.getByRole("button", { name: "Bearbeiten" }).click();
+    const formular = page.getByRole("dialog");
+    await formular.getByLabel("Beschreibung (optional)").fill("Nur die Beschreibung geändert.");
+    await formular.getByRole("button", { name: "Speichern" }).click();
+    await expect(formular).toBeHidden({ timeout: 15000 });
+
+    await page.getByRole("row").filter({ hasText: "E2E54 Ferienserie" }).getByRole("button", { name: "Termine" }).click();
+    const termineDialog = page.getByRole("dialog");
+    const zeile = termineDialog.locator("li").filter({ hasText: alsZeitpunkt(beginn(tage[0], "20:00")) });
+    await expect(zeile).toBeVisible({ timeout: 15000 });
+    await expect(zeile.getByText("Fällt aus")).toHaveCount(0);
+    // Und die Verwaltung sagt, warum dieser Termin auffällt.
+    await expect(zeile.getByText("In Studioferien")).toBeVisible();
+    await expect(termineDialog.getByText(/bleiben bestehen, bis du sie hier absagst/)).toBeVisible();
   });
 
   test("Admin: Das Bearbeiten-Formular nennt die Tickets auf künftigen Terminen", async ({ page }) => {

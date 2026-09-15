@@ -49,9 +49,26 @@ export function serientermine(regel: SerienRegel, fenster: Fenster): string[] {
   });
 }
 
-/** Der nächste stattfindende Termin, oder `null`, wenn im Fenster keiner liegt. */
-export function naechsterTermin(regel: SerienRegel, fenster: Fenster): string | null {
-  return serientermine(regel, fenster)[0] ?? null;
+/**
+ * Ob ein bereits angelegter Termin bestehen bleibt, wenn die Serie sich ändert.
+ *
+ * Er bleibt, solange er im Rhythmus liegt — auch dann, wenn ihm gerade nur die
+ * Studioferien im Weg stehen. Nachträglich eingetragene Ferien sagen nichts ab:
+ * Eine Absage hat Folgen für zahlende Gäste und braucht eine bewusste
+ * Entscheidung (Produktentscheidung 2026-09-14, QA-Befund BUG-1). Fällt der
+ * Termin dagegen aus dem Rhythmus selbst — anderer Wochentag, Serie früher zu
+ * Ende — dann gehört er weg.
+ */
+export function terminBleibt(
+  datum: string,
+  fenster: { gueltig: Set<string>; imRhythmus: Set<string> }
+): boolean {
+  return fenster.gueltig.has(datum) || fenster.imRhythmus.has(datum);
+}
+
+/** Liegt dieser Kalendertag in einem der Ferienzeiträume? */
+export function inFerienzeit(datum: string, ferien: Ferienzeitraum[]): boolean {
+  return ferienEndeAm(datum, ferien) !== null;
 }
 
 /**
@@ -69,8 +86,12 @@ export function ferienpauseBis(regel: SerienRegel, fenster: Fenster): string | n
   const ohneFerien = serientermine({ ...regel, pausiertInFerien: false }, fenster)[0];
   if (!ohneFerien) return null;
 
-  const treffer = fenster.ferien.find((zeitraum) => ohneFerien >= zeitraum.von && ohneFerien <= zeitraum.bis);
-  return treffer ? treffer.bis : null;
+  return ferienEndeAm(ohneFerien, fenster.ferien);
+}
+
+/** Das Ende der Ferien, in denen dieser Kalendertag liegt — sonst `null`. */
+export function ferienEndeAm(datum: string, ferien: Ferienzeitraum[]): string | null {
+  return ferien.find((zeitraum) => datum >= zeitraum.von && datum <= zeitraum.bis)?.bis ?? null;
 }
 
 /** „21:00:00" aus der Datenbank wird zu „21:00". */

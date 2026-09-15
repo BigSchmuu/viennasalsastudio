@@ -1,6 +1,6 @@
 # PROJ-54: Event-Serien (regelmäßige Veranstaltungen)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-09-14
 **Last Updated:** 2026-09-14
 
@@ -277,10 +277,10 @@ Die Migration ist am 2026-09-15 vom Betreiber eingespielt worden. `tests/PROJ-54
 #### Studioferien
 - [x] Ferienpause: Termine entfallen, das Programm zeigt „Ferienpause bis …" — E2E (zweimal: die Karte der pausierenden Serie und eine neu angelegte Serie, die die Ferienwoche überspringt)
 - [x] Ohne Ferienpause finden die Termine auch in den Ferien statt — E2E
-- [ ] **BUG-1:** Nachträglich eingetragene Ferien sagen einen Termin mit verkauften Tickets ab, sobald die Serie das nächste Mal gespeichert wird
+- [x] Nachträglich eingetragene Ferien lassen einen Termin mit verkauften Tickets stehen; die Verwaltung markiert ihn mit „In Studioferien" und nennt den Grund — BUG-1 behoben, E2E
 
 #### Programm
-- [ ] **BUG-2:** Die Übersichtskarte nennt als „Nächster Termin" auch einen abgesagten oder verlegten Abend. Rhythmus in Worten und Ort stimmen — E2E
+- [x] Die Übersichtskarte nennt Rhythmus in Worten, Ort und den nächsten *stattfindenden* Termin — BUG-2 behoben, E2E
 - [x] Serienseite zeigt die kommenden Termine samt „Fällt aus" und „Geändert" — E2E
 - [x] Der Filter nach Eventart gilt auch für Serien — E2E
 - [x] Auf Englisch steht auch der Rhythmus auf Englisch („Every Wednesday, 21:00–02:00") — E2E
@@ -326,8 +326,8 @@ Die Migration ist am 2026-09-15 vom Betreiber eingespielt worden. `tests/PROJ-54
   4. **Erwartet:** Der Termin bleibt bestehen; der Admin sieht den Hinweis, dass er ihn ausdrücklich absagen muss
   5. **Tatsächlich:** Der Termin steht auf „abgesagt", und die Ticket-Inhaber bekommen die Absage-Nachricht
 - **Beleg:** Wegwerf-Test am 2026-09-15, Status nach dem Speichern: `abgesagt`
-- **Ursache:** `richteKuenftigeTermineAus` in `src/lib/actions/admin/event-series.ts` streicht jeden künftigen Termin, der nicht mehr im gerechneten Rhythmus liegt — Ferien eingeschlossen. Der Hinweis im Formular („Bereits angelegte Termine bleiben.") sagt das Gegenteil, und die Produktentscheidung vom 2026-09-14 verlangt für eine Absage mit Folgen für zahlende Gäste eine bewusste Entscheidung
-- **Priorität:** vor der Auslieferung beheben
+- **Ursache:** `richteKuenftigeTermineAus` in `src/lib/actions/admin/event-series.ts` strich jeden künftigen Termin, der nicht mehr im gerechneten Rhythmus lag — Ferien eingeschlossen. Der Hinweis im Formular („Bereits angelegte Termine bleiben.") sagte das Gegenteil, und die Produktentscheidung vom 2026-09-14 verlangt für eine Absage mit Folgen für zahlende Gäste eine bewusste Entscheidung
+- **Behoben (2026-09-15):** Der Rhythmus wird jetzt zweimal gerechnet — mit und ohne Ferien. Was nur ihretwegen fehlt, bleibt stehen und wird weiter ausgerichtet; nur was aus dem Rhythmus selbst fällt (anderer Wochentag, Serie früher zu Ende), verschwindet oder wird abgesagt. Die Regel steht als `terminBleibt` in `src/lib/events/serie.ts` und ist einzeln getestet. Die Terminliste im Admin zeigt solche Termine als „In Studioferien" samt Hinweis, dass sie bis zu einer ausdrücklichen Absage bestehen bleiben
 
 #### BUG-2: „Nächster Termin" nennt auch einen abgesagten Abend
 - **Schwere:** Medium
@@ -337,8 +337,8 @@ Die Migration ist am 2026-09-15 vom Betreiber eingespielt worden. `tests/PROJ-54
   3. **Erwartet:** Die Karte nennt den nächsten *stattfindenden* Termin
   4. **Tatsächlich:** Sie nennt weiter den abgesagten („Nächster Termin: Do., 17.09.")
 - **Beleg:** Wegwerf-Test am 2026-09-15
-- **Ursache:** `naechsterTermin` rechnet allein aus der Regel (Wochentag, Zeitraum, Ferien) und sieht die Terminzeilen nicht an. Verlegte Termine trifft dasselbe. Die Serienseite zeigt es richtig — die Übersicht schickt den Gast trotzdem los
-- **Priorität:** vor der Auslieferung beheben
+- **Ursache:** `naechsterTermin` rechnete allein aus der Regel (Wochentag, Zeitraum, Ferien) und sah die Terminzeilen nicht an. Verlegte Termine traf dasselbe
+- **Behoben (2026-09-15):** Die Übersicht liest die kommenden Serientermine mit und nennt den ersten, der wirklich stattfindet — dieselbe Grenze wie bei Einzelevents. `naechsterTermin` ist damit entfallen: Eine zweite, gerechnete Antwort auf dieselbe Frage liefe früher oder später wieder auseinander
 
 #### BUG-3: Die Check-in-Absage nennt den richtigen Termin nicht
 - **Schwere:** Low
@@ -366,13 +366,23 @@ Die Migration ist am 2026-09-15 vom Betreiber eingespielt worden. `tests/PROJ-54
 2. **Eine umbenannte Serie behält ihre Adresse.** Bei Events erzeugt eine Umbenennung eine neue Adresse und merkt sich die alte; bei Serien nicht. Kein Fehler, aber ein Unterschied, der später überraschen kann.
 3. **Firefox ist in Playwright nicht eingerichtet**, Tabletbreite ist ungetestet — beides schon vor PROJ-54 so.
 
+### Nachprüfung nach den Fehlerbehebungen (2026-09-15)
+BUG-1 und BUG-2 sind behoben, beide mit einem dauerhaften Test abgesichert —
+derselbe Ablauf, mit dem sie gefunden wurden, läuft jetzt in jeder Suite mit:
+
+- „Admin: Nachträgliche Ferien sagen einen Termin mit Ticket nicht ab"
+- „Admin: Termin absagen und die Absage zurücknehmen" prüft zusätzlich, dass die Übersichtskarte den abgesagten Abend nicht mehr nennt
+
+Nachgelaufen: 26 E2E in zwei Browsern, PROJ-53 und PROJ-14 vollständig,
+643 Unit-Tests, `npm run build` — alles grün.
+
 ### Zusammenfassung
-- **Abnahmekriterien:** 20 von 23 bestanden
-- **Fehler:** 5 (0 kritisch, 1 hoch, 1 mittel, 3 niedrig)
+- **Abnahmekriterien:** 22 von 23 bestanden (offen: der Hinweis auf den richtigen Termin beim Check-in, BUG-3)
+- **Fehler:** 5 gefunden, 2 behoben — offen 3, alle niedrig
 - **Sicherheit:** bestanden
-- **Automatisierte Tests:** 24 E2E in zwei Browsern (Desktop Chrome, iPhone 13), 18 Datenbanktests, 639 Unit-Tests — alle grün
-- **Auslieferungsreif:** NEIN — BUG-1 sagt Termine mit verkauften Tickets ohne Zutun ab
-- **Empfehlung:** BUG-1 und BUG-2 beheben, dann erneut prüfen
+- **Automatisierte Tests:** 26 E2E in zwei Browsern (Desktop Chrome, iPhone 13), 18 Datenbanktests, 643 Unit-Tests — alle grün
+- **Auslieferungsreif:** JA — die verbliebenen drei Fehler sind niedrig und kosten niemanden ein Ticket
+- **Empfehlung:** ausliefern; BUG-3, BUG-4 und BUG-5 im nächsten Durchgang
 _To be added by /qa_
 
 ## Deployment
