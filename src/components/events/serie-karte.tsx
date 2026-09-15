@@ -39,7 +39,9 @@ export function SerieKarte({ serie }: { serie: PublicSerieRow }) {
       <EventTitelbild bild={serie.titelbild} eventName={serie.name} typeName={serie.typeName} variante="karte" />
 
       <CardHeader className="space-y-2">
-        {serie.typeName ? (
+        {/* Ohne Titelbild nennt die gestaltete Fläche schon die Eventart —
+            zweimal untereinander sähe nach Versehen aus (QA-Befund BUG-2). */}
+        {serie.typeName && serie.titelbild ? (
           <Badge variant="secondary" className="w-fit">
             {serie.typeName}
           </Badge>

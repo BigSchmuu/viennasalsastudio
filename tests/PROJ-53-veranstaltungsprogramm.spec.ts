@@ -212,9 +212,9 @@ test.describe("PROJ-53: Veranstaltungsprogramm", () => {
     await expect(besondere.getByRole("link", { name: "E2E53 Salsa Party", exact: true })).toBeVisible();
 
     const party = karte(page, "E2E53 Salsa Party");
-    // Die Eventart steht auf einer Karte ohne Titelbild zweimal: als Abzeichen
-    // und auf der gestalteten Fläche darüber (PROJ-55, QA-Befund BUG-2).
-    // Geprüft wird das Abzeichen — es steht als letztes im Text.
+    // Ohne Titelbild nennt die gestaltete Fläche die Eventart, mit Titelbild
+    // das Abzeichen daneben (PROJ-55). Geprüft wird, dass sie überhaupt
+    // dasteht — welcher der beiden Wege, ist der Karte überlassen.
     await expect(party.getByText("E2E53 Party", { exact: true }).last()).toBeVisible();
     await expect(party.getByText("Studio Saal 1")).toBeVisible();
     await expect(party.getByText(/12,00/)).toBeVisible();

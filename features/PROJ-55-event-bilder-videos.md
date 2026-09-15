@@ -1,6 +1,6 @@
 # PROJ-55: Bilder & Videos für Events
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-09-14
 **Last Updated:** 2026-09-15
 
@@ -263,8 +263,8 @@ Diese Suite lädt wirklich hoch: Die Testbilder entstehen im Test, gehen durch d
 
 #### Titelbild
 - [x] Hochgeladenes Titelbild erscheint auf der Karte und oben auf der Eventseite — E2E
-- [x] Ohne Titelbild eine gestaltete Fläche mit der Eventart, kein kaputtes Bild — E2E (siehe BUG-2 zur Doppelung)
-- [ ] **BUG-1:** Ein Titelbild lässt sich nicht ersetzen — das alte bleibt stehen, das neue wird verworfen
+- [x] Ohne Titelbild eine gestaltete Fläche mit der Eventart, kein kaputtes Bild — E2E
+- [x] Ein Titelbild lässt sich ersetzen; das alte verschwindet aus Datenbank und Bildspeicher — BUG-1 behoben, E2E
 - [x] Die Link-Vorschau nennt das Titelbild — E2E über `og:image`
 
 #### Galerie
@@ -317,28 +317,33 @@ Diese Suite lädt wirklich hoch: Die Testbilder entstehen im Test, gehen durch d
   3. **Erwartet:** Das neue Bild steht da, das alte ist aus Datenbank und Bildspeicher verschwunden
   4. **Tatsächlich:** Das alte Titelbild bleibt, das neue wird verworfen; der Dialog meldet „Bild konnte nicht gespeichert werden."
 - **Beleg:** E2E-Test „Titelbild ersetzen", in beiden Browsern rot: Nach dem zweiten Hochladen steht dieselbe Datei wie vorher in der Zeile
-- **Ursache:** `saveEventBild` trägt das neue Titelbild ein **bevor** es das alte löscht. Seit dieser Migration gilt aber „höchstens ein Titelbild je Event" als Sperre in der Datenbank — der Eintrag scheitert daran (23505), und die Aktion räumt die gerade hochgeladene Datei wieder weg. Die Sperre ist richtig; die Reihenfolge im Code ist es nicht
-- **Priorität:** vor der Auslieferung beheben
+- **Ursache:** `saveEventBild` trug das neue Titelbild ein, **bevor** es das alte löschte. Seit dieser Migration gilt aber „höchstens ein Titelbild je Event" als Sperre in der Datenbank — der Eintrag scheiterte daran (23505), und die Aktion räumte die gerade hochgeladene Datei wieder weg. Die Sperre ist richtig; die Reihenfolge im Code war es nicht
+- **Behoben (2026-09-15):** Ist schon ein Titelbild da, bekommt dessen Zeile das neue Bild, statt dass eine zweite danebentritt. Die alte Datei geht erst danach — ginge sie vorher, stünde bei einem Fehler eine Zeile ohne Bild da. Die Beschreibung gehörte zum alten Bild und geht mit ihm
 
 #### BUG-2: Auf einer Karte ohne Titelbild steht die Eventart zweimal
 - **Schwere:** Low
 - **Schritte:** Ein Event ohne Titelbild in der Übersicht ansehen
 - **Erwartet:** Die Eventart einmal
-- **Tatsächlich:** Einmal groß auf der gestalteten Fläche, direkt darunter noch einmal als Abzeichen. Für Screenreader ist die Fläche ausgeblendet, es ist also rein optisch — aber es sieht nach einem Versehen aus
-- **Priorität:** im nächsten Durchgang
+- **Tatsächlich:** Einmal groß auf der gestalteten Fläche, direkt darunter noch einmal als Abzeichen. Für Screenreader ist die Fläche ausgeblendet, es war also rein optisch — aber es sah nach einem Versehen aus
+- **Behoben (2026-09-15):** Das Abzeichen erscheint nur noch, wenn die Karte ein Titelbild hat. Ohne Bild trägt die Fläche die Eventart, wie es die Spezifikation verlangt — und zwar einmal
 
 ### Beobachtungen (kein Fehler)
 1. **Das Verkleinern funktioniert auch in WebKit.** Das war nach den Datenbanktests offen. Beide Browser laden hoch, und in beiden verschwindet das Merkmal aus dem Bild — die Zusage zu den Standortdaten hält also auch auf dem iPhone.
 2. **Der Ablageort kommt vom Browser.** Eine veränderte Anfrage könnte ein Bild in den Ordner eines anderen Events legen. Hochladen darf nur ein Admin, deshalb kein Rechteproblem — aber es ist Vertrauen, das man sich sparen könnte.
 3. **Firefox ist in Playwright weiterhin nicht eingerichtet**, Tabletbreite ungetestet — beides schon vor PROJ-55 so.
 
+### Nachprüfung nach den Fehlerbehebungen (2026-09-15)
+Beide Fehler sind behoben. Der Test, der BUG-1 gefunden hat, bleibt als Regression stehen: Er lädt ein Titelbild hoch, ersetzt es und sieht nach, dass die alte Datei wirklich fort ist.
+
+Nachgelaufen: 10 E2E in zwei Browsern (20 Läufe), PROJ-53 und PROJ-54 vollständig (64 Läufe), 679 Unit-Tests, `npm run build` — alles grün.
+
 ### Zusammenfassung
-- **Abnahmekriterien:** 16 von 17 bestanden
-- **Fehler:** 2 (0 kritisch, 1 hoch, 0 mittel, 1 niedrig)
+- **Abnahmekriterien:** 17 von 17 bestanden
+- **Fehler:** 2 gefunden, 2 behoben
 - **Sicherheit:** bestanden
-- **Automatisierte Tests:** 10 E2E in zwei Browsern (Desktop Chrome, iPhone 13) mit echten Uploads, 19 Datenbanktests, 679 Unit-Tests
-- **Auslieferungsreif:** NEIN — ein Titelbild lässt sich nicht ersetzen
-- **Empfehlung:** BUG-1 beheben, dann erneut prüfen
+- **Automatisierte Tests:** 10 E2E in zwei Browsern mit echten Uploads, 19 Datenbanktests, 679 Unit-Tests — alle grün
+- **Auslieferungsreif:** JA
+- **Empfehlung:** ausliefern — gemeinsam mit PROJ-53 bis PROJ-56, Migrationen zuerst
 _To be added by /qa_
 
 ## Deployment

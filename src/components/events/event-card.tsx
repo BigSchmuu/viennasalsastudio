@@ -48,7 +48,9 @@ export function EventCard({
       <EventTitelbild bild={event.titelbild} eventName={event.name} typeName={event.typeName} variante="karte" />
 
       <CardHeader className="space-y-2">
-        {event.typeName ? (
+        {/* Ohne Titelbild nennt die gestaltete Fläche schon die Eventart —
+            zweimal untereinander sähe nach Versehen aus (QA-Befund BUG-2). */}
+        {event.typeName && event.titelbild ? (
           <Badge variant="secondary" className="w-fit">
             {event.typeName}
           </Badge>

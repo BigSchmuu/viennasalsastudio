@@ -169,7 +169,6 @@ export async function saveEventBild(
     }
   }
 
-  // Das alte Titelbild verschwindet, statt unsichtbar liegen zu bleiben.
   const altesTitelbild =
     bild.rolle === BILD_TITEL
       ? (
@@ -178,6 +177,35 @@ export async function saveEventBild(
             .maybeSingle()
         ).data
       : null;
+
+  if (altesTitelbild) {
+    // Die vorhandene Zeile bekommt das neue Bild, statt dass eine zweite
+    // danebentritt: „Höchstens ein Titelbild je Event" ist eine Sperre in der
+    // Datenbank, und ein Eintrag neben dem alten scheiterte daran (QA-Befund
+    // BUG-1). Die Beschreibung gehörte zum alten Bild und geht mit ihm.
+    const { error: aenderFehler } = await supabase
+      .from("event_images")
+      .update({ storage_path: bild.pfad, width: bild.breite, height: bild.hoehe, alt_text: null })
+      .eq("id", altesTitelbild.id);
+
+    if (aenderFehler) {
+      console.error("Titelbild konnte nicht ersetzt werden", aenderFehler);
+      await raeumeAuf();
+      return { error: "Bild konnte nicht gespeichert werden." };
+    }
+
+    // Erst jetzt die alte Datei: Ginge sie vorher, stünde bei einem Fehler
+    // eine Zeile ohne Bild da.
+    const { error: speicherFehler } = await supabase.storage
+      .from(BILDER_BUCKET)
+      .remove([altesTitelbild.storage_path]);
+    if (speicherFehler) {
+      console.error("Altes Titelbild blieb liegen", altesTitelbild.storage_path, speicherFehler);
+    }
+
+    neuLaden(await zieladressen(supabase, ziel));
+    return { success: true };
+  }
 
   const { error } = await supabase.from("event_images").insert({
     ...zielSpalten(ziel),
@@ -192,11 +220,6 @@ export async function saveEventBild(
     console.error("Bild konnte nicht eingetragen werden", error);
     await raeumeAuf();
     return { error: "Bild konnte nicht gespeichert werden." };
-  }
-
-  if (altesTitelbild) {
-    await supabase.from("event_images").delete().eq("id", altesTitelbild.id);
-    await supabase.storage.from(BILDER_BUCKET).remove([altesTitelbild.storage_path]);
   }
 
   neuLaden(await zieladressen(supabase, ziel));
