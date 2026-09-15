@@ -239,8 +239,13 @@ Keine neuen Pakete. Das Verkleinern erledigt der Browser, das Ausliefern in pass
 - **Eine Schonfrist von einem Tag** gehört dazu: Zwischen dem Ankommen einer Datei und ihrem Eintrag liegen Sekunden, und der Lauf darf nicht ausgerechnet dann zuschlagen.
 - Die Prüfung der Bildeinträge ist ausdrücklich abgesichert: Eine leere Liste ohne Fehlerprüfung sähe aus wie „kein Bild ist eingetragen" — und der Lauf löschte den ganzen Bestand.
 
+### In der Testdatenbank geprüft
+Die Migration ist am 2026-09-15 vom Betreiber eingespielt worden. `tests/PROJ-55-medien-db.test.ts` prüft 19 Regeln gegen die echte Testdatenbank, alle grün: genau ein Ziel je Bild und Video, nur ein Titelbild je Event und je Serie (und beide nebeneinander erlaubt), sinnvolle Maße, eindeutiger Ablageort, Länge der Bildbeschreibung, die Form der YouTube-Kennung, das Mitgehen beim Löschen eines Events, die Leserechte für Besucher ohne Konto und die Schreibsperre für Kunden — dazu am Bildspeicher: öffentlich lesbar, 10 MB Grenze, nur die drei Bildformate, Hochladen nur für Admins und das Löschen einer fremden Datei ohne Wirkung.
+
+**Beim Prüfen gelernt:** Der Bildspeicher liest den Typ aus dem, was wirklich ankommt. Im Test ging der Typ zunächst verloren, weil der Speicher-Client jedes `Blob` in ein Formular ohne Dateinamen packt und in Node dabei `text/plain` daraus wird. Der Test schickt deshalb Rohdaten mit ausdrücklichem Typ. Im Browser tritt das nicht auf — dort trägt die Datei ihren Namen und Typ mit; belegt wird das erst durch die E2E-Tests der QA, die wirklich hochladen.
+
 ### Nach der Migration noch offen
-- `src/lib/supabase/types.ts` neu erzeugen und mit der Handfassung abgleichen (`event_images`, `event_videos`). Der MCP-Zugang war am 2026-09-15 nicht verbunden (HTTP 401).
+- `src/lib/supabase/types.ts` neu erzeugen und mit der Handfassung abgleichen (`event_images`, `event_videos`). Der MCP-Zugang war am 2026-09-15 nicht verbunden (HTTP 401); die Handfassung deckt sich mit der Migration, die die Datenbanktests nun als eingespielt belegen.
 
 ### Bewusst nicht gebaut
 - **Kein Auslöser in der Datenbank, der Dateien löscht.** Das ginge nur über einen Netzaufruf aus der Datenbank heraus, samt Zugangsschlüssel in der Datenbank. Der nächtliche Schritt erledigt dasselbe, ohne ein Geheimnis an einen zweiten Ort zu legen.
