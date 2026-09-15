@@ -14,7 +14,8 @@ import { GELTUNG_ALLE, STANDARD_STORNOFRIST_TAGE } from "@/lib/events/tickets";
 /** Die Spalten, die eine Seite mitladen muss, um den Kauf anzubieten. */
 export const KAUF_SPALTEN =
   "payment_methods, cancellation_lead_days, role_query_enabled, max_role_difference, " +
-  "event_ticket_types(id, name, price_normal, price_student, quota, scope, on_sale, position), " +
+  "event_ticket_types(id, name, price_normal, price_student, quota, scope, on_sale, position, " +
+  "event_ticket_type_units(unit_id)), " +
   "event_units(id, title, starts_at, ends_at, capacity)";
 
 export type TicketartZeile = {
@@ -26,6 +27,8 @@ export type TicketartZeile = {
   scope: string;
   on_sale: boolean;
   position: number;
+  /** Nur bei fester Geltung gefüllt (QA-Befund BUG-2). */
+  event_ticket_type_units?: { unit_id: string }[] | null;
 };
 
 export type EinheitZeile = {
@@ -80,10 +83,9 @@ export function ticketartenAus(
     preisStudierend: Number(art.price_student),
     kontingent: art.quota,
     geltung: art.scope as Ticketart["geltung"],
-    // Welche Einheiten zu einer festen Auswahl gehören, steht in einer eigenen
-    // Tabelle. Die öffentlichen Seiten laden sie getrennt, weil sie nur dort
-    // gebraucht wird, wo es Einheiten gibt.
-    einheitIds: [],
+    // Ohne diese Zuordnung gälte eine Art mit fester Geltung als unbegrenzt —
+    // sie wäre nie ausverkauft, und die Aufzählung fehlte (QA-Befund BUG-2).
+    einheitIds: (art.event_ticket_type_units ?? []).map((zeile) => zeile.unit_id),
     imVerkauf: art.on_sale,
     verkauft: verkauftJeArt?.get(art.id) ?? 0,
   }));

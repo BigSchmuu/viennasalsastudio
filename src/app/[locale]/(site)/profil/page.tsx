@@ -109,7 +109,9 @@ export default async function ProfilePage() {
       .eq("customer_id", user.id),
     supabase
       .from("tickets")
-      .select("id, payment_method, status, price, events(name, starts_at, moved_at)")
+      .select(
+        "id, payment_method, status, price, cancellation_lead_days, events(name, starts_at, moved_at), event_ticket_types(name), event_units(title)"
+      )
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false }),
     // PROJ-44: Die beiden Belohnungsbeträge — stehen beide auf 0, ist das
@@ -296,7 +298,9 @@ export default async function ProfilePage() {
     .filter((t) => t.events !== null)
     .map((t) => {
       const isActive = t.status === "reserved" || t.status === "confirmed";
-      const withinLeadTime = daysUntil(t.events!.starts_at.slice(0, 10)) >= TICKET_CANCELLATION_LEAD_DAYS;
+      // PROJ-56: Die Frist steht am Ticket — eingefroren beim Kauf.
+      const frist = t.cancellation_lead_days ?? TICKET_CANCELLATION_LEAD_DAYS;
+      const withinLeadTime = daysUntil(t.events!.starts_at.slice(0, 10)) >= frist;
       // PROJ-54: Wurde der Termin verlegt, entfällt die Frist — wer für Freitag
       // gekauft hat und am Mittwoch vom Samstag erfährt, soll nicht daran
       // hängen bleiben. Grenze ist dann der Abend selbst, genau wie in
@@ -310,6 +314,9 @@ export default async function ProfilePage() {
         status: t.status,
         price: t.price,
         canCancel: isActive && (withinLeadTime || verlegt),
+        ticketart: t.event_ticket_types?.name ?? null,
+        einheit: t.event_units?.title ?? null,
+        stornofristTage: t.cancellation_lead_days ?? TICKET_CANCELLATION_LEAD_DAYS,
       };
     });
 

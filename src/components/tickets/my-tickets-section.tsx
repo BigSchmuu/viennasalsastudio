@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TicketQrCode } from "@/components/tickets/ticket-qr-code";
 import { useLocale, useTranslations } from "next-intl";
+import { formatPrice } from "@/lib/pricing";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -39,10 +40,16 @@ export type MyTicketRow = {
   status: string;
   price: number;
   canCancel: boolean;
+  /** PROJ-56: Was genau gekauft wurde — und bis wann es stornierbar war. */
+  ticketart: string | null;
+  einheit: string | null;
+  stornofristTage: number;
 };
 
 export function MyTicketsSection({ tickets }: { tickets: MyTicketRow[] }) {
   const t = useTranslations("profile");
+  // Die Stornofrist ist ein Event-Text — er steht schon im Kaufdialog.
+  const tEvent = useTranslations("events");
   const locale = useLocale();
   const router = useRouter();
   const [cancelTarget, setCancelTarget] = useState<MyTicketRow | null>(null);
@@ -60,8 +67,17 @@ export function MyTicketsSection({ tickets }: { tickets: MyTicketRow[] }) {
             <div>
               <p className="font-medium">{ticket.eventName}</p>
               <p className="text-sm text-muted-foreground">{formatDateTime(ticket.eventStartsAt)}</p>
+              {ticket.ticketart ? <p className="text-sm">{ticket.ticketart}</p> : null}
+              {ticket.einheit ? <p className="text-sm text-muted-foreground">{ticket.einheit}</p> : null}
               <p className="text-xs text-muted-foreground">
                 {ticketPaymentMethodLabel[ticket.paymentMethod as "sepa" | "onsite"] ?? ticket.paymentMethod}
+                {" · "}
+                {formatPrice(ticket.price, locale)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {ticket.stornofristTage === 0
+                  ? tEvent("cancelUntilSameDay")
+                  : tEvent("cancelUntil", { days: ticket.stornofristTage })}
               </p>
             </div>
             <Badge style={{ backgroundColor: ticketStatusColor(ticket.status) }} className="text-white">
