@@ -219,6 +219,33 @@ Keine neuen Pakete. Das Verkleinern erledigt der Browser, das Ausliefern in pass
 - **Aufräumen beim Löschen:** Verschwindet ein Event oder eine Serie, müssen auch die Dateien im Bildspeicher gehen — die Datenbank allein räumt dort nichts weg.
 - Danach `types.ts` erzeugen und mit der Handfassung abgleichen.
 
+## Implementation Notes (Backend)
+
+**Stand 2026-09-15:** Backend fertig. Migration `supabase/migrations/20260915180000_proj55_event_bilder_videos.sql` — erst einspielen, dann den Code ausliefern. Unit-Tests 660 in 59 Dateien, Typprüfung, Lint und `npm run build` sauber.
+
+### Datenbank
+- **`event_images`**: Ziel (Event **oder** Serie, durch eine Sperre genau eines von beiden), Rolle Titelbild oder Galerie, Ablageort, Bildbeschreibung, Breite, Höhe, Reihenfolge. Die Maße stehen mit in der Zeile, damit die Seite den Platz kennt, bevor das Bild geladen ist — sonst springt der Text. Indizes auf beide Ziele.
+- **Höchstens ein Titelbild je Event und je Serie**, als Sperre in der Datenbank. Die Verwaltung tauscht es aus; ohne die Sperre stünden nach zwei gleichzeitigen Versuchen zwei da, und die Karte zeigte das zufällig erste.
+- **`event_videos`**: Ziel wie oben, die YouTube-Kennung (auf ihre Form geprüft), Titel, Reihenfolge. Gespeichert wird die Kennung, nicht der ganze Link — daraus baut die App die Einbettung ohne Cookies.
+- **Löschweitergabe:** Verschwindet ein Event oder eine Serie, gehen Bild- und Videoeinträge mit.
+- **RLS auf beiden Tabellen:** lesen alle (es sind die Bilder öffentlicher Seiten), schreiben nur Admins.
+
+### Bildspeicher
+- Bereich **`event-bilder`**: öffentlich lesbar, Höchstgröße 10 MB, erlaubte Typen JPG, PNG und WebP. **Hier sitzt die verlässliche Schranke** — die Prüfung im Browser ist bequem, aber umgehbar.
+- Rechte am Bildspeicher wie an den Tabellen: lesen alle, hochladen, ändern und löschen nur Admins.
+
+### Aufräumen
+- **Nächtlicher Schritt „verwaiste-bilder"** `src/lib/events/bilder-aufraeumen.ts` (5 Tests): Er entfernt Dateien, zu denen kein Eintrag gehört. Nötig, weil die Datenbank im Bildspeicher nichts wegräumt — verschwindet ein Event, ist der Eintrag weg und die Datei bleibt liegen. Derselbe Schritt fängt den anderen Fall mit: Jemand schließt den Browser, nachdem die Datei angekommen ist, aber bevor die App davon erfährt.
+- **Eine Schonfrist von einem Tag** gehört dazu: Zwischen dem Ankommen einer Datei und ihrem Eintrag liegen Sekunden, und der Lauf darf nicht ausgerechnet dann zuschlagen.
+- Die Prüfung der Bildeinträge ist ausdrücklich abgesichert: Eine leere Liste ohne Fehlerprüfung sähe aus wie „kein Bild ist eingetragen" — und der Lauf löschte den ganzen Bestand.
+
+### Nach der Migration noch offen
+- `src/lib/supabase/types.ts` neu erzeugen und mit der Handfassung abgleichen (`event_images`, `event_videos`). Der MCP-Zugang war am 2026-09-15 nicht verbunden (HTTP 401).
+
+### Bewusst nicht gebaut
+- **Kein Auslöser in der Datenbank, der Dateien löscht.** Das ginge nur über einen Netzaufruf aus der Datenbank heraus, samt Zugangsschlüssel in der Datenbank. Der nächtliche Schritt erledigt dasselbe, ohne ein Geheimnis an einen zweiten Ort zu legen.
+- **Keine Bildbearbeitung auf dem Server.** Verkleinert wird auf dem Gerät; der Server prüft nur, was angekommen ist.
+
 ## QA Test Results
 _To be added by /qa_
 

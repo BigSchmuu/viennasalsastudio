@@ -4,6 +4,7 @@ import { runDailyChecks, runFollowupChecks, runEveningChecks, drainPendingQueue 
 import { vollzieheFaelligeAenderungen } from "@/lib/subscriptions/faellige-aenderungen";
 import { vollzieheFaelligeUmwandlungen } from "@/lib/courses/umwandlungen";
 import { ergaenzeSerienTermine } from "@/lib/events/termine-nachlegen";
+import { raeumeVerwaisteBilder } from "@/lib/events/bilder-aufraeumen";
 import { fuehreSchrittAus, laufSammler } from "@/lib/cron/schritt";
 
 export async function GET(request: NextRequest) {
@@ -73,9 +74,18 @@ export async function GET(request: NextRequest) {
         await fuehreSchrittAus("serientermine", { serien: 0, termine: 0 }, () => ergaenzeSerienTermine(service))
       );
 
+  // PROJ-55: Bilddateien ohne Eintrag wegräumen. Die Datenbank räumt im
+  // Bildspeicher nichts weg — verschwindet ein Event, bleibt die Datei liegen.
+  //
+  // Nur im Morgenlauf: Es eilt nicht, und die Schonfrist von einem Tag sorgt
+  // ohnehin dafür, dass kein Upload mitten im Satz getroffen wird.
+  const bilder = isEveningRun
+    ? { verwaist: 0 }
+    : lauf.nimm(await fuehreSchrittAus("verwaiste-bilder", { verwaist: 0 }, () => raeumeVerwaisteBilder(service)));
+
   const drained = lauf.nimm(await fuehreSchrittAus("warteschlange", { processed: 0 }, () => drainPendingQueue(service)));
 
-  const ergebnis = { ...checks, ...vollzug, ...umwandlung, ...serien, ...drained };
+  const ergebnis = { ...checks, ...vollzug, ...umwandlung, ...serien, ...bilder, ...drained };
 
   // Ein halb gelungener Lauf darf nicht wie ein gelungener aussehen: Vercel
   // zeigt in der Cron-Uebersicht nur den Statuscode.

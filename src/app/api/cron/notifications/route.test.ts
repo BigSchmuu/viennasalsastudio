@@ -8,6 +8,7 @@ const drainPendingQueue = vi.fn();
 const vollzieheFaelligeAenderungen = vi.fn();
 const vollzieheFaelligeUmwandlungen = vi.fn();
 const ergaenzeSerienTermine = vi.fn();
+const raeumeVerwaisteBilder = vi.fn();
 
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: vi.fn(() => ({})),
@@ -20,6 +21,9 @@ vi.mock("@/lib/courses/umwandlungen", () => ({
 }));
 vi.mock("@/lib/events/termine-nachlegen", () => ({
   ergaenzeSerienTermine: (...args: unknown[]) => ergaenzeSerienTermine(...args),
+}));
+vi.mock("@/lib/events/bilder-aufraeumen", () => ({
+  raeumeVerwaisteBilder: (...args: unknown[]) => raeumeVerwaisteBilder(...args),
 }));
 vi.mock("@/lib/notifications/dispatch", () => ({
   runDailyChecks: (...args: unknown[]) => runDailyChecks(...args),
@@ -40,6 +44,7 @@ describe("GET /api/cron/notifications", () => {
       .mockResolvedValue({ vollzogen: 2, gekuendigt: 1, freigewordeneKurse: [] });
     vollzieheFaelligeUmwandlungen.mockReset().mockResolvedValue({ angekuendigt: 1, umgewandelt: 1 });
     ergaenzeSerienTermine.mockReset().mockResolvedValue({ serien: 2, termine: 3 });
+    raeumeVerwaisteBilder.mockReset().mockResolvedValue({ verwaist: 1 });
     process.env.CRON_SECRET = "test-secret";
   });
 
@@ -79,6 +84,8 @@ describe("GET /api/cron/notifications", () => {
     expect(vollzieheFaelligeUmwandlungen).toHaveBeenCalledTimes(1);
     // PROJ-54: Der Morgenlauf legt fehlende Serientermine nach.
     expect(ergaenzeSerienTermine).toHaveBeenCalledTimes(1);
+    // PROJ-55: Der Morgenlauf raeumt Bilddateien ohne Eintrag weg.
+    expect(raeumeVerwaisteBilder).toHaveBeenCalledTimes(1);
     expect(body).toEqual({
       reminders: 2,
       effective: 1,
@@ -90,6 +97,7 @@ describe("GET /api/cron/notifications", () => {
       umgewandelt: 1,
       serien: 2,
       termine: 3,
+      verwaist: 1,
       processed: 3,
     });
   });
@@ -114,6 +122,7 @@ describe("GET /api/cron/notifications", () => {
     // Ein heute Nacht angelegter Termin liegt vier Wochen in der Zukunft —
     // zweimal taeglich nachlegen braucht es dafuer nicht.
     expect(ergaenzeSerienTermine).not.toHaveBeenCalled();
+    expect(raeumeVerwaisteBilder).not.toHaveBeenCalled();
     expect(body).toEqual({
       evening: 4,
       vollzogen: 0,
@@ -122,6 +131,7 @@ describe("GET /api/cron/notifications", () => {
       umgewandelt: 0,
       serien: 0,
       termine: 0,
+      verwaist: 0,
       processed: 3,
     });
   });
