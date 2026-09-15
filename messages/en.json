@@ -139,7 +139,16 @@
     "errNotLoggedIn": "You're not logged in.",
     "errTermsRequired": "Please accept the terms first.",
     "errEventClosed": "This event can no longer be booked.",
-    "errPurchaseFailed": "The ticket purchase didn't go through. Please try again."
+    "errPurchaseFailed": "The ticket purchase didn't go through. Please try again.",
+    "sectionRegular": "Regular",
+    "rhythmWeekly": "Every {day}, {from}–{to}",
+    "rhythmWeeklyOpen": "Every {day} from {from}",
+    "nextDate": "Next date: {date}",
+    "holidayBreak": "Holiday break until {date}",
+    "upcomingDates": "Upcoming dates",
+    "noUpcomingDates": "No dates are scheduled right now.",
+    "dateCancelled": "Cancelled",
+    "dateMoved": "Changed"
   },
   "booking": {
     "tabRegular": "Enrol",

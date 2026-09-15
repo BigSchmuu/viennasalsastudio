@@ -794,6 +794,77 @@ export type Database = {
           },
         ]
       }
+      event_series: {
+        Row: {
+          capacity: number | null
+          created_at: string
+          description: string | null
+          end_time: string | null
+          ends_on: string | null
+          event_type_id: string
+          id: string
+          location: string | null
+          name: string
+          pause_in_holidays: boolean
+          price_normal: number | null
+          price_student: number | null
+          sales_mode: string
+          slug: string
+          start_time: string
+          starts_on: string
+          status: string
+          weekday: number
+        }
+        Insert: {
+          capacity?: number | null
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          ends_on?: string | null
+          event_type_id: string
+          id?: string
+          location?: string | null
+          name: string
+          pause_in_holidays?: boolean
+          price_normal?: number | null
+          price_student?: number | null
+          sales_mode?: string
+          slug: string
+          start_time: string
+          starts_on: string
+          status?: string
+          weekday: number
+        }
+        Update: {
+          capacity?: number | null
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          ends_on?: string | null
+          event_type_id?: string
+          id?: string
+          location?: string | null
+          name?: string
+          pause_in_holidays?: boolean
+          price_normal?: number | null
+          price_student?: number | null
+          sales_mode?: string
+          slug?: string
+          start_time?: string
+          starts_on?: string
+          status?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_series_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_types: {
         Row: {
           created_at: string
@@ -821,10 +892,14 @@ export type Database = {
           event_type_id: string
           id: string
           location: string | null
+          moved_at: string | null
           name: string
+          occurrence_date: string | null
+          overridden: boolean
           price_normal: number | null
           price_student: number | null
           sales_mode: string
+          series_id: string | null
           slug: string
           starts_at: string
           status: string
@@ -837,10 +912,14 @@ export type Database = {
           event_type_id: string
           id?: string
           location?: string | null
+          moved_at?: string | null
           name: string
+          occurrence_date?: string | null
+          overridden?: boolean
           price_normal?: number | null
           price_student?: number | null
           sales_mode?: string
+          series_id?: string | null
           slug: string
           starts_at: string
           status?: string
@@ -853,10 +932,14 @@ export type Database = {
           event_type_id?: string
           id?: string
           location?: string | null
+          moved_at?: string | null
           name?: string
+          occurrence_date?: string | null
+          overridden?: boolean
           price_normal?: number | null
           price_student?: number | null
           sales_mode?: string
+          series_id?: string | null
           slug?: string
           starts_at?: string
           status?: string
@@ -867,6 +950,13 @@ export type Database = {
             columns: ["event_type_id"]
             isOneToOne: false
             referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series"
             referencedColumns: ["id"]
           },
         ]

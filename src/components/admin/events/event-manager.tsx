@@ -10,6 +10,7 @@ import { eventSchema, createEventSchema, type EventInput } from "@/lib/validatio
 import { createEvent, updateEvent, cancelEvent, getEventGuestList, type EventGuestRow } from "@/lib/actions/admin/events";
 import { ticketPaymentMethodLabel, ticketStatusLabel, ticketStatusColor } from "@/lib/constants/events";
 import type { SalesMode } from "@/lib/events/event-zustand";
+import { toDatetimeLocal } from "@/lib/events/formular";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,12 +66,6 @@ export type EventRow = {
 };
 
 export type EventTypeOption = { id: string; name: string };
-
-function toDatetimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("de-AT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });

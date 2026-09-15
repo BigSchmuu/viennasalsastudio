@@ -1,6 +1,6 @@
 # PROJ-54: Event-Serien (regelmäßige Veranstaltungen)
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-09-14
 **Last Updated:** 2026-09-14
 
@@ -198,6 +198,36 @@ Keine neuen Pakete.
 - **Migration:** neue Tabelle für Serien, zwei zusätzliche Angaben an den Events, eine neue Benachrichtigungsvorlage. Auslieferung wie gehabt: erst Migration, dann Code.
 - **Nächtlicher Lauf:** ein zusätzlicher Schritt; der Zeitplan in Vercel bleibt unverändert.
 - **Tests:** Die PROJ-53-Übersicht bekommt den Bereich „Regelmäßig" (ein Test dort prüft bisher seine Abwesenheit). Die neue Check-in-Prüfung ändert Verhalten aus PROJ-14 und braucht dort einen zusätzlichen Test.
+
+## Implementation Notes (Frontend)
+
+**Stand 2026-09-15:** Frontend fertig. Im Browser läuft es erst mit der Migration aus `/backend` — die Seiten lesen die neue Serien-Tabelle. Unit-Tests 613 in 55 Dateien, Typprüfung und Lint sauber.
+
+### Gebaut
+- **Serien-Logik** `src/lib/events/serie.ts` (12 neue Tests): Termine im Vorschaufenster von vier Wochen, nächster Termin, Ferienpause und die Uhrzeit ohne Sekunden. Gerechnet wird mit `upcomingOccurrences` aus dem Stundenplan — genau der Funktion, die auch Kurstermine bestimmt, samt Ferien und Zeitraum.
+- **Übersicht:** Bereich „Regelmäßig" über den besonderen Events. Die Serien-Karte nennt den Rhythmus in Worten und darunter den nächsten Termin oder „Ferienpause bis …". Der Filter nach Eventart gilt für beide Bereiche; Serientermine erscheinen nicht einzeln unter „Besondere Events".
+- **Serienseite:** unter derselben Adresse wie Eventseiten. Rhythmus, Beschreibung, Terminliste der nächsten vier Wochen mit „Fällt aus", „Geändert", freien Plätzen und Kaufknopf je Termin. Seitentitel, Link-Vorschau und Event-Daten für Google — je Termin ein Eintrag, weil schema.org keine Serie kennt.
+- **Admin:** `/admin/events` hat zwei Bereiche. Die Serien-Verwaltung zeigt Rhythmus und Status, das Formular fragt Wochentag, Uhrzeit, ersten Termin, optionales Ende, Ferienpause, Verkaufsart, Kapazität und Preise. Je Serie gibt es eine Terminliste mit Absagen, Zurücknehmen und Verlegen; „Beenden" nennt vorher die Zahl der betroffenen Tickets.
+- **Server-Aktionen** `src/lib/actions/admin/event-series.ts`: anlegen (legt die Termine sofort an, nicht erst nachts), ändern (richtet künftige Termine aus, lässt abgesagte und einzeln verlegte unberührt, benachrichtigt Ticket-Inhaber bei geänderter Zeit oder geändertem Ort), beenden, Termin absagen, Absage zurücknehmen, Termin verlegen, Termine und Ticketzahl lesen.
+- **Gemeinsame Adressprüfung** `src/lib/actions/admin/adressen.ts`: Events, frühere Adressen und Serien zusammen — unter `/events/…` darf keine Adresse doppelt vergeben sein.
+- **Texte** in beiden Sprachen: „Regelmäßig", Rhythmus, nächster Termin, Ferienpause, „Fällt aus", „Geändert".
+
+### Abweichungen und Offenes
+- `src/lib/supabase/types.ts` ist erneut **von Hand** ergänzt (Serien-Tabelle sowie `series_id`, `occurrence_date`, `overridden`, `moved_at` am Event) — nach der Migration neu erzeugen und abgleichen.
+- Die Benachrichtigung „Termin verlegt" wird bereits eingereiht (`sub_type: event_moved`), hat aber noch keine Vorlage. Ohne sie verschickt der Lauf dafür nichts.
+- Das fristfreie Stornieren nach einer Verlegung ist am Termin vermerkt (`moved_at`); die Storno-Funktion in der Datenbank wertet es noch nicht aus.
+- Der Check-in prüft weiterhin nicht, ob ein Ticket zum ausgewählten Termin gehört.
+- Termine legt bisher nur das Speichern einer Serie an; der nächtliche Schritt fehlt.
+- Der PROJ-53-Test „ohne Serien kein Bereich Regelmäßig" prüft einen studioweiten Leerzustand. Sobald Serien existieren, ist er nicht mehr aussagekräftig — er gehört in der QA umgebaut (siehe auch die Projektregel, keine studioweiten Leerzustände zu behaupten).
+
+### Was `/backend` liefern muss
+- Tabelle **`event_series`** mit RLS (lesen alle, schreiben nur Admin) und den Feldern aus dem Datenmodell.
+- **`events`** um `series_id`, `occurrence_date`, `overridden` und `moved_at` erweitern; Index auf `series_id`; je Serie und Datum höchstens ein Termin.
+- **Nächtlicher Schritt**, der fehlende Termine im Vorschaufenster anlegt.
+- **Vorlage „Termin verlegt"** in der bestehenden Gruppe „Event-Tickets" und der passende Zweig im Versand.
+- **`cancel_event_ticket`:** Storno ohne Frist, wenn der Termin verlegt wurde.
+- **Check-in:** Ticket gegen den ausgewählten Termin prüfen.
+- Danach `types.ts` erzeugen und mit der Handfassung abgleichen.
 
 ## QA Test Results
 _To be added by /qa_

@@ -69,3 +69,69 @@ export const eventTypeSchema = z.object({
 });
 
 export type EventTypeInput = z.infer<typeof eventTypeSchema>;
+
+// PROJ-54: Eine Serie beschreibt die Regel — ein fester Wochentag, eine
+// Uhrzeit, ein Anfang und vielleicht ein Ende.
+export const eventSeriesSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name ist erforderlich").max(200),
+    description: z.string().trim().max(2000).optional().or(z.literal("")),
+    location: z.string().trim().max(200).optional().or(z.literal("")),
+    event_type_id: z.string().uuid("Bitte eine Eventart wählen"),
+    sales_mode: z.enum(SALES_MODES, { message: "Bitte die Verkaufsart wählen" }),
+    weekday: z.enum(["0", "1", "2", "3", "4", "5", "6"], { message: "Bitte einen Wochentag wählen" }),
+    start_time: z.string().regex(/^\d{2}:\d{2}$/, "Bitte eine Uhrzeit wählen"),
+    end_time: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "Ungültige Uhrzeit")
+      .optional()
+      .or(z.literal("")),
+    starts_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Bitte einen Starttag wählen"),
+    ends_on: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Ungültiges Enddatum")
+      .optional()
+      .or(z.literal("")),
+    pause_in_holidays: z.enum(["true", "false"]),
+    capacity: leerOderZahl((zahl) => Number.isInteger(zahl) && zahl > 0, "Bitte eine gültige Kapazität eingeben"),
+    price_normal: leerOderZahl((zahl) => Number.isFinite(zahl) && zahl >= 0, "Bitte einen gültigen Preis eingeben"),
+    price_student: leerOderZahl(
+      (zahl) => Number.isFinite(zahl) && zahl >= 0,
+      "Bitte einen gültigen Studierendenpreis eingeben"
+    ),
+  })
+  .refine((data) => !data.ends_on || data.ends_on >= data.starts_on, {
+    message: "Das Ende der Serie darf nicht vor ihrem Beginn liegen",
+    path: ["ends_on"],
+  })
+  // Wie beim Einzelevent: Wer Tickets verkauft, braucht Kapazität und Preise.
+  .refine((data) => data.sales_mode === "display" || data.capacity !== "", {
+    message: "Für Tickets in der App ist eine Kapazität nötig",
+    path: ["capacity"],
+  })
+  .refine((data) => data.sales_mode === "display" || data.price_normal !== "", {
+    message: "Für Tickets in der App ist ein Preis nötig",
+    path: ["price_normal"],
+  })
+  .refine((data) => data.sales_mode === "display" || data.price_student !== "", {
+    message: "Für Tickets in der App ist ein Studierendenpreis nötig",
+    path: ["price_student"],
+  });
+
+export type EventSeriesInput = z.infer<typeof eventSeriesSchema>;
+
+// PROJ-54: Einen einzelnen Termin verlegen — Datum, Uhrzeit und Ort dürfen
+// vom Rhythmus abweichen.
+export const terminVerlegenSchema = z.object({
+  starts_at: z.string().refine((value) => !Number.isNaN(new Date(value).getTime()), {
+    message: "Bitte einen gültigen Termin wählen",
+  }),
+  ends_at: z
+    .string()
+    .refine((value) => value === "" || !Number.isNaN(new Date(value).getTime()), { message: "Ungültiges Ende" })
+    .optional()
+    .or(z.literal("")),
+  location: z.string().trim().max(200).optional().or(z.literal("")),
+});
+
+export type TerminVerlegenInput = z.infer<typeof terminVerlegenSchema>;

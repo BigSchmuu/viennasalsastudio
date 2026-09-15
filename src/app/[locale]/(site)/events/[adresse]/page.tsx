@@ -10,8 +10,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { EventAktion } from "@/components/events/event-aktion";
 import { EventPreis, EventVerfuegbarkeit } from "@/components/events/event-angaben";
-import { eventZustand, freiePlaetze, stornierbar, type SalesMode } from "@/lib/events/event-zustand";
+import { SerienSeite, type SerienTermin } from "@/components/events/serien-seite";
+import { eventEnde, eventZustand, freiePlaetze, stornierbar, type SalesMode } from "@/lib/events/event-zustand";
 import { eventTermin } from "@/lib/events/termin";
+import { ferienpauseBis, uhrzeitKurz, SERIEN_VORSCHAU_TAGE } from "@/lib/events/serie";
+import { ladeFerien } from "@/lib/scheduling/ferien";
 import { alsSkriptInhalt, eventDaten } from "@/lib/events/strukturierte-daten";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -22,20 +25,30 @@ type Props = {
   params: Promise<{ adresse: string }>;
 };
 
+const EVENT_SPALTEN =
+  "id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, event_types(name)";
+
+const SERIEN_SPALTEN =
+  "id, name, slug, description, location, weekday, start_time, end_time, starts_on, ends_on, pause_in_holidays, capacity, price_normal, price_student, sales_mode, status, event_types(name)";
+
 /**
  * Das Event zu einer Adresse — einmal je Anfrage, geteilt von Metadaten und Seite.
  */
 const ladeEvent = cache(async (adresse: string) => {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("events")
-    .select(
-      "id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, event_types(name)"
-    )
-    .eq("slug", adresse)
-    .maybeSingle();
+  const { data, error } = await supabase.from("events").select(EVENT_SPALTEN).eq("slug", adresse).maybeSingle();
   if (error) {
     console.error("Event konnte nicht geladen werden", error);
+  }
+  return data;
+});
+
+/** Dieselbe Adresse kann auch eine Serie meinen (PROJ-54). */
+const ladeSerie = cache(async (adresse: string) => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("event_series").select(SERIEN_SPALTEN).eq("slug", adresse).maybeSingle();
+  if (error) {
+    console.error("Serie konnte nicht geladen werden", error);
   }
   return data;
 });
@@ -52,24 +65,51 @@ function kuerzen(text: string | null): string | null {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { adresse } = await params;
-  const event = await ladeEvent(adresse);
-  if (!event) return {};
+  const [event, locale, t] = await Promise.all([ladeEvent(adresse), getLocale(), getTranslations("events")]);
 
-  const [locale, t] = await Promise.all([getLocale(), getTranslations("events")]);
-  const termin = eventTermin(event.starts_at, event.ends_at, locale);
-  const url = seitenUrl(event.slug, locale);
-  const beschreibung =
-    kuerzen(event.description) ?? t("metaDescription", { type: event.event_types?.name ?? "Event", date: termin });
+  if (event) {
+    const termin = eventTermin(event.starts_at, event.ends_at, locale);
+    const url = seitenUrl(event.slug, locale);
+    const beschreibung =
+      kuerzen(event.description) ?? t("metaDescription", { type: event.event_types?.name ?? "Event", date: termin });
+
+    return {
+      title: `${event.name} · Vienna Salsa Studio`,
+      description: beschreibung,
+      alternates: { canonical: url },
+      // Die Link-Vorschau (WhatsApp, Instagram) zeigt Name und Termin — das,
+      // was jemand wissen will, bevor er den Link öffnet.
+      openGraph: {
+        title: event.name,
+        description: [termin, event.location].filter(Boolean).join(" · "),
+        url,
+        type: "website",
+        siteName: "Vienna Salsa Studio",
+        locale: locale === "en" ? "en_IE" : "de_AT",
+      },
+    };
+  }
+
+  const serie = await ladeSerie(adresse);
+  if (!serie) return {};
+
+  const wochentag = await getTranslations("weekdays");
+  const rhythmus = serie.end_time
+    ? t("rhythmWeekly", {
+        day: wochentag(String(serie.weekday)),
+        from: uhrzeitKurz(serie.start_time),
+        to: uhrzeitKurz(serie.end_time),
+      })
+    : t("rhythmWeeklyOpen", { day: wochentag(String(serie.weekday)), from: uhrzeitKurz(serie.start_time) });
+  const url = seitenUrl(serie.slug, locale);
 
   return {
-    title: `${event.name} · Vienna Salsa Studio`,
-    description: beschreibung,
+    title: `${serie.name} · Vienna Salsa Studio`,
+    description: kuerzen(serie.description) ?? `${rhythmus} · Vienna Salsa Studio`,
     alternates: { canonical: url },
-    // Die Link-Vorschau (WhatsApp, Instagram) zeigt Name und Termin — das,
-    // was jemand wissen will, bevor er den Link öffnet.
     openGraph: {
-      title: event.name,
-      description: [termin, event.location].filter(Boolean).join(" · "),
+      title: serie.name,
+      description: [rhythmus, serie.location].filter(Boolean).join(" · "),
       url,
       type: "website",
       siteName: "Vienna Salsa Studio",
@@ -83,6 +123,9 @@ export default async function EventSeite({ params }: Props) {
   const [event, locale] = await Promise.all([ladeEvent(adresse), getLocale()]);
 
   if (!event) {
+    const serie = await ladeSerie(adresse);
+    if (serie) return <SerienAnsichtLaden serie={serie} locale={locale} />;
+
     // Nach einer Umbenennung führt die alte Adresse dauerhaft auf die neue —
     // geteilte Links bleiben gültig, und Suchmaschinen übernehmen die neue.
     const supabase = await createClient();
@@ -216,6 +259,138 @@ export default async function EventSeite({ params }: Props) {
           />
         </div>
       </article>
+    </div>
+  );
+}
+
+type SerieZeile = NonNullable<Awaited<ReturnType<typeof ladeSerie>>>;
+
+/**
+ * Die Serienseite: dieselbe Adresse, andere Sicht (PROJ-54).
+ *
+ * Die Termine kommen aus den angelegten Events, nicht aus der Regel — nur sie
+ * kennen Kapazität, Absagen und Verlegungen.
+ */
+async function SerienAnsichtLaden({ serie, locale }: { serie: SerieZeile; locale: string }) {
+  const supabase = await createClient();
+  const viewer = await getViewer();
+  const jetzt = new Date();
+  const fensterEnde = new Date(jetzt.getTime() + SERIEN_VORSCHAU_TAGE * 24 * 60 * 60 * 1000).toISOString();
+  const vorEinemTag = new Date(jetzt.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+  const [termineRes, belegungRes, ticketsRes, mandatRes, ferien, t] = await Promise.all([
+    supabase
+      .from("events")
+      .select("id, slug, starts_at, ends_at, status, overridden, capacity, sales_mode")
+      .eq("series_id", serie.id)
+      .gt("starts_at", vorEinemTag)
+      .lt("starts_at", fensterEnde)
+      .order("starts_at", { ascending: true }),
+    supabase.rpc("get_event_occupancy"),
+    viewer
+      ? supabase.from("tickets").select("event_id").eq("customer_id", viewer.id).in("status", GUELTIGE_TICKETS)
+      : Promise.resolve({ data: [] as { event_id: string }[] }),
+    viewer
+      ? supabase.from("sepa_mandates").select("id").eq("customer_id", viewer.id).is("revoked_at", null).maybeSingle()
+      : Promise.resolve({ data: null }),
+    ladeFerien(supabase),
+    getTranslations("events"),
+  ]);
+
+  if (termineRes.error) {
+    console.error("Serientermine konnten nicht geladen werden", termineRes.error);
+  }
+
+  const belegt = new Map((belegungRes.data ?? []).map((o) => [o.event_id, o.ticket_count]));
+  const meineEvents = new Set((ticketsRes.data ?? []).map((ticket) => ticket.event_id));
+
+  const termine: SerienTermin[] = (termineRes.data ?? [])
+    .filter((termin) => eventEnde(termin.starts_at, termin.ends_at) > jetzt)
+    .map((termin) => {
+      const lage = {
+        status: termin.status,
+        salesMode: termin.sales_mode as SalesMode,
+        startsAt: termin.starts_at,
+        endsAt: termin.ends_at,
+        capacity: termin.capacity,
+        occupied: belegt.get(termin.id) ?? 0,
+        hatTicket: meineEvents.has(termin.id),
+      };
+      return {
+        id: termin.id,
+        slug: termin.slug,
+        startsAt: termin.starts_at,
+        endsAt: termin.ends_at,
+        abgesagt: termin.status === "abgesagt",
+        verlegt: termin.overridden,
+        zustand: eventZustand(lage, jetzt),
+        freiePlaetze: freiePlaetze(lage),
+        stornierbar: stornierbar(termin.starts_at, jetzt),
+      };
+    });
+
+  const pause = ferienpauseBis(
+    {
+      weekday: serie.weekday,
+      startsOn: serie.starts_on,
+      endsOn: serie.ends_on,
+      pausiertInFerien: serie.pause_in_holidays,
+    },
+    { ferien, jetzt }
+  );
+
+  // Für Google: jeder kommende Termin ein eigener Eintrag — eine Serie als
+  // solche kennt schema.org nicht.
+  const daten = termine
+    .filter((termin) => !termin.abgesagt)
+    .slice(0, 5)
+    .map((termin) =>
+      eventDaten({
+        name: serie.name,
+        description: serie.description,
+        location: serie.location,
+        startsAt: termin.startsAt,
+        endsAt: termin.endsAt,
+        priceNormal: serie.price_normal,
+        zustand: termin.zustand === "ticketVorhanden" ? "kaufen" : termin.zustand,
+        url: seitenUrl(termin.slug, locale),
+        siteUrl: SITE_URL,
+      })
+    );
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
+      {daten.length > 0 ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: alsSkriptInhalt(daten) }} />
+      ) : null}
+
+      <Link
+        href="/events"
+        className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary hover:underline"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden />
+        {t("backToOverview")}
+      </Link>
+
+      <SerienSeite
+        serie={{
+          id: serie.id,
+          name: serie.name,
+          slug: serie.slug,
+          typeName: serie.event_types?.name ?? null,
+          description: serie.description,
+          location: serie.location,
+          weekday: serie.weekday,
+          startTime: serie.start_time,
+          endTime: serie.end_time,
+          priceNormal: serie.price_normal,
+          priceStudent: serie.price_student,
+          ferienpauseBis: pause,
+        }}
+        termine={termine}
+        isLoggedIn={!!viewer}
+        hasMandate={!!mandatRes.data}
+      />
     </div>
   );
 }

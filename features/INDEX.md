@@ -79,7 +79,7 @@
 
 | PROJ-53 | Veranstaltungsprogramm | Approved | [PROJ-53](../features/PROJ-53-veranstaltungsprogramm.md) | 2026-09-14 |
 
-| PROJ-54 | Event-Serien (regelmäßige Veranstaltungen) | Architected | [PROJ-54](../features/PROJ-54-event-serien.md) | 2026-09-14 |
+| PROJ-54 | Event-Serien (regelmäßige Veranstaltungen) | In Progress | [PROJ-54](../features/PROJ-54-event-serien.md) | 2026-09-14 |
 
 | PROJ-55 | Bilder & Videos für Events | Planned | [PROJ-55](../features/PROJ-55-event-bilder-videos.md) | 2026-09-14 |
 

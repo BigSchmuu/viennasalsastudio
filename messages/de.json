@@ -139,7 +139,16 @@
     "errNotLoggedIn": "Nicht eingeloggt",
     "errTermsRequired": "Bitte bestätige zuerst die AGB.",
     "errEventClosed": "Dieses Event ist nicht mehr buchbar.",
-    "errPurchaseFailed": "Ticket-Kauf war nicht möglich. Bitte versuche es erneut."
+    "errPurchaseFailed": "Ticket-Kauf war nicht möglich. Bitte versuche es erneut.",
+    "sectionRegular": "Regelmäßig",
+    "rhythmWeekly": "Jeden {day}, {from}–{to}",
+    "rhythmWeeklyOpen": "Jeden {day} ab {from}",
+    "nextDate": "Nächster Termin: {date}",
+    "holidayBreak": "Ferienpause bis {date}",
+    "upcomingDates": "Nächste Termine",
+    "noUpcomingDates": "Zurzeit sind keine Termine geplant.",
+    "dateCancelled": "Fällt aus",
+    "dateMoved": "Geändert"
   },
   "booking": {
     "tabRegular": "Anmeldung",
