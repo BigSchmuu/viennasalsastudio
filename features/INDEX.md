@@ -83,7 +83,7 @@
 
 | PROJ-55 | Bilder & Videos für Events | Approved | [PROJ-55](../features/PROJ-55-event-bilder-videos.md) | 2026-09-14 |
 
-| PROJ-56 | Ticketarten, Pässe & Einheiten | Planned | [PROJ-56](../features/PROJ-56-ticketarten-paesse.md) | 2026-09-14 |
+| PROJ-56 | Ticketarten, Pässe & Einheiten | Architected | [PROJ-56](../features/PROJ-56-ticketarten-paesse.md) | 2026-09-14 |
 
 | PROJ-57 | Suchmaschinen-Grundlagen für öffentliche Seiten (Sitemap, DE/EN-Verknüpfung) | Roadmap | — | 2026-09-14 |
 
