@@ -242,8 +242,11 @@ Abgearbeitet — siehe „Implementation Notes (Backend)“.
 - **Check-in an der Oberfläche:** Die Terminauswahl zeigt jetzt Datum und Uhrzeit — bei einer Serie heißen alle Termine gleich — und führt nur noch, was noch aussteht (ein Tag Rückblick, damit der Check-in nach Mitternacht weitergeht). Ein Ticket vom falschen Abend meldet „Dieses Ticket gehört zu einem anderen Termin."
 - **Serie auf „Nur anzeigen" umstellen** wird abgelehnt, solange auf künftigen Terminen gültige Tickets liegen — mit der Zahl dazu. Ohne diese Prüfung liefe die Serie auf „Nur anzeigen", ihre Termine aber blieben auf „Tickets": Die Datenbanksperre am einzelnen Event hätte deren Umstellung stillschweigend verhindert.
 
-### Nach der Migration
-- `src/lib/supabase/types.ts` neu erzeugen und mit der Handfassung abgleichen (Serien-Tabelle, die vier Event-Spalten, die neue Check-in-Signatur).
+### In der Testdatenbank geprüft
+Die Migration ist am 2026-09-15 vom Betreiber eingespielt worden. `tests/PROJ-54-serien-db.test.ts` prüft 18 Regeln gegen die echte Testdatenbank, alle grün — die Sperren der Serientabelle, höchstens ein Termin je Serie und Kalendertag, das Weiterleben eines Abends samt Ticket nach dem Löschen seiner Serie, die öffentliche Leseregel, die aufgehobene Stornofrist nach einer Verlegung (samt der Grenze, dass ein begonnener Abend auch dann nicht mehr storniert wird) und der Check-in gegen den ausgewählten Termin, geprüft am echten Fall „Ticket der Vorwoche am heutigen Abend".
+
+### Nach der Migration noch offen
+- `src/lib/supabase/types.ts` neu erzeugen und mit der Handfassung abgleichen (Serien-Tabelle, die vier Event-Spalten, die neue Check-in-Signatur). Der MCP-Zugang war am 2026-09-15 nicht verbunden (HTTP 401); die Handfassung deckt sich mit der Migration, die die Datenbanktests nun als eingespielt belegen.
 
 ### Bewusst nicht gebaut
 - **Keine Datenbanksperre auf die gemeinsame Adresse** von Events und Serien. Beide wohnen unter `/events/…`, geprüft wird in der App (`vergebeneAdressen`). Tabellenübergreifend ginge das nur über einen Trigger, der bei jedem Event-Schreibvorgang die Serien mitliest.
