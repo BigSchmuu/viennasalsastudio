@@ -22,6 +22,11 @@ export default defineConfig({
     // applies; see playwright.config.ts for the mirrored testMatch
     // restricting Playwright to *.spec.ts only).
     include: ['**/*.test.ts?(x)'],
+    // Die Datenbanktests teilen sich eine Testdatenbank und ein Supabase-Projekt.
+    // Parallel gestartet liefen sie in die Drosselung der Anmeldung
+    // ("Request rate limit reached") -- und zwar mal so, mal so. Nacheinander
+    // kostet ein paar Sekunden und ist dafuer verlaesslich.
+    fileParallelism: false,
   },
   resolve: {
     alias: {

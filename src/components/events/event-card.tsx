@@ -7,6 +7,7 @@ import { EventAktion } from "@/components/events/event-aktion";
 import { EventPreis, EventVerfuegbarkeit } from "@/components/events/event-angaben";
 import { EventTitelbild } from "@/components/events/event-titelbild";
 import type { EventBild } from "@/lib/events/medien";
+import type { KaufAngaben } from "@/lib/events/kauf-laden";
 import { eventTermin } from "@/lib/events/termin";
 import type { EventZustand, SalesMode } from "@/lib/events/event-zustand";
 
@@ -26,6 +27,8 @@ export type PublicEventRow = {
   freiePlaetze: number | null;
   stornierbar: boolean;
   titelbild: EventBild | null;
+  /** PROJ-56: Ticketarten, Einheiten, Zahlungsarten und Stornofrist. */
+  kauf: KaufAngaben;
 };
 
 /**
@@ -83,14 +86,7 @@ export function EventCard({
 
       <CardFooter className="relative z-10 empty:hidden">
         <EventAktion
-          event={{
-            id: event.id,
-            name: event.name,
-            slug: event.slug,
-            // Wer Tickets verkauft, hat Preise — das Formular verlangt sie.
-            priceNormal: event.priceNormal ?? 0,
-            priceStudent: event.priceStudent ?? 0,
-          }}
+          event={{ ...event.kauf, slug: event.slug }}
           zustand={event.zustand}
           isLoggedIn={isLoggedIn}
           hasMandate={hasMandate}

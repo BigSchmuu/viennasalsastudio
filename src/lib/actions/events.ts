@@ -22,7 +22,16 @@ type TicketRow = {
  * und auf der englischen Eventseite stand „Dieses Event ist nicht mehr
  * buchbar." (PROJ-53, BUG-2). Die deutschen Texte sind wortgleich geblieben.
  */
-export type TicketKaufFehler = "errNotLoggedIn" | "errTermsRequired" | "errEventClosed" | "errPurchaseFailed";
+export type TicketKaufFehler =
+  | "errNotLoggedIn"
+  | "errTermsRequired"
+  | "errEventClosed"
+  | "errPurchaseFailed"
+  // PROJ-56: Die Ticketart ist nicht mehr im Verkauf, die gewählte Einheit
+  // passt nicht dazu, oder die Runde wäre zu schief geworden.
+  | "errTypeUnavailable"
+  | "errUnitRequired"
+  | "errRoleImbalance";
 
 type PurchaseTicketResult =
   | { error: TicketKaufFehler }
@@ -36,7 +45,10 @@ export async function purchaseTicket(
   wantsStudentPrice: boolean,
   // PROJ-42: Ob zugestimmt wurde, kommt vom Browser. Welcher Stand galt, setzt
   // der Server selbst — sonst waere der Nachweis faelschbar.
-  termsAccepted: boolean
+  termsAccepted: boolean,
+  // PROJ-56: Welche Ticketart, und bei „Kunde wählt eine Einheit" welche.
+  // Die Tanzrolle nur, wenn das Event danach fragt.
+  auswahl: { ticketTypeId?: string | null; unitId?: string | null; danceRole?: string | null } = {}
 ): Promise<PurchaseTicketResult> {
   const supabase = await createClient();
   const {
@@ -56,6 +68,9 @@ export async function purchaseTicket(
     p_wants_student_price: wantsStudentPrice,
     p_terms_accepted: termsAccepted,
     p_terms_version: AGB_VERSION,
+    p_ticket_type_id: auswahl.ticketTypeId ?? null,
+    p_unit_id: auswahl.unitId ?? null,
+    p_dance_role: auswahl.danceRole ?? null,
   });
 
   if (error) {
@@ -68,6 +83,15 @@ export async function purchaseTicket(
     // „event not open": abgesagt, vorbei oder „Nur anzeigen" (PROJ-53).
     if (error.message.includes("event not open")) {
       return { error: "errEventClosed" };
+    }
+    if (error.message.includes("ticket type unavailable")) {
+      return { error: "errTypeUnavailable" };
+    }
+    if (error.message.includes("unit required") || error.message.includes("unit not valid")) {
+      return { error: "errUnitRequired" };
+    }
+    if (error.message.includes("role imbalance")) {
+      return { error: "errRoleImbalance" };
     }
     return { error: "errPurchaseFailed" };
   }

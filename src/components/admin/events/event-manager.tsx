@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -14,6 +14,7 @@ import { toDatetimeLocal } from "@/lib/events/formular";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -38,6 +39,10 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { MedienDialog } from "@/components/admin/events/medien-dialog";
+import { ProgrammDialog } from "@/components/admin/events/programm-dialog";
+import { createGast, deleteGast, getEventProgramm, type GastZeile } from "@/lib/actions/admin/event-programm";
+import { danceRoleOptions } from "@/lib/constants/booking";
+import { STANDARD_STORNOFRIST_TAGE, type Zahlungswahl } from "@/lib/events/tickets";
 import {
   Form,
   FormControl,
@@ -64,6 +69,11 @@ export type EventRow = {
   eventTypeId: string;
   eventTypeName: string;
   ticketCount: number;
+  /** PROJ-56: Zahlungsarten, Stornofrist und Tanzrolle stehen am Event. */
+  paymentMethods: Zahlungswahl;
+  cancellationLeadDays: number;
+  roleQueryEnabled: boolean;
+  maxRoleDifference: number | null;
 };
 
 export type EventTypeOption = { id: string; name: string };
@@ -85,6 +95,7 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
   const [guests, setGuests] = useState<EventGuestRow[] | null>(null);
   const [guestsLoading, setGuestsLoading] = useState(false);
   const [medienEvent, setMedienEvent] = useState<EventRow | null>(null);
+  const [programmEvent, setProgrammEvent] = useState<EventRow | null>(null);
 
   async function openGuestList(event: EventRow) {
     setGuestListEvent(event);
@@ -146,6 +157,11 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
                     Seite ansehen
                   </Link>
                 </Button>
+                {event.salesMode === "tickets" ? (
+                  <Button variant="outline" size="sm" onClick={() => setProgrammEvent(event)}>
+                    Programm &amp; Tickets
+                  </Button>
+                ) : null}
                 <Button variant="outline" size="sm" onClick={() => setMedienEvent(event)}>
                   Bilder &amp; Videos
                 </Button>
@@ -181,6 +197,12 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
           )}
         </TableBody>
       </Table>
+
+      <ProgrammDialog
+        key={programmEvent?.id ?? "kein-programm"}
+        event={programmEvent}
+        onOpenChange={(open) => !open && setProgrammEvent(null)}
+      />
 
       <MedienDialog
         key={medienEvent?.id ?? "keine-medien"}
@@ -231,6 +253,7 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
         event={guestListEvent}
         guests={guests}
         loading={guestsLoading}
+        onReload={() => guestListEvent && openGuestList(guestListEvent)}
         onOpenChange={(open) => {
           if (!open) {
             setGuestListEvent(null);
@@ -271,6 +294,10 @@ function EventFormDialog({
       capacity: zahlAlsText(event?.capacity ?? null),
       price_normal: zahlAlsText(event?.priceNormal ?? null),
       price_student: zahlAlsText(event?.priceStudent ?? null),
+      payment_methods: event?.paymentMethods ?? "both",
+      cancellation_lead_days: String(event?.cancellationLeadDays ?? STANDARD_STORNOFRIST_TAGE),
+      role_query_enabled: event?.roleQueryEnabled ? "true" : "false",
+      max_role_difference: zahlAlsText(event?.maxRoleDifference ?? null),
     },
   });
 
@@ -501,6 +528,98 @@ function EventFormDialog({
               </p>
             ) : null}
 
+            {!nurAnzeigen ? (
+              <div className="space-y-4 border-t border-border/60 pt-4">
+                <FormField
+                  control={form.control}
+                  name="payment_methods"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Zahlungsarten</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="both">SEPA-Lastschrift und bar vor Ort</SelectItem>
+                          <SelectItem value="sepa">Nur SEPA-Lastschrift</SelectItem>
+                          <SelectItem value="onsite">Nur bar vor Ort</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Verkaufte Tickets behalten ihre Zahlungsart, auch wenn du das später änderst.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="cancellation_lead_days"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stornofrist in Tagen</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} step="1" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Bis so viele Tage vor Beginn können Kunden selbst stornieren. 0 heißt: bis zum Beginn.
+                        Verkaufte Tickets behalten die Frist, die beim Kauf galt.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="role_query_enabled"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center gap-2">
+                        <FormControl>
+                          <Checkbox
+                            id="event-rolle"
+                            checked={field.value === "true"}
+                            onCheckedChange={(checked) => field.onChange(checked === true ? "true" : "false")}
+                          />
+                        </FormControl>
+                        <Label htmlFor="event-rolle" className="font-normal">
+                          Tanzrolle beim Kauf abfragen
+                        </Label>
+                      </div>
+                      <FormDescription>
+                        Wie bei Kursen. Die Rolle steht danach an der Gästeliste und am Einlass.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("role_query_enabled") === "true" ? (
+                  <FormField
+                    control={form.control}
+                    name="max_role_difference"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Größter Abstand zwischen Leadern und Followern (optional)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} step="1" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Leer lassen heißt: kein Ausgleich, jede Rolle kann kaufen, solange Plätze frei sind.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+
             <DialogFooter>
               <Button type="submit" disabled={loading || keineArten}>
                 {loading ? "Wird gespeichert…" : "Speichern"}
@@ -513,55 +632,299 @@ function EventFormDialog({
   );
 }
 
+/**
+ * Die Gästeliste eines Events (PROJ-14, erweitert in PROJ-56).
+ *
+ * Sie zeigt jetzt zweierlei nebeneinander: verkaufte Tickets und von Hand
+ * eingetragene Gäste — Lehrer, Freunde des Hauses. Beide sind als das
+ * erkennbar, was sie sind; Gäste zahlen nichts und zählen nicht gegen die
+ * verkäuflichen Plätze.
+ */
 function GuestListDialog({
   event,
   guests,
   loading,
   onOpenChange,
+  onReload,
 }: {
   event: EventRow | null;
   guests: EventGuestRow[] | null;
   loading: boolean;
   onOpenChange: (open: boolean) => void;
+  onReload: () => void;
 }) {
+  const [handgaeste, setHandgaeste] = useState<GastZeile[] | null>(null);
+  const [einheiten, setEinheiten] = useState<{ id: string; titel: string }[]>([]);
+  const [neuOffen, setNeuOffen] = useState(false);
+
+  const ladenHandgaeste = useCallback(async (eventId: string) => {
+    const programm = await getEventProgramm(eventId);
+    setHandgaeste(programm.gaeste);
+    setEinheiten(programm.einheiten.map((einheit) => ({ id: einheit.id, titel: einheit.titel })));
+  }, []);
+
+  useEffect(() => {
+    if (!event) return;
+    let aktuell = true;
+    getEventProgramm(event.id).then((programm) => {
+      if (!aktuell) return;
+      setHandgaeste(programm.gaeste);
+      setEinheiten(programm.einheiten.map((einheit) => ({ id: einheit.id, titel: einheit.titel })));
+    });
+    return () => {
+      aktuell = false;
+    };
+  }, [event]);
+
+  const rolleZeigen = event?.roleQueryEnabled ?? false;
+
   return (
     <Dialog open={!!event} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Gästeliste — {event?.name}</DialogTitle>
         </DialogHeader>
         {loading ? (
           <p className="text-sm text-muted-foreground">Wird geladen…</p>
-        ) : !guests || guests.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Noch keine Tickets verkauft.</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Zahlungsart</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {guests.map((g) => (
-                <TableRow key={g.id}>
-                  <TableCell>
-                    <Link href={`/admin/kunden/${g.customerId}`} className="hover:underline">
-                      {g.customerName}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{ticketPaymentMethodLabel[g.paymentMethod as "sepa" | "onsite"] ?? g.paymentMethod}</TableCell>
-                  <TableCell>
-                    <Badge style={{ backgroundColor: ticketStatusColor(g.status) }} className="text-white">
-                      {ticketStatusLabel(g.status)}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="space-y-6">
+            <section className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {guests?.length ?? 0} Tickets · {handgaeste?.length ?? 0} Gäste von Hand
+              </p>
+
+              {!guests || guests.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Noch keine Tickets verkauft.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Ticket</TableHead>
+                      {rolleZeigen ? <TableHead>Rolle</TableHead> : null}
+                      <TableHead>Zahlungsart</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {guests.map((g) => (
+                      <TableRow key={g.id}>
+                        <TableCell>
+                          <Link href={`/admin/kunden/${g.customerId}`} className="hover:underline">
+                            {g.customerName}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {g.ticketart ?? "Ticket"}
+                          {g.einheit ? <span className="block text-xs">{g.einheit}</span> : null}
+                        </TableCell>
+                        {rolleZeigen ? (
+                          <TableCell className="text-muted-foreground">{rolleLabel(g.rolle)}</TableCell>
+                        ) : null}
+                        <TableCell>
+                          {ticketPaymentMethodLabel[g.paymentMethod as "sepa" | "onsite"] ?? g.paymentMethod}
+                        </TableCell>
+                        <TableCell>
+                          <Badge style={{ backgroundColor: ticketStatusColor(g.status) }} className="text-white">
+                            {ticketStatusLabel(g.status)}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </section>
+
+            <section className="space-y-3 border-t border-border/60 pt-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-heading font-bold">Gäste von Hand</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Lehrer, Freunde des Hauses. Ohne Konto, ohne Zahlung — und ohne die verkäuflichen Plätze zu
+                    verringern.
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setNeuOffen(true)}>
+                  Gast eintragen
+                </Button>
+              </div>
+
+              {handgaeste === null ? (
+                <p className="text-sm text-muted-foreground">Wird geladen…</p>
+              ) : handgaeste.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Noch keine Gäste von Hand.</p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {handgaeste.map((gast) => (
+                    <li key={gast.id} className="flex flex-wrap items-center gap-2 py-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                          {gast.name}
+                          <Badge variant="secondary">Gast</Badge>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {[
+                            gast.notiz,
+                            rolleZeigen && gast.rolle ? rolleLabel(gast.rolle) : null,
+                            gast.einheitIds.length === 0
+                              ? einheiten.length > 0
+                                ? "Alle Einheiten"
+                                : null
+                              : einheiten
+                                  .filter((einheit) => gast.einheitIds.includes(einheit.id))
+                                  .map((einheit) => einheit.titel)
+                                  .join(", "),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const ergebnis = await deleteGast(gast.id);
+                          if ("error" in ergebnis) {
+                            toast.error(ergebnis.error);
+                            return;
+                          }
+                          toast.success("Gast entfernt.");
+                          if (event) await ladenHandgaeste(event.id);
+                          onReload();
+                        }}
+                      >
+                        Entfernen
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
         )}
+
+        {event && neuOffen ? (
+          <GastDialog
+            eventId={event.id}
+            einheiten={einheiten}
+            rolleZeigen={rolleZeigen}
+            onClose={() => setNeuOffen(false)}
+            onSaved={async () => {
+              setNeuOffen(false);
+              await ladenHandgaeste(event.id);
+              onReload();
+            }}
+          />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function rolleLabel(rolle: string | null): string {
+  return danceRoleOptions.find((wahl) => wahl.value === rolle)?.label ?? "—";
+}
+
+function GastDialog({
+  eventId,
+  einheiten,
+  rolleZeigen,
+  onClose,
+  onSaved,
+}: {
+  eventId: string;
+  einheiten: { id: string; titel: string }[];
+  rolleZeigen: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [laeuft, setLaeuft] = useState(false);
+
+  return (
+    <Dialog open onOpenChange={(offen) => !offen && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Gast eintragen</DialogTitle>
+        </DialogHeader>
+
+        {fehler ? (
+          <Alert variant="destructive">
+            <AlertDescription>{fehler}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <form
+          className="space-y-4"
+          onSubmit={async (ereignis) => {
+            ereignis.preventDefault();
+            setLaeuft(true);
+            setFehler(null);
+            try {
+              const ergebnis = await createGast(eventId, new FormData(ereignis.currentTarget));
+              if ("error" in ergebnis) {
+                setFehler(ergebnis.error);
+                return;
+              }
+              toast.success("Gast eingetragen.");
+              onSaved();
+            } finally {
+              setLaeuft(false);
+            }
+          }}
+        >
+          <div className="space-y-1">
+            <Label htmlFor="gast-name">Name</Label>
+            <Input id="gast-name" name="name" required placeholder="z. B. Maria (Lehrerin)" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="gast-notiz">Notiz (optional)</Label>
+            <Input id="gast-notiz" name="note" placeholder="z. B. Gast von Lisa" />
+          </div>
+
+          {rolleZeigen ? (
+            <div className="space-y-1">
+              <Label htmlFor="gast-rolle">Tanzrolle (optional)</Label>
+              <select
+                id="gast-rolle"
+                name="dance_role"
+                defaultValue=""
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Keine Angabe</option>
+                {danceRoleOptions.map((wahl) => (
+                  <option key={wahl.value} value={wahl.value}>
+                    {wahl.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          {einheiten.length > 0 ? (
+            <div className="space-y-2">
+              <Label>Einheiten</Label>
+              <p className="text-xs text-muted-foreground">Nichts angehakt heißt: gilt für alle.</p>
+              <div className="space-y-2 rounded-md border p-3">
+                {einheiten.map((einheit) => (
+                  <div key={einheit.id} className="flex items-center gap-2">
+                    <Checkbox id={`gast-einheit-${einheit.id}`} name="unit_ids" value={einheit.id} />
+                    <Label htmlFor={`gast-einheit-${einheit.id}`} className="font-normal">
+                      {einheit.titel}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="submit" disabled={laeuft}>
+              {laeuft ? "Wird gespeichert…" : "Eintragen"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { angemeldetAls } from "./anmeldung";
 import { BILDER_BUCKET, MAX_BILD_BYTES } from "@/lib/events/medien";
 
 /**
@@ -80,10 +81,7 @@ async function videoAnlegen(felder: Record<string, unknown> = {}): Promise<strin
 }
 
 async function angemeldet(mail: string): Promise<SupabaseClient> {
-  const c = createClient(URL, ANON, { auth: { persistSession: false } });
-  const { error } = await c.auth.signInWithPassword({ email: mail, password: PASSWORT });
-  if (error) throw error;
-  return c;
+  return angemeldetAls(URL, ANON, mail, PASSWORT);
 }
 
 async function nutzerAnlegen(mail: string, rolle?: string): Promise<string> {

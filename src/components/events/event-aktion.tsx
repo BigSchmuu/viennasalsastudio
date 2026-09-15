@@ -71,7 +71,7 @@ export function EventAktion({
       <TicketPurchaseDialog
         open={kaufOffen}
         onOpenChange={setKaufOffen}
-        event={{ id: event.id, name: event.name, priceNormal: event.priceNormal, priceStudent: event.priceStudent }}
+        event={event}
         hasMandate={hasMandate}
         stornierbar={stornierbar}
       />

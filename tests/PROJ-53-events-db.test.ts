@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { angemeldetAls } from "./anmeldung";
 import { AGB_VERSION } from "@/lib/legal";
 
 /**
@@ -57,10 +58,7 @@ async function eventAnlegen(felder: Record<string, unknown>): Promise<string> {
 }
 
 async function alsKunde(): Promise<SupabaseClient> {
-  const c = createClient(URL, ANON, { auth: { persistSession: false } });
-  const { error } = await c.auth.signInWithPassword({ email: MAIL, password: PASSWORT });
-  if (error) throw error;
-  return c;
+  return angemeldetAls(URL, ANON, MAIL, PASSWORT);
 }
 
 async function kaufen(eventId: string) {

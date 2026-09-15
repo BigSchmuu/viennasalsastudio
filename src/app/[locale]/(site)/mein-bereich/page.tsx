@@ -21,6 +21,8 @@ import { GettingStartedSection, type Kursvorschlag } from "@/components/dashboar
 import { PracticeSection, type Lektion } from "@/components/dashboard/practice-section";
 import { ThisWeekSection, type WochenEvent } from "@/components/dashboard/this-week-section";
 import { eventEnde, eventZustand, stornierbar, type SalesMode } from "@/lib/events/event-zustand";
+import { einfacherKauf } from "@/lib/events/kauf-laden";
+import type { Zahlungswahl } from "@/lib/events/tickets";
 import { AttendanceSection } from "@/components/dashboard/attendance-section";
 import { CreditReferralSection } from "@/components/dashboard/credit-referral-section";
 import { levelValues } from "@/lib/constants/levels";
@@ -144,7 +146,9 @@ export default async function MeinBereichPage() {
     // zu ihrem Ende sichtbar, eines ohne Ende höchstens einen Tag.
     supabase
       .from("events")
-      .select("id, name, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug")
+      .select(
+        "id, name, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, payment_methods, cancellation_lead_days"
+      )
       .eq("status", "geplant")
       .or(`ends_at.gt.${jetzt.toISOString()},starts_at.gt.${new Date(jetzt.getTime() - 24 * 60 * 60 * 1000).toISOString()}`)
       .order("starts_at", { ascending: true })
@@ -440,8 +444,17 @@ export default async function MeinBereichPage() {
   const kommendeEvents: WochenEvent[] = (events ?? [])
     .filter((e) => eventEnde(e.starts_at, e.ends_at) > jetzt)
     .map((e) => ({
-      // Wer Tickets verkauft, hat Preise — das Formular verlangt sie.
-      event: { id: e.id, name: e.name, priceNormal: e.price_normal ?? 0, priceStudent: e.price_student ?? 0 },
+      // PROJ-56: „Mein Bereich" lädt das Programm nicht mit — die Wochenliste
+      // führt zum Kauf für Events mit einer Ticketart. Wer mehrere hat, wählt
+      // sie auf der Eventseite.
+      event: einfacherKauf({
+        id: e.id,
+        name: e.name,
+        priceNormal: e.price_normal,
+        priceStudent: e.price_student,
+        zahlungswahl: (e.payment_methods as Zahlungswahl) ?? "both",
+        stornofristTage: e.cancellation_lead_days ?? undefined,
+      }),
       slug: e.slug,
       startsAt: e.starts_at,
       location: e.location,

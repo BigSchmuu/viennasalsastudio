@@ -23,6 +23,10 @@ function parseEventFormData(formData: FormData) {
     capacity: formData.get("capacity"),
     price_normal: formData.get("price_normal"),
     price_student: formData.get("price_student"),
+    payment_methods: formData.get("payment_methods"),
+    cancellation_lead_days: formData.get("cancellation_lead_days"),
+    role_query_enabled: formData.get("role_query_enabled"),
+    max_role_difference: formData.get("max_role_difference"),
   };
 }
 
@@ -46,6 +50,13 @@ function eventSpalten(data: EventInput) {
     capacity: zahlOderNull(data.capacity),
     price_normal: zahlOderNull(data.price_normal),
     price_student: zahlOderNull(data.price_student),
+    // PROJ-56: Zahlungsarten, Stornofrist und Tanzrolle. Ein Event, das nur
+    // angezeigt wird, verkauft nichts — die Angaben schaden dort aber nicht
+    // und stehen bereit, falls es später doch Tickets gibt.
+    payment_methods: data.payment_methods,
+    cancellation_lead_days: Number(data.cancellation_lead_days),
+    role_query_enabled: data.role_query_enabled === "true",
+    max_role_difference: data.role_query_enabled === "true" ? zahlOderNull(data.max_role_difference) : null,
   };
 }
 
@@ -243,6 +254,10 @@ export type EventGuestRow = {
   status: string;
   price: number;
   checkedInAt: string | null;
+  /** PROJ-56: Ticketart, gewählte Einheit und Tanzrolle — sofern das Event danach fragt. */
+  ticketart: string | null;
+  einheit: string | null;
+  rolle: string | null;
 };
 
 export async function getEventGuestList(eventId: string): Promise<EventGuestRow[]> {
@@ -250,7 +265,9 @@ export async function getEventGuestList(eventId: string): Promise<EventGuestRow[
 
   const { data } = await supabase
     .from("tickets")
-    .select("id, customer_id, payment_method, status, price, checked_in_at, profiles(full_name)")
+    .select(
+      "id, customer_id, payment_method, status, price, checked_in_at, dance_role, profiles(full_name), event_ticket_types(name), event_units(title)"
+    )
     .eq("event_id", eventId)
     .order("created_at", { ascending: true });
 
@@ -262,5 +279,8 @@ export async function getEventGuestList(eventId: string): Promise<EventGuestRow[
     status: t.status,
     price: t.price,
     checkedInAt: t.checked_in_at,
+    ticketart: t.event_ticket_types?.name ?? null,
+    einheit: t.event_units?.title ?? null,
+    rolle: t.dance_role,
   }));
 }

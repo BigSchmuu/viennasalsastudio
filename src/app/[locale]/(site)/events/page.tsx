@@ -11,6 +11,7 @@ import { eventEnde, eventZustand, freiePlaetze, stornierbar, type SalesMode } fr
 import { ferienpauseBis, SERIE_AKTIV } from "@/lib/events/serie";
 import { ladeFerien } from "@/lib/scheduling/ferien";
 import { BILD_TITEL, type EventBild } from "@/lib/events/medien";
+import { KAUF_SPALTEN, kaufAngaben } from "@/lib/events/kauf-laden";
 import { titelbildAus, TITELBILD_SPALTEN } from "@/lib/events/bild-zeilen";
 
 const GUELTIGE_TICKETS = ["reserved", "confirmed", "checked_in"];
@@ -44,7 +45,7 @@ export default async function EventsPage({ searchParams }: Props) {
     supabase
       .from("events")
       .select(
-        `id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, sales_mode, slug, status, event_type_id, event_types(name), ${TITELBILD_SPALTEN}`
+        `id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, sales_mode, slug, status, event_type_id, event_types(name), ${TITELBILD_SPALTEN}, ${KAUF_SPALTEN}`
       )
       // Nur das Titelbild mitladen, nicht die ganze Galerie: Die Übersicht
       // zeigt je Karte genau ein Bild.
@@ -175,6 +176,7 @@ export default async function EventsPage({ searchParams }: Props) {
       freiePlaetze: freiePlaetze(lage),
       stornierbar: stornierbar(e.starts_at, jetzt),
       titelbild: titelbildAus(e.event_images),
+      kauf: kaufAngaben(e),
     };
   });
 

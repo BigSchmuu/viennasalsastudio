@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SALES_MODES } from "@/lib/events/event-zustand";
+import { ZAHLUNGSWAHLEN } from "@/lib/events/tickets";
 
 /** Ein leeres Feld oder eine Zahl, die `gueltig` besteht. */
 function leerOderZahl(gueltig: (zahl: number) => boolean, message: string) {
@@ -31,6 +32,20 @@ export const eventSchema = z
     price_student: leerOderZahl(
       (zahl) => Number.isFinite(zahl) && zahl >= 0,
       "Bitte einen gültigen Studierendenpreis eingeben"
+    ),
+    // PROJ-56: Mindestens eine Zahlungsart muss übrig bleiben — deshalb eine
+    // Auswahl aus dreien statt zweier Häkchen, die beide leer sein könnten.
+    payment_methods: z.enum(ZAHLUNGSWAHLEN, { message: "Bitte die Zahlungsarten wählen" }),
+    cancellation_lead_days: z
+      .string()
+      .trim()
+      .refine((value) => value !== "" && Number.isInteger(Number(value)) && Number(value) >= 0, {
+        message: "Bitte eine Stornofrist in ganzen Tagen eingeben",
+      }),
+    role_query_enabled: z.enum(["true", "false"]),
+    max_role_difference: leerOderZahl(
+      (zahl) => Number.isInteger(zahl) && zahl >= 0,
+      "Bitte einen gültigen Abstand eingeben"
     ),
   })
   .refine((data) => !data.ends_at || new Date(data.ends_at) >= new Date(data.starts_at), {

@@ -13,6 +13,11 @@ const validEvent = {
   capacity: "50",
   price_normal: "25",
   price_student: "15",
+  // PROJ-56: Zahlungsarten, Stornofrist und Tanzrolle gehören jetzt zum Event.
+  payment_methods: "both",
+  cancellation_lead_days: "1",
+  role_query_enabled: "false",
+  max_role_difference: "",
 };
 
 function fehlerfelder(eingabe: Record<string, string>) {
@@ -88,5 +93,36 @@ describe("createEventSchema", () => {
   it("rejects a past starts_at when creating a new event", () => {
     const result = createEventSchema.safeParse({ ...validEvent, starts_at: "2020-01-01T20:00" });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("eventSchema — Zahlungsarten, Stornofrist und Tanzrolle (PROJ-56)", () => {
+  it("nimmt die drei Zahlungswahlen an", () => {
+    for (const wahl of ["sepa", "onsite", "both"]) {
+      expect(fehlerfelder({ ...validEvent, payment_methods: wahl })).toEqual([]);
+    }
+  });
+
+  it("weist eine unbekannte Zahlungswahl ab", () => {
+    // Keine Zahlungsart wäre ein Event, das niemand kaufen kann.
+    expect(fehlerfelder({ ...validEvent, payment_methods: "keine" })).toContain("payment_methods");
+  });
+
+  it("verlangt eine Stornofrist in ganzen Tagen", () => {
+    expect(fehlerfelder({ ...validEvent, cancellation_lead_days: "" })).toContain("cancellation_lead_days");
+    expect(fehlerfelder({ ...validEvent, cancellation_lead_days: "1,5" })).toContain("cancellation_lead_days");
+    expect(fehlerfelder({ ...validEvent, cancellation_lead_days: "-1" })).toContain("cancellation_lead_days");
+  });
+
+  it("lässt 0 Tage zu — dann gilt: stornieren bis zum Beginn", () => {
+    expect(fehlerfelder({ ...validEvent, cancellation_lead_days: "0" })).toEqual([]);
+  });
+
+  it("lässt den Rollenabstand leer, wenn keiner gilt", () => {
+    expect(fehlerfelder({ ...validEvent, role_query_enabled: "true", max_role_difference: "" })).toEqual([]);
+    expect(fehlerfelder({ ...validEvent, role_query_enabled: "true", max_role_difference: "2" })).toEqual([]);
+    expect(fehlerfelder({ ...validEvent, role_query_enabled: "true", max_role_difference: "-1" })).toContain(
+      "max_role_difference"
+    );
   });
 });

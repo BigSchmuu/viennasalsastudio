@@ -1,6 +1,6 @@
 # PROJ-56: Ticketarten, Pässe & Einheiten
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-09-14
 **Last Updated:** 2026-09-15
 
@@ -262,6 +262,43 @@ Keine neuen Pakete.
 - **Die Eventseite bekommt zwei Abschnitte** (Programm, Tickets); der Kaufdialog wird mehrstufig. Die Tests aus PROJ-53 und PROJ-14 prüfen den heutigen Dialog und brauchen einen Blick.
 - **Rechnungen und Sammellauf** bleiben unberührt: Sie sehen weiterhin einen Ticketbetrag, nur kommt der jetzt von der Ticketart. Gäste von Hand tauchen dort nie auf.
 - **Die Gästeliste** zeigt künftig Tickets und Gäste gemeinsam, mit Tanzrolle, und bekommt einen Knopf zum Eintragen.
+
+## Implementation Notes (Frontend)
+
+**Stand 2026-09-15:** Frontend fertig. Im Browser läuft es erst mit der Migration aus `/backend` — die Seiten lesen sechs neue Tabellen und vier neue Spalten. Unit-Tests 720 in 61 Dateien, Typprüfung, Lint und `npm run build` sauber.
+
+### Gebaut
+- **Ticketlogik** `src/lib/events/tickets.ts` (36 neue Tests): Geltungsbereiche, freie Plätze je Einheit, Rest eines Kontingents, wann eine Ticketart ausverkauft ist, wählbare Einheiten, Stornofrist, Zahlungsarten, die Rollenregel und der Vorschlag für den Einlass.
+- **Eventseite**: zwei neue Abschnitte — „Programm" mit den Einheiten nach Zeit samt freien Plätzen, „Tickets" mit Preisen und dem, was enthalten ist. Ausverkaufte und vom Verkauf genommene Arten bleiben sichtbar.
+- **Kaufdialog** mehrstufig: Ticketart, dann — wenn sie es vorsieht — die Einheit, dann die Tanzrolle. Was ein Event nicht braucht, erscheint nicht: Bei einer Ticketart ohne Einheiten sieht der Kunde denselben Dialog wie vorher. Eine kostenlose Art überspringt die Zahlungsart ganz.
+- **Verwaltung** `programm-dialog.tsx`: je Zeile ein Knopf „Programm & Tickets" (nur bei Ticketverkauf). Einheiten anlegen, ändern, löschen; Ticketarten mit Preis, Kontingent, Geltung und Verkaufsstatus. Eine Art mit verkauften Tickets sagt das und lässt nur noch Name und Verkaufsstatus zu.
+- **Event-Formular** bekommt Zahlungsarten, Stornofrist in Tagen und die Tanzrollen-Option mit dem größten erlaubten Abstand.
+- **Gästeliste** zeigt Ticketart, gewählte Einheit und Tanzrolle — und darunter die **Gäste von Hand**: eintragen mit Name, Notiz, Rolle und Einheiten, wieder entfernen. Die Kopfzeile nennt Tickets und Gäste getrennt.
+- **Einlass** `checkin-client.tsx`: Bei einem Event mit Programm kommt eine zweite Auswahl dazu, vorgeschlagen ist die laufende oder nächste Einheit. Die Namenssuche findet jetzt auch Gäste von Hand; jede Zeile nennt Ticketart, Einheit und Rolle, und „Eingecheckt um …" bezieht sich auf die gewählte Einheit.
+- **Geteilte Tür** `src/lib/events/kauf-laden.ts`: Übersicht, Eventseite, Serienseite und „Mein Bereich" holen sich die Kaufangaben an einer Stelle. Ohne sie baute jede Seite das Ticketmodell selbst zusammen — und eine davon böte Barzahlung an, wo das Event nur SEPA erlaubt.
+
+### Entscheidungen beim Bauen
+- **Ein Event ohne Ticketarten fällt auf seine eigenen Preise zurück.** Das ist der Zustand zwischen Auslieferung und Migration, und der Fall, in dem jemand die letzte Art gelöscht hat — statt einer leeren Seite steht dann ein Ticket da.
+- **Die Belegung je Einheit kommt über eine eigene Datenbankfunktion** (`get_event_unit_occupancy`), nicht aus den Tickets: Die gehen Besucher nichts an. Dieselbe Überlegung wie bei `get_event_occupancy` aus PROJ-12.
+- **Serientermine bekommen den einfachen Kauf** ohne Programm — Einheiten gibt es nach der Entscheidung aus dem Entwurf nur bei Einzelevents.
+
+### Nebenbefund: Die Datenbanktests störten sich gegenseitig
+Beim ersten vollen Lauf fielen 19 Datenbanktests aus, mit `Request rate limit reached`. Ursache war nicht der neue Code: Die vier Testdateien liefen parallel, und jede Prüfung meldete sich neu an — zusammen mehr, als Supabase durchlässt. Behoben an beiden Enden: `tests/anmeldung.ts` meldet jedes Konto nur einmal an, und die Testdateien laufen nacheinander (`fileParallelism: false`). Das kostet etwa eine Minute und nimmt eine ganze Klasse von Wackelkandidaten heraus.
+
+### Abweichungen und Offenes
+- `src/lib/supabase/types.ts` ist erneut **von Hand** ergänzt (sechs Tabellen, vier Spalten, drei Funktionen) — nach der Migration neu erzeugen und abgleichen.
+- **Noch keine E2E-Tests**; sie kommen in der QA.
+- Die Einheiten einer Ticketart mit fester Geltung lädt die **öffentliche** Seite noch nicht mit — dort steht deshalb bei „bestimmte Einheiten" keine Aufzählung. In der Verwaltung stimmt sie.
+
+### Was `/backend` liefern muss
+- **Sechs Tabellen**: `event_units`, `event_ticket_types`, `event_ticket_type_units`, `event_guests`, `event_guest_units`, `event_checkins` — alle mit RLS: Programm und Ticketarten öffentlich lesbar, Gäste und Einlass nur für Admin und Lehrer, schreiben nur Admin.
+- **`events`** um Zahlungsarten, Stornofrist, Rollenabfrage und größten Rollenabstand; **`tickets`** um Ticketart, Einheit, Tanzrolle und die beim Kauf geltende Stornofrist.
+- **`purchase_event_ticket` umbauen**: Ticketart, Einheit und Rolle entgegennehmen; Kontingent **und** Kapazität je Einheit prüfen (ein Ticket belegt jede Einheit, für die es gilt); die Rollenregel anwenden; Zahlungsart gegen die Erlaubnis des Events prüfen; bei 0 € sofort bestätigen; Stornofrist und Zahlungsart am Ticket einfrieren. Gesperrt wird das Event, nicht die Einheit.
+- **`cancel_event_ticket`**: die am Ticket eingefrorene Frist verwenden statt der festen Ein-Tages-Regel.
+- **`checkin_event_ticket`** um die Einheit erweitern (`ticket not for unit`, `already checked in` je Einheit) und **`checkin_event_guest`** neu; bei Barzahlung gilt das Ticket beim ersten Check-in als bezahlt.
+- **`get_event_unit_occupancy`** als SECURITY-DEFINER-Funktion.
+- **Bestand umbauen**: Jedes Event mit Ticketverkauf bekommt die Ticketart „Ticket" mit seinen Preisen, beide Zahlungsarten, einen Tag Frist; bestehende Tickets zeigen darauf.
+- Danach `types.ts` erzeugen und mit der Handfassung abgleichen.
 
 ## QA Test Results
 _To be added by /qa_

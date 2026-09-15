@@ -1,8 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { checkinTicket, searchEventTickets, type CheckinEventRow, type TicketSearchRow } from "@/lib/actions/checkin";
+import {
+  checkinGast,
+  checkinTicket,
+  listCheckinEinheiten,
+  searchEventTickets,
+  type CheckinEinheit,
+  type CheckinEventRow,
+  type TicketSearchRow,
+} from "@/lib/actions/checkin";
+import { danceRoleOptions } from "@/lib/constants/booking";
+import { vorgeschlageneEinheit } from "@/lib/events/tickets";
 import { ticketPaymentMethodLabel, ticketStatusLabel } from "@/lib/constants/events";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,18 +43,48 @@ function eventLabel(name: string, startsAt: string): string {
 
 export function CheckinClient({ events, isAdmin }: { events: CheckinEventRow[]; isAdmin: boolean }) {
   const [eventId, setEventId] = useState(events[0]?.id ?? "");
+  const [einheiten, setEinheiten] = useState<CheckinEinheit[]>([]);
+  const [einheitId, setEinheitId] = useState<string>("");
   const [scannerOn, setScannerOn] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<TicketSearchRow[]>([]);
   const [, startSearch] = useTransition();
 
-  async function handleCheckin(ticketId: string) {
+  // PROJ-56: Das Programm des gewählten Termins. Vorgeschlagen ist die
+  // laufende Einheit, sonst die nächste — an der Tür steht jemand mit dem
+  // Telefon in der Hand, während Leute hereinkommen.
+  useEffect(() => {
+    const event = events.find((e) => e.id === eventId);
+    let aktuell = true;
+    // Erst holen, dann setzen — auch im Fall ohne Programm. Ein Zustandswechsel
+    // mitten im Effekt laesst React im selben Durchgang neu rendern.
+    (async () => {
+      const geladen = await (event?.hatEinheiten
+        ? listCheckinEinheiten(eventId)
+        : Promise.resolve<CheckinEinheit[]>([]));
+      if (!aktuell) return;
+      setEinheiten(geladen);
+      setEinheitId(vorgeschlageneEinheit(geladen, new Date())?.id ?? "");
+    })();
+    return () => {
+      aktuell = false;
+    };
+  }, [eventId, events]);
+
+  async function handleCheckin(ticketId: string, art: "ticket" | "gast" = "ticket") {
     if (!eventId) {
       setResult({ type: "error", message: "Bitte zuerst den Termin wählen." });
       return;
     }
-    const outcome = await checkinTicket(ticketId, eventId);
+    if (einheiten.length > 0 && !einheitId) {
+      setResult({ type: "error", message: "Bitte zuerst die Einheit wählen." });
+      return;
+    }
+    const einheit = einheiten.length > 0 ? einheitId : null;
+    const outcome = art === "gast"
+      ? await checkinGast(ticketId, eventId, einheit)
+      : await checkinTicket(ticketId, eventId, einheit);
     if ("error" in outcome) {
       setResult({ type: "error", message: outcome.error });
     } else if ("alreadyCheckedIn" in outcome) {
@@ -53,14 +93,14 @@ export function CheckinClient({ events, isAdmin }: { events: CheckinEventRow[]; 
       setResult({ type: "success", customerName: outcome.ticket.customerName, paymentMethod: outcome.ticket.paymentMethod });
     }
     if (eventId) {
-      setResults(await searchEventTickets(eventId, query));
+      setResults(await searchEventTickets(eventId, query, einheitId || null));
     }
   }
 
   function handleSearch(value: string) {
     setQuery(value);
     startSearch(async () => {
-      if (eventId) setResults(await searchEventTickets(eventId, value));
+      if (eventId) setResults(await searchEventTickets(eventId, value, einheitId || null));
     });
   }
 
@@ -90,6 +130,29 @@ export function CheckinClient({ events, isAdmin }: { events: CheckinEventRow[]; 
           ))}
         </SelectContent>
       </Select>
+
+      {einheiten.length > 0 ? (
+        <Select
+          value={einheitId}
+          onValueChange={(value) => {
+            setEinheitId(value);
+            setResult(null);
+            setResults([]);
+            setQuery("");
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Einheit wählen" />
+          </SelectTrigger>
+          <SelectContent>
+            {einheiten.map((einheit) => (
+              <SelectItem key={einheit.id} value={einheit.id}>
+                {einheit.titel} · {formatTime(einheit.startsAt)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
 
       {result && (
         <Alert variant={result.type === "error" ? "destructive" : "default"}>
@@ -125,12 +188,25 @@ export function CheckinClient({ events, isAdmin }: { events: CheckinEventRow[]; 
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {ticketPaymentMethodLabel[r.paymentMethod as "sepa" | "onsite"] ?? r.paymentMethod} ·{" "}
-                  {ticketStatusLabel(r.status)}
+                  {r.art === "gast"
+                    ? ["Gast", r.ticketart].filter(Boolean).join(" · ")
+                    : [
+                        ticketPaymentMethodLabel[r.paymentMethod as "sepa" | "onsite"] ?? r.paymentMethod,
+                        ticketStatusLabel(r.status),
+                        r.ticketart,
+                        r.einheit,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                  {r.rolle ? ` · ${danceRoleOptions.find((w) => w.value === r.rolle)?.label ?? r.rolle}` : ""}
                 </p>
               </div>
-              <Button size="sm" disabled={r.status === "checked_in"} onClick={() => handleCheckin(r.id)}>
-                {r.status === "checked_in" ? `Eingecheckt ${formatTime(r.checkedInAt!)}` : "Einchecken"}
+              <Button
+                size="sm"
+                disabled={!!r.checkedInAt}
+                onClick={() => handleCheckin(r.id, r.art)}
+              >
+                {r.checkedInAt ? `Eingecheckt ${formatTime(r.checkedInAt)}` : "Einchecken"}
               </Button>
             </div>
           ))}

@@ -22,6 +22,8 @@ import { EventVideos } from "@/components/events/event-videos";
 import { bildUrl } from "@/lib/events/medien";
 import { BILD_SPALTEN, galerieAus, titelbildAus } from "@/lib/events/bild-zeilen";
 import { VIDEO_SPALTEN, videosAus } from "@/lib/events/video-zeilen";
+import { KAUF_SPALTEN, kaufAngaben } from "@/lib/events/kauf-laden";
+import { EventProgramm, EventTicketarten } from "@/components/events/event-programm";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const GUELTIGE_TICKETS = ["reserved", "confirmed", "checked_in"];
@@ -31,7 +33,7 @@ type Props = {
   params: Promise<{ adresse: string }>;
 };
 
-const EVENT_SPALTEN = `id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, event_types(name), ${BILD_SPALTEN}, ${VIDEO_SPALTEN}`;
+const EVENT_SPALTEN = `id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, event_types(name), ${BILD_SPALTEN}, ${VIDEO_SPALTEN}, ${KAUF_SPALTEN}`;
 
 const SERIEN_SPALTEN = `id, name, slug, description, location, weekday, start_time, end_time, starts_on, ends_on, pause_in_holidays, capacity, price_normal, price_student, sales_mode, status, event_types(name), ${BILD_SPALTEN}, ${VIDEO_SPALTEN}`;
 
@@ -193,6 +195,17 @@ export default async function EventSeite({ params }: Props) {
   const termin = eventTermin(event.starts_at, event.ends_at, locale);
   const titelbild = titelbildAus(event.event_images);
 
+  // PROJ-56: Wie viele Plätze in jeder Einheit belegt sind. Über eine eigene
+  // Funktion, weil die Tickets selbst niemanden etwas angehen — dieselbe
+  // Überlegung wie bei get_event_occupancy (PROJ-12).
+  const belegtProEinheit = new Map<string, number>();
+  if ((event.event_units ?? []).length > 0) {
+    const { data: belegung } = await supabase.rpc("get_event_unit_occupancy", { p_event_id: event.id });
+    for (const zeile of belegung ?? []) belegtProEinheit.set(zeile.unit_id, zeile.ticket_count);
+  }
+
+  const kauf = kaufAngaben(event, { belegtJeEinheit: belegtProEinheit });
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
       <script
@@ -269,14 +282,7 @@ export default async function EventSeite({ params }: Props) {
             <EventVerfuegbarkeit zustand={zustand} plaetze={freiePlaetze(lage)} />
           </div>
           <EventAktion
-            event={{
-              id: event.id,
-              name: event.name,
-              slug: event.slug,
-              // Wer Tickets verkauft, hat Preise — das Formular verlangt sie.
-              priceNormal: event.price_normal ?? 0,
-              priceStudent: event.price_student ?? 0,
-            }}
+            event={{ ...kauf, slug: event.slug }}
             zustand={zustand}
             isLoggedIn={!!viewer}
             hasMandate={!!mandatRes.data}
@@ -284,6 +290,9 @@ export default async function EventSeite({ params }: Props) {
             className="w-full sm:w-auto"
           />
         </div>
+
+        <EventProgramm einheiten={kauf.einheiten} />
+        <EventTicketarten arten={kauf.ticketarten} einheiten={kauf.einheiten} />
 
         <EventGalerie bilder={galerieAus(event.event_images)} eventName={event.name} />
         <EventVideos videos={videosAus(event.event_videos)} eventName={event.name} />

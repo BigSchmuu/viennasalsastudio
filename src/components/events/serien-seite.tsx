@@ -8,6 +8,7 @@ import { EventTitelbild } from "@/components/events/event-titelbild";
 import { EventGalerie } from "@/components/events/event-galerie";
 import { EventVideos } from "@/components/events/event-videos";
 import type { EventBild, EventVideo } from "@/lib/events/medien";
+import { einfacherKauf } from "@/lib/events/kauf-laden";
 import { formatDate, formatDateTime } from "@/lib/formatting";
 import type { EventZustand } from "@/lib/events/event-zustand";
 
@@ -138,12 +139,13 @@ export function SerienSeite({
                 {termin.abgesagt ? null : (
                   <EventAktion
                     event={{
-                      id: termin.id,
-                      name: serie.name,
+                      ...einfacherKauf({
+                        id: termin.id,
+                        name: serie.name,
+                        priceNormal: serie.priceNormal,
+                        priceStudent: serie.priceStudent,
+                      }),
                       slug: termin.slug,
-                      // Wer Tickets verkauft, hat Preise — das Formular verlangt sie.
-                      priceNormal: serie.priceNormal ?? 0,
-                      priceStudent: serie.priceStudent ?? 0,
                     }}
                     zustand={termin.zustand}
                     isLoggedIn={isLoggedIn}

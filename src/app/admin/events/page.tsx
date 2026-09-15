@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EventManager, type EventRow } from "@/components/admin/events/event-manager";
 import { SerienManager, type SerieRow } from "@/components/admin/events/serien-manager";
 import type { SalesMode } from "@/lib/events/event-zustand";
+import type { Zahlungswahl } from "@/lib/events/tickets";
 
 export default async function AdminEventsPage() {
   const supabase = await createClient();
@@ -10,7 +11,7 @@ export default async function AdminEventsPage() {
     supabase
       .from("events")
       .select(
-        "id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, event_type_id, event_types(name), tickets(status)"
+        "id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, event_type_id, payment_methods, cancellation_lead_days, role_query_enabled, max_role_difference, event_types(name), tickets(status)"
       )
       // PROJ-54: Serientermine stehen bei ihrer Serie, nicht zwischen den
       // Einzelevents — sonst wäre die Liste von einer Party voll.
@@ -52,6 +53,10 @@ export default async function AdminEventsPage() {
     eventTypeId: e.event_type_id,
     eventTypeName: e.event_types?.name ?? "—",
     ticketCount: e.tickets.filter((t) => t.status !== "cancelled").length,
+    paymentMethods: e.payment_methods as Zahlungswahl,
+    cancellationLeadDays: e.cancellation_lead_days,
+    roleQueryEnabled: e.role_query_enabled,
+    maxRoleDifference: e.max_role_difference,
   }));
 
   const serien: SerieRow[] = (serienRes.data ?? []).map((s) => ({
