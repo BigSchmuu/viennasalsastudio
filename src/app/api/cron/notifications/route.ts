@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { runDailyChecks, runFollowupChecks, runEveningChecks, drainPendingQueue } from "@/lib/notifications/dispatch";
 import { vollzieheFaelligeAenderungen } from "@/lib/subscriptions/faellige-aenderungen";
 import { vollzieheFaelligeUmwandlungen } from "@/lib/courses/umwandlungen";
+import { ergaenzeSerienTermine } from "@/lib/events/termine-nachlegen";
 import { fuehreSchrittAus, laufSammler } from "@/lib/cron/schritt";
 
 export async function GET(request: NextRequest) {
@@ -60,9 +61,21 @@ export async function GET(request: NextRequest) {
         )
       );
 
+  // PROJ-54: Serientermine im Vorschaufenster auffuellen. Vier Wochen Vorlauf,
+  // taeglich nachgelegt -- eine Serie ohne Ende braucht sonst irgendwann eine
+  // Hand, die den naechsten Abend eintraegt.
+  //
+  // Nur im Morgenlauf: Ein Termin, der heute Nacht dazukommt, liegt vier
+  // Wochen in der Zukunft. Zweimal taeglich braucht es dafuer nicht.
+  const serien = isEveningRun
+    ? { serien: 0, termine: 0 }
+    : lauf.nimm(
+        await fuehreSchrittAus("serientermine", { serien: 0, termine: 0 }, () => ergaenzeSerienTermine(service))
+      );
+
   const drained = lauf.nimm(await fuehreSchrittAus("warteschlange", { processed: 0 }, () => drainPendingQueue(service)));
 
-  const ergebnis = { ...checks, ...vollzug, ...umwandlung, ...drained };
+  const ergebnis = { ...checks, ...vollzug, ...umwandlung, ...serien, ...drained };
 
   // Ein halb gelungener Lauf darf nicht wie ein gelungener aussehen: Vercel
   // zeigt in der Cron-Uebersicht nur den Statuscode.

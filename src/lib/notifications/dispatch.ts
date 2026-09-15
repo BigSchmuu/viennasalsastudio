@@ -1,7 +1,12 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { sendNotificationEmail } from "@/lib/notifications/mailer";
 import { sendPushToCustomer } from "@/lib/notifications/push";
-import { buildNotificationContent, resolveTemplateKey, type NotificationContent } from "@/lib/notifications/templates";
+import {
+  buildNotificationContent,
+  resolveTemplateKey,
+  type EventTicketDetails,
+  type NotificationContent,
+} from "@/lib/notifications/templates";
 import type { TemplateFields } from "@/lib/notifications/template-registry";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
@@ -166,14 +171,21 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
       );
     }
     case "event_tickets": {
-      if (payload.sub_type === "event_cancelled") {
+      // Beide hängen am Event, nicht am Ticket: Die Nachricht geht an alle
+      // Inhaber, und der Text nennt Name und Zeitpunkt des Termins. Bei
+      // „verlegt" ist `starts_at` schon der neue.
+      const anlass = payload.sub_type;
+      if (anlass === "event_cancelled" || anlass === "event_moved") {
         const { data } = await service
           .from("events")
           .select("name, starts_at")
           .eq("id", payload.event_id as string)
           .maybeSingle();
         if (!data) return null;
-        const details = { subType: "event_cancelled" as const, eventName: data.name, startsAt: data.starts_at };
+        const details: EventTicketDetails =
+          anlass === "event_cancelled"
+            ? { subType: "event_cancelled", eventName: data.name, startsAt: data.starts_at }
+            : { subType: "event_moved", eventName: data.name, startsAt: data.starts_at };
         const key = resolveTemplateKey("event_tickets", details);
         return buildNotificationContent(
           "event_tickets",

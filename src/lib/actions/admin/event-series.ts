@@ -7,8 +7,14 @@ import { enqueueNotification } from "@/lib/notifications/dispatch";
 import { eindeutigeAdresse, eventAdresse } from "@/lib/events/adresse";
 import { vergebeneAdressen } from "@/lib/actions/admin/adressen";
 import { serientermine, SERIE_AKTIV, SERIE_BEENDET } from "@/lib/events/serie";
+import {
+  geerbteSpalten,
+  legeSerienTermineAn,
+  SERIEN_SPALTEN,
+  terminZeitpunkte,
+  type SerieZeile,
+} from "@/lib/events/termine-nachlegen";
 import { ladeFerien } from "@/lib/scheduling/ferien";
-import { viennaWallClockToDate } from "@/lib/scheduling/dates";
 import type { ActionResult } from "@/lib/actions/types";
 
 type AdminSupabase = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
@@ -59,112 +65,19 @@ function serienSpalten(data: EventSeriesInput) {
 }
 
 /**
- * Beginn und Ende eines Termins als echte Zeitpunkte.
+ * Termine nachlegen, ohne das Speichern der Serie zu gefährden.
  *
- * Gerechnet wird in Wiener Zeit: „21:00" heißt 21:00 in Wien, auch wenn der
- * Server in UTC läuft. Endet die Party vor ihrem Beginn, liegt das Ende am
- * Folgetag — eine Party von 21:00 bis 02:00 ist ein Abend, keine 19 Stunden.
+ * Die Serie steht an dieser Stelle schon in der Datenbank. Scheitert das
+ * Nachlegen, ist der nächtliche Lauf die zweite Gelegenheit. Ein geworfener
+ * Fehler würde der Verwaltung dagegen sagen, das Speichern sei misslungen —
+ * und die Serie käme ein zweites Mal hinein.
  */
-function terminZeitpunkte(datum: string, startTime: string, endTime: string | null) {
-  const beginn = viennaWallClockToDate(datum, startTime);
-  if (!endTime) return { starts_at: beginn.toISOString(), ends_at: null };
-
-  let ende = viennaWallClockToDate(datum, endTime);
-  if (ende <= beginn) {
-    ende = viennaWallClockToDate(tagDanach(datum), endTime);
+async function termineNachlegen(supabase: AdminSupabase, serie: SerieZeile): Promise<void> {
+  try {
+    await legeSerienTermineAn(supabase, serie);
+  } catch (ursache) {
+    console.error("Serientermine konnten nicht angelegt werden", ursache);
   }
-  return { starts_at: beginn.toISOString(), ends_at: ende.toISOString() };
-}
-
-function tagDanach(datum: string): string {
-  return new Date(Date.parse(`${datum}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
-}
-
-type SerieZeile = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  location: string | null;
-  event_type_id: string;
-  sales_mode: string;
-  weekday: number;
-  start_time: string;
-  end_time: string | null;
-  starts_on: string;
-  ends_on: string | null;
-  pause_in_holidays: boolean;
-  capacity: number | null;
-  price_normal: number | null;
-  price_student: number | null;
-};
-
-const SERIEN_SPALTEN =
-  "id, name, slug, description, location, event_type_id, sales_mode, weekday, start_time, end_time, starts_on, ends_on, pause_in_holidays, capacity, price_normal, price_student";
-
-/** Die Angaben, die ein Termin von seiner Serie erbt. */
-function geerbteSpalten(serie: SerieZeile) {
-  return {
-    name: serie.name,
-    description: serie.description,
-    location: serie.location,
-    event_type_id: serie.event_type_id,
-    sales_mode: serie.sales_mode,
-    capacity: serie.capacity,
-    price_normal: serie.price_normal,
-    price_student: serie.price_student,
-  };
-}
-
-/**
- * Legt die fehlenden Termine im Vorschaufenster an (PROJ-54).
- *
- * Läuft beim Speichern einer Serie und künftig auch im nächtlichen Lauf.
- * Vorhandene Termine bleiben unangetastet: Sie können Tickets tragen, abgesagt
- * oder verlegt sein.
- */
-async function legeTermineAn(supabase: AdminSupabase, serie: SerieZeile): Promise<number> {
-  const ferien = await ladeFerien(supabase);
-  const daten = serientermine(
-    {
-      weekday: serie.weekday,
-      startsOn: serie.starts_on,
-      endsOn: serie.ends_on,
-      pausiertInFerien: serie.pause_in_holidays,
-    },
-    { ferien }
-  );
-  if (daten.length === 0) return 0;
-
-  const { data: vorhanden, error } = await supabase
-    .from("events")
-    .select("occurrence_date")
-    .eq("series_id", serie.id)
-    .in("occurrence_date", daten);
-  if (error) {
-    console.error("Vorhandene Serientermine nicht lesbar", error);
-    return 0;
-  }
-
-  const schonDa = new Set((vorhanden ?? []).map((termin) => termin.occurrence_date));
-  const fehlende = daten.filter((datum) => !schonDa.has(datum));
-  if (fehlende.length === 0) return 0;
-
-  const { error: anlegeFehler } = await supabase.from("events").insert(
-    fehlende.map((datum) => ({
-      ...geerbteSpalten(serie),
-      ...terminZeitpunkte(datum, serie.start_time, serie.end_time),
-      series_id: serie.id,
-      occurrence_date: datum,
-      slug: `${serie.slug}-${datum}`,
-      status: "geplant",
-    }))
-  );
-  if (anlegeFehler) {
-    console.error("Serientermine konnten nicht angelegt werden", anlegeFehler);
-    return 0;
-  }
-  return fehlende.length;
 }
 
 /** Ticket-Inhaber eines Termins benachrichtigen — abgesagt oder verlegt. */
@@ -227,7 +140,7 @@ export async function createEventSeries(formData: FormData): Promise<ActionResul
 
   // Sofort, nicht erst im nächtlichen Lauf: Sonst stünde die Serie ohne
   // Termine da, und der Admin hielte sie für kaputt.
-  await legeTermineAn(supabase, serie);
+  await termineNachlegen(supabase, serie);
   neuLaden(serie.slug);
   return { success: true };
 }
@@ -239,6 +152,34 @@ export async function updateEventSeries(id: string, formData: FormData): Promise
   }
 
   const { supabase } = await requireAdmin();
+
+  // Mit verkauften Tickets auf „Nur anzeigen" umzustellen, hinterließe gültige
+  // Tickets für Termine, die keine verkaufen. Am einzelnen Event sperrt das
+  // schon die Datenbank (PROJ-53) — ohne diese Prüfung liefe die Serie danach
+  // auf „Nur anzeigen", ihre Termine aber blieben auf „Tickets".
+  if (parsed.data.sales_mode === "display") {
+    const { data: bisher, error: lesefehler } = await supabase
+      .from("event_series")
+      .select("sales_mode")
+      .eq("id", id)
+      .maybeSingle();
+    if (lesefehler || !bisher) {
+      return { error: "Serie nicht gefunden." };
+    }
+    if (bisher.sales_mode !== "display") {
+      const anzahl = await zaehleTicketsAufKuenftigenTerminen(supabase, id);
+      if (anzahl === null) {
+        return { error: "Serie konnte nicht gespeichert werden." };
+      }
+      if (anzahl > 0) {
+        const verkauft = anzahl === 1 ? "ist schon 1 Ticket" : `sind schon ${anzahl} Tickets`;
+        return {
+          error: `Für künftige Termine dieser Serie ${verkauft} verkauft. „Nur anzeigen" ist erst möglich, wenn keine gültigen Tickets mehr bestehen.`,
+        };
+      }
+    }
+  }
+
   const { data: serie, error: ladeFehler } = await supabase
     .from("event_series")
     .update(serienSpalten(parsed.data))
@@ -252,7 +193,7 @@ export async function updateEventSeries(id: string, formData: FormData): Promise
   }
 
   await richteKuenftigeTermineAus(supabase, serie);
-  await legeTermineAn(supabase, serie);
+  await termineNachlegen(supabase, serie);
   neuLaden(serie.slug);
   return { success: true };
 }
@@ -315,7 +256,7 @@ async function richteKuenftigeTermineAus(supabase: AdminSupabase, serie: SerieZe
     const zeiten = terminZeitpunkte(termin.occurrence_date, serie.start_time, serie.end_time);
     const verlegt = zeiten.starts_at !== termin.starts_at || (serie.location ?? null) !== termin.location;
 
-    await supabase
+    const { error: schreibFehler } = await supabase
       .from("events")
       .update({
         ...geerbteSpalten(serie),
@@ -324,30 +265,57 @@ async function richteKuenftigeTermineAus(supabase: AdminSupabase, serie: SerieZe
       })
       .eq("id", termin.id);
 
+    // Weitermachen, aber nicht so tun, als wäre nichts: Die übrigen Termine
+    // sollen ausgerichtet werden, und dieser hier gehört ins Log.
+    if (schreibFehler) {
+      console.error("Serientermin konnte nicht ausgerichtet werden", termin.id, schreibFehler);
+      continue;
+    }
+
     if (verlegt) {
       await benachrichtigeTicketInhaber(supabase, termin.id, "event_moved", zeiten.starts_at);
     }
   }
 }
 
-/** Wie viele gültige Tickets hängen an künftigen Terminen dieser Serie? */
-export async function countTicketsOnFutureOccurrences(seriesId: string): Promise<number> {
-  const { supabase } = await requireAdmin();
-  const { data: termine } = await supabase
+/**
+ * Gültige Tickets auf künftigen Terminen dieser Serie — `null`, wenn sich das
+ * nicht ermitteln ließ.
+ *
+ * Der Unterschied zwischen „keine Tickets" und „nicht nachgesehen" entscheidet
+ * hier über eine Sperre: Als 0 gelesen, ließe ein Lesefehler genau die
+ * Umstellung durch, die er verhindern soll.
+ */
+async function zaehleTicketsAufKuenftigenTerminen(supabase: AdminSupabase, seriesId: string): Promise<number | null> {
+  const { data: termine, error } = await supabase
     .from("events")
     .select("id")
     .eq("series_id", seriesId)
     .gt("starts_at", new Date().toISOString());
+  if (error) {
+    console.error("Künftige Serientermine nicht lesbar", error);
+    return null;
+  }
 
   const ids = (termine ?? []).map((termin) => termin.id);
   if (ids.length === 0) return 0;
 
-  const { count } = await supabase
+  const { count, error: zaehlFehler } = await supabase
     .from("tickets")
     .select("id", { count: "exact", head: true })
     .in("event_id", ids)
     .in("status", GUELTIGE_TICKETS);
+  if (zaehlFehler) {
+    console.error("Tickets künftiger Serientermine nicht zählbar", zaehlFehler);
+    return null;
+  }
   return count ?? 0;
+}
+
+/** Wie viele gültige Tickets hängen an künftigen Terminen dieser Serie? */
+export async function countTicketsOnFutureOccurrences(seriesId: string): Promise<number> {
+  const { supabase } = await requireAdmin();
+  return (await zaehleTicketsAufKuenftigenTerminen(supabase, seriesId)) ?? 0;
 }
 
 export async function endEventSeries(id: string): Promise<ActionResult> {

@@ -7,6 +7,7 @@ const runEveningChecks = vi.fn();
 const drainPendingQueue = vi.fn();
 const vollzieheFaelligeAenderungen = vi.fn();
 const vollzieheFaelligeUmwandlungen = vi.fn();
+const ergaenzeSerienTermine = vi.fn();
 
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: vi.fn(() => ({})),
@@ -16,6 +17,9 @@ vi.mock("@/lib/subscriptions/faellige-aenderungen", () => ({
 }));
 vi.mock("@/lib/courses/umwandlungen", () => ({
   vollzieheFaelligeUmwandlungen: (...args: unknown[]) => vollzieheFaelligeUmwandlungen(...args),
+}));
+vi.mock("@/lib/events/termine-nachlegen", () => ({
+  ergaenzeSerienTermine: (...args: unknown[]) => ergaenzeSerienTermine(...args),
 }));
 vi.mock("@/lib/notifications/dispatch", () => ({
   runDailyChecks: (...args: unknown[]) => runDailyChecks(...args),
@@ -35,6 +39,7 @@ describe("GET /api/cron/notifications", () => {
       .mockReset()
       .mockResolvedValue({ vollzogen: 2, gekuendigt: 1, freigewordeneKurse: [] });
     vollzieheFaelligeUmwandlungen.mockReset().mockResolvedValue({ angekuendigt: 1, umgewandelt: 1 });
+    ergaenzeSerienTermine.mockReset().mockResolvedValue({ serien: 2, termine: 3 });
     process.env.CRON_SECRET = "test-secret";
   });
 
@@ -72,6 +77,8 @@ describe("GET /api/cron/notifications", () => {
     // Kurse gehoeren in die Nachrueckung, nicht in die Antwort.
     expect(vollzieheFaelligeAenderungen).toHaveBeenCalledTimes(1);
     expect(vollzieheFaelligeUmwandlungen).toHaveBeenCalledTimes(1);
+    // PROJ-54: Der Morgenlauf legt fehlende Serientermine nach.
+    expect(ergaenzeSerienTermine).toHaveBeenCalledTimes(1);
     expect(body).toEqual({
       reminders: 2,
       effective: 1,
@@ -81,6 +88,8 @@ describe("GET /api/cron/notifications", () => {
       freigewordeneKurse: [],
       angekuendigt: 1,
       umgewandelt: 1,
+      serien: 2,
+      termine: 3,
       processed: 3,
     });
   });
@@ -102,12 +111,17 @@ describe("GET /api/cron/notifications", () => {
     // und zweimal taeglich braucht es nicht.
     expect(vollzieheFaelligeAenderungen).not.toHaveBeenCalled();
     expect(vollzieheFaelligeUmwandlungen).not.toHaveBeenCalled();
+    // Ein heute Nacht angelegter Termin liegt vier Wochen in der Zukunft —
+    // zweimal taeglich nachlegen braucht es dafuer nicht.
+    expect(ergaenzeSerienTermine).not.toHaveBeenCalled();
     expect(body).toEqual({
       evening: 4,
       vollzogen: 0,
       gekuendigt: 0,
       angekuendigt: 0,
       umgewandelt: 0,
+      serien: 0,
+      termine: 0,
       processed: 3,
     });
   });
@@ -182,6 +196,22 @@ describe("GET /api/cron/notifications", () => {
     expect(body.processed).toBe(3);
     expect(body.umgewandelt).toBe(0);
     expect(body.fehler).toEqual(["kursumwandlung: Sperre"]);
+  });
+
+  it("haelt den Rest am Laufen, wenn das Nachlegen der Serientermine ausfaellt", async () => {
+    // PROJ-54: Fehlende Termine sind aergerlich, aber der Abo-Vollzug und die
+    // Warteschlange duerfen nicht daran haengen.
+    ergaenzeSerienTermine.mockRejectedValue(new Error("Serie klemmt"));
+    const { GET } = await import("./route");
+    const request = new NextRequest("http://localhost/api/cron/notifications", {
+      headers: { authorization: "Bearer test-secret" },
+    });
+    const body = await (await GET(request)).json();
+
+    expect(body.vollzogen).toBe(2);
+    expect(body.processed).toBe(3);
+    expect(body.termine).toBe(0);
+    expect(body.fehler).toEqual(["serientermine: Serie klemmt"]);
   });
 
   it("nennt jeden ausgefallenen Schritt, nicht nur den ersten", async () => {

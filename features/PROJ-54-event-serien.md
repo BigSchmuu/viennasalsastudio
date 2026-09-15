@@ -214,20 +214,40 @@ Keine neuen Pakete.
 
 ### Abweichungen und Offenes
 - `src/lib/supabase/types.ts` ist erneut **von Hand** ergänzt (Serien-Tabelle sowie `series_id`, `occurrence_date`, `overridden`, `moved_at` am Event) — nach der Migration neu erzeugen und abgleichen.
-- Die Benachrichtigung „Termin verlegt" wird bereits eingereiht (`sub_type: event_moved`), hat aber noch keine Vorlage. Ohne sie verschickt der Lauf dafür nichts.
-- Das fristfreie Stornieren nach einer Verlegung ist am Termin vermerkt (`moved_at`); die Storno-Funktion in der Datenbank wertet es noch nicht aus.
-- Der Check-in prüft weiterhin nicht, ob ein Ticket zum ausgewählten Termin gehört.
-- Termine legt bisher nur das Speichern einer Serie an; der nächtliche Schritt fehlt.
+- ~~Die Benachrichtigung „Termin verlegt" hat noch keine Vorlage.~~ Erledigt im Backend.
+- ~~Die Storno-Funktion wertet `moved_at` noch nicht aus.~~ Erledigt im Backend.
+- ~~Der Check-in prüft nicht, ob ein Ticket zum ausgewählten Termin gehört.~~ Erledigt im Backend.
+- ~~Der nächtliche Schritt fehlt.~~ Erledigt im Backend.
 - Der PROJ-53-Test „ohne Serien kein Bereich Regelmäßig" prüft einen studioweiten Leerzustand. Sobald Serien existieren, ist er nicht mehr aussagekräftig — er gehört in der QA umgebaut (siehe auch die Projektregel, keine studioweiten Leerzustände zu behaupten).
 
-### Was `/backend` liefern muss
-- Tabelle **`event_series`** mit RLS (lesen alle, schreiben nur Admin) und den Feldern aus dem Datenmodell.
-- **`events`** um `series_id`, `occurrence_date`, `overridden` und `moved_at` erweitern; Index auf `series_id`; je Serie und Datum höchstens ein Termin.
-- **Nächtlicher Schritt**, der fehlende Termine im Vorschaufenster anlegt.
-- **Vorlage „Termin verlegt"** in der bestehenden Gruppe „Event-Tickets" und der passende Zweig im Versand.
-- **`cancel_event_ticket`:** Storno ohne Frist, wenn der Termin verlegt wurde.
-- **Check-in:** Ticket gegen den ausgewählten Termin prüfen.
-- Danach `types.ts` erzeugen und mit der Handfassung abgleichen.
+### Übergabe an `/backend`
+
+Abgearbeitet — siehe „Implementation Notes (Backend)“.
+
+## Implementation Notes (Backend)
+
+**Stand 2026-09-15:** Backend fertig. Migration `supabase/migrations/20260915100000_proj54_event_serien.sql` — erst einspielen, dann den Code ausliefern. Unit-Tests 621 in 56 Dateien, Typprüfung, Lint und `npm run build` sauber.
+
+### Datenbank
+- **`event_series`**: Name, eigene Adresse, Beschreibung, Ort, Eventart, Verkaufsart, Wochentag (0 = Montag), Beginn- und Endzeit, erster Termin, optionales Ende, Ferienpause, Kapazität, Preise, Status. RLS wie bei den Events: öffentlich lesbar, schreiben nur Admins. Zwei Sperren in der Tabelle selbst — das Serienende darf nicht vor ihrem Beginn liegen, und wer Tickets verkauft, braucht Kapazität und Preise.
+- **`events`** um vier Angaben erweitert: Serie, Kalendertag des Termins, „weicht ab" und „wurde verlegt". Index auf die Serie, und je Serie und Kalendertag höchstens ein Termin — ohne diese Sperre entstünde bei zwei gleichzeitigen Läufen derselbe Abend zweimal. Ein Serientermin ohne Datum ist ausgeschlossen: Er wäre für das Nachlegen unsichtbar und käme in jedem Lauf neu dazu.
+- Wird eine Serie je gelöscht, bleiben ihre Abende samt Tickets stehen und gelten fortan als gewöhnliche Events (`on delete set null`). Die Verwaltung bietet ohnehin nur „Beenden" an.
+- **Stornieren:** Ist der Termin verlegt worden, entfällt die Frist; Grenze ist dann der Abend selbst. Die Profilseite rechnet genauso — sonst böte der Knopf etwas an, das die Datenbank ablehnt.
+- **Check-in:** `checkin_event_ticket` verlangt jetzt den ausgewählten Termin und weist ein Ticket ab, das zu einem anderen gehört. Hier war ein `drop` unvermeidlich (zweiter Parameter), die Rechte werden in derselben Migration neu vergeben. Beide angefassten Funktionen entziehen `anon` anschließend wieder das Ausführungsrecht — die Falle aus `20260909210000`.
+
+### Code
+- **Termine nachlegen** `src/lib/events/termine-nachlegen.ts` (7 neue Tests): eine Tür für beide Anlässe — das Speichern einer Serie und der nächtliche Lauf. Dort steht auch die Umrechnung „21:00 heißt 21:00 in Wien" samt der Regel, dass ein Ende vor dem Beginn am Folgetag liegt.
+- **Nächtlicher Lauf** `/api/cron/notifications`: ein zusätzlicher Schritt „serientermine" im Morgenlauf, abgesichert wie die anderen — eine klemmende Serie kostet weder den Abo-Vollzug noch die Warteschlange, wird aber gemeldet und färbt den Lauf rot. Der Zeitplan in Vercel bleibt unverändert.
+- **Vorlage „Termin verlegt"** (`event_verlegt`) in der Gruppe „Event-Tickets", deutsch und englisch, im Admin änderbar wie alle anderen. Keine neue Ereignisart, also keine Änderung an der Warteschlange. Der Text nennt den neuen Zeitpunkt und den Wegfall der Frist und führt ins Profil, wo Ticket und Stornoknopf stehen.
+- **Check-in an der Oberfläche:** Die Terminauswahl zeigt jetzt Datum und Uhrzeit — bei einer Serie heißen alle Termine gleich — und führt nur noch, was noch aussteht (ein Tag Rückblick, damit der Check-in nach Mitternacht weitergeht). Ein Ticket vom falschen Abend meldet „Dieses Ticket gehört zu einem anderen Termin."
+- **Serie auf „Nur anzeigen" umstellen** wird abgelehnt, solange auf künftigen Terminen gültige Tickets liegen — mit der Zahl dazu. Ohne diese Prüfung liefe die Serie auf „Nur anzeigen", ihre Termine aber blieben auf „Tickets": Die Datenbanksperre am einzelnen Event hätte deren Umstellung stillschweigend verhindert.
+
+### Nach der Migration
+- `src/lib/supabase/types.ts` neu erzeugen und mit der Handfassung abgleichen (Serien-Tabelle, die vier Event-Spalten, die neue Check-in-Signatur).
+
+### Bewusst nicht gebaut
+- **Keine Datenbanksperre auf die gemeinsame Adresse** von Events und Serien. Beide wohnen unter `/events/…`, geprüft wird in der App (`vergebeneAdressen`). Tabellenübergreifend ginge das nur über einen Trigger, der bei jedem Event-Schreibvorgang die Serien mitliest.
+- **Keine Nachricht bei nachträglich eingetragenen Ferien.** Bestehende Termine bleiben stehen; die Verwaltung weist darauf hin. Wer sie absagen will, tut es je Termin — dann greift die übliche Absage samt Benachrichtigung.
 
 ## QA Test Results
 _To be added by /qa_

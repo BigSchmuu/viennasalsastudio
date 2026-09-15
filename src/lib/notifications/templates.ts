@@ -166,7 +166,9 @@ export type ZahlungserinnerungDetails = { invoiceNumber: string; grossAmount: nu
 export type KontoExistiertDetails = { attemptedAt: string };
 export type EventTicketDetails =
   | { subType: "purchased"; eventName: string; startsAt: string; ticketStatus: "confirmed" | "reserved" }
-  | { subType: "event_cancelled"; eventName: string; startsAt: string };
+  | { subType: "event_cancelled"; eventName: string; startsAt: string }
+  /** PROJ-54: Ein Termin ist verlegt worden — `startsAt` ist der neue. */
+  | { subType: "event_moved"; eventName: string; startsAt: string };
 export type ProbestundeNachfassungDetails = {
   subType: "abend" | "naechster_termin";
   courseName: string;
@@ -236,6 +238,7 @@ export function resolveTemplateKey(
     case "event_tickets": {
       const d = details as EventTicketDetails;
       if (d.subType === "event_cancelled") return "event_abgesagt";
+      if (d.subType === "event_moved") return "event_verlegt";
       return d.ticketStatus === "confirmed" ? "event_ticket_bestaetigt" : "event_ticket_reserviert";
     }
     case "probestunde_nachfassung":
@@ -419,6 +422,15 @@ export function buildNotificationContent(
         };
       }
 
+      // PROJ-54: Auch hier auf das Profil — dort steht das Ticket, und dort
+      // liegt der Stornoknopf, den die Nachricht gerade anbietet.
+      if (d.subType === "event_moved") {
+        return {
+          ...renderTemplate("event_verlegt", { event: d.eventName, zeitpunkt: whenText }, override, "", locale),
+          url: "/profil",
+        };
+      }
+
       const key: TemplateKey = d.ticketStatus === "confirmed" ? "event_ticket_bestaetigt" : "event_ticket_reserviert";
       return {
         ...renderTemplate(key, { event: d.eventName, zeitpunkt: whenText }, override, "", locale),
@@ -557,6 +569,12 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
       return buildNotificationContent(
         "event_tickets",
         { subType: "event_cancelled", eventName: "Salsa Sommer Workshop", startsAt: "2026-09-20T19:00:00Z" },
+        fields
+      );
+    case "event_verlegt":
+      return buildNotificationContent(
+        "event_tickets",
+        { subType: "event_moved", eventName: "Freitagsparty", startsAt: "2026-09-25T19:00:00Z" },
         fields
       );
     case "probestunde_nachfassung_abend":

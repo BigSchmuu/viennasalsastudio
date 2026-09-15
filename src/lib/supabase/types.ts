@@ -2019,7 +2019,7 @@ export type Database = {
         }[]
       }
       checkin_event_ticket: {
-        Args: { p_ticket_id: string }
+        Args: { p_ticket_id: string; p_event_id: string }
         Returns: {
           checked_in_at: string | null
           checked_in_by: string | null

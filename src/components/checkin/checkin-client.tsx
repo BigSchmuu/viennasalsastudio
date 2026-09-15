@@ -19,6 +19,18 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" });
 }
 
+/** PROJ-54: Bei einer Serie heißen alle Termine gleich — das Datum unterscheidet sie. */
+function eventLabel(name: string, startsAt: string): string {
+  const wann = new Date(startsAt).toLocaleString("de-AT", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${name} · ${wann}`;
+}
+
 export function CheckinClient({ events, isAdmin }: { events: CheckinEventRow[]; isAdmin: boolean }) {
   const [eventId, setEventId] = useState(events[0]?.id ?? "");
   const [scannerOn, setScannerOn] = useState(false);
@@ -28,7 +40,11 @@ export function CheckinClient({ events, isAdmin }: { events: CheckinEventRow[]; 
   const [, startSearch] = useTransition();
 
   async function handleCheckin(ticketId: string) {
-    const outcome = await checkinTicket(ticketId);
+    if (!eventId) {
+      setResult({ type: "error", message: "Bitte zuerst den Termin wählen." });
+      return;
+    }
+    const outcome = await checkinTicket(ticketId, eventId);
     if ("error" in outcome) {
       setResult({ type: "error", message: outcome.error });
     } else if ("alreadyCheckedIn" in outcome) {
@@ -69,7 +85,7 @@ export function CheckinClient({ events, isAdmin }: { events: CheckinEventRow[]; 
         <SelectContent>
           {events.map((e) => (
             <SelectItem key={e.id} value={e.id}>
-              {e.name}
+              {eventLabel(e.name, e.startsAt)}
             </SelectItem>
           ))}
         </SelectContent>

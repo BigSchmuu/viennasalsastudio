@@ -109,7 +109,7 @@ export default async function ProfilePage() {
       .eq("customer_id", user.id),
     supabase
       .from("tickets")
-      .select("id, payment_method, status, price, events(name, starts_at)")
+      .select("id, payment_method, status, price, events(name, starts_at, moved_at)")
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false }),
     // PROJ-44: Die beiden Belohnungsbeträge — stehen beide auf 0, ist das
@@ -291,11 +291,17 @@ export default async function ProfilePage() {
     enabled: p.enabled,
   }));
 
+  const jetzt = new Date();
   const tickets: MyTicketRow[] = (ticketRows ?? [])
     .filter((t) => t.events !== null)
     .map((t) => {
       const isActive = t.status === "reserved" || t.status === "confirmed";
       const withinLeadTime = daysUntil(t.events!.starts_at.slice(0, 10)) >= TICKET_CANCELLATION_LEAD_DAYS;
+      // PROJ-54: Wurde der Termin verlegt, entfällt die Frist — wer für Freitag
+      // gekauft hat und am Mittwoch vom Samstag erfährt, soll nicht daran
+      // hängen bleiben. Grenze ist dann der Abend selbst, genau wie in
+      // cancel_event_ticket.
+      const verlegt = t.events!.moved_at !== null && new Date(t.events!.starts_at) > jetzt;
       return {
         id: t.id,
         eventName: t.events!.name,
@@ -303,7 +309,7 @@ export default async function ProfilePage() {
         paymentMethod: t.payment_method,
         status: t.status,
         price: t.price,
-        canCancel: isActive && withinLeadTime,
+        canCancel: isActive && (withinLeadTime || verlegt),
       };
     });
 

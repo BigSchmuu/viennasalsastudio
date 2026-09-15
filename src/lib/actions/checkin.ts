@@ -7,10 +7,15 @@ export type CheckinEventRow = { id: string; name: string; startsAt: string };
 export async function listCheckinEvents(): Promise<CheckinEventRow[]> {
   const { supabase } = await requireAdminOrTeacher();
 
+  // PROJ-54: Nur was noch ansteht. Eine Serie bringt jede Woche einen neuen
+  // Termin mit; ohne diese Grenze wüchse die Auswahl an der Tür mit jedem
+  // vergangenen Abend weiter. Ein Tag Rückblick bleibt, damit der Check-in
+  // eines Abends auch nach Mitternacht noch möglich ist.
   const { data } = await supabase
     .from("events")
     .select("id, name, starts_at")
     .eq("status", "geplant")
+    .gt("starts_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
     .order("starts_at", { ascending: true });
 
   return (data ?? []).map((e) => ({ id: e.id, name: e.name, startsAt: e.starts_at }));
@@ -57,12 +62,26 @@ type CheckinResult =
       ticket: { id: string; eventId: string; customerName: string; paymentMethod: string };
     };
 
-export async function checkinTicket(ticketId: string): Promise<CheckinResult> {
+/**
+ * PROJ-54: Der Termin gehört zum Check-in dazu.
+ *
+ * Bei einer Serie heißen alle Termine gleich. Ohne den Abgleich wäre das
+ * Ticket vom Abend der Vorwoche an der Tür gültig — und die Gästeliste des
+ * laufenden Abends stimmte nicht mehr. Geprüft wird in der Datenbank, nicht
+ * hier: An der Oberfläche vorbei ginge es sonst weiterhin.
+ */
+export async function checkinTicket(ticketId: string, eventId: string): Promise<CheckinResult> {
   const { supabase } = await requireAdminOrTeacher();
 
-  const { data, error } = await supabase.rpc("checkin_event_ticket", { p_ticket_id: ticketId });
+  const { data, error } = await supabase.rpc("checkin_event_ticket", {
+    p_ticket_id: ticketId,
+    p_event_id: eventId,
+  });
 
   if (error) {
+    if (error.message.includes("ticket for other event")) {
+      return { error: "Dieses Ticket gehört zu einem anderen Termin." };
+    }
     if (error.message.includes("already checked in")) {
       const { data: existing } = await supabase
         .from("tickets")

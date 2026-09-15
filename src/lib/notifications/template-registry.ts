@@ -9,6 +9,7 @@ export type TemplateKey =
   | "event_ticket_bestaetigt"
   | "event_ticket_reserviert"
   | "event_abgesagt"
+  | "event_verlegt"
   | "probestunde_nachfassung_abend"
   | "probestunde_nachfassung_naechster_termin"
   | "zahlungserinnerung"
@@ -323,6 +324,28 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
         "Unfortunately {event} on {zeitpunkt} has been cancelled. Your ticket is void; any refund is handled outside the app.",
       pushTitle: "Event cancelled: {event}",
       pushBody: "{event} has been cancelled.",
+    },
+  },
+  {
+    key: "event_verlegt",
+    eventGroupLabel: "Event-Tickets",
+    variantLabel: "Termin verlegt",
+    placeholders: ["event", "zeitpunkt"],
+    boldPlaceholder: "event",
+    samples: { event: "Freitagsparty", zeitpunkt: "25.09.2026, 21:00" },
+    defaults: {
+      emailSubject: "Neuer Termin: {event}",
+      emailBody:
+        "Der Termin für {event} wurde verlegt und findet jetzt am {zeitpunkt} statt. Dein Ticket bleibt gültig. Passt dir der neue Termin nicht, kannst du es in deinem Profil stornieren — die übliche Frist gilt dafür nicht.",
+      pushTitle: "Neuer Termin: {event}",
+      pushBody: "{event} findet jetzt am {zeitpunkt} statt.",
+    },
+    defaultsEn: {
+      emailSubject: "New date: {event}",
+      emailBody:
+        "{event} has been moved and now takes place on {zeitpunkt}. Your ticket stays valid. If the new date doesn't work for you, you can cancel it in your profile — the usual deadline does not apply.",
+      pushTitle: "New date: {event}",
+      pushBody: "{event} now takes place on {zeitpunkt}.",
     },
   },
   {

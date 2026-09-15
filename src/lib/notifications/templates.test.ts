@@ -133,6 +133,21 @@ describe("buildNotificationContent", () => {
     expect(content.emailHtml).toContain("außerhalb der App");
   });
 
+  // PROJ-54: Ein verlegter Termin muss den neuen Zeitpunkt nennen und darauf
+  // hinweisen, dass die Stornofrist dafür nicht gilt — genau das ist der
+  // Unterschied zur Absage.
+  it("builds a moved-occurrence message with the new date and the waived deadline", () => {
+    const content = buildNotificationContent("event_tickets", {
+      subType: "event_moved",
+      eventName: "Freitagsparty",
+      startsAt: "2026-09-26T19:00:00Z",
+    });
+    expect(content.subject).toContain("Freitagsparty");
+    expect(content.emailHtml).toContain("verlegt");
+    expect(content.emailHtml).toContain("Frist");
+    expect(content.url).toBe("/profil");
+  });
+
   it("escapes HTML in event names before embedding them in the email body", () => {
     const content = buildNotificationContent("event_tickets", {
       subType: "purchased",
