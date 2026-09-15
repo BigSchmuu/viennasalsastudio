@@ -341,5 +341,127 @@ Die Migration ist am 2026-09-15 vom Betreiber eingespielt worden. `tests/PROJ-56
 ## QA Test Results
 _To be added by /qa_
 
+## QA Test Results
+
+**Getestet:** 2026-09-15
+**Umgebung:** localhost:3100 gegen die Testdatenbank, Migrationen 20260915220000 und 20260915234500 eingespielt
+**Tester:** QA Engineer (AI)
+
+### Abnahmekriterien
+
+#### Einheiten
+- [x] Einheiten anlegen mit Titel, Beginn, Ende und Kapazität; sie erscheinen nach Zeit sortiert als Programm auf der Eventseite — E2E
+- [x] Eine Einheit außerhalb des Event-Zeitraums wird abgewiesen — E2E
+- [x] Ein Event ohne Einheiten läuft wie bisher — der Kaufdialog zeigt dann weder Einheit noch Auswahl
+- [x] Eine Einheit mit gültigen Tickets lässt sich nicht löschen — die Verwaltung nennt die Zahl
+
+#### Ticketarten
+- [x] Anlegen mit Name, Preisen, Kontingent und Geltungsbereich — E2E
+- [x] Eine Art mit verkauften Tickets lässt sich nur umbenennen und vom Verkauf nehmen; Preis und Geltung sind gesperrt — E2E
+- [x] Eine Ticketart zu 0 € ist kostenlos: keine Zahlungsart, kein Mandat, sofort bestätigt — Datenbanktest
+- [ ] **BUG-2:** Bei „bestimmte Einheiten" nennt die öffentliche Seite nicht, welche — und erkennt die Art deshalb auch nie als ausverkauft
+
+#### Kauf
+- [x] Die Ticketliste zeigt Preis und was enthalten ist; eine ausverkaufte Art bleibt sichtbar und ist nicht wählbar — E2E (über die Kapazität; über das Kontingent siehe BUG-1)
+- [x] „Kunde wählt eine Einheit": ohne Wahl kein Kauf, volle Einheiten sind nicht wählbar — E2E
+- [x] Ein Ticket belegt jede Einheit, für die es gilt; ein Pass ist gesperrt, sobald eine einzige seiner Einheiten voll ist — Datenbanktest, samt Belegung je Einheit
+- [x] Kontingent und Kapazität greifen beide, race-condition-sicher über die Sperre am Event — Datenbanktest
+- [ ] **BUG-1:** Ein erschöpftes Kontingent ist auf der Eventseite unsichtbar — die Art wird angeboten, und der Kauf scheitert erst in der Datenbank
+- [ ] **BUG-3:** „Meine Tickets" nennt weder Ticketart noch enthaltene Einheiten noch die Stornofrist
+
+#### Zahlungsarten
+- [x] Der Kauf bietet nur an, was das Event erlaubt — E2E und Datenbanktest
+- [x] Nur SEPA ohne Mandat: Hinweis mit Link, kein Kauf möglich — E2E
+- [x] Nur bar: SEPA wird nicht angeboten, auch mit Mandat — Datenbanktest
+- [x] Verkaufte Tickets behalten ihre Zahlungsart
+
+#### Stornofrist
+- [x] Die Frist ist je Event einstellbar und steht im Kaufdialog — E2E
+- [x] Nach Ablauf ist Stornieren nicht möglich — Datenbanktest
+- [x] Verkaufte Tickets behalten die Frist vom Kauf, auch wenn der Admin sie danach ändert — Datenbanktest, ausdrücklich geprüft
+- [x] 0 Tage heißt: bis zum Beginn — Datenbanktest
+
+#### Gästeliste von Hand
+- [x] Eintragen mit Name, Notiz, Rolle und Einheiten — E2E
+- [x] Als Gast erkennbar, zahlt nichts, in keinem Sammellauf
+- [x] Verringert die verkäuflichen Plätze nicht; die Liste nennt Tickets und Gäste getrennt — E2E
+- [x] Über die Namenssuche einzuchecken, je Einheit — Datenbanktest
+- [x] Entfernen nimmt die Check-ins mit — Löschweitergabe
+- [x] Ohne Admin-Rolle verweigert — Datenbanktest
+
+#### Check-in
+- [x] Bei einem Event mit Programm kommt die Einheitenauswahl dazu, vorgeschlagen ist die laufende oder nächste — E2E und Unit
+- [x] Gilt das Ticket, wird es für diese Einheit eingecheckt — Datenbanktest
+- [x] Gilt es nicht: „Gilt nicht für diese Einheit" — E2E und Datenbanktest
+- [x] Schon eingecheckt: die Uhrzeit statt eines zweiten Einlasses — Datenbanktest
+- [x] Ohne Einheiten wie bisher ein Scan — Datenbanktest
+- [x] Namenssuche findet Tickets und Gäste, je Einheit — E2E
+
+#### Tanzrolle
+- [x] Wird abgefragt, wenn das Event es vorsieht, und steht danach an der Gästeliste — E2E
+- [x] Die Runde bleibt beisammen: nicht feste Plätze je Rolle, sondern ein größter Abstand, wie bei Kursen — Datenbanktest und Unit
+
+### Edge Cases
+- [x] Full Pass und Einzelticket um den letzten Platz einer Einheit — nur einer bekommt ihn (Sperre am Event)
+- [x] Kapazität unter die Belegung gesenkt: verkaufte Tickets bleiben, verkauft wird nichts mehr — Unit
+- [x] Stornofrist 0 Tage — Datenbanktest
+- [x] Eine Art vom Verkauf genommen: verkaufte Tickets bleiben gültig und scannbar
+- [x] Bestehende Events haben nach der Migration die Ticketart „Ticket"; Tickets ohne Art gelten für das ganze Event
+- [ ] **Ungetestet und ungebaut:** ein zweites Ticket desselben Kunden für dieselbe Einheit wird nicht verhindert (siehe Beobachtung 1)
+
+### Sicherheitsprüfung
+- [x] **Schreibrechte:** Kunden können weder Einheiten noch Ticketarten anlegen — Datenbanktest
+- [x] **Gästenamen und Einlass** sind für Kunden unsichtbar; lesen dürfen nur Admin und Lehrer — Datenbanktest
+- [x] **Check-in nur für Admin und Lehrer**, auch für das eigene Ticket — Datenbanktest
+- [x] **Der Kauf glaubt dem Browser nichts:** Ticketart, Einheit, Zahlungsart, Kontingent, Kapazität und Rolle werden in der Datenbank geprüft — zehn Datenbanktests
+- [x] **Belegungszahlen ohne Ticketeinsicht:** `get_event_unit_occupancy` gibt Zahlen, keine Tickets
+- [x] **Einschleusen:** Namen, Notizen und Titel gehen als Text durch React
+
+### Regression
+- [x] Unit-Suite: 743 Tests in 62 Dateien
+- [x] Datenbanktests PROJ-56: 23 Regeln
+- [ ] Die komplette E2E-Suite läuft nach dieser QA in einem Lauf (Betreiberwunsch: gebündelt, nicht je Projekt)
+
+### Gefundene Fehler
+
+#### BUG-1: Ein erschöpftes Kontingent ist auf der Eventseite unsichtbar
+- **Schwere:** High
+- **Schritte:**
+  1. Eine Ticketart mit Kontingent 1 anlegen, ein Ticket davon verkaufen
+  2. Die Eventseite als Kunde öffnen
+  3. **Erwartet:** Die Art steht als „Ausgebucht" da und ist im Kaufdialog nicht wählbar
+  4. **Tatsächlich:** Sie wird angeboten, und „Noch 1 verfügbar" steht daneben. Der Kauf scheitert erst in der Datenbank, der Kunde sieht „Dieses Event ist mittlerweile ausgebucht."
+- **Ursache:** Die öffentlichen Seiten laden nicht mit, wie viele Tickets je Art verkauft sind — `ticketartenAus` setzt `verkauft` immer auf 0. Die Zahl kann nicht direkt kommen: Tickets sind nicht öffentlich lesbar. Es braucht eine Funktion wie `get_event_unit_occupancy`, nur je Ticketart
+- **Priorität:** vor der Auslieferung beheben — die Datenbank lässt niemanden durch, aber der Kunde läuft in eine Sackgasse
+
+#### BUG-2: „Bestimmte Einheiten" bleibt öffentlich unsichtbar
+- **Schwere:** Medium
+- **Schritte:** Eine Ticketart mit Geltung „bestimmte Einheiten" anlegen und die Eventseite öffnen
+- **Erwartet:** „Gilt für: Styling, Footwork", und ausverkauft, sobald eine dieser Einheiten voll ist
+- **Tatsächlich:** Die Aufzählung fehlt, und weil die Zuordnung nicht geladen wird, gilt die Art als unbegrenzt — sie wird nie als ausverkauft erkannt
+- **Ursache:** `ticketartenAus` setzt `einheitIds` immer auf `[]`; die Zuordnungstabelle wird öffentlich nicht mitgeladen. In der Verwaltung stimmt es
+- **Priorität:** vor der Auslieferung beheben
+
+#### BUG-3: „Meine Tickets" nennt Ticketart, Einheiten und Frist nicht
+- **Schwere:** Medium
+- **Schritte:** Ein Ticket kaufen und das Profil öffnen
+- **Erwartet:** Ticketart, Preis, die enthaltenen Einheiten und die Stornofrist — so verlangt es das Kriterium
+- **Tatsächlich:** Nur Eventname, Termin, Zahlungsart und Status. Dasselbe fehlt in der Bestätigungs-Benachrichtigung
+- **Priorität:** vor der Auslieferung beheben
+
+### Beobachtungen (kein Fehler dieser Umsetzung)
+1. **Ein zweites Ticket für dieselbe Einheit wird nicht verhindert.** Die Spezifikation nennt das unter den Edge Cases, knüpft es aber an Mehrfachkäufe, die draußen bleiben. Heute kann derselbe Kunde zweimal kaufen. Gehört entschieden, nicht stillschweigend gelassen.
+2. **Die Rollenregel rechnet je Event, nicht je Einheit** — wie bei Kursen je Kurs. Für einen Workshop ist das Event die Gruppe; bei einem Programm mit sehr verschiedenen Einheiten könnte man es anders wollen.
+3. **Die Namenssuche am Einlass bleibt leer, bis jemand tippt.** Unverändert seit PROJ-14, fällt mit Einheiten aber mehr auf.
+4. **Firefox ist in Playwright weiterhin nicht eingerichtet**, Tabletbreite ungetestet.
+
+### Zusammenfassung
+- **Abnahmekriterien:** 31 von 34 bestanden
+- **Fehler:** 3 (0 kritisch, 1 hoch, 2 mittel)
+- **Sicherheit:** bestanden
+- **Automatisierte Tests:** 10 E2E in zwei Browsern, 23 Datenbanktests, 743 Unit-Tests — alle grün
+- **Auslieferungsreif:** NEIN — drei Fehler an der Oberfläche, alle im selben Bereich: Was die Datenbank weiß, kommt beim Kunden nicht an
+- **Empfehlung:** BUG-1 bis BUG-3 beheben, dann erneut prüfen
+
 ## Deployment
 _To be added by /deploy_
