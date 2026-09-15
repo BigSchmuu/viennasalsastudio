@@ -253,6 +253,126 @@ Die Migration ist am 2026-09-15 vom Betreiber eingespielt worden. `tests/PROJ-54
 - **Keine Nachricht bei nachträglich eingetragenen Ferien.** Bestehende Termine bleiben stehen; die Verwaltung weist darauf hin. Wer sie absagen will, tut es je Termin — dann greift die übliche Absage samt Benachrichtigung.
 
 ## QA Test Results
+
+**Getestet:** 2026-09-15
+**Umgebung:** localhost:3100 gegen die Testdatenbank, Migration 20260915100000 eingespielt
+**Tester:** QA Engineer (AI)
+
+### Abnahmekriterien
+
+#### Serie anlegen und ändern
+- [x] Anlegen mit Name, Eventart, Wochentag, Uhrzeit von–bis, Ort, Beschreibung, Preisen, Verkaufsart, erstem Termin und optionalem Ende — E2E
+- [x] Termine erscheinen ohne weiteres Zutun im Programm (vier Wochen Vorlauf) — E2E
+- [x] Serie mit Ende legt danach nichts mehr an und verschwindet aus dem Programm — Unit (`serie.test.ts`: „hört mit dem Ende der Serie auf", „gibt nichts zurück, wenn die Serie schon beendet ist")
+- [x] Serienweite Änderung: Das Formular nennt vorab die Tickets auf künftigen Terminen und den Hinweis auf die Benachrichtigung — E2E
+- [x] „Serie beenden" nennt vorher die Zahl der betroffenen Tickets — E2E
+
+#### Einzelne Termine
+- [x] Absagen: „Fällt aus" in Verwaltung und Programm, andere Termine unberührt — E2E
+- [x] Ticket-Inhaber eines abgesagten Termins werden benachrichtigt (siehe Beobachtung 1 zum Ticketstatus)
+- [x] Verlegen: „Geändert" im Programm, Ticket-Inhaber werden benachrichtigt — E2E
+- [x] Absage zurücknehmen — E2E
+- [x] Nach einer Verlegung ohne Frist stornieren — Datenbanktest, und der Stornoknopf im Profil folgt derselben Regel
+
+#### Studioferien
+- [x] Ferienpause: Termine entfallen, das Programm zeigt „Ferienpause bis …" — E2E (zweimal: die Karte der pausierenden Serie und eine neu angelegte Serie, die die Ferienwoche überspringt)
+- [x] Ohne Ferienpause finden die Termine auch in den Ferien statt — E2E
+- [ ] **BUG-1:** Nachträglich eingetragene Ferien sagen einen Termin mit verkauften Tickets ab, sobald die Serie das nächste Mal gespeichert wird
+
+#### Programm
+- [ ] **BUG-2:** Die Übersichtskarte nennt als „Nächster Termin" auch einen abgesagten oder verlegten Abend. Rhythmus in Worten und Ort stimmen — E2E
+- [x] Serienseite zeigt die kommenden Termine samt „Fällt aus" und „Geändert" — E2E
+- [x] Der Filter nach Eventart gilt auch für Serien — E2E
+- [x] Auf Englisch steht auch der Rhythmus auf Englisch („Every Wednesday, 21:00–02:00") — E2E
+
+#### Tickets bei Serien
+- [x] Kauf je Termin, Kapazität je Termin — E2E
+- [x] Ein ausgebuchter Termin sperrt nur sich selbst — E2E
+- [x] „Meine Tickets" nennt Datum und Uhrzeit genau dieses Termins — E2E
+- [ ] **BUG-3:** Ein Ticket vom falschen Termin wird abgewiesen (Datenbanktest), die Meldung nennt aber nicht den richtigen Termin
+
+### Edge Cases
+- [x] Erster Termin auf einem anderen Wochentag → der nächste passende — Unit
+- [x] Party über Mitternacht (21:00–02:00) → Ende am Folgetag — Unit
+- [x] Sommer-/Winterzeit → 21:00 bleibt 21:00 Wiener Zeit — Unit
+- [x] Verlegen auf ein belegtes Datum → Fehlermeldung — E2E, zusätzlich als Datenbanksperre
+- [x] Ferien wieder gelöscht → der nächtliche Lauf legt die fehlenden Termine wieder an, einzeln abgesagte bleiben abgesagt
+- [x] Erster Termin in der Vergangenheit → vergangene Termine erscheinen nicht — Unit und Datenbanktest
+- [x] Ticket gekauft, danach verlegt → Ticket gilt weiter, Storno ohne Frist — Datenbanktest
+- [x] Zwei Kunden, letzter Platz → unverändert die Sperre aus PROJ-14
+- [x] Serie auf „Nur anzeigen" → kein Kauf (siehe BUG-5 zur fehlenden Angabe)
+
+### Sicherheitsprüfung
+- [x] **Schreibrechte:** Ein Kunde kann keine Serie anlegen; alle acht Server-Aktionen prüfen zuerst `requireAdmin()` — Datenbanktest und Code
+- [x] **Leserechte:** Serien sind öffentlich lesbar und enthalten nur Programmangaben — Datenbanktest mit einer echten Zeile, nicht nur „kein Fehler"
+- [x] **Check-in:** Ein Kunde kann nicht einchecken, auch nicht sein eigenes Ticket; ein Ticket vom anderen Termin wird abgewiesen und bleibt unangetastet — Datenbanktest
+- [x] **Stornieren:** nur das eigene Ticket, und nach einer Verlegung nur bis zum Beginn — Datenbanktest
+- [x] **Einschleusen:** Name und Beschreibung gehen als Text durch React. Die Google-Daten im `<script>` laufen über `alsSkriptInhalt`, das `<` maskiert — ein `</script>` im Seriennamen bricht nicht aus
+- [x] **Regeln gelten auch an der Oberfläche vorbei:** höchstens ein Termin je Serie und Tag, Serientermin ohne Datum, Kapazität und Preise bei Ticketverkauf — alles als Datenbanksperre geprüft
+
+### Regression
+- [x] PROJ-53 Veranstaltungsprogramm: vollständig grün (ein Test prüfte bisher, dass es studioweit keine Serien gibt — auf die Zuordnung der eigenen Testdaten umgestellt, siehe Projektregel gegen studioweite Leerzustände)
+- [x] PROJ-14 Events, Tickets, QR-Check-in: vollständig grün trotz der geänderten Check-in-Signatur
+- [x] Unit-Suite: 639 Tests in 57 Dateien
+
+### Gefundene Fehler
+
+#### BUG-1: Nachträgliche Ferien sagen einen Termin mit Tickets ab
+- **Schwere:** High
+- **Schritte:**
+  1. Serie mit „In Studioferien pausieren" anlegen, ein Termin am 17.09. trägt ein verkauftes Ticket
+  2. Danach Studioferien vom 17.09. bis 19.09. eintragen
+  3. In der Verwaltung die Serie öffnen, nur die Beschreibung ändern, speichern
+  4. **Erwartet:** Der Termin bleibt bestehen; der Admin sieht den Hinweis, dass er ihn ausdrücklich absagen muss
+  5. **Tatsächlich:** Der Termin steht auf „abgesagt", und die Ticket-Inhaber bekommen die Absage-Nachricht
+- **Beleg:** Wegwerf-Test am 2026-09-15, Status nach dem Speichern: `abgesagt`
+- **Ursache:** `richteKuenftigeTermineAus` in `src/lib/actions/admin/event-series.ts` streicht jeden künftigen Termin, der nicht mehr im gerechneten Rhythmus liegt — Ferien eingeschlossen. Der Hinweis im Formular („Bereits angelegte Termine bleiben.") sagt das Gegenteil, und die Produktentscheidung vom 2026-09-14 verlangt für eine Absage mit Folgen für zahlende Gäste eine bewusste Entscheidung
+- **Priorität:** vor der Auslieferung beheben
+
+#### BUG-2: „Nächster Termin" nennt auch einen abgesagten Abend
+- **Schwere:** Medium
+- **Schritte:**
+  1. Den nächsten Termin einer Serie absagen
+  2. `/events` öffnen
+  3. **Erwartet:** Die Karte nennt den nächsten *stattfindenden* Termin
+  4. **Tatsächlich:** Sie nennt weiter den abgesagten („Nächster Termin: Do., 17.09.")
+- **Beleg:** Wegwerf-Test am 2026-09-15
+- **Ursache:** `naechsterTermin` rechnet allein aus der Regel (Wochentag, Zeitraum, Ferien) und sieht die Terminzeilen nicht an. Verlegte Termine trifft dasselbe. Die Serienseite zeigt es richtig — die Übersicht schickt den Gast trotzdem los
+- **Priorität:** vor der Auslieferung beheben
+
+#### BUG-3: Die Check-in-Absage nennt den richtigen Termin nicht
+- **Schwere:** Low
+- **Schritte:** Ticket vom Abend der Vorwoche am heutigen Termin scannen
+- **Erwartet:** Ablehnung mit Hinweis, zu welchem Termin das Ticket gehört
+- **Tatsächlich:** „Dieses Ticket gehört zu einem anderen Termin." — ohne Datum. An der Tür hilft das nicht weiter, wenn jemand den Abend verwechselt hat
+- **Priorität:** im nächsten Durchgang
+
+#### BUG-4: Verlegen löscht den Ort des Termins
+- **Schwere:** Low
+- **Schritte:** Einen Termin verlegen, das Feld „Anderer Ort" leer lassen
+- **Erwartet:** Der Ort der Serie bleibt — so verspricht es der Platzhalter „leer lassen: Ort der Serie"
+- **Tatsächlich:** `moveSeriesOccurrence` schreibt `null`; die eigene Seite dieses Abends steht danach ohne Ort da. Die Serienseite zeigt weiter den Ort der Serie, deshalb fällt es kaum auf
+- **Priorität:** im nächsten Durchgang
+
+#### BUG-5: Der Serienseite fehlen Angaben, die jede Eventkarte hat
+- **Schwere:** Low
+- **Schritte:** Serienseite einer Serie auf „Nur anzeigen" öffnen; oder als Ticket-Inhaber die Serienseite öffnen
+- **Erwartet:** „Eintritt vor Ort" wie auf jeder Karte; bei vorhandenem Ticket zusätzlich die freien Plätze oder „Ausgebucht" (die Regel aus PROJ-53, BUG-1)
+- **Tatsächlich:** Die Terminliste baut ihre Angaben selbst, statt `EventVerfuegbarkeit` zu verwenden. Bei „Nur anzeigen" steht neben dem Datum nichts; bei vorhandenem Ticket nur der Knopf „Zum Ticket"
+- **Priorität:** im nächsten Durchgang
+
+### Beobachtungen (kein Fehler dieser Umsetzung)
+1. **Ein abgesagter Termin lässt die Tickets auf „reserviert" stehen.** Der Kunde sieht in „Meine Tickets" weiter einen QR-Code, ohne Hinweis auf die Absage. Das ist unverändert das Verhalten aus PROJ-14 für Einzelevents — durch Serien wird es nur häufiger sichtbar. Gehört in ein eigenes Projekt.
+2. **Eine umbenannte Serie behält ihre Adresse.** Bei Events erzeugt eine Umbenennung eine neue Adresse und merkt sich die alte; bei Serien nicht. Kein Fehler, aber ein Unterschied, der später überraschen kann.
+3. **Firefox ist in Playwright nicht eingerichtet**, Tabletbreite ist ungetestet — beides schon vor PROJ-54 so.
+
+### Zusammenfassung
+- **Abnahmekriterien:** 20 von 23 bestanden
+- **Fehler:** 5 (0 kritisch, 1 hoch, 1 mittel, 3 niedrig)
+- **Sicherheit:** bestanden
+- **Automatisierte Tests:** 24 E2E in zwei Browsern (Desktop Chrome, iPhone 13), 18 Datenbanktests, 639 Unit-Tests — alle grün
+- **Auslieferungsreif:** NEIN — BUG-1 sagt Termine mit verkauften Tickets ohne Zutun ab
+- **Empfehlung:** BUG-1 und BUG-2 beheben, dann erneut prüfen
 _To be added by /qa_
 
 ## Deployment

@@ -201,13 +201,15 @@ function karte(page: Page, name: string) {
 }
 
 test.describe("PROJ-53: Veranstaltungsprogramm", () => {
-  test("Übersicht: „Besondere Events“ mit Eventart, Ort, Preis und Status — ohne Serien kein Bereich „Regelmäßig“", async ({
-    page,
-  }) => {
+  test("Übersicht: „Besondere Events“ mit Eventart, Ort, Preis und Status", async ({ page }) => {
     await gehZu(page, "/events");
     await expect(page.getByRole("heading", { level: 1, name: "Events & Partys" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Besondere Events" })).toBeVisible();
-    await expect(page.getByText("Regelmäßig", { exact: true })).toHaveCount(0);
+    const besondere = page.locator("section", { has: page.getByRole("heading", { name: "Besondere Events" }) });
+    await expect(besondere).toBeVisible();
+    // Einzelevents gehören hierher, nicht unter „Regelmäßig" (PROJ-54). Geprüft
+    // wird die Zuordnung dieser Testdaten — nicht, dass das Studio keine Serien
+    // hat: Diese Datenbank teilen sich alle Suiten.
+    await expect(besondere.getByRole("link", { name: "E2E53 Salsa Party", exact: true })).toBeVisible();
 
     const party = karte(page, "E2E53 Salsa Party");
     await expect(party.getByText("E2E53 Party", { exact: true })).toBeVisible();
