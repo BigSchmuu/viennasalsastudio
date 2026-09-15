@@ -10,6 +10,8 @@ import { SerieKarte, type PublicSerieRow } from "@/components/events/serie-karte
 import { eventEnde, eventZustand, freiePlaetze, stornierbar, type SalesMode } from "@/lib/events/event-zustand";
 import { ferienpauseBis, SERIE_AKTIV } from "@/lib/events/serie";
 import { ladeFerien } from "@/lib/scheduling/ferien";
+import { BILD_TITEL, type EventBild } from "@/lib/events/medien";
+import { titelbildAus, TITELBILD_SPALTEN } from "@/lib/events/bild-zeilen";
 
 const GUELTIGE_TICKETS = ["reserved", "confirmed", "checked_in"];
 
@@ -42,8 +44,11 @@ export default async function EventsPage({ searchParams }: Props) {
     supabase
       .from("events")
       .select(
-        "id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, sales_mode, slug, status, event_type_id, event_types(name)"
+        `id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, sales_mode, slug, status, event_type_id, event_types(name), ${TITELBILD_SPALTEN}`
       )
+      // Nur das Titelbild mitladen, nicht die ganze Galerie: Die Übersicht
+      // zeigt je Karte genau ein Bild.
+      .eq("event_images.role", BILD_TITEL)
       .eq("status", "geplant")
       // PROJ-54: Serientermine stehen unter „Regelmäßig" bei ihrer Serie —
       // einzeln aufgeführt stünde dieselbe Party vier Mal untereinander.
@@ -53,8 +58,9 @@ export default async function EventsPage({ searchParams }: Props) {
     supabase
       .from("event_series")
       .select(
-        "id, name, slug, location, weekday, start_time, end_time, starts_on, ends_on, pause_in_holidays, event_type_id, event_types(name)"
+        `id, name, slug, location, weekday, start_time, end_time, starts_on, ends_on, pause_in_holidays, event_type_id, event_types(name), ${TITELBILD_SPALTEN}`
       )
+      .eq("event_images.role", BILD_TITEL)
       .eq("status", SERIE_AKTIV)
       .order("weekday", { ascending: true }),
     // PROJ-54: Der nächste Termin einer Serie ist der nächste, der wirklich
@@ -124,6 +130,7 @@ export default async function EventsPage({ searchParams }: Props) {
       eventTypeId: s.event_type_id,
       naechsterTermin: naechsteTermine.get(s.id) ?? null,
       ferienpauseBis: ferienpauseBis(regel, { ferien, jetzt }),
+      titelbild: titelbildAus(s.event_images),
     };
   });
   // Eine Serie ohne nächsten Termin und ohne Ferienpause ist ausgelaufen.
@@ -167,6 +174,7 @@ export default async function EventsPage({ searchParams }: Props) {
       zustand: eventZustand(lage, jetzt),
       freiePlaetze: freiePlaetze(lage),
       stornierbar: stornierbar(e.starts_at, jetzt),
+      titelbild: titelbildAus(e.event_images),
     };
   });
 

@@ -4,6 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { EventAktion } from "@/components/events/event-aktion";
 import { EventPreis } from "@/components/events/event-angaben";
 import { SerienRhythmus } from "@/components/events/serien-rhythmus";
+import { EventTitelbild } from "@/components/events/event-titelbild";
+import { EventGalerie } from "@/components/events/event-galerie";
+import { EventVideos } from "@/components/events/event-videos";
+import type { EventBild, EventVideo } from "@/lib/events/medien";
 import { formatDate, formatDateTime } from "@/lib/formatting";
 import type { EventZustand } from "@/lib/events/event-zustand";
 
@@ -32,6 +36,9 @@ export type SerienAnsicht = {
   priceNormal: number | null;
   priceStudent: number | null;
   ferienpauseBis: string | null;
+  titelbild: EventBild | null;
+  galerie: EventBild[];
+  videos: EventVideo[];
 };
 
 /**
@@ -57,6 +64,17 @@ export function SerienSeite({
 
   return (
     <article className="mt-4 rounded-card border border-border/60 bg-card/80 p-5 shadow-soft backdrop-blur sm:p-8">
+      {serie.titelbild ? (
+        <div className="mb-6">
+          <EventTitelbild
+            bild={serie.titelbild}
+            eventName={serie.name}
+            typeName={serie.typeName}
+            variante="seite"
+            prioritaet
+          />
+        </div>
+      ) : null}
       {serie.typeName ? <Badge variant="secondary">{serie.typeName}</Badge> : null}
       <h1 className="mt-3 font-heading text-2xl font-bold tracking-[-0.5px] sm:text-3xl">{serie.name}</h1>
 
@@ -139,6 +157,9 @@ export function SerienSeite({
           </ul>
         )}
       </section>
+
+      <EventGalerie bilder={serie.galerie} eventName={serie.name} />
+      <EventVideos videos={serie.videos} eventName={serie.name} />
     </article>
   );
 }

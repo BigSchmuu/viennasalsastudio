@@ -37,6 +37,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import { MedienDialog } from "@/components/admin/events/medien-dialog";
 import {
   Form,
   FormControl,
@@ -83,6 +84,7 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
   const [guestListEvent, setGuestListEvent] = useState<EventRow | null>(null);
   const [guests, setGuests] = useState<EventGuestRow[] | null>(null);
   const [guestsLoading, setGuestsLoading] = useState(false);
+  const [medienEvent, setMedienEvent] = useState<EventRow | null>(null);
 
   async function openGuestList(event: EventRow) {
     setGuestListEvent(event);
@@ -144,6 +146,9 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
                     Seite ansehen
                   </Link>
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => setMedienEvent(event)}>
+                  Bilder &amp; Videos
+                </Button>
                 {event.salesMode === "tickets" || event.ticketCount > 0 ? (
                   <Button variant="outline" size="sm" onClick={() => openGuestList(event)}>
                     Gästeliste
@@ -176,6 +181,13 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
           )}
         </TableBody>
       </Table>
+
+      <MedienDialog
+        key={medienEvent?.id ?? "keine-medien"}
+        ziel={medienEvent ? { eventId: medienEvent.id } : null}
+        name={medienEvent?.name ?? ""}
+        onOpenChange={(open) => !open && setMedienEvent(null)}
+      />
 
       <EventFormDialog
         open={dialogOpen}

@@ -1,6 +1,6 @@
 # PROJ-55: Bilder & Videos für Events
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-09-14
 **Last Updated:** 2026-09-15
 
@@ -186,6 +186,38 @@ Keine neuen Pakete. Das Verkleinern erledigt der Browser, das Ausliefern in pass
 - **Die Event-Karte sieht anders aus.** Die Tests aus PROJ-53 prüfen ihren Inhalt und brauchen einen Blick.
 - **Datenschutzerklärung:** keine Änderung nötig (siehe oben).
 - **Bilder ohne Beschreibung** bekommen den Eventnamen als Alternativtext — die Seite bleibt vorlesbar, auch wenn jemand das Feld leer lässt.
+
+## Implementation Notes (Frontend)
+
+**Stand 2026-09-15:** Frontend fertig. Im Browser läuft es erst mit der Migration aus `/backend` — die Seiten lesen die beiden neuen Tabellen, und der Bildspeicher existiert noch nicht. Unit-Tests 655 in 58 Dateien, Typprüfung, Lint und `npm run build` sauber.
+
+### Gebaut
+- **Gemeinsame Grundlage** `src/lib/events/medien.ts` (12 neue Tests): Grenzen (10 MB je Bild, 20 Bilder je Event, längste Kante 2000 Pixel), die Prüfung einer ausgewählten Datei samt eigener Meldung für iPhone-Fotos, die Rechnung fürs Verkleinern, die öffentliche Adresse eines Bildes und der Alternativtext, der bei leerer Beschreibung den Eventnamen einsetzt.
+- **Verkleinern im Browser** `src/lib/bilder/verkleinern.ts`: Das Bild wird auf eine Leinwand neu gezeichnet und als WebP gespeichert. Damit fällt jedes Metadatenfeld weg — auch die GPS-Koordinaten —, und ein 6000-Pixel-Foto geht nicht mehr in voller Größe durchs Netz.
+- **Titelbild** `event-titelbild.tsx`: auf der Karte im festen Querformat, auf der Seite ganz. Ohne Bild eine Fläche in den Studiofarben mit der Eventart statt eines leeren Rahmens.
+- **Galerie** `event-galerie.tsx`: Raster, das erst beim Hinscrollen lädt, und eine Großansicht mit Blättern, Wischen, Pfeiltasten, Escape und Klick daneben. Unter dem Bild stehen Beschreibung und „Bild 2 von 7".
+- **Videos** `event-videos.tsx`: dieselbe Einbettung wie die Beispiel-Videos aus PROJ-11, nicht eine zweite eigene.
+- **Verwaltung** `medien-dialog.tsx`: je Zeile in Event- und Serienliste ein Knopf „Bilder & Videos". Dahinter Titelbild wählen oder ersetzen, Galerie hochladen (mehrere auf einmal), Reihenfolge, Bildbeschreibung, Entfernen — und YouTube-Links mit Titel und Reihenfolge. Oben der Hinweis auf Bildrechte und Einverständnis.
+- **Server-Aktionen** `src/lib/actions/admin/event-medien.ts`: lesen, eintragen, Beschreibung ändern, entfernen, Reihenfolge tauschen — für Bilder und Videos durch dieselbe Tauschfunktion.
+- **Link-Vorschau und Google** bekommen das Titelbild: die Eventseite über `openGraph.images`, die Suchmaschinen über das Feld `image` in den Event-Daten. Bei einer Serie gilt es für jeden ihrer Termine.
+- **Konfiguration:** Der Bildspeicher ist als erlaubte Bildquelle eingetragen; ohne diesen Eintrag zeigte Next.js die Bilder nicht an, ohne dass etwas im Log stünde.
+
+### Entscheidungen beim Bauen
+- **Der Browser lädt die Datei direkt in den Bildspeicher, nicht durch die Server-Aktion.** Server-Aktionen sind für Formularfelder gedacht und begrenzen die Menge; ein Foto gehört nicht hindurch. Danach meldet die App das Bild.
+- **Der Server glaubt dem Browser nicht.** Bevor ein Eintrag entsteht, fragt die Server-Aktion den Bildspeicher selbst nach Typ und Größe der Datei, die dort wirklich liegt. Findet sie nichts, ist der Upload steckengeblieben — dann entsteht kein Eintrag ohne Bild. Schlägt das Eintragen fehl, wird die Datei wieder weggeräumt.
+- **Reihenfolge als fortlaufende Zahl, nicht aus der Uhrzeit abgeleitet.** Der erste Entwurf nahm die Millisekunden — das sortiert anfangs richtig und irgendwann falsch.
+- **Titelbild ersetzen löscht das alte**, in der Datenbank und im Bildspeicher.
+
+### Abweichungen und Offenes
+- `src/lib/supabase/types.ts` ist erneut **von Hand** ergänzt (`event_images`, `event_videos`) — nach der Migration neu erzeugen und abgleichen.
+- Es gibt noch **keine E2E-Tests**; sie kommen in der QA, weil sie echte Uploads gegen den Bildspeicher brauchen.
+- Die Prüfung „nur Bildformate, höchstens 10 MB" steht bisher im Browser und in der Server-Aktion. Die **dritte, verlässliche Schranke gehört an den Bildspeicher selbst** (erlaubte Typen und Höchstgröße am Bereich) — das liefert `/backend`.
+
+### Was `/backend` liefern muss
+- Tabellen **`event_images`** und **`event_videos`** mit RLS: lesen alle, schreiben nur Admins. Beide hängen wahlweise an einem Event oder an einer Serie — genau eines von beiden, und mit Löschweitergabe, damit nichts zurückbleibt.
+- **Bildspeicher-Bereich `event-bilder`**: öffentlich lesbar, schreiben und löschen nur für Admins, erlaubte Typen JPG/PNG/WebP, Höchstgröße 10 MB.
+- **Aufräumen beim Löschen:** Verschwindet ein Event oder eine Serie, müssen auch die Dateien im Bildspeicher gehen — die Datenbank allein räumt dort nichts weg.
+- Danach `types.ts` erzeugen und mit der Handfassung abgleichen.
 
 ## QA Test Results
 _To be added by /qa_

@@ -81,7 +81,7 @@
 
 | PROJ-54 | Event-Serien (regelmäßige Veranstaltungen) | Approved | [PROJ-54](../features/PROJ-54-event-serien.md) | 2026-09-14 |
 
-| PROJ-55 | Bilder & Videos für Events | Architected | [PROJ-55](../features/PROJ-55-event-bilder-videos.md) | 2026-09-14 |
+| PROJ-55 | Bilder & Videos für Events | In Progress | [PROJ-55](../features/PROJ-55-event-bilder-videos.md) | 2026-09-14 |
 
 | PROJ-56 | Ticketarten, Pässe & Einheiten | Planned | [PROJ-56](../features/PROJ-56-ticketarten-paesse.md) | 2026-09-14 |
 

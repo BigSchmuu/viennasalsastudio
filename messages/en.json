@@ -148,7 +148,13 @@
     "upcomingDates": "Upcoming dates",
     "noUpcomingDates": "No dates are scheduled right now.",
     "dateCancelled": "Cancelled",
-    "dateMoved": "Changed"
+    "dateMoved": "Changed",
+    "galleryHeading": "Photos",
+    "galleryClose": "Close",
+    "galleryPrevious": "Previous photo",
+    "galleryNext": "Next photo",
+    "galleryPosition": "Photo {current} of {total}",
+    "videosHeading": "Videos"
   },
   "booking": {
     "tabRegular": "Enrol",

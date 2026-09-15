@@ -20,6 +20,8 @@ export type EventFuerSuchmaschinen = {
   zustand: Exclude<EventZustand, "ticketVorhanden">;
   url: string;
   siteUrl: string;
+  /** Die volle Adresse des Titelbildes (PROJ-55); ohne Bild bleibt die Angabe weg. */
+  imageUrl?: string | null;
 };
 
 export function eventDaten(event: EventFuerSuchmaschinen): Record<string, unknown> {
@@ -35,6 +37,7 @@ export function eventDaten(event: EventFuerSuchmaschinen): Record<string, unknow
     organizer: { "@type": "Organization", name: "Vienna Salsa Studio", url: event.siteUrl },
   };
 
+  if (event.imageUrl) daten.image = [event.imageUrl];
   if (event.endsAt) daten.endDate = event.endsAt;
   if (event.description) daten.description = event.description;
   if (event.location) {

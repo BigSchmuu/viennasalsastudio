@@ -26,6 +26,7 @@ import {
 import type { EventTypeOption } from "@/components/admin/events/event-manager";
 import { weekdayLabel, weekdayOptions } from "@/lib/constants/weekdays";
 import { toDatetimeLocal } from "@/lib/events/formular";
+import { MedienDialog } from "@/components/admin/events/medien-dialog";
 import { uhrzeitKurz, SERIE_BEENDET } from "@/lib/events/serie";
 import type { SalesMode } from "@/lib/events/event-zustand";
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,7 @@ export function SerienManager({ serien, eventTypes }: { serien: SerieRow[]; even
   const [termineSerie, setTermineSerie] = useState<SerieRow | null>(null);
   const [endTarget, setEndTarget] = useState<SerieRow | null>(null);
   const [endTickets, setEndTickets] = useState<number | null>(null);
+  const [medienSerie, setMedienSerie] = useState<SerieRow | null>(null);
 
   // Vor dem Bestätigen die Zahl der betroffenen Tickets — eine Absage mit
   // Folgen für zahlende Gäste soll niemand blind auslösen. Geladen wird beim
@@ -164,6 +166,9 @@ export function SerienManager({ serien, eventTypes }: { serien: SerieRow[]; even
                     Seite ansehen
                   </Link>
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => setMedienSerie(serie)}>
+                  Bilder &amp; Videos
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => setTermineSerie(serie)}>
                   Termine
                 </Button>
@@ -202,6 +207,13 @@ export function SerienManager({ serien, eventTypes }: { serien: SerieRow[]; even
         serie={editing}
         eventTypes={eventTypes}
         onSaved={() => router.refresh()}
+      />
+
+      <MedienDialog
+        key={medienSerie?.id ?? "keine-medien"}
+        ziel={medienSerie ? { serieId: medienSerie.id } : null}
+        name={medienSerie?.name ?? ""}
+        onOpenChange={(open) => !open && setMedienSerie(null)}
       />
 
       <TermineDialog

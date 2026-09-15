@@ -16,6 +16,12 @@ import { eventTermin } from "@/lib/events/termin";
 import { ferienpauseBis, uhrzeitKurz, SERIEN_VORSCHAU_TAGE } from "@/lib/events/serie";
 import { ladeFerien } from "@/lib/scheduling/ferien";
 import { alsSkriptInhalt, eventDaten } from "@/lib/events/strukturierte-daten";
+import { EventTitelbild } from "@/components/events/event-titelbild";
+import { EventGalerie } from "@/components/events/event-galerie";
+import { EventVideos } from "@/components/events/event-videos";
+import { bildUrl } from "@/lib/events/medien";
+import { BILD_SPALTEN, galerieAus, titelbildAus } from "@/lib/events/bild-zeilen";
+import { VIDEO_SPALTEN, videosAus } from "@/lib/events/video-zeilen";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const GUELTIGE_TICKETS = ["reserved", "confirmed", "checked_in"];
@@ -25,11 +31,9 @@ type Props = {
   params: Promise<{ adresse: string }>;
 };
 
-const EVENT_SPALTEN =
-  "id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, event_types(name)";
+const EVENT_SPALTEN = `id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, event_types(name), ${BILD_SPALTEN}, ${VIDEO_SPALTEN}`;
 
-const SERIEN_SPALTEN =
-  "id, name, slug, description, location, weekday, start_time, end_time, starts_on, ends_on, pause_in_holidays, capacity, price_normal, price_student, sales_mode, status, event_types(name)";
+const SERIEN_SPALTEN = `id, name, slug, description, location, weekday, start_time, end_time, starts_on, ends_on, pause_in_holidays, capacity, price_normal, price_student, sales_mode, status, event_types(name), ${BILD_SPALTEN}, ${VIDEO_SPALTEN}`;
 
 /**
  * Das Event zu einer Adresse — einmal je Anfrage, geteilt von Metadaten und Seite.
@@ -86,6 +90,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         type: "website",
         siteName: "Vienna Salsa Studio",
         locale: locale === "en" ? "en_IE" : "de_AT",
+        images: vorschaubild(event.event_images),
       },
     };
   }
@@ -114,8 +119,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: "website",
       siteName: "Vienna Salsa Studio",
       locale: locale === "en" ? "en_IE" : "de_AT",
+      images: vorschaubild(serie.event_images),
     },
   };
+}
+
+/** Das Titelbild für die Link-Vorschau — ohne Bild bleibt die Angabe weg. */
+function vorschaubild(bilder: Parameters<typeof titelbildAus>[0]) {
+  const titelbild = titelbildAus(bilder);
+  if (!titelbild) return undefined;
+  return [{ url: bildUrl(titelbild.pfad), width: titelbild.breite, height: titelbild.hoehe }];
 }
 
 export default async function EventSeite({ params }: Props) {
@@ -178,6 +191,7 @@ export default async function EventSeite({ params }: Props) {
   // gleich im Quelltext.
   const zustandFuerAlle = eventZustand({ ...lage, hatTicket: false }, jetzt);
   const termin = eventTermin(event.starts_at, event.ends_at, locale);
+  const titelbild = titelbildAus(event.event_images);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
@@ -195,6 +209,7 @@ export default async function EventSeite({ params }: Props) {
               zustand: zustandFuerAlle === "ticketVorhanden" ? "kaufen" : zustandFuerAlle,
               url: seitenUrl(event.slug, locale),
               siteUrl: SITE_URL,
+              imageUrl: titelbild ? bildUrl(titelbild.pfad) : null,
             })
           ),
         }}
@@ -215,6 +230,17 @@ export default async function EventSeite({ params }: Props) {
       ) : null}
 
       <article className="mt-4 rounded-card border border-border/60 bg-card/80 p-5 shadow-soft backdrop-blur sm:p-8">
+        {titelbild ? (
+          <div className="mb-6">
+            <EventTitelbild
+              bild={titelbild}
+              eventName={event.name}
+              typeName={event.event_types?.name ?? null}
+              variante="seite"
+              prioritaet
+            />
+          </div>
+        ) : null}
         {event.event_types?.name ? <Badge variant="secondary">{event.event_types.name}</Badge> : null}
         <h1 className="mt-3 font-heading text-2xl font-bold tracking-[-0.5px] sm:text-3xl">{event.name}</h1>
 
@@ -258,6 +284,9 @@ export default async function EventSeite({ params }: Props) {
             className="w-full sm:w-auto"
           />
         </div>
+
+        <EventGalerie bilder={galerieAus(event.event_images)} eventName={event.name} />
+        <EventVideos videos={videosAus(event.event_videos)} eventName={event.name} />
       </article>
     </div>
   );
@@ -339,6 +368,8 @@ async function SerienAnsichtLaden({ serie, locale }: { serie: SerieZeile; locale
     { ferien, jetzt }
   );
 
+  const titelbild = titelbildAus(serie.event_images);
+
   // Für Google: jeder kommende Termin ein eigener Eintrag — eine Serie als
   // solche kennt schema.org nicht.
   const daten = termine
@@ -355,6 +386,7 @@ async function SerienAnsichtLaden({ serie, locale }: { serie: SerieZeile; locale
         zustand: termin.zustand === "ticketVorhanden" ? "kaufen" : termin.zustand,
         url: seitenUrl(termin.slug, locale),
         siteUrl: SITE_URL,
+        imageUrl: titelbild ? bildUrl(titelbild.pfad) : null,
       })
     );
 
@@ -380,6 +412,9 @@ async function SerienAnsichtLaden({ serie, locale }: { serie: SerieZeile; locale
           typeName: serie.event_types?.name ?? null,
           description: serie.description,
           location: serie.location,
+          titelbild,
+          galerie: galerieAus(serie.event_images),
+          videos: videosAus(serie.event_videos),
           weekday: serie.weekday,
           startTime: serie.start_time,
           endTime: serie.end_time,

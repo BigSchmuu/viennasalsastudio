@@ -148,7 +148,13 @@
     "upcomingDates": "Nächste Termine",
     "noUpcomingDates": "Zurzeit sind keine Termine geplant.",
     "dateCancelled": "Fällt aus",
-    "dateMoved": "Geändert"
+    "dateMoved": "Geändert",
+    "galleryHeading": "Bilder",
+    "galleryClose": "Schließen",
+    "galleryPrevious": "Vorheriges Bild",
+    "galleryNext": "Nächstes Bild",
+    "galleryPosition": "Bild {current} von {total}",
+    "videosHeading": "Videos"
   },
   "booking": {
     "tabRegular": "Anmeldung",

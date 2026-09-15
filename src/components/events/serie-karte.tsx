@@ -4,6 +4,8 @@ import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SerienRhythmus } from "@/components/events/serien-rhythmus";
+import { EventTitelbild } from "@/components/events/event-titelbild";
+import type { EventBild } from "@/lib/events/medien";
 import { formatShortDate, formatDate } from "@/lib/formatting";
 
 export type PublicSerieRow = {
@@ -17,6 +19,7 @@ export type PublicSerieRow = {
   endTime: string | null;
   naechsterTermin: string | null;
   ferienpauseBis: string | null;
+  titelbild: EventBild | null;
 };
 
 /**
@@ -32,7 +35,9 @@ export function SerieKarte({ serie }: { serie: PublicSerieRow }) {
   const locale = useLocale();
 
   return (
-    <Card className="relative flex flex-col rounded-card shadow-soft transition-shadow focus-within:ring-2 focus-within:ring-ring hover:shadow-lg">
+    <Card className="relative flex flex-col overflow-hidden rounded-card shadow-soft transition-shadow focus-within:ring-2 focus-within:ring-ring hover:shadow-lg">
+      <EventTitelbild bild={serie.titelbild} eventName={serie.name} typeName={serie.typeName} variante="karte" />
+
       <CardHeader className="space-y-2">
         {serie.typeName ? (
           <Badge variant="secondary" className="w-fit">

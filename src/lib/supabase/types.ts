@@ -765,6 +765,60 @@ export type Database = {
         }
         Relationships: []
       }
+      event_images: {
+        Row: {
+          alt_text: string | null
+          created_at: string
+          event_id: string | null
+          height: number
+          id: string
+          position: number
+          role: string
+          series_id: string | null
+          storage_path: string
+          width: number
+        }
+        Insert: {
+          alt_text?: string | null
+          created_at?: string
+          event_id?: string | null
+          height: number
+          id?: string
+          position?: number
+          role?: string
+          series_id?: string | null
+          storage_path: string
+          width: number
+        }
+        Update: {
+          alt_text?: string | null
+          created_at?: string
+          event_id?: string | null
+          height?: number
+          id?: string
+          position?: number
+          role?: string
+          series_id?: string | null
+          storage_path?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_images_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_images_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_previous_slugs: {
         Row: {
           created_at: string
@@ -882,6 +936,51 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      event_videos: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          id: string
+          position: number
+          series_id: string | null
+          title: string | null
+          youtube_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          position?: number
+          series_id?: string | null
+          title?: string | null
+          youtube_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          position?: number
+          series_id?: string | null
+          title?: string | null
+          youtube_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_videos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_videos_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       events: {
         Row: {

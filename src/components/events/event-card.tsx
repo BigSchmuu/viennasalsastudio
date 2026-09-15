@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EventAktion } from "@/components/events/event-aktion";
 import { EventPreis, EventVerfuegbarkeit } from "@/components/events/event-angaben";
+import { EventTitelbild } from "@/components/events/event-titelbild";
+import type { EventBild } from "@/lib/events/medien";
 import { eventTermin } from "@/lib/events/termin";
 import type { EventZustand, SalesMode } from "@/lib/events/event-zustand";
 
@@ -23,6 +25,7 @@ export type PublicEventRow = {
   zustand: EventZustand;
   freiePlaetze: number | null;
   stornierbar: boolean;
+  titelbild: EventBild | null;
 };
 
 /**
@@ -41,7 +44,9 @@ export function EventCard({
   const locale = useLocale();
 
   return (
-    <Card className="relative flex flex-col rounded-card shadow-soft transition-shadow focus-within:ring-2 focus-within:ring-ring hover:shadow-lg">
+    <Card className="relative flex flex-col overflow-hidden rounded-card shadow-soft transition-shadow focus-within:ring-2 focus-within:ring-ring hover:shadow-lg">
+      <EventTitelbild bild={event.titelbild} eventName={event.name} typeName={event.typeName} variante="karte" />
+
       <CardHeader className="space-y-2">
         {event.typeName ? (
           <Badge variant="secondary" className="w-fit">
