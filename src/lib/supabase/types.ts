@@ -2390,9 +2390,13 @@ export type Database = {
       checkin_event_guest: {
         Args: { p_guest_id: string; p_event_id: string; p_unit_id?: string | null }
         Returns: {
+          created_at: string
+          created_by: string | null
+          dance_role: string | null
+          event_id: string
           id: string
           name: string
-          checked_in_at: string
+          note: string | null
         }
       }
       checkin_event_ticket: {

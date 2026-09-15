@@ -300,6 +300,39 @@ Beim ersten vollen Lauf fielen 19 Datenbanktests aus, mit `Request rate limit re
 - **Bestand umbauen**: Jedes Event mit Ticketverkauf bekommt die Ticketart „Ticket" mit seinen Preisen, beide Zahlungsarten, einen Tag Frist; bestehende Tickets zeigen darauf.
 - Danach `types.ts` erzeugen und mit der Handfassung abgleichen.
 
+## Implementation Notes (Backend)
+
+**Stand 2026-09-15:** Backend fertig. Migration `supabase/migrations/20260915220000_proj56_ticketarten_einheiten.sql` — erst einspielen, dann den Code ausliefern. Unit-Tests 720 in 61 Dateien, Typprüfung, Lint und `npm run build` sauber.
+
+### Datenbank
+- **Sechs neue Tabellen**: `event_units`, `event_ticket_types`, `event_ticket_type_units`, `event_guests`, `event_guest_units`, `event_checkins`. Programm und Ticketarten sind öffentlich lesbar — sie stehen auf der Eventseite. Gäste und Einlass nur für Admin und Lehrer: Namen von Gästen sind personenbezogen und gehen nur das Studio etwas an. Geschrieben wird überall nur von Admins, der Einlass ausschließlich über die Check-in-Funktionen.
+- **`events`** um Zahlungsarten, Stornofrist, Rollenabfrage und größten Rollenabstand; **`tickets`** um Ticketart, Einheit, Tanzrolle und die beim Kauf geltende Stornofrist.
+- **Einlass je Einheit**: vier Eindeutigkeitssperren — je Ticket und Einheit einmal, je Ticket ohne Einheit einmal, dasselbe für Gäste. Daran erkennt der Check-in „bereits eingecheckt", ohne selbst zu zählen.
+- **Bestand übernommen**: Jedes Event mit Ticketverkauf hat jetzt die Ticketart „Ticket" mit seinen bisherigen Preisen, und seine Tickets zeigen darauf.
+
+### Ticketkauf
+Der Kauf ist umgebaut und prüft der Reihe nach: Event offen, Ticketart im Verkauf, Einheit nötig und gültig, Zahlungsart vom Event erlaubt, Kontingent der Art, **Kapazität jeder Einheit, die dieses Ticket belegen würde**, Kapazität des Events, Tanzrolle — und erst dann Preis und Zahlungsweg.
+
+- **Gesperrt wird das Event, nicht die Einheit.** Ein Full Pass und ein Einzelticket dürfen nicht gleichzeitig denselben letzten Platz bekommen. Bei Studiogröße kostet die grobe Sperre nichts.
+- **Die Belegung je Einheit rechnet `get_event_unit_occupancy`** — dieselbe Funktion, die auch die Eventseite fragt. Zwei Rechnungen für dieselbe Frage liefen früher oder später auseinander.
+- **Kostenlos heißt kostenlos**: kein Mandat, keine Zahlungsart, sofort bestätigt.
+- **Eingefroren wird am Ticket**, was beim Kauf galt: die Stornofrist. Die Zahlungsart stand ohnehin schon dort.
+- **Eine Einheit anzugeben, wo keine zu wählen ist, wird abgewiesen** — sonst stünde am Ticket eine Angabe, die nichts bedeutet.
+- **Tanzrolle nach dem Kursmuster**: kein festes Kontingent je Rolle, sondern ein größter erlaubter Abstand. Gerechnet wird je Event, wie bei Kursen je Kurs.
+
+### Stornieren und Einlass
+- **`cancel_event_ticket`** nimmt die Frist vom Ticket statt der festen Ein-Tages-Regel. Die Ausnahme aus PROJ-54 bleibt: Ein verlegter Termin hebt die Frist ganz auf.
+- **`checkin_event_ticket`** bekommt die Einheit. Ein Ticket, das nicht für sie gilt, wird abgewiesen (`ticket not for unit`); ein zweiter Scan derselben Einheit meldet „bereits eingecheckt". Das Ticket selbst gilt ab dem **ersten** Einlass als eingecheckt — daran hängen die Gästeliste und bei Barzahlung „gescannt heißt bezahlt". Ohne Programm bleibt alles wie seit PROJ-14.
+- **`checkin_event_guest`** neu, für Gäste ohne QR-Code. Keine Zuordnung zu Einheiten heißt: gilt für alle.
+- **Tickets aus der Zeit vor PROJ-56** (ohne Ticketart) gelten für das ganze Event — sonst ließe die Einheitenprüfung sie nirgends hinein.
+
+### Nach der Migration noch offen
+- `src/lib/supabase/types.ts` neu erzeugen und mit der Handfassung abgleichen (sechs Tabellen, vier Spalten, drei Funktionen).
+
+### Bewusst nicht gebaut
+- **Keine Sperre gegen ein zweites Ticket für dieselbe Einheit.** Die Spezifikation nennt das unter den Edge Cases; es hängt aber an der Frage nach Mehrfachkäufen, die draußen bleibt. Heute kann ein Kunde zweimal kaufen — das gehört in der QA angesehen.
+- **Keine Rollenprüfung je Einheit.** Gerechnet wird je Event, wie bei den Kursen je Kurs. Für einen Workshop ist das Event die Gruppe.
+
 ## QA Test Results
 _To be added by /qa_
 
