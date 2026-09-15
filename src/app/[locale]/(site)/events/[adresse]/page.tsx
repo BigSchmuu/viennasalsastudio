@@ -204,7 +204,16 @@ export default async function EventSeite({ params }: Props) {
     for (const zeile of belegung ?? []) belegtProEinheit.set(zeile.unit_id, zeile.ticket_count);
   }
 
-  const kauf = kaufAngaben(event, { belegtJeEinheit: belegtProEinheit });
+  // PROJ-56 (QA-Befund BUG-1): Ohne diese Zahl gilt jedes Kontingent als
+  // unerschöpft — die Art wird angeboten, und erst die Datenbank weist den
+  // Kauf ab. Der Kunde liefe in eine Sackgasse.
+  const verkauftProArt = new Map<string, number>();
+  if ((event.event_ticket_types ?? []).length > 0) {
+    const { data: verkauft } = await supabase.rpc("get_event_type_occupancy", { p_event_id: event.id });
+    for (const zeile of verkauft ?? []) verkauftProArt.set(zeile.ticket_type_id, zeile.ticket_count);
+  }
+
+  const kauf = kaufAngaben(event, { belegtJeEinheit: belegtProEinheit, verkauftJeArt: verkauftProArt });
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:py-10">

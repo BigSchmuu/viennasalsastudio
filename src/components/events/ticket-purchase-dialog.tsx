@@ -121,7 +121,9 @@ export function TicketPurchaseDialog({
     setError(null);
     try {
       const result = await purchaseTicket(event.id, paymentMethod, wantsStudentPrice, termsAccepted, {
-        ticketTypeId: art.id,
+        // Eine ersatzweise Art steht in keiner Tabelle — dann entscheidet der
+        // Preis des Events, wie vor PROJ-56.
+        ticketTypeId: art.implizit ? null : art.id,
         unitId: brauchtEinheit ? einheitId : null,
         danceRole: event.rolleAbfragen ? rolle : null,
       });

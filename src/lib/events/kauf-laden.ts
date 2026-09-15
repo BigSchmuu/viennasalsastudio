@@ -72,6 +72,7 @@ export function ticketartenAus(
         einheitIds: [],
         imVerkauf: true,
         verkauft: 0,
+        implizit: true,
       },
     ];
   }

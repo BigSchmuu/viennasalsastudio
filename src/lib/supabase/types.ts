@@ -2666,6 +2666,13 @@ export type Database = {
           ticket_count: number
         }[]
       }
+      get_event_type_occupancy: {
+        Args: { p_event_id: string }
+        Returns: {
+          ticket_type_id: string
+          ticket_count: number
+        }[]
+      }
       get_event_unit_occupancy: {
         Args: { p_event_id: string }
         Returns: {

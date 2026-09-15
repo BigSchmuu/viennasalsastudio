@@ -53,6 +53,14 @@ export type Ticketart = {
   imVerkauf: boolean;
   /** Wie viele Tickets dieser Art schon verkauft sind. */
   verkauft: number;
+  /**
+   * Keine echte Ticketart, sondern der Preis des Events selbst.
+   *
+   * So sind Serientermine gebaut und alles, was vor PROJ-56 entstanden ist.
+   * Beim Kauf darf ihre Kennung nicht mitgeschickt werden — sie steht in
+   * keiner Tabelle, und die Datenbank wiese den Kauf ab.
+   */
+  implizit?: boolean;
 };
 
 /**
