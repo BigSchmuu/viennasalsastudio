@@ -326,8 +326,13 @@ Der Kauf ist umgebaut und prüft der Reihe nach: Event offen, Ticketart im Verka
 - **`checkin_event_guest`** neu, für Gäste ohne QR-Code. Keine Zuordnung zu Einheiten heißt: gilt für alle.
 - **Tickets aus der Zeit vor PROJ-56** (ohne Ticketart) gelten für das ganze Event — sonst ließe die Einheitenprüfung sie nirgends hinein.
 
+### In der Testdatenbank geprüft
+Die Migration ist am 2026-09-15 vom Betreiber eingespielt worden. `tests/PROJ-56-ticketarten-db.test.ts` prüft 23 Regeln gegen die echte Testdatenbank, alle grün: die Sperren der neuen Tabellen, den Kauf mit Ticketart samt eingefrorener Stornofrist, die Wahlpflicht bei mehreren Arten, Einheit nötig und Einheit unzulässig, Kontingent, die Sperre eines Passes durch eine einzige volle Einheit (mitsamt der Belegung je Einheit), die erlaubten Zahlungsarten, die kostenlose Ticketart, die Rollenregel, das Stornieren nach der beim Kauf geltenden Frist, den Einlass je Einheit für Tickets und Gäste — und die Rechte.
+
+**Dabei gefunden: ein Fehler in dieser Migration.** Der Ticketkauf war danach unmöglich. In der Migration stand, `create or replace` genüge für die drei neuen Parameter mit Vorgabewert. Das ist falsch — Postgres erkennt eine Funktion an Name **und** Parameterliste, also entstand eine zweite Funktion, und die alte blieb daneben stehen. Ein Aufruf mit fünf Argumenten, genau der aus der App, passte auf beide: „Could not choose the best candidate function". Behoben mit `20260915234500_proj56_alte_kauffunktion_entfernen.sql`, das die alte Fassung entfernt. Dieselbe Falle ist in der PROJ-54-Migration beschrieben und dort richtig gelöst; hier nicht.
+
 ### Nach der Migration noch offen
-- `src/lib/supabase/types.ts` neu erzeugen und mit der Handfassung abgleichen (sechs Tabellen, vier Spalten, drei Funktionen).
+- `src/lib/supabase/types.ts` neu erzeugen und mit der Handfassung abgleichen (sechs Tabellen, vier Spalten, drei Funktionen). Der MCP-Zugang war am 2026-09-15 nicht verbunden (HTTP 401).
 
 ### Bewusst nicht gebaut
 - **Keine Sperre gegen ein zweites Ticket für dieselbe Einheit.** Die Spezifikation nennt das unter den Edge Cases; es hängt aber an der Frage nach Mehrfachkäufen, die draußen bleibt. Heute kann ein Kunde zweimal kaufen — das gehört in der QA angesehen.
