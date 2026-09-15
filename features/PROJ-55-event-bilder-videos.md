@@ -252,6 +252,93 @@ Die Migration ist am 2026-09-15 vom Betreiber eingespielt worden. `tests/PROJ-55
 - **Keine Bildbearbeitung auf dem Server.** Verkleinert wird auf dem Gerät; der Server prüft nur, was angekommen ist.
 
 ## QA Test Results
+
+**Getestet:** 2026-09-15
+**Umgebung:** localhost:3100 gegen die Testdatenbank, Migration 20260915180000 eingespielt
+**Tester:** QA Engineer (AI)
+
+Diese Suite lädt wirklich hoch: Die Testbilder entstehen im Test, gehen durch den Browser, landen im Bildspeicher und werden danach wieder weggeräumt. Nur so ließ sich prüfen, was die Spezifikation verspricht — dass Metadaten verschwinden und dass ein ersetztes Titelbild wirklich weg ist. Genau daran ist auch der eine Fehler aufgefallen.
+
+### Abnahmekriterien
+
+#### Titelbild
+- [x] Hochgeladenes Titelbild erscheint auf der Karte und oben auf der Eventseite — E2E
+- [x] Ohne Titelbild eine gestaltete Fläche mit der Eventart, kein kaputtes Bild — E2E (siehe BUG-2 zur Doppelung)
+- [ ] **BUG-1:** Ein Titelbild lässt sich nicht ersetzen — das alte bleibt stehen, das neue wird verworfen
+- [x] Die Link-Vorschau nennt das Titelbild — E2E über `og:image`
+
+#### Galerie
+- [x] Hochgeladene Bilder erscheinen als Galerie auf der Eventseite — E2E
+- [x] Die Reihenfolge lässt sich ändern und gilt auch auf der Seite — E2E
+- [x] Entfernen räumt Eintrag **und** Datei weg — E2E, beides nachgesehen
+- [x] Großansicht mit Blättern und Schließen per Escape — E2E (Wischen und das X sind gebaut, aber nicht automatisiert)
+
+#### Hochladen
+- [x] Falsches Format: verständliche Meldung, nichts wird gespeichert — E2E, Eintrag und Bildspeicher blieben leer
+- [x] Standortdaten verschwinden beim Speichern — E2E in **beiden** Browsern: ein Merkmal im hochgeladenen Bild überlebt den Weg nicht
+- [x] Große Fotos laden am Telefon schnell: vor dem Hochladen verkleinert, danach in der angeforderten Größe ausgeliefert — E2E über `srcset`
+- [x] Bildbeschreibung wird zum Alternativtext; ohne Beschreibung tritt der Eventname ein — E2E
+- [x] Der Hinweis auf Bildrechte und Einverständnis steht im Dialog — E2E
+- [x] Ohne Admin-Rolle ist Hochladen, Ändern und Löschen verwehrt — Datenbanktests, an Tabellen und Bildspeicher
+
+#### Videos
+- [x] YouTube-Link wird angenommen, ein anderer Link abgelehnt — E2E
+- [x] Eingebettet über youtube-nocookie, wie die Beispiel-Videos — E2E
+- [x] Ein Video lässt sich wieder entfernen — E2E (die Reihenfolge ist gebaut, aber nicht automatisiert)
+
+### Edge Cases
+- [x] iPhone-Format HEIC bekommt eine eigene Meldung statt „falsches Format" — Unit
+- [x] Abgebrochener Upload hinterlässt kein halbes Bild: Der Eintrag entsteht erst, wenn der Server die Datei im Speicher nachgeschlagen hat; findet er nichts, entsteht keiner
+- [x] Dasselbe Bild zweimal hochladen ist erlaubt — keine Doppelprüfung, wie festgelegt
+- [x] Abgesagtes Event behält seine Bilder — sie hängen am Event, die Absage ändert nur den Status
+- [ ] **Ungetestet:** volle Galerie (bräuchte 20 Uploads je Lauf) — der Hinweis mit der Grenze ist gebaut
+- [ ] **Ungetestet:** hochformatiges Titelbild auf der Karte; der Zuschnitt folgt aus dem festen Seitenverhältnis
+- [x] Gelöschtes YouTube-Video: YouTube zeigt seinen eigenen Hinweis, die Seite läuft weiter — nicht prüfbar, weil fremd
+
+### Sicherheitsprüfung
+- [x] **Schreibrechte:** Kunden können weder Bild- noch Videoeinträge anlegen oder löschen, und in den Bildspeicher nichts hochladen — Datenbanktests
+- [x] **Format und Größe:** Die verlässliche Schranke sitzt am Bildspeicher, nicht im Browser. Im Test wies er eine PDF-Datei ab — und einmal auch eine Testdatei ohne Typ, was die Sperre nebenbei bewies
+- [x] **Einschleusen:** Bildbeschreibung und Videotitel gehen als Text durch React; die YouTube-Kennung ist in der Datenbank auf ihre Form geprüft, ein ganzer Link wird abgewiesen
+- [x] **Keine Geheimnisse im Browser:** Hochgeladen wird mit dem öffentlichen Schlüssel; die Rechte entscheidet der Bildspeicher
+- [x] **Aufräumen:** Ein entferntes Bild verschwindet auch als Datei — im Test nachgesehen, nicht nur angenommen
+
+### Regression
+- [x] PROJ-53 und PROJ-54: vollständig grün, nachdem zwei Prüfungen auf das Abzeichen eingegrenzt wurden (die Karte zeigt die Eventart jetzt zweimal — siehe BUG-2)
+- [x] Unit-Suite: 679 Tests in 60 Dateien
+- [x] Datenbanktests PROJ-55: 19 Regeln
+
+### Gefundene Fehler
+
+#### BUG-1: Ein Titelbild lässt sich nicht ersetzen
+- **Schwere:** High
+- **Schritte:**
+  1. Bei einem Event ein Titelbild hochladen
+  2. Im selben Dialog „Titelbild ersetzen" und ein anderes Bild wählen
+  3. **Erwartet:** Das neue Bild steht da, das alte ist aus Datenbank und Bildspeicher verschwunden
+  4. **Tatsächlich:** Das alte Titelbild bleibt, das neue wird verworfen; der Dialog meldet „Bild konnte nicht gespeichert werden."
+- **Beleg:** E2E-Test „Titelbild ersetzen", in beiden Browsern rot: Nach dem zweiten Hochladen steht dieselbe Datei wie vorher in der Zeile
+- **Ursache:** `saveEventBild` trägt das neue Titelbild ein **bevor** es das alte löscht. Seit dieser Migration gilt aber „höchstens ein Titelbild je Event" als Sperre in der Datenbank — der Eintrag scheitert daran (23505), und die Aktion räumt die gerade hochgeladene Datei wieder weg. Die Sperre ist richtig; die Reihenfolge im Code ist es nicht
+- **Priorität:** vor der Auslieferung beheben
+
+#### BUG-2: Auf einer Karte ohne Titelbild steht die Eventart zweimal
+- **Schwere:** Low
+- **Schritte:** Ein Event ohne Titelbild in der Übersicht ansehen
+- **Erwartet:** Die Eventart einmal
+- **Tatsächlich:** Einmal groß auf der gestalteten Fläche, direkt darunter noch einmal als Abzeichen. Für Screenreader ist die Fläche ausgeblendet, es ist also rein optisch — aber es sieht nach einem Versehen aus
+- **Priorität:** im nächsten Durchgang
+
+### Beobachtungen (kein Fehler)
+1. **Das Verkleinern funktioniert auch in WebKit.** Das war nach den Datenbanktests offen. Beide Browser laden hoch, und in beiden verschwindet das Merkmal aus dem Bild — die Zusage zu den Standortdaten hält also auch auf dem iPhone.
+2. **Der Ablageort kommt vom Browser.** Eine veränderte Anfrage könnte ein Bild in den Ordner eines anderen Events legen. Hochladen darf nur ein Admin, deshalb kein Rechteproblem — aber es ist Vertrauen, das man sich sparen könnte.
+3. **Firefox ist in Playwright weiterhin nicht eingerichtet**, Tabletbreite ungetestet — beides schon vor PROJ-55 so.
+
+### Zusammenfassung
+- **Abnahmekriterien:** 16 von 17 bestanden
+- **Fehler:** 2 (0 kritisch, 1 hoch, 0 mittel, 1 niedrig)
+- **Sicherheit:** bestanden
+- **Automatisierte Tests:** 10 E2E in zwei Browsern (Desktop Chrome, iPhone 13) mit echten Uploads, 19 Datenbanktests, 679 Unit-Tests
+- **Auslieferungsreif:** NEIN — ein Titelbild lässt sich nicht ersetzen
+- **Empfehlung:** BUG-1 beheben, dann erneut prüfen
 _To be added by /qa_
 
 ## Deployment

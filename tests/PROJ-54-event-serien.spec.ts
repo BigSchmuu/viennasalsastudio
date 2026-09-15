@@ -322,7 +322,10 @@ test.describe("PROJ-54: Event-Serien", () => {
     const partei = karte(page, "E2E54 Freitagsparty");
     await expect(partei.getByText(`Jeden ${wienerName(tage[0])}, 21:00–02:00`)).toBeVisible();
     await expect(partei.getByText("Studio Saal 1")).toBeVisible();
-    await expect(partei.getByText("E2E54 Party", { exact: true })).toBeVisible();
+    // Die Eventart steht auf einer Karte ohne Titelbild zweimal: als Abzeichen
+    // und auf der gestalteten Fläche darüber (PROJ-55, QA-Befund BUG-2).
+    // Geprüft wird das Abzeichen — es steht als letztes im Text.
+    await expect(partei.getByText("E2E54 Party", { exact: true }).last()).toBeVisible();
     await expect(partei.getByText(/Nächster Termin:/)).toBeVisible();
 
     // Dieselbe Party stünde sonst vier Mal untereinander unter „Besondere Events".
