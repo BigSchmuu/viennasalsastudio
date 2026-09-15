@@ -1,8 +1,8 @@
 # PROJ-55: Bilder & Videos für Events
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-09-14
-**Last Updated:** 2026-09-14
+**Last Updated:** 2026-09-15
 
 ## Dependencies
 - Requires: PROJ-53 (Veranstaltungsprogramm) — Event-Karte und Eventseite
@@ -69,8 +69,9 @@
 - Barrierefreiheit: Alternativtexte, Galerie per Tastatur bedienbar
 
 ## Open Questions
-- [ ] Größenlimit und Höchstzahl: Vorschlag 10 MB je Bild und 20 Bilder je Event
-- [ ] Muss die Datenschutzerklärung für den Bildspeicher ergänzt werden? Klärt `/architecture` mit der Wahl des Speichers.
+- [x] Größenlimit und Höchstzahl → 10 MB je Bild, 20 Bilder je Event; der Vorschlag aus der Spezifikation wird übernommen (2026-09-15)
+- [x] Muss die Datenschutzerklärung ergänzt werden? → Nein. Die Bilder liegen bei Supabase, das dort schon als Auftragsverarbeiter für die Datenspeicherung steht (2026-09-15)
+- [ ] Sollen Bilder älterer Events nach einer Weile verschwinden? Fotos von Gästen dauerhaft öffentlich zu zeigen, ist eine Entscheidung für sich — heute bleiben sie, bis sie jemand entfernt
 
 ## Decision Log
 
@@ -86,12 +87,105 @@
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Bilder liegen im Bildspeicher von Supabase | Kein neuer Auftragsverarbeiter, also keine Änderung an der Datenschutzerklärung; Supabase steht dort schon für die Datenspeicherung | 2026-09-15 |
+| Verkleinern und Neuzeichnen passiert im Browser, vor dem Hochladen | Löst Upload bei schwachem Netz, große Handyfotos und die Standortdaten in einem Zug; der Server prüft Typ und Größe. Grenze: Wer die App umgeht, kann Metadaten hochladen — hochladen darf aber nur ein Admin | 2026-09-15 |
+| Ausgeliefert wird über den Bild-Dienst von Next.js, gespeichert nur das Original | Eine Übersicht mit zehn Karten lüde sonst zehn große Bilder | 2026-09-15 |
+| Ein Eintrag je Bild mit einer Rolle (Titelbild oder Galerie) statt zweier Wege | Ein Weg zum Hochladen, Löschen und Rechteprüfen; zwei liefen auseinander — wie bei den Serienterminen in PROJ-54 | 2026-09-15 |
+| Bilder hängen am Event oder an der Serie, nie am einzelnen Serientermin | Folgt der Produktentscheidung „eine Serie teilt ihre Bilder" | 2026-09-15 |
+| Titelbild auf der Karte im festen Querformat, auf der Eventseite ganz | Gleich hohe Karten halten die Übersicht ruhig; der Flyer wird auf der Karte bewusst beschnitten | 2026-09-15 |
+| Ersetzen und Löschen räumen die Datei im Bildspeicher mit weg | Sonst sammelte sich, was niemand mehr sieht — und das Studio bewahrte Fotos ohne Grund auf | 2026-09-15 |
+| Keine neuen Pakete | Browser, Next.js und Supabase bringen alles Nötige mit | 2026-09-15 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+PROJ-55 braucht Frontend **und** Backend. Der Kern in einem Satz: Ein Event bekommt ein Titelbild, eine Galerie und Videos — und eine Serie genauso, damit jeder ihrer Termine dieselben Bilder zeigt, ohne sie zwanzig Mal hochzuladen.
+
+Es ist die erste Stelle der App, an der jemand eine Datei hochlädt. Bisher entstehen alle Dateien in der App selbst (SEPA-Datei, Rechnungen, QR-Codes). Das meiste am Entwurf dreht sich deshalb darum, wo die Bilder liegen, wie sie klein genug ankommen und wie sie wieder verschwinden.
+
+### A) Komponentenstruktur
+
+**Übersicht**
+```
+Event-Übersicht
++-- Event-Karte
+|   +-- Titelbild im festen Querformat — oder, wenn keines da ist,
+|       eine gestaltete Fläche in den Studiofarben mit der Eventart
++-- Serien-Karte (dasselbe, mit dem Titelbild der Serie)
+```
+
+**Eventseite und Serienseite**
+```
+Eventseite
++-- Titelbild, ganz — ein hochformatiger Flyer bleibt hochformatig
++-- Kopf, Beschreibung, Kauf (unverändert)
++-- Bereich „Bilder"
+|   +-- Galerie als Raster; die Bilder laden erst beim Hinscrollen
+|   +-- Großansicht: blättern, wischen, schließen mit X oder Escape
++-- Bereich „Videos"
+    +-- dieselbe datensparsame YouTube-Einbettung wie bei den Beispiel-Videos
+```
+
+**Verwaltung**
+```
+/admin/events
++-- Eventliste: je Zeile ein neuer Knopf „Bilder & Videos"
++-- Serienliste: derselbe Knopf — genau wie „Termine" bei Serien
++-- Dialog „Bilder & Videos"
+    +-- Hinweis auf Bildrechte und das Einverständnis der Abgebildeten
+    +-- Titelbild: Vorschau, „Ersetzen", „Entfernen"
+    +-- Galerie: mehrere Bilder auf einmal hochladen, Reihenfolge ändern,
+    |   Bildbeschreibung eintragen, einzeln entfernen
+    +-- Videos: YouTube-Link hinzufügen, Reihenfolge ändern, entfernen
+```
+
+### B) Datenmodell (in Worten)
+
+**Bild** (neu)
+- gehört zu einem Event **oder** zu einer Serie — genau eines von beiden
+- Rolle: Titelbild oder Galeriebild
+- wo die Datei im Bildspeicher liegt
+- Bildbeschreibung für Menschen, die die Seite vorlesen lassen (optional; fehlt sie, tritt der Eventname ein)
+- Breite und Höhe, damit die Seite den Platz kennt, bevor das Bild geladen ist — sonst springt der Text beim Laden
+- Reihenfolge in der Galerie
+- angelegt am
+
+**Video** (neu)
+- gehört zu einem Event **oder** zu einer Serie
+- die YouTube-Kennung des Videos
+- ein Titel (optional)
+- Reihenfolge
+
+**Unverändert:** Events, Serien, Eventarten, Tickets.
+
+Gespeichert in Supabase: die Angaben in der Datenbank, die Bilddateien im Bildspeicher desselben Anbieters. Lesen darf jeder — es sind die Bilder öffentlicher Seiten. Hochladen, ändern und löschen dürfen nur Admins, und zwar an zwei Stellen abgesichert: an der Datenbank und am Bildspeicher.
+
+### C) Technische Entscheidungen (für den Betreiber erklärt)
+
+- **Die Bilder liegen bei Supabase, nicht bei einem neuen Anbieter.** Damit ändert sich an der Datenschutzerklärung nichts: Supabase steht dort bereits als Auftragsverarbeiter für „Datenbank, Authentifizierung und Datenspeicherung". Ein eigener Bilddienst wäre ein weiterer Vertrag, ein weiterer Eintrag und ein weiterer Ort, an dem etwas ausfallen kann. **Damit ist die offene Frage aus der Spezifikation beantwortet.**
+- **Das Bild wird schon auf dem Gerät verkleinert und neu gespeichert, bevor es hochgeladen wird.** Das löst drei Dinge auf einmal: Ein 6000-Pixel-Handyfoto wird auf eine vernünftige Kantenlänge gebracht, der Upload gelingt auch bei schwachem Netz, und sämtliche Metadaten — auch die GPS-Koordinaten — fallen dabei weg, weil das Bild neu gezeichnet wird. *Grenze, die dazugehört:* Das passiert im Browser. Wer sich auskennt, könnte die App umgehen und ein Bild mit Standortdaten hochladen — aber hochladen darf ohnehin nur ein Admin, und der tut es nicht gegen sich selbst. Der Server prüft, was ankommt: Typ, Größe und dass es überhaupt ein Bild ist.
+- **Ausgeliefert wird in der Größe, die die Seite gerade braucht.** Gespeichert wird ein Bild, die passenden Fassungen für Telefon und Bildschirm entstehen beim Ausliefern. Ohne das lüde die Übersicht mit zehn Karten zehn große Bilder.
+- **Ein Titelbild im festen Querformat auf der Karte.** So bleiben alle Karten gleich hoch und die Übersicht ruhig; das ganze Bild sieht man auf der Eventseite. Ein hochformatiger Flyer wird auf der Karte also beschnitten — das ist gewollt.
+- **Ein Eintrag je Bild, mit einer Rolle.** Titelbild und Galeriebild sind dasselbe Ding an derselben Stelle, nur anders eingesetzt. Zwei getrennte Wege zum Hochladen, Löschen und Rechteprüfen würden früher oder später auseinanderlaufen — dieselbe Überlegung wie bei den Serienterminen in PROJ-54.
+- **Bilder hängen am Event oder an der Serie.** Ein Serientermin hat keine eigenen; er zeigt die seiner Serie. Genau das war die Produktentscheidung, und es erspart der Verwaltung, jede Woche dieselben Fotos neu hochzuladen.
+- **Videos bleiben Links.** Die datensparsame Einbettung aus PROJ-11 wird wiederverwendet, statt eine zweite zu bauen.
+- **Ein Titelbild ersetzen heißt: das alte verschwindet.** Es wird nicht nur ausgeblendet, sondern gelöscht — sonst füllte sich der Speicher mit Bildern, die niemand mehr sieht, und das Studio bewahrte Fotos auf, für die es keinen Grund mehr hat.
+- **Wird ein Event oder eine Serie gelöscht, gehen die Bilder mit.** Auch im Bildspeicher, nicht nur in der Datenbank.
+- **Grenzen: 10 MB je Bild, 20 Bilder je Event** — der Vorschlag aus der Spezifikation. Der Knopf nennt die Grenze, bevor er sie durchsetzt.
+- **Das Titelbild geht auch an Google und an die Link-Vorschau.** Die Eventseite meldet ihre Daten schon an Suchmaschinen (PROJ-53); das Bild kommt dort dazu, ohne dass etwas Neues gebaut werden muss.
+
+### D) Abhängigkeiten (Pakete)
+Keine neuen Pakete. Das Verkleinern erledigt der Browser, das Ausliefern in passender Größe erledigt Next.js, den Bildspeicher bringt Supabase mit.
+
+### Auswirkungen auf Bestehendes
+- **Migration:** zwei neue Tabellen und ein Bereich im Bildspeicher samt Regeln. Auslieferung wie gehabt: erst Migration, dann Code.
+- **Konfiguration:** Der Bildspeicher muss einmalig als erlaubte Bildquelle eingetragen werden — sonst zeigt die Seite nichts an.
+- **Die Event-Karte sieht anders aus.** Die Tests aus PROJ-53 prüfen ihren Inhalt und brauchen einen Blick.
+- **Datenschutzerklärung:** keine Änderung nötig (siehe oben).
+- **Bilder ohne Beschreibung** bekommen den Eventnamen als Alternativtext — die Seite bleibt vorlesbar, auch wenn jemand das Feld leer lässt.
 
 ## QA Test Results
 _To be added by /qa_
