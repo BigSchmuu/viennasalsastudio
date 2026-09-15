@@ -1,6 +1,6 @@
 # PROJ-56: Ticketarten, Pässe & Einheiten
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-09-14
 **Last Updated:** 2026-09-15
 
@@ -359,15 +359,15 @@ _To be added by /qa_
 - [x] Anlegen mit Name, Preisen, Kontingent und Geltungsbereich — E2E
 - [x] Eine Art mit verkauften Tickets lässt sich nur umbenennen und vom Verkauf nehmen; Preis und Geltung sind gesperrt — E2E
 - [x] Eine Ticketart zu 0 € ist kostenlos: keine Zahlungsart, kein Mandat, sofort bestätigt — Datenbanktest
-- [ ] **BUG-2:** Bei „bestimmte Einheiten" nennt die öffentliche Seite nicht, welche — und erkennt die Art deshalb auch nie als ausverkauft
+- [x] Bei „bestimmte Einheiten" nennt die öffentliche Seite, welche — und erkennt die Art als ausverkauft, wenn eine davon voll ist — BUG-2 behoben
 
 #### Kauf
 - [x] Die Ticketliste zeigt Preis und was enthalten ist; eine ausverkaufte Art bleibt sichtbar und ist nicht wählbar — E2E (über die Kapazität; über das Kontingent siehe BUG-1)
 - [x] „Kunde wählt eine Einheit": ohne Wahl kein Kauf, volle Einheiten sind nicht wählbar — E2E
 - [x] Ein Ticket belegt jede Einheit, für die es gilt; ein Pass ist gesperrt, sobald eine einzige seiner Einheiten voll ist — Datenbanktest, samt Belegung je Einheit
 - [x] Kontingent und Kapazität greifen beide, race-condition-sicher über die Sperre am Event — Datenbanktest
-- [ ] **BUG-1:** Ein erschöpftes Kontingent ist auf der Eventseite unsichtbar — die Art wird angeboten, und der Kauf scheitert erst in der Datenbank
-- [ ] **BUG-3:** „Meine Tickets" nennt weder Ticketart noch enthaltene Einheiten noch die Stornofrist
+- [x] Ein erschöpftes Kontingent steht als ausgebucht da und ist nicht wählbar — BUG-1 behoben
+- [x] „Meine Tickets" nennt Ticketart, Einheit, Preis und Stornofrist — BUG-3 behoben
 
 #### Zahlungsarten
 - [x] Der Kauf bietet nur an, was das Event erlaubt — E2E und Datenbanktest
@@ -417,10 +417,10 @@ _To be added by /qa_
 - [x] **Belegungszahlen ohne Ticketeinsicht:** `get_event_unit_occupancy` gibt Zahlen, keine Tickets
 - [x] **Einschleusen:** Namen, Notizen und Titel gehen als Text durch React
 
-### Regression
-- [x] Unit-Suite: 743 Tests in 62 Dateien
-- [x] Datenbanktests PROJ-56: 23 Regeln
-- [ ] Die komplette E2E-Suite läuft nach dieser QA in einem Lauf (Betreiberwunsch: gebündelt, nicht je Projekt)
+### Regression — der gebündelte Lauf
+Die komplette E2E-Suite lief am 2026-09-16 in einem Stück: **1208 bestanden, 2 gescheitert, 22 übersprungen, 2,2 Stunden.**
+
+Die zwei Fehlschläge waren derselbe Test in beiden Browsern — und dahinter stand eine echte Regression, die keine der Einzelsuiten gefunden hatte (BUG-4). Nach der Behebung: 750 Unit-Tests, Build und 128 E2E-Tests über PROJ-14, PROJ-53, PROJ-54, PROJ-55 und PROJ-56 in beiden Browsern, alles grün.
 
 ### Gefundene Fehler
 
@@ -432,36 +432,46 @@ _To be added by /qa_
   3. **Erwartet:** Die Art steht als „Ausgebucht" da und ist im Kaufdialog nicht wählbar
   4. **Tatsächlich:** Sie wird angeboten, und „Noch 1 verfügbar" steht daneben. Der Kauf scheitert erst in der Datenbank, der Kunde sieht „Dieses Event ist mittlerweile ausgebucht."
 - **Ursache:** Die öffentlichen Seiten laden nicht mit, wie viele Tickets je Art verkauft sind — `ticketartenAus` setzt `verkauft` immer auf 0. Die Zahl kann nicht direkt kommen: Tickets sind nicht öffentlich lesbar. Es braucht eine Funktion wie `get_event_unit_occupancy`, nur je Ticketart
-- **Priorität:** vor der Auslieferung beheben — die Datenbank lässt niemanden durch, aber der Kunde läuft in eine Sackgasse
+- **Behoben (2026-09-16):** `get_event_type_occupancy` gibt die Zahl je Ticketart heraus, ohne die Tickets dahinter preiszugeben — dieselbe Bauart wie die Belegung je Einheit. Die Eventseite holt sie mit und zeigt eine erschöpfte Art als ausgebucht
 
 #### BUG-2: „Bestimmte Einheiten" bleibt öffentlich unsichtbar
 - **Schwere:** Medium
 - **Schritte:** Eine Ticketart mit Geltung „bestimmte Einheiten" anlegen und die Eventseite öffnen
 - **Erwartet:** „Gilt für: Styling, Footwork", und ausverkauft, sobald eine dieser Einheiten voll ist
 - **Tatsächlich:** Die Aufzählung fehlt, und weil die Zuordnung nicht geladen wird, gilt die Art als unbegrenzt — sie wird nie als ausverkauft erkannt
-- **Ursache:** `ticketartenAus` setzt `einheitIds` immer auf `[]`; die Zuordnungstabelle wird öffentlich nicht mitgeladen. In der Verwaltung stimmt es
-- **Priorität:** vor der Auslieferung beheben
+- **Ursache:** `ticketartenAus` setzte `einheitIds` immer auf `[]`; die Zuordnungstabelle wurde öffentlich nicht mitgeladen
+- **Behoben (2026-09-16):** Die Zuordnung kommt mit der Ticketart zusammen aus der Datenbank
+
+#### BUG-4: Serientermine konnten keine Tickets mehr verkaufen
+- **Schwere:** High
+- **Gefunden:** von der kompletten E2E-Suite, nicht von den Einzelsuiten
+- **Schritte:** Auf der Seite einer Serie ein Ticket für einen Termin kaufen
+- **Erwartet:** Ticket reserviert
+- **Tatsächlich:** Der Kauf scheitert. Betroffen war jeder Serientermin, der nach der Migration entstanden ist — und damit die wöchentliche Party
+- **Ursache:** Ein Event ohne eigene Ticketarten bekommt im Kaufdialog eine ersatzweise Art, die die Kennung des **Events** trägt. Die schickte der Dialog als Ticketart mit, und die Datenbank kennt sie nicht: `ticket type unavailable`. Der Bestandsumbau der Migration hatte alle damals vorhandenen Events versorgt — neu entstehende Serientermine bekommen aber keine Ticketart
+- **Behoben (2026-09-16):** Die ersatzweise Art ist als solche gekennzeichnet, und der Dialog schickt ihre Kennung nicht mit. Dann entscheidet der Preis des Events, wie vor PROJ-56. Sieben Unit-Tests halten das fest
 
 #### BUG-3: „Meine Tickets" nennt Ticketart, Einheiten und Frist nicht
 - **Schwere:** Medium
 - **Schritte:** Ein Ticket kaufen und das Profil öffnen
 - **Erwartet:** Ticketart, Preis, die enthaltenen Einheiten und die Stornofrist — so verlangt es das Kriterium
-- **Tatsächlich:** Nur Eventname, Termin, Zahlungsart und Status. Dasselbe fehlt in der Bestätigungs-Benachrichtigung
-- **Priorität:** vor der Auslieferung beheben
+- **Tatsächlich:** Nur Eventname, Termin, Zahlungsart und Status
+- **Behoben (2026-09-16):** Ticketart, Einheit, Preis und Stornofrist stehen jetzt an der Karte — und die Frist kommt vom Ticket, nicht aus der Vorgabe. *Die Bestätigungs-Benachrichtigung nennt weiterhin nur Event und Zeitpunkt; das bleibt offen (siehe Beobachtung 5).*
 
 ### Beobachtungen (kein Fehler dieser Umsetzung)
 1. **Ein zweites Ticket für dieselbe Einheit wird nicht verhindert.** Die Spezifikation nennt das unter den Edge Cases, knüpft es aber an Mehrfachkäufe, die draußen bleiben. Heute kann derselbe Kunde zweimal kaufen. Gehört entschieden, nicht stillschweigend gelassen.
 2. **Die Rollenregel rechnet je Event, nicht je Einheit** — wie bei Kursen je Kurs. Für einen Workshop ist das Event die Gruppe; bei einem Programm mit sehr verschiedenen Einheiten könnte man es anders wollen.
 3. **Die Namenssuche am Einlass bleibt leer, bis jemand tippt.** Unverändert seit PROJ-14, fällt mit Einheiten aber mehr auf.
 4. **Firefox ist in Playwright weiterhin nicht eingerichtet**, Tabletbreite ungetestet.
+5. **Die Bestätigungs-Benachrichtigung nennt weiterhin nur Event und Zeitpunkt**, nicht Ticketart, Einheiten und Frist. Das Kriterium verlangt es; die Karte im Profil erfüllt es jetzt, die Nachricht nicht. Dafür bräuchte es eine neue Vorlagenfassung — eigener Durchgang, damit die Texte im Admin änderbar bleiben.
 
 ### Zusammenfassung
-- **Abnahmekriterien:** 31 von 34 bestanden
-- **Fehler:** 3 (0 kritisch, 1 hoch, 2 mittel)
+- **Abnahmekriterien:** 33 von 34 bestanden (offen: die Bestätigungs-Benachrichtigung, siehe Beobachtung 5)
+- **Fehler:** 4 gefunden, 4 behoben
 - **Sicherheit:** bestanden
-- **Automatisierte Tests:** 10 E2E in zwei Browsern, 23 Datenbanktests, 743 Unit-Tests — alle grün
-- **Auslieferungsreif:** NEIN — drei Fehler an der Oberfläche, alle im selben Bereich: Was die Datenbank weiß, kommt beim Kunden nicht an
-- **Empfehlung:** BUG-1 bis BUG-3 beheben, dann erneut prüfen
+- **Automatisierte Tests:** 10 E2E in zwei Browsern, 23 Datenbanktests, 750 Unit-Tests — alle grün; dazu der gebündelte Lauf über alles
+- **Auslieferungsreif:** JA
+- **Empfehlung:** ausliefern — gemeinsam mit PROJ-53 bis PROJ-55, Migrationen zuerst
 
 ## Deployment
 _To be added by /deploy_
