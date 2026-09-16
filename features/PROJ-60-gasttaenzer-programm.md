@@ -25,6 +25,7 @@ Zuruf und WhatsApp.
 ## User Stories
 - Als Betreiber möchte ich sehen, in welchen Kursen das Rollenverhältnis aus dem Ruder läuft, damit ich nicht selbst mitzählen muss.
 - Als Betreiber möchte ich mit einem Klick Gastplätze für einen bestimmten Abend ausschreiben, damit sich jemand meldet, bevor der Abend da ist.
+- Als Betreiber möchte ich auch dann ausschreiben können, wenn die App nichts meldet — etwa weil ich weiß, dass am Dienstag drei Follower krank sind.
 - Als erfahrener Tänzer möchte ich mich einmal fürs Programm anmelden und danach nur Einladungen bekommen, die zu meiner Rolle und meinem Können passen — sonst lese ich sie nach zwei Wochen nicht mehr.
 - Als Gasttänzer möchte ich mit einem Klick zusagen und sofort wissen, wann und wo ich sein soll.
 - Als Lehrkraft möchte ich den Gast auf meiner Anwesenheitsliste sehen, damit ich weiß, wer da ist und warum.
@@ -57,8 +58,11 @@ Zuruf und WhatsApp.
 - [ ] Angenommen kein Kurs ist aus der Balance, wenn der Betreiber nachsieht, dann steht dort, dass gerade nichts zu tun ist
 
 ### Ausschreiben
-- [ ] Angenommen ein Kurs ist aus der Balance, wenn der Betreiber ausschreibt, dann wählt er Termin, Rolle, Anzahl der Plätze und die Mindeststufe
-- [ ] Angenommen der Betreiber schreibt aus, wenn der Dialog erscheint, dann ist die Mindeststufe mit „eine Stufe über dem Kurs" vorbelegt und änderbar
+- [ ] Angenommen ein Kurs fragt nach der Rolle, wenn der Betreiber ausschreiben will, dann geht das jederzeit — auch ohne dass die App eine Schieflage meldet
+- [ ] Angenommen ein Kurs fragt **nicht** nach der Rolle, wenn der Betreiber ausschreiben will, dann steht dieser Kurs nicht zur Wahl — ohne Rollen gibt es nichts zu suchen
+- [ ] Angenommen der Betreiber kommt aus der Vorschlagsliste, wenn der Dialog erscheint, dann sind Kurs, Rolle und Anzahl bereits ausgefüllt
+- [ ] Angenommen der Betreiber schreibt aus, wenn der Dialog erscheint, dann wählt er Termin, Rolle, Anzahl der Plätze und die Mindeststufe
+- [ ] Angenommen der Dialog erscheint, wenn die Mindeststufe gesetzt wird, dann ist sie mit „eine Stufe über dem Kurs" vorbelegt und änderbar
 - [ ] Angenommen der Kurs ist bereits voll, wenn der Betreiber ausschreiben will, dann warnt die App und lässt ihn trotzdem
 - [ ] Angenommen an dem Termin fällt der Kurs aus oder ist Ferienpause, wenn der Betreiber ihn wählt, dann lässt sich dafür nichts ausschreiben
 - [ ] Angenommen eine Ausschreibung läuft, wenn der Betreiber sie zurückzieht, dann bekommt niemand mehr etwas angeboten und bereits Zugesagte werden benachrichtigt
@@ -116,6 +120,8 @@ Zuruf und WhatsApp.
 | Decision | Rationale | Date |
 |----------|-----------|------|
 | Die App schlägt vor, der Betreiber gibt frei | Die App kennt die Anmeldungen, nicht den Abend. Sind drei Follower krank und zwei Leader im Urlaub, weiß sie nichts davon — ob ein Abend jemanden braucht, weiß nur der Betreiber | 2026-09-16 |
+| Ausschreiben geht auch **ohne** Vorschlag, für jeden Kurs mit Rollenabfrage | Nachgetragen am 2026-09-16 auf Nachfrage des Betreibers. Der Vorschlag ist eine Abkürzung, kein Tor: Genau im wichtigsten Fall — drei Follower sind krank — meldet die App nichts, weil alle drei angemeldet sind. Wäre die Liste der einzige Weg, fehlte die Funktion ausgerechnet dann | 2026-09-16 |
+| Kurse ohne Rollenabfrage bleiben außen vor | Eine Ausschreibung sucht „2 Follower". Ohne Rollen gibt es nichts zu suchen — und einen Gratisplatz ohne Rollenbezug zu verschenken wäre ein anderes Vorhaben | 2026-09-16 |
 | Rolle wird bei der Anmeldung angegeben | Wer nur Leader tanzt, soll keine Follower-Plätze angeboten bekommen. Einladungen, die nicht passen, werden nach zwei Wochen nicht mehr gelesen — und dann auch die passenden nicht | 2026-09-16 |
 | Level wird angegeben und gefiltert, **mindestens eine Stufe über dem Kurs** | Ein Gasttänzer soll tragen, nicht selbst kämpfen. Wer auf dem Niveau des Kurses steht, hilft dem Abend nicht | 2026-09-16 |
 | Die Mindeststufe ist je Ausschreibung einstellbar | „Eine Stufe drüber" scheitert an Advanced (nichts darüber) und Open Level (keine Stufe). Statt Sonderregeln zu erfinden, die irgendwann nicht passen, entscheidet der Betreiber im Einzelfall — vorbelegt mit der Regel | 2026-09-16 |
