@@ -316,8 +316,60 @@ Dass dabei Menschen abgesagt werden, soll niemand aus Versehen auslösen.
 Der QA-Durchgang mit E2E-Prüfungen über die Oberfläche. Die Regeln und die Datenbank sind belegt
 (37 + 15 Prüfungen), der Weg durch den Browser noch nicht.
 
-## QA Test Results
-_To be added by /qa_
+## QA Test Results (2026-09-16)
+
+**Empfehlung: bereit für die Produktion.** Beide Migrationen laufen in der Testdatenbank, alle drei
+Prüfebenen sind grün.
+
+| | |
+|---|---|
+| Regeln (Unit) | 37 |
+| Datenbank | 15 |
+| Browser (E2E) | 7 |
+| Unit- und Datenbanktests gesamt | 875 |
+| Produktfehler gefunden | 1 (Regression, behoben) |
+
+### Was geprüft ist
+
+**Die Regeln** entscheiden über Empfängerkreis und Zusage aus einer Quelle — geprüft sind die
+Rangfolge der Level (einschließlich der beiden Stellen, an denen „eine Stufe drüber" nicht greift)
+und die Reihenfolge der Absagegründe.
+
+**Die Datenbank** lässt bei zwei gleichzeitigen Zusagen genau eine durch und weist jeden Sonderfall
+einzeln ab. Kein Weg führt an ihr vorbei.
+
+**Der Browser** deckt den Weg ab, den ein Mensch geht: anmelden mit Rolle und Level, ausschreiben
+ohne Vorschlag, Einladung sehen, ohne Bestätigung nicht zusagen können, mit Bestätigung zusagen,
+falsche Rolle sieht nichts, Zurückziehen sagt bestehende Zusagen mit ab, Ausgeschlossene sehen einen
+Hinweis statt des Formulars.
+
+### Die eine Regression
+
+**„Rollenfeld ist nicht vorhanden" aus PROJ-2 wurde rot.** Der Test prüft, dass ein Kunde im Profil
+seine **Kontorolle** nicht ändern kann — und fing per Teilzeichenkette auch das neue Feld „Deine
+Rolle" aus dem Gasttänzer-Programm.
+
+Zwei Dinge waren hier richtig, beide gemacht: Das Feld heißt jetzt **„Deine Tanzrolle"** — treffender,
+weil „Rolle" in dieser App auch die Kontorolle meint. Und die Behauptung im Test ist jetzt **genau**
+statt teilweise: Gemeint war immer ein Feld, das schlicht „Rolle" heißt.
+
+### Zwei Fehler in meinen Prüfungen
+
+Die Anmeldung als Kunde lief weiter, bevor sie fertig war: `zweiteStufeErledigen` wartet nur dort,
+wo es eine Code-Abfrage gibt. Sechs Prüfungen landeten deshalb wieder auf der Anmeldeseite — der
+Admin-Test bestand als einziger, genau deswegen.
+
+Und eine Behauptung war wertlos: „Zugesagt" ist auch die Überschrift des Abschnitts und steht immer
+da. Geprüft wird jetzt, dass die Einladung **verschwindet** — wer an dem Abend im Kurs ist, bekommt
+keine mehr. Das tritt nur bei Erfolg ein.
+
+### Was ungeprüft bleibt
+
+Die Einladung als E-Mail wurde nicht ausgelöst; geprüft sind nur ihre Bausteine. Der Gast auf der
+Anwesenheitsliste ist an der Datenbank belegt, nicht im Lehrerbereich angeklickt. Firefox ist im
+Projekt weiterhin nicht eingerichtet.
+
+## Deployment
 
 ## Deployment
 _To be added by /deploy_

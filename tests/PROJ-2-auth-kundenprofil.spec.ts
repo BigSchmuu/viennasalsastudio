@@ -340,7 +340,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await expect(page).toHaveURL(/\/mein-bereich$/);
     await page.goto("/profil");
 
-    await expect(page.getByLabel("Rolle")).toHaveCount(0);
+    // Genau "Rolle", nicht jede Beschriftung, in der das Wort vorkommt:
+    // Seit PROJ-60 steht im Profil ein Feld "Deine Tanzrolle", das mit der
+    // Kontorolle nichts zu tun hat. Gemeint war hier immer letztere.
+    await expect(page.getByLabel("Rolle", { exact: true })).toHaveCount(0);
 
     // Small stabilization wait: client hydration must finish before the
     // Save button's click handler is attached, see BUG-1 in QA results —
