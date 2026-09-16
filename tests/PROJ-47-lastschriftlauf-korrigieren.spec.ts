@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 import { zweiteStufeErledigen } from "./zweite-stufe";
 
+import { angemeldetAls } from "./anmeldung";
 ladeTestUmgebung();
 
 const ADMIN = { email: "e2e8-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
@@ -107,13 +108,13 @@ async function laufId(datum: string): Promise<string> {
 }
 
 async function freigeben(page: Page) {
-  await page.getByRole("button", { name: "Lauf freigeben" }).click();
-  await page.getByRole("button", { name: "Freigeben" }).click();
+  await page.getByRole("button", { name: "2. Bei der Bank hochgeladen" }).click();
+  await page.getByRole("button", { name: "Ja, hochgeladen" }).click();
   await page.waitForTimeout(3000);
 }
 
 test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
-  test("AC Entwurf: ein neuer Lauf ist ein Entwurf — ohne Rechnungen, ohne Nachricht, ohne Bankdatei", async ({
+  test("AC Entwurf: ein neuer Lauf ist ein Entwurf — ohne Rechnungen und ohne Nachricht", async ({
     page,
   }) => {
     const rechnungenVorher = (await svc.from("invoices").select("id", { count: "exact", head: true }))
@@ -127,15 +128,20 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
       page.getByText("es wurden noch keine Rechnungen erstellt und niemand benachrichtigt")
     ).toBeVisible();
 
-    // Keine Bankdatei im Entwurf — sie könnte sonst bei der Bank landen,
+    // PROJ-61 (2026-09-16) kehrt diesen Punkt um: Die Datei gibt es jetzt
+    // **vor** der Bestätigung. Der Grund steht dort — die Bank hat eine Datei
+    // abgelehnt, und die Rechnungen waren schon gebucht. Ohne Datei im Entwurf
+    // zwang der Ablauf in genau diese Reihenfolge.
+    // Was bleibt: Ein Entwurf erzeugt keine Rechnungen und keine Nachricht.
+    // Frühere Begründung, jetzt überholt: Keine Bankdatei im Entwurf,
     // während die Anwendung den Lauf für änderbar hält.
-    await expect(page.getByRole("button", { name: "SEPA-XML herunterladen" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "1. SEPA-XML herunterladen" })).toBeVisible();
     // Und keine Rücklastschrift-Markierung: eingezogen wurde noch nichts.
     await expect(page.getByRole("button", { name: /rückgebucht markieren/ })).toHaveCount(0);
 
     await expect(page.getByRole("button", { name: "Position hinzufügen" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Entwurf verwerfen" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Lauf freigeben" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "2. Bei der Bank hochgeladen" })).toBeVisible();
 
     const id = await laufId(DATUM.entwurf);
     const rechnungenNachher = (await svc.from("invoices").select("id", { count: "exact", head: true }))
@@ -301,8 +307,10 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
     const rechnungenVorher = (await svc.from("invoices").select("id", { count: "exact", head: true }))
       .count;
 
-    await page.getByRole("button", { name: "Lauf freigeben" }).click();
-    await expect(page.getByRole("heading", { name: "Lauf freigeben?" })).toBeVisible();
+    await page.getByRole("button", { name: "2. Bei der Bank hochgeladen" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Hast du die Datei bei der Bank hochgeladen?" })
+    ).toBeVisible();
     await expect(page.getByText(`aus ${anzahl} Positionen`)).toBeVisible();
     // Die Summe steht auch im Kopf der Seite — gemeint ist die im Dialog.
     await expect(
@@ -311,7 +319,7 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
         .getByText(summe.toLocaleString("de-AT", { minimumFractionDigits: 2 }))
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Freigeben" }).click();
+    await page.getByRole("button", { name: "Ja, hochgeladen" }).click();
     await page.waitForTimeout(3000);
 
     const { data: lauf } = await svc
@@ -332,12 +340,13 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
       .like("dedupe_key", `%${id}`);
     expect(nachrichten).toBe(anzahl);
 
-    // Erst jetzt gibt es die Bankdatei, und die Korrekturen sind fort.
+    // Nach der Bestätigung sind die Korrekturmöglichkeiten fort; die Datei
+    // bleibt abrufbar, jetzt ohne Nummerierung im Knopf.
     await expect(page.getByRole("button", { name: "SEPA-XML herunterladen" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Lauf freigeben" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "2. Bei der Bank hochgeladen" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Entwurf verwerfen" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Betrag ändern" })).toHaveCount(0);
-    await expect(page.getByText("Freigegeben am")).toBeVisible();
+    await expect(page.getByText("Als hochgeladen bestätigt am")).toBeVisible();
   });
 
   test("AC Freigabe: ein freigegebener Lauf lässt sich auch über die Schnittstelle nicht mehr ändern", async ({
@@ -357,12 +366,18 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
 
     // Der Admin ist die einzige Rolle mit Schreibrecht — hier greift der
     // Wächter, nicht RLS.
-    const alsAdmin = createClient(
+    //
+    // Über `angemeldetAls`, nicht über einen eigenen Client: Seit PROJ-58
+    // verlangt die Datenbank für Admin-Rechte die bestätigte zweite Stufe. Ein
+    // Client, der sich nur mit Passwort anmeldet, gilt ihr nicht als Admin —
+    // die Änderung träfe dann null Zeilen und käme *ohne* Fehler zurück, und
+    // der Test würde das Gegenteil dessen messen, was er prüfen soll.
+    const alsAdmin = await angemeldetAls(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false, autoRefreshToken: false } }
+      ADMIN.email,
+      ADMIN.password
     );
-    await alsAdmin.auth.signInWithPassword(ADMIN);
 
     const { error: betrag } = await alsAdmin
       .from("sepa_collection_items")
@@ -575,7 +590,7 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
     await expect(page.getByText("Das Fälligkeitsdatum dieses Entwurfs ist verstrichen")).toBeVisible();
 
     // Gewarnt, nicht gesperrt: Alle Aktionen bleiben verfügbar.
-    await expect(page.getByRole("button", { name: "Lauf freigeben" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "2. Bei der Bank hochgeladen" })).toBeEnabled();
     await expect(page.getByRole("button", { name: "Position hinzufügen" })).toBeEnabled();
     await expect(page.getByRole("button", { name: "Entwurf verwerfen" })).toBeEnabled();
 

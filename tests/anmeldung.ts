@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { totpCode } from "./totp";
+import { schluessel, merkeSchluessel } from "./zweite-stufe-speicher";
 
 /**
  * Angemeldete Clients für die Datenbanktests — einmal je Konto.
@@ -49,6 +50,27 @@ async function zweiteStufeFallsNoetig(client: SupabaseClient, url: string, kennu
   const { data: profil } = await client.from("profiles").select("role").eq("id", kennung).maybeSingle();
   if (profil?.role !== "admin") return;
 
+  const { data: nutzer } = await client.auth.getUser();
+  const mail = nutzer?.user?.email ?? "";
+
+  // Zuerst den bekannten Schlüssel versuchen. Der Lauf-Aufbau von Playwright
+  // legt ihn an, und ein neuer Faktor würde ihn ungültig machen — die
+  // Browsertests blieben dann auf der Code-Seite hängen. Genau das ist beim
+  // ersten Versuch passiert.
+  const bekannt = schluessel()[mail];
+  if (bekannt) {
+    const { data: vorhandene } = await client.auth.mfa.listFactors();
+    const bestaetigt = (vorhandene?.totp ?? []).find((f) => f.status === "verified");
+    if (bestaetigt) {
+      const { error } = await client.auth.mfa.challengeAndVerify({
+        factorId: bestaetigt.id,
+        code: totpCode(bekannt),
+      });
+      if (!error) return;
+      // Passt der Schlüssel nicht mehr, wird unten frisch eingerichtet.
+    }
+  }
+
   const dienst = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false },
   });
@@ -61,11 +83,16 @@ async function zweiteStufeFallsNoetig(client: SupabaseClient, url: string, kennu
     factorType: "totp",
     friendlyName: `DB-Test ${Date.now()}`,
   });
-  if (enrollFehler || !neu) throw new Error(`tests: zweite Stufe konnte nicht eingerichtet werden (${enrollFehler?.message})`);
+  if (enrollFehler || !neu) {
+    throw new Error(`tests: zweite Stufe konnte nicht eingerichtet werden (${enrollFehler?.message})`);
+  }
 
   const { error: pruefFehler } = await client.auth.mfa.challengeAndVerify({
     factorId: neu.id,
     code: totpCode(neu.totp.secret),
   });
   if (pruefFehler) throw new Error(`tests: Code wurde abgelehnt (${pruefFehler.message})`);
+
+  // Merken, damit die andere Testwelt denselben Schlüssel benutzt.
+  if (mail) merkeSchluessel(mail, neu.totp.secret);
 }

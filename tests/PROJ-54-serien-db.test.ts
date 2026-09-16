@@ -258,6 +258,19 @@ describe("Zugriff auf Serien (PROJ-54)", () => {
   });
 });
 
+/**
+ * Ein Zeitpunkt, der sicher **heute** liegt (Wiener Kalendertag).
+ *
+ * „In einer Stunde" reicht dafür nicht: Kurz vor Mitternacht landet das im
+ * nächsten Tag, und eine Prüfung mit dem Namen „am Veranstaltungstag" misst
+ * dann das Gegenteil dessen, was sie soll. Am 2026-09-16 um 23:20 ist genau
+ * das passiert.
+ */
+function heuteSpaet(): string {
+  const heute = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
+  return new Date(`${heute}T23:59:00+02:00`).toISOString();
+}
+
 describe("cancel_event_ticket nach einer Verlegung (PROJ-54)", () => {
   async function stornieren(ticketId: string) {
     const c = await angemeldet(KUNDE_MAIL);
@@ -265,14 +278,14 @@ describe("cancel_event_ticket nach einer Verlegung (PROJ-54)", () => {
   }
 
   it("sperrt das Stornieren am Veranstaltungstag", async () => {
-    const eventId = await eventAnlegen({ starts_at: zeitpunkt(1), ends_at: zeitpunkt(4) });
+    const eventId = await eventAnlegen({ starts_at: heuteSpaet(), ends_at: heuteSpaet() });
     const ticketId = await ticketKaufen(eventId);
     const { error } = await stornieren(ticketId);
     expect(error?.message).toContain("cancellation deadline passed");
   });
 
   it("lässt nach einer Verlegung ohne Frist stornieren", async () => {
-    const eventId = await eventAnlegen({ starts_at: zeitpunkt(1), ends_at: zeitpunkt(4) });
+    const eventId = await eventAnlegen({ starts_at: heuteSpaet(), ends_at: heuteSpaet() });
     const ticketId = await ticketKaufen(eventId);
     await service.from("events").update({ moved_at: new Date().toISOString() }).eq("id", eventId);
 

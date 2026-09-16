@@ -605,20 +605,34 @@ export async function verwirfLaufEntwurf(runId: string): Promise<ActionResult> {
  * koennten. Hier bleibt nur, die Meldung in einen Satz zu uebersetzen.
  */
 const FREIGABE_FEHLER: [string, string][] = [
-  ["not authorized", "Nur Administrator:innen dürfen einen Lauf freigeben."],
+  ["not authorized", "Nur Administrator:innen dürfen einen Lauf bestätigen."],
   ["collection run not found", "Diesen Lastschriftlauf gibt es nicht (mehr)."],
-  ["already released", "Dieser Lauf ist bereits freigegeben."],
-  ["has no items", "Ein Lauf ohne Positionen lässt sich nicht freigeben."],
+  ["already released", "Dieser Lauf ist bereits als hochgeladen bestätigt."],
+  ["has no items", "Ein Lauf ohne Positionen lässt sich nicht bestätigen."],
 ];
 
-export async function gibLaufFrei(runId: string): Promise<ActionResult> {
+/**
+ * Bestätigen, dass die Datei bei der Bank angenommen wurde (PROJ-61).
+ *
+ * Fachlich unverändert gegenüber der früheren „Freigabe": Der Lauf wird
+ * gesperrt, die Rechnungen entstehen, die Vorabankündigungen werden eingereiht.
+ * Verschoben hat sich nur der **Zeitpunkt**, zu dem der Betreiber das auslöst —
+ * nach dem Upload statt davor. Am 2026-09-16 hat die Bank eine Datei abgelehnt,
+ * und die Buchhaltung stand da bereits.
+ *
+ * Deshalb auch keine neue Spalte: `released_at` bedeutet ab jetzt „bestätigt
+ * hochgeladen". Ein zweiter Zustand daneben hätte zwei Wahrheiten geschaffen,
+ * wo eine genügt — und die Ticket-Stornierung aus PROJ-59, die daran ablesen
+ * will, ob Geld geflossen ist, wird damit sogar genauer.
+ */
+export async function bestaetigeBankupload(runId: string): Promise<ActionResult> {
   const { supabase } = await requireAdmin();
 
   const { error } = await supabase.rpc("release_collection_run", { p_run_id: runId });
 
   if (error) {
     const treffer = FREIGABE_FEHLER.find(([kennung]) => error.message.includes(kennung));
-    return { error: treffer?.[1] ?? "Der Lauf konnte nicht freigegeben werden." };
+    return { error: treffer?.[1] ?? "Der Lauf konnte nicht bestätigt werden." };
   }
 
   // Hier stand kurzzeitig ein drainPendingQueue(), damit die Ankuendigung

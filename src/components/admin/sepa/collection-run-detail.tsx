@@ -9,7 +9,7 @@ import {
   entferneLaufPosition,
   fuegeLaufPositionHinzu,
   generateRunXml,
-  gibLaufFrei,
+  bestaetigeBankupload,
   markItemBounced,
   verwirfLaufEntwurf,
 } from "@/lib/actions/admin/sepa-collections";
@@ -185,7 +185,7 @@ export function CollectionRunDetail({
             </p>
           ) : (
             <p className="text-muted-foreground">
-              Freigegeben am {formatZeitpunkt(freigegebenAm!)}
+              Als hochgeladen bestätigt am {formatZeitpunkt(freigegebenAm!)}
               {freigegebenVon && <> von {freigegebenVon}</>}
             </p>
           )}
@@ -200,12 +200,25 @@ export function CollectionRunDetail({
               <Button variant="outline" size="sm" onClick={() => setVerwerfenOffen(true)}>
                 Entwurf verwerfen
               </Button>
+              {/* PROJ-61: Die Datei gab es bisher erst *nach* der Freigabe — der
+                  Ablauf zwang damit in die falsche Reihenfolge: buchen, dann
+                  hochladen, und bei einer Ablehnung der Bank stand die
+                  Buchhaltung schon. Jetzt zuerst herunterladen. */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={downloading || hindernis !== null}
+                onClick={handleDownload}
+              >
+                {downloading ? "Wird erstellt…" : "1. SEPA-XML herunterladen"}
+              </Button>
               <Button
                 size="sm"
                 disabled={hindernis !== null || laufendeAktion !== null}
                 onClick={() => setFreigebenOffen(true)}
               >
-                Lauf freigeben
+                2. Bei der Bank hochgeladen
               </Button>
             </>
           ) : (
@@ -221,9 +234,9 @@ export function CollectionRunDetail({
       {ueberfaellig && (
         <Alert>
           <AlertDescription>
-            Das Fälligkeitsdatum dieses Entwurfs ist verstrichen — es wurde nichts abgebucht. Gib
-            ihn frei, wenn der Einzug noch stattfinden soll, oder verwirf ihn und lege einen Lauf
-            mit aktuellem Datum an.
+            Das Fälligkeitsdatum dieses Entwurfs ist verstrichen — es wurde nichts abgebucht. Lade
+            die Datei hoch und bestätige das, wenn der Einzug noch stattfinden soll, oder verwirf
+            den Entwurf und lege einen Lauf mit aktuellem Datum an.
           </AlertDescription>
         </Alert>
       )}
@@ -231,8 +244,8 @@ export function CollectionRunDetail({
       {hindernis === "keine_positionen" && (
         <Alert>
           <AlertDescription>
-            Dieser Entwurf hat keine Positionen mehr. Füge eine hinzu oder verwirf ihn — freigeben
-            lässt sich ein leerer Lauf nicht.
+            Dieser Entwurf hat keine Positionen mehr. Füge eine hinzu oder verwirf ihn — ein leerer
+            Lauf lässt sich weder herunterladen noch bestätigen.
           </AlertDescription>
         </Alert>
       )}
@@ -383,7 +396,9 @@ export function CollectionRunDetail({
       <AlertDialog open={freigebenOffen} onOpenChange={setFreigebenOffen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-heading">Lauf freigeben?</AlertDialogTitle>
+            <AlertDialogTitle className="font-heading">
+              Hast du die Datei bei der Bank hochgeladen?
+            </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
                 <p className="text-foreground">
@@ -393,8 +408,13 @@ export function CollectionRunDetail({
                   </span>
                 </p>
                 <p>
-                  Damit werden die Rechnungen erstellt. Anschließend lässt sich am Lauf nichts mehr
-                  ändern — erst danach gibt es die Bankdatei.
+                  Bestätige das erst, wenn die Bank die Datei angenommen hat. Danach entstehen{" "}
+                  {items.length} {items.length === 1 ? "Rechnung" : "Rechnungen"}, und am Lauf lässt
+                  sich nichts mehr ändern.
+                </p>
+                <p className="font-medium text-foreground">
+                  Dieser Schritt lässt sich nicht rückgängig machen. Hat die Bank abgelehnt, geh
+                  zurück, korrigiere den Lauf und lade die Datei erneut herunter.
                 </p>
                 <p>
                   Die Vorabankündigungen werden eingereiht und gehen mit dem nächsten Versandlauf
@@ -406,17 +426,17 @@ export function CollectionRunDetail({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Zurück zur Liste</AlertDialogCancel>
+            <AlertDialogCancel>Noch nicht</AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
                 ausfuehren(
                   "freigeben",
-                  () => gibLaufFrei(runId),
-                  "Lauf freigegeben. Die Ankündigungen gehen mit dem nächsten Versandlauf raus."
+                  () => bestaetigeBankupload(runId),
+                  "Bestätigt. Die Rechnungen stehen, die Ankündigungen gehen mit dem nächsten Versandlauf raus."
                 )
               }
             >
-              Freigeben
+              Ja, hochgeladen
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

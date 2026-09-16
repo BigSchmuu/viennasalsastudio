@@ -1,7 +1,7 @@
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { expect, type Page } from "@playwright/test";
 import { totpCode, restDesFensters } from "./totp";
+import { schluessel, setzeSchluessel, type Schluesselablage } from "./zweite-stufe-speicher";
 
 /**
  * Die zweite Stufe für die Testkonten (PROJ-58).
@@ -16,19 +16,9 @@ import { totpCode, restDesFensters } from "./totp";
  * Konto an und durchläuft dieselbe Einrichtung wie ein Mensch.
  */
 
-const ABLAGE = "test-results/zweite-stufe.json";
 const TEST_PASSWORT = "CorrectPassword123!";
 
-type Schluessel = Record<string, string>;
-
-let gemerkt: Schluessel | null = null;
-
-/** Die Schlüssel aus dem Lauf-Aufbau. Leer, wenn noch nichts eingerichtet wurde. */
-export function schluessel(): Schluessel {
-  if (gemerkt) return gemerkt;
-  gemerkt = existsSync(ABLAGE) ? (JSON.parse(readFileSync(ABLAGE, "utf8")) as Schluessel) : {};
-  return gemerkt;
-}
+export { schluessel };
 
 /**
  * Für jedes Verwaltungskonto der Testdatenbank eine Authenticator-App
@@ -47,7 +37,7 @@ export async function richteVerwaltungskontenEin(): Promise<void> {
     .eq("role", "admin");
   if (error) throw new Error(`Verwaltungskonten konnten nicht gelesen werden: ${error.message}`);
 
-  const ergebnis: Schluessel = {};
+  const ergebnis: Schluesselablage = {};
 
   for (const konto of verwaltungskonten ?? []) {
     const { data: nutzer } = await dienst.auth.admin.getUserById(konto.id);
@@ -96,9 +86,7 @@ export async function richteVerwaltungskontenEin(): Promise<void> {
     await new Promise((fertig) => setTimeout(fertig, 400));
   }
 
-  mkdirSync("test-results", { recursive: true });
-  writeFileSync(ABLAGE, JSON.stringify(ergebnis, null, 2));
-  gemerkt = ergebnis;
+  setzeSchluessel(ergebnis);
 }
 
 /**

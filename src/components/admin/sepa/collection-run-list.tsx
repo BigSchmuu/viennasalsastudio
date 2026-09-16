@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 // PROJ-47: „Entwurf" ist der dritte Zustand. Er steht vorn, weil er der
-// einzige ist, der noch Arbeit verlangt — ein Entwurf, den niemand freigibt,
+// einzige ist, der noch Arbeit verlangt — ein Entwurf, den niemand bestätigt,
 // bucht nichts ab, und genau das soll auffallen.
 export type CollectionRunStatus = LaufZustand;
 
