@@ -30,6 +30,12 @@ function buildPreferenceMap(rows: NotificationPreferenceRow[]) {
   return map;
 }
 
+/** iPhone oder iPad — dort gilt die Home-Bildschirm-Regel von Apple. */
+function aufDemIphone(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
 export function NotificationSettingsSection({
   preferences: initialPreferences,
 }: {
@@ -80,10 +86,15 @@ export function NotificationSettingsSection({
       <div className="rounded-md border p-3 text-sm">
         {push.status === "checking" && <p className="text-muted-foreground">{t("pushChecking")}</p>}
         {push.status === "unsupported" && (
-          <p className="text-muted-foreground">
-            {t("pushUnsupported")}
-          </p>
+          <div className="space-y-1 text-muted-foreground">
+            <p>{t("pushUnsupported")}</p>
+            {/* Auf dem iPhone stimmt „geht nicht" nicht: Safari kann Push, aber
+                nur aus der App auf dem Home-Bildschirm. Wer nur den ersten Satz
+                liest, schaltet es nie ein — und wir erfahren nie davon. */}
+            {aufDemIphone() ? <p>{t("pushIosHint")}</p> : null}
+          </div>
         )}
+        {push.status === "gestoert" && <p className="text-muted-foreground">{t("pushBroken")}</p>}
         {push.status === "inactive" && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-muted-foreground">{t("pushInactive")}</p>

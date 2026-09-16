@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { subscribeToPush, unsubscribeFromPush } from "@/lib/actions/notifications";
 
-type PushStatus = "checking" | "unsupported" | "inactive" | "active";
+/**
+ * `gestoert` ist neu (2026-09-16): Bis dahin landete eine gescheiterte
+ * Registrierung des Service Workers bei „inactive" — die Oberfläche bot also
+ * einen Knopf an, der nicht funktionieren konnte. Genau so blieb monatelang
+ * unbemerkt, dass `sw.js` in der Produktion eine 404-Seite auslieferte.
+ */
+type PushStatus = "checking" | "unsupported" | "gestoert" | "inactive" | "active";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -26,7 +32,7 @@ export function usePushNotifications() {
       .register("/sw.js")
       .then((registration) => registration.pushManager.getSubscription())
       .then((subscription) => setStatus(subscription ? "active" : "inactive"))
-      .catch(() => setStatus("inactive"));
+      .catch(() => setStatus("gestoert"));
   }, []);
 
   const activate = useCallback(async (): Promise<{ error?: string }> => {
@@ -40,7 +46,16 @@ export function usePushNotifications() {
         return { error: "Push-Berechtigung wurde nicht erteilt." };
       }
 
-      const registration = await navigator.serviceWorker.ready;
+      // `serviceWorker.ready` wartet, bis ein Worker aktiv ist — ohne Frist,
+      // also unter Umständen für immer. Genau das ließ den Knopf endlos laden,
+      // statt einen Fehler zu zeigen. Eine Frist macht aus dem ewigen Warten
+      // eine Meldung, mit der jemand etwas anfangen kann.
+      const registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<never>((_, abbrechen) =>
+          setTimeout(() => abbrechen(new Error("service worker nicht bereit")), 10_000)
+        ),
+      ]);
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,

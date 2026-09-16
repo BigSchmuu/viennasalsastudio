@@ -69,7 +69,14 @@ export const config = {
   // 404-Seite als HTML aus — Google hätte weder das eine noch das andere je zu
   // sehen bekommen. Wer hier eine Datei ergänzt, die keine Seite ist, gehört
   // in diese Liste.
+  //
+  // Und ein drittes Mal, am selben Tag: sw.js. Der Service Worker lieferte
+  // seit PROJ-16 die 404-Seite aus, seine Registrierung scheiterte lautlos —
+  // und damit hat **keine einzige Push-Benachrichtigung** je funktioniert.
+  // Aufgefallen ist es erst, als der Betreiber es am iPhone versuchte und der
+  // Knopf endlos lud. Die Liste hier ist offenbar leichter zu übersehen als
+  // dieser Kommentar lang ist.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

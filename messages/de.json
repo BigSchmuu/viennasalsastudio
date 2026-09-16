@@ -380,7 +380,9 @@
       "probestunde_nachfassung": "Erinnerung nach einer Probestunde, mit direktem Buchungslink",
       "guthaben": "Du bekommst Guthaben — aus einer Empfehlung oder als Gutschrift des Studios",
       "newsletter": "Ankündigungen und Aktionen des Studios"
-    }
+    },
+    "pushBroken": "Push lässt sich auf diesem Gerät gerade nicht einrichten. Lade die Seite neu — bleibt es dabei, sag uns bitte Bescheid.",
+    "pushIosHint": "Auf dem iPhone geht das nur aus der App auf dem Home-Bildschirm: in Safari auf „Teilen“ tippen, „Zum Home-Bildschirm“ wählen und die App von dort öffnen."
   },
   "auth": {
     "loginTitle": "Einloggen",

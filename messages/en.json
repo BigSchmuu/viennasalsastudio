@@ -380,7 +380,9 @@
       "probestunde_nachfassung": "Follow-up after a trial class, with a direct booking link",
       "guthaben": "You receive credit — from a referral or as a credit granted by the studio",
       "newsletter": "Announcements and offers from the studio"
-    }
+    },
+    "pushBroken": "Push cannot be set up on this device right now. Reload the page — if it stays that way, please let us know.",
+    "pushIosHint": "On iPhone this only works from the app on your home screen: tap Share in Safari, choose “Add to Home Screen”, and open the app from there."
   },
   "auth": {
     "loginTitle": "Log in",
