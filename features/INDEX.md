@@ -85,7 +85,7 @@
 
 | PROJ-56 | Ticketarten, Pässe & Einheiten | Deployed | [PROJ-56](../features/PROJ-56-ticketarten-paesse.md) | 2026-09-14 |
 
-| PROJ-57 | Suchmaschinen-Grundlagen für öffentliche Seiten (Sitemap, DE/EN-Verknüpfung) | Approved | [PROJ-57](../features/PROJ-57-suchmaschinen-grundlagen.md) | 2026-09-14 |
+| PROJ-57 | Suchmaschinen-Grundlagen für öffentliche Seiten (Sitemap, DE/EN-Verknüpfung) | Deployed | [PROJ-57](../features/PROJ-57-suchmaschinen-grundlagen.md) | 2026-09-14 |
 
 <!-- Add features above this line -->
 

@@ -1,6 +1,6 @@
 # PROJ-57: Suchmaschinen-Grundlagen für öffentliche Seiten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-09-16
 **Last Updated:** 2026-09-16
 
@@ -265,4 +265,18 @@ Keine. Der einzige Fehler dieses Projekts fiel beim Bauen auf und ist dort festg
 - **Empfehlung:** ausliefern. Danach die Search Console einrichten, sonst bleibt unbeobachtet, ob Google die Sitemap überhaupt abholt
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-09-16
+**Produktions-URL:** https://app.viennasalsastudio.at
+**Commit:** `c8fd912`
+**Tag:** `v1.56.0-PROJ-57`
+**Migration:** keine — dieses Projekt ändert nichts an der Datenbank
+
+### Nach dem Deploy geprüft
+`/robots.txt` und `/sitemap.xml` liefern in der Produktion Text und XML, keine Webseite. Das war der Punkt, auf den es ankam: Beim Bauen hatte die Sprachweiche beide verschluckt und die 404-Seite ausgeliefert.
+
+### Was jetzt zu tun bleibt — außerhalb des Codes
+**Die Google Search Console einrichten** für `app.viennasalsastudio.at` und die Sitemap dort einreichen. Ohne sie ist dieses Projekt technisch fertig, aber unbeobachtet: Niemand sieht, ob Google die Datei überhaupt abholt, welche Seiten es aufnimmt und woran es sich stört. Das ist ein Schritt im Browser, kein Code — er steht als offene Frage in der Spezifikation.
+
+### Erwartung
+Sitemap und Verknüpfung machen die Eventseiten **auffindbar**, nicht **sichtbar**. Ob sie bei „Salsa Party Wien" weit oben landen, entscheidet sich an Verweisen von anderen Seiten — siehe „Was dieses Projekt nicht leisten kann" weiter oben. Bis Google die neuen Seiten aufnimmt, vergehen erfahrungsgemäß Tage bis Wochen.
