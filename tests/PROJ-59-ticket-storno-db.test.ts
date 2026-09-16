@@ -98,6 +98,23 @@ async function laufMitTicket(ticketId: string, freigegeben: boolean): Promise<vo
   }
 }
 
+/**
+ * Die Freigabe eines Laufs aus einem Posten lesen.
+ *
+ * Der Testclient ist untypisiert, deshalb weiß er nicht, dass hinter einem
+ * Posten genau ein Lauf steht — er hält es für eine Liste. Der Anwendungscode
+ * arbeitet mit dem typisierten Client und sieht dort ein einzelnes Objekt.
+ * Diese Hilfe nimmt beides.
+ */
+function freigabeVon(posten: { sepa_collection_runs: unknown }): string | null {
+  const lauf = posten.sepa_collection_runs as
+    | { released_at: string | null }
+    | { released_at: string | null }[]
+    | null;
+  if (!lauf) return null;
+  return Array.isArray(lauf) ? (lauf[0]?.released_at ?? null) : lauf.released_at;
+}
+
 async function guthabenZeilen(): Promise<{ amount: number; origin: string; reason: string | null }[]> {
   const { data } = await service
     .from("customer_credits")
@@ -282,7 +299,7 @@ describe("PROJ-59: Ist das Geld schon weg?", () => {
       .from("sepa_collection_items")
       .select("sepa_collection_runs(released_at)")
       .eq("event_ticket_id", ticket);
-    expect(data!.some((p) => p.sepa_collection_runs?.released_at)).toBe(true);
+    expect(data!.some((p) => freigabeVon(p))).toBe(true);
   });
 
   it("ein erzeugter, aber nicht freigegebener Lauf bedeutet: noch nichts abgebucht", async () => {
@@ -297,6 +314,6 @@ describe("PROJ-59: Ist das Geld schon weg?", () => {
     // meldet, drängt dem Betreiber eine Gutschrift für Geld auf, das er nie
     // eingenommen hat.
     expect(data).toHaveLength(1);
-    expect(data!.every((p) => !p.sepa_collection_runs?.released_at)).toBe(true);
+    expect(data!.every((p) => !freigabeVon(p))).toBe(true);
   });
 });
