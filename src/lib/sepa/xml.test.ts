@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { generateSepaDirectDebitXml, type SepaXmlItem } from "./xml";
 
+import { sepaKennung } from "./kennungen";
 const baseItem: SepaXmlItem = {
   id: "item-1",
   amount: 45,
@@ -73,5 +74,51 @@ describe("generateSepaDirectDebitXml", () => {
   it("rounds amounts to 2 decimal places", () => {
     const xml = generateSepaDirectDebitXml({ ...baseInput, items: [{ ...baseItem, amount: 19.999 }] });
     expect(xml).toContain('<InstdAmt Ccy="EUR">20.00</InstdAmt>');
+  });
+});
+
+describe("Längengrenzen der Kennungen (pain.008)", () => {
+  // Der Fall aus dem Betrieb, 2026-09-16: Die Bank wies die Datei ab —
+  // „Ungültige message id (msgId), in Zeile 13". Die Kennungen waren UUIDs,
+  // mit Präfix 40, 45 und 36 Zeichen lang; die Norm erlaubt 35.
+  const echteUuid = (n: number) => `3f2504e0-4f89-11d3-9a0c-0305e82c33${String(n).padStart(2, "0")}`;
+
+  function xmlMitEchtenKennungen(): string {
+    return generateSepaDirectDebitXml({
+      ...baseInput,
+      messageId: sepaKennung("VSS", echteUuid(1)),
+      items: [
+        { ...baseItem, id: echteUuid(2), sequenceType: "FRST" as const },
+        { ...baseItem, id: echteUuid(3), sequenceType: "RCUR" as const },
+      ],
+    });
+  }
+
+  it("hält jede MsgId, PmtInfId und EndToEndId unter 36 Zeichen", () => {
+    const xml = xmlMitEchtenKennungen();
+    const felder = ["MsgId", "PmtInfId", "EndToEndId"];
+
+    for (const feld of felder) {
+      const treffer = [...xml.matchAll(new RegExp(`<${feld}>([^<]*)</${feld}>`, "g"))];
+      expect(treffer.length, `${feld} kommt im Dokument vor`).toBeGreaterThan(0);
+      for (const [, wert] of treffer) {
+        expect(wert.length, `${feld} „${wert}"`).toBeLessThanOrEqual(35);
+      }
+    }
+  });
+
+  it("benutzt in den Kennungen nur Zeichen, die Banken annehmen", () => {
+    const xml = xmlMitEchtenKennungen();
+    for (const feld of ["MsgId", "PmtInfId", "EndToEndId"]) {
+      for (const [, wert] of xml.matchAll(new RegExp(`<${feld}>([^<]*)</${feld}>`, "g"))) {
+        expect(wert, `${feld} „${wert}"`).toMatch(/^[A-Za-z0-9-]+$/);
+      }
+    }
+  });
+
+  it("bricht ab, statt eine zu lange MsgId an die Bank zu schicken", () => {
+    expect(() =>
+      generateSepaDirectDebitXml({ ...baseInput, messageId: `VSS-${echteUuid(1)}`, items: [baseItem] })
+    ).toThrow(/MsgId ist 40 Zeichen/);
   });
 });

@@ -8,6 +8,7 @@ import { generateSepaDirectDebitXml, type SepaXmlItem } from "@/lib/sepa/xml";
 import { POSITION_BETRAG_MAX } from "@/lib/sepa/laeufe";
 import type { ActionResult } from "@/lib/actions/types";
 
+import { sepaKennung } from "@/lib/sepa/kennungen";
 type CreateRunResult =
   | { error: string }
   | { duplicate: true; existingCount: number }
@@ -281,7 +282,10 @@ export async function generateRunXml(runId: string): Promise<RunXmlResult> {
   });
 
   const xml = generateSepaDirectDebitXml({
-    messageId: `VSS-${run.id}`,
+    // Nicht die volle Laufkennung: Mit Präfix wären das 40 Zeichen, erlaubt
+    // sind 35. Genau daran ist die Datei am 2026-09-16 bei der Bank
+    // gescheitert.
+    messageId: sepaKennung("VSS", run.id),
     creationDateTime: new Date().toISOString(),
     dueDate: run.due_date,
     creditorName,

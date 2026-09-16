@@ -1,5 +1,6 @@
 import { normalizeIban } from "./iban";
 
+import { sepaKennung, pruefeKennung } from "./kennungen";
 export type SepaXmlItem = {
   id: string;
   amount: number;
@@ -39,7 +40,7 @@ function renderTransaction(item: SepaXmlItem): string {
   return `
       <DrctDbtTxInf>
         <PmtId>
-          <EndToEndId>${escapeXml(item.id)}</EndToEndId>
+          <EndToEndId>${sepaKennung("VSS", item.id)}</EndToEndId>
         </PmtId>
         <InstdAmt Ccy="EUR">${round2(item.amount).toFixed(2)}</InstdAmt>
         <DrctDbtTx>
@@ -82,8 +83,13 @@ export function generateSepaDirectDebitXml(input: SepaXmlInput): string {
     itemsBySequenceType.set(item.sequenceType, group);
   }
 
+  // Vor dem Zusammenbauen prüfen, nicht erst an der Bankschranke: Eine zu
+  // lange Kennung kostet den Betreiber sonst einen zweiten Gang zur Bank.
+  pruefeKennung(input.messageId, "MsgId");
+
   const paymentBlocks = [...itemsBySequenceType.entries()]
     .map(([sequenceType, items]) => {
+      pruefeKennung(`${input.messageId}-${sequenceType}`, "PmtInfId");
       const blockTotal = round2(items.reduce((sum, item) => sum + item.amount, 0));
       const blockTransactions = items.map(renderTransaction).join("");
 
