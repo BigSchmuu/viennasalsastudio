@@ -293,4 +293,33 @@ eingerichtet.
 ## Deployment
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-16 · **Tag:** `v1.58.0-PROJ-59`
+
+### Reihenfolge
+
+1. Migration `20260916140000_proj59_ticket_storno.sql` in die Produktion
+2. Code ausgerollt (Vercel, 2 Minuten Build)
+
+Die Migration musste zuerst laufen, und zwar nicht aus Vorsicht, sondern zwingend: Die Gästeliste
+liest die drei neuen Spalten. Wäre der Code zuerst gekommen, hätte sie eine Spalte abgefragt, die es
+nicht gibt — und wäre leer geblieben.
+
+Für sich genommen war die Migration harmlos: drei leere Spalten, ein Eintrag mehr in einer Liste,
+eine Funktion, die noch niemand aufrief.
+
+### Nachgeprüft
+
+Öffentlich, von außen: Startseite, Events, Kurse und die englische Fassung liefern 200.
+Verwaltung, vom Betreiber bestätigt.
+
+Eine Beobachtung am Rande: Die Sitemap hatte nach dem Ausrollen einen Eintrag weniger als drei
+Stunden zuvor. Das ist das erwartete Verhalten, wenn ein Einzelevent inzwischen vorbei ist —
+vergangene Events nimmt die Sitemap absichtlich heraus (PROJ-57). Von außen nicht abschließend
+unterscheidbar, vom Betreiber nicht beanstandet.
+
+### Hinweis für den Betrieb
+
+Eine Stornierung wirkt sofort und ist nicht zurückzunehmen: Der Kunde bekommt eine Nachricht, der
+Platz wird frei, und eine angehakte Gutschrift ist gebucht. Zum Ausprobieren gehört eine eigene
+Testbuchung, nicht das Ticket eines Gastes.
