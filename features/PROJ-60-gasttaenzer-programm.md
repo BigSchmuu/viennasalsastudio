@@ -372,4 +372,35 @@ Projekt weiterhin nicht eingerichtet.
 ## Deployment
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-16 · **Tag:** `v1.59.0-PROJ-60`
+
+### Reihenfolge
+
+1. `20260916160000_proj60_gasttaenzer.sql` — Tabellen, Buchungsart, Vergabe, Anwesenheitsliste
+2. `20260916170000_proj60_schieflage.sql` — die Auskunft über die Balance
+3. Code ausgerollt (Vercel, 2 Minuten Build)
+
+Die Migrationen mussten zuerst laufen: Der Profilabschnitt fragt die neuen Tabellen für **jeden**
+Kunden ab, und die Buchungsart `guest` steht in einer Prüfliste der Datenbank — ohne sie ließe sich
+keine einzige Zusage speichern.
+
+### Besonders beobachtet
+
+Die erste Migration **ersetzt `get_course_attendance_roster`**, um die vierte Quelle „Gast"
+aufzunehmen. Das ist die einzige bestehende Funktion, die dieses Projekt angefasst hat; der Rest
+ihres Rumpfs wurde unverändert übernommen. Der Betreiber hat den Lehrerbereich nach dem Ausrollen
+geprüft — die Teilnehmerlisten stehen wie zuvor.
+
+Der eingebaute Prüfblock gegen eine anders benannte Typ-Prüfbedingung hat nicht ausgelöst.
+
+### Nachgeprüft
+
+Öffentlich, von außen: Startseite, Kurse, Events, Stundenplan und die englische Fassung liefern 200,
+12 Kurse im Katalog, `/admin/gasttaenzer` weist Nicht-Angemeldete ab.
+Verwaltung, Lehrerbereich und Profil vom Betreiber bestätigt.
+
+### Hinweis für den Betrieb
+
+Das Programm ist da, aber leer: Solange sich niemand anmeldet, gibt es niemanden einzuladen. Ein
+Aufruf per Newsletter oder im Kurs ist der nächste Schritt — und liegt außerhalb der App.

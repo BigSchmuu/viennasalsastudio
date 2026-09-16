@@ -91,7 +91,7 @@
 
 | PROJ-59 | Ticket stornieren durch die Verwaltung | Deployed | [PROJ-59](../features/PROJ-59-ticket-stornieren-verwaltung.md) | 2026-09-16 |
 
-| PROJ-60 | Gasttänzer-Programm | Approved | [PROJ-60](../features/PROJ-60-gasttaenzer-programm.md) | 2026-09-16 |
+| PROJ-60 | Gasttänzer-Programm | Deployed | [PROJ-60](../features/PROJ-60-gasttaenzer-programm.md) | 2026-09-16 |
 
 <!-- Add features above this line -->
 
