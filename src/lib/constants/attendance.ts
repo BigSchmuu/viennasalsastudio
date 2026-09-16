@@ -11,4 +11,8 @@ export const attendanceSourceLabel: Record<string, string> = {
   abo: "Abo",
   buchung: "Buchung",
   manuell: "Manuell",
+  // PROJ-60: Damit die Lehrkraft weiss, warum jemand da ist, den sie nicht
+  // aus dem Kurs kennt — und damit ein Gastabend beim Nachrechnen nicht wie
+  // ein bezahlter Platz aussieht.
+  gast: "Gast",
 };

@@ -25,6 +25,8 @@ import type { ProfileInput } from "@/lib/validations/auth";
 import { getTranslations } from "next-intl/server";
 import { getViewerContext } from "@/lib/auth/viewer";
 import { Anmeldesicherheit } from "@/components/profile/anmeldesicherheit";
+import { GasttaenzerAbschnitt } from "@/components/profile/gasttaenzer-abschnitt";
+import { ladeGasttaenzerAnsicht } from "@/lib/gasttaenzer/laden";
 
 // Code-split out of the main /profil bundle: each pulls in real extra weight
 // (react-hook-form+zod, the QR-code generator, the push-notification hook)
@@ -333,6 +335,11 @@ export default async function ProfilePage() {
   const creditBalance = creditEntries.reduce((summe, e) => summe + e.amount, 0);
   const studioPricing = readStudioPricing(pricingRow);
   const tc = await getTranslations("credit");
+  const tg = await getTranslations("guestDancers");
+
+  // PROJ-60: Die Einladungen kommen bereits gefiltert an — wer eine sieht,
+  // kann sie auch annehmen.
+  const gasttaenzer = await ladeGasttaenzerAnsicht(user.id);
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-4">
@@ -416,6 +423,14 @@ export default async function ProfilePage() {
             letzter={!isAdmin}
           >
             <NotificationSettingsSection preferences={notificationPreferences} />
+          </ProfilAbschnitt>
+          {/* PROJ-60: Offen für jedes Konto — ein laufendes Abo ist nicht nötig. */}
+          <ProfilAbschnitt
+            wert="gasttaenzer"
+            titel={tg("title")}
+            hinweis={tg("hint")}
+          >
+            <GasttaenzerAbschnitt ansicht={gasttaenzer} />
           </ProfilAbschnitt>
           {/* PROJ-58: Nur für Verwaltungskonten — und bewusst deutsch, wie die
               ganze Verwaltung. */}

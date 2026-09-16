@@ -21,6 +21,7 @@ import {
   TicketPercent,
   CalendarOff,
   Tags,
+  HeartHandshake,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,9 @@ const groups: NavGroup[] = [
     links: [
       { href: "/admin/buchungen", label: "Buchungen", icon: ClipboardList },
       { href: "/admin/probestunden", label: "Probestunden", icon: UserCheck },
+      // PROJ-60: bei den Buchungen, nicht bei den Kunden — es geht um Plätze an
+      // einem Abend, nicht um Stammdaten.
+      { href: "/admin/gasttaenzer", label: "Gasttänzer", icon: HeartHandshake },
     ],
   },
   {

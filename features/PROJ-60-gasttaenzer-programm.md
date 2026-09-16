@@ -283,6 +283,39 @@ bestätigt, dass die handgeschriebenen Einträge aus PROJ-58 und PROJ-59 mit dem
 Die gesamte Oberfläche: der Profilabschnitt (zweisprachig), die Verwaltungsseite mit Schieflage-Liste
 und Ausschreiben-Dialog, und die Kennzeichnung des Gasts auf der Anwesenheitsliste.
 
+## Umsetzung — Frontend (2026-09-16)
+
+### Gebaut
+
+- **Verwaltung → Gasttänzer** (`/admin/gasttaenzer`): Schieflage-Liste, Ausschreiben-Dialog, laufende
+  Ausschreibungen mit Zusagenzähler und „Zurückziehen", Programmteilnehmer mit Ausschluss.
+- **Profil → Gasttänzer-Programm**, zweisprachig: anmelden mit Rolle und Level, Angaben ändern,
+  austreten, offene Einladungen mit Level-Bestätigung, zugesagte Abende mit „Doch nicht".
+- **Anwesenheitsliste**: Die vierte Quelle heißt dort „Gast".
+
+### Entscheidungen beim Bauen
+
+**Die möglichen Termine werden auf dem Server gerechnet, nicht im Dialog.** Ferien, ausgefallene
+Abende und ein beendeter Kurs fallen dabei heraus — ein Termin, an dem der Kurs gar nicht
+stattfindet, steht damit nicht zur Wahl, statt erst beim Abschicken abgelehnt zu werden.
+
+**Die Einladungen im Profil sind schon gefiltert, wenn sie ankommen** — mit denselben Regeln, die
+auch die Datenbank beim Zusagen anwendet. Eine Einladung zu sehen, die man nicht annehmen kann, wäre
+die ärgerlichste Form dieses Features.
+
+**Der Ausschreiben-Dialog setzt sich über einen Schlüssel zurück**, statt seinen Zustand in einem
+Effekt nachzuziehen. Dasselbe Muster wie beim Storno-Dialog aus PROJ-59, und aus demselben Grund:
+Der Linter verbietet es zu Recht, und beim Wechsel der Vorbelegung stünden sonst kurz die Zahlen des
+vorigen Kurses da.
+
+**Beim Zurückziehen mit bestehenden Zusagen fragt die Oberfläche nach**, und zwar mit der Anzahl.
+Dass dabei Menschen abgesagt werden, soll niemand aus Versehen auslösen.
+
+### Noch offen
+
+Der QA-Durchgang mit E2E-Prüfungen über die Oberfläche. Die Regeln und die Datenbank sind belegt
+(37 + 15 Prüfungen), der Weg durch den Browser noch nicht.
+
 ## QA Test Results
 _To be added by /qa_
 
