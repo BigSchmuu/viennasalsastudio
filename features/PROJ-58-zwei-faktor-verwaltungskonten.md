@@ -102,6 +102,7 @@ Dieses Projekt schließt genau diese Lücke — und nur sie.
 ## Open Questions
 - [ ] Wie viele Admin-Konten gibt es derzeit? Für die Rücksetz-Regel entscheidend — der Betreiber prüft das in der Kundenverwaltung (aus der Konversation nicht abfragbar, siehe CLAUDE.md)
 - [ ] Soll die 30-Tage-Frist später einstellbar sein? Vorschlag: vorerst fest
+- [ ] Verliert eine bereits laufende Sitzung sofort ihre bestätigte zweite Stufe, wenn der hinterlegte Faktor entfernt wird? /backend prüft das am Testprojekt. Falls nein, müssen beim Zurücksetzen zusätzlich alle Sitzungen des Kontos ausdrücklich beendet werden
 - [ ] Zwei-Faktor für das Supabase-Dashboard selbst aktivieren — das ist der eigentliche Notausgang und sollte vor dem Deploy abgesichert sein (Betreiberaufgabe)
 
 ## Decision Log
@@ -121,13 +122,147 @@ Dieses Projekt schließt genau diese Lücke — und nur sie.
 | E-Mail an den Betroffenen beim Zurücksetzen | Ein Zurücksetzen ist der einzige Weg, die zweite Stufe loszuwerden — es darf nicht unbemerkt geschehen | 2026-09-16 |
 
 ### Technical Decisions
-_To be added by /architecture_
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Die Zwei-Faktor-Funktion von Supabase nutzen statt etwas Eigenes zu bauen | Wir speichern dann kein einziges neues Geheimnis: Der Schlüssel liegt in Supabases eigenem, geschütztem Bereich, nicht in unseren Tabellen. Eigenbau hieße, den Schlüssel selbst aufzubewahren und die Codeprüfung selbst zu schreiben — genau die zwei Dinge, bei denen ein Fehler alles wertlos macht | 2026-09-16 |
+| Kein neues Paket | Supabase liefert den QR-Code bei der Einrichtung als fertiges Bild mit. Eine QR-Bibliothek wäre überflüssig | 2026-09-16 |
+| „Gerät merken" über die Lebensdauer der Anmeldung, nicht über einen eigenen Geräteausweis | Ein eigener Ausweis wäre ein zweites Geheimnis, das kopiert werden kann — und die Datenbank könnte ihn nicht prüfen, womit die wichtigste Schutzschicht ins Leere liefe. Über die Anmeldung bleibt die bestätigte zweite Stufe Teil der Sitzung und gilt damit überall | 2026-09-16 |
+| Die Rollenauskunft der Datenbank verlangt die bestätigte zweite Stufe | Ein einziger Ort, an dem rund 50 bestehende Sicherheitsregeln die Prüfung erben. Jede Regel einzeln zu ändern hieße, an fünfzig Stellen nichts vergessen zu dürfen | 2026-09-16 |
+| Torwächter in der bestehenden Zugangsprüfung, nicht in der Middleware | Die Middleware läuft bei jedem einzelnen Seiten- und Bildaufruf, kennt die Rolle aber nicht — sie müsste jedes Mal die Datenbank fragen. Das wäre auf jeder Seite spürbar, für einen Schutz, der an der richtigen Stelle nichts kostet | 2026-09-16 |
+| Handgriffe mit dem Generalschlüssel prüfen zusätzlich selbst | Der Generalschlüssel umgeht die Datenbankregeln absichtlich (Einladungen, Benachrichtigungen, offene Posten). Dort greift die Datenbanksperre nicht, also muss der Handgriff selbst nachsehen | 2026-09-16 |
+| Ausrollen in zwei Schritten | Die Datenbankregel wird erst scharf geschaltet, wenn die Einrichtung nachweislich funktioniert. Sonst stünde im schlimmsten Fall eine Verwaltung ohne Zugang und mit kaputtem Einrichtungsweg da | 2026-09-16 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Die Grundidee
+
+Supabase kann Zwei-Faktor-Anmeldung von Haus aus. Das heißt für uns: **Wir speichern kein neues Geheimnis.**
+Der Schlüssel, den die Authenticator-App bekommt, liegt in Supabases eigenem, abgeschottetem Bereich —
+wir sehen ihn ein einziges Mal, während der Einrichtung, und legen ihn nirgends ab. Auch der QR-Code
+kommt fertig von dort. Es kommt kein einziges neues Paket dazu.
+
+Was Supabase **nicht** mitbringt, ist alles Übrige: die Pflicht, die Rücksetzung durch einen anderen
+Admin, das Merken eines Geräts und die Sperre an den richtigen Stellen. Das bauen wir.
+
+### Drei Mauern statt einer
+
+Der wichtigste Entwurfsgedanke: Eine Sperre in der Oberfläche allein wäre zu wenig. Die Adresse der
+Datenbank und der öffentliche Zugangsschlüssel stehen in jeder ausgelieferten Seite — das ist bei
+Supabase so vorgesehen, geschützt wird über die Regeln *in* der Datenbank. Wer ein Admin-Passwort
+erbeutet, könnte damit an den Seiten vorbei direkt mit der Datenbank reden. Deshalb sitzt die Sperre
+an drei Stellen:
+
+**1. In der Datenbank (die eigentliche Mauer).** Es gibt dort eine kleine Auskunftsfunktion, die
+sämtliche Sicherheitsregeln benutzen: „Ist der Anfragende ein Admin?" Diese Funktion beantwortet die
+Frage künftig nur noch mit Ja, wenn in derselben Anmeldung die zweite Stufe bestätigt wurde. Ein
+Ort, rund 50 Regeln erben den Schutz — Kundendaten, Rechnungen, Lastschriften, alles.
+
+**2. In den Seiten (der Wegweiser).** Die Verwaltung hat bereits eine gemeinsame Zugangsprüfung,
+durch die jede Verwaltungsseite geht. Sie bekommt zwei neue Antworten: „noch nicht eingerichtet" führt
+zur Einrichtungsseite, „Stufe noch nicht bestätigt" zur Code-Seite. Dasselbe gilt für den
+Kundenbereich, weil ein Admin laut Spec vor der Einrichtung gar nichts erreichen soll.
+
+**3. In den Handgriffen mit Generalschlüssel.** Zwölf Stellen im Code arbeiten mit einem Schlüssel,
+der die Datenbankregeln absichtlich umgeht — Lehrer einladen, Benachrichtigungen verschicken, offene
+Posten nachschlagen. Genau dort greift Mauer 1 nicht. Diese Stellen müssen selbst nachsehen, ob die
+zweite Stufe bestätigt ist. Das ist die Stelle, an der so ein Vorhaben erfahrungsgemäß undicht wird,
+darum steht sie hier ausdrücklich.
+
+### Wie „Gerät 30 Tage merken" funktioniert
+
+Der naheliegende Weg wäre ein eigener Geräteausweis im Browser. Er wäre ein **zweites Geheimnis, das
+gestohlen werden kann** — und die Datenbank könnte ihn nicht prüfen, womit Mauer 1 ins Leere liefe.
+
+Stattdessen hängt es an der Lebensdauer der Anmeldung selbst. Eine bestätigte zweite Stufe ist Teil
+der laufenden Anmeldung und bleibt es, solange diese lebt:
+
+- **Häkchen gesetzt:** Die Anmeldung überdauert das Schließen des Browsers, bis zu 30 Tage. In dieser
+  Zeit fragt dieses Gerät weder nach Passwort noch nach Code.
+- **Häkchen nicht gesetzt (Voreinstellung):** Die Anmeldung endet mit dem Browser. Beim nächsten Mal
+  wieder Passwort und Code.
+
+Im Browser liegt dafür nur ein schlichter Merker, der nichts weiter besagt als „diese Anmeldung darf
+das Schließen überdauern". Er enthält kein Geheimnis und öffnet für sich genommen gar nichts.
+
+„Alle Geräte abmelden" heißt dann genau das, was es sagt: alle Anmeldungen dieses Kontos beenden.
+Dasselbe geschieht automatisch beim Passwortwechsel und beim Zurücksetzen der zweiten Stufe.
+
+### Was gebaut wird
+
+```
+Anmeldung (bestehend, Weiche wird erweitert)
++-- Passwort stimmt → wohin?
+    +-- Kunde oder Lehrer          → wie bisher, nichts ändert sich
+    +-- Admin ohne App             → Seite „Verwaltung absichern"
+    +-- Admin mit App              → Seite „Code bestätigen"
+
+Seite „Verwaltung absichern" (neu)
++-- Kurze Erklärung, warum das nötig ist
++-- QR-Code (kommt fertig von Supabase)
++-- Derselbe Schlüssel als Text, falls die Kamera nicht mitspielt
++-- Code-Feld (6 Ziffern)
++-- Bei falschem Code: Meldung, aber derselbe QR-Code bleibt stehen
+
+Seite „Code bestätigen" (neu)
++-- Code-Feld (6 Ziffern)
++-- Häkchen „Diesem Gerät 30 Tage vertrauen" — leer vorausgewählt
++-- Nach wiederholtem Fehlschlag: Hinweis auf die Uhrzeit des Handys
++-- Ausweg „Abmelden"
+
+Profil → neuer Abschnitt „Anmeldesicherheit"
++-- Zustand: eingerichtet seit …
++-- Knopf „Alle Geräte abmelden"
+
+Verwaltung → Kunden → Konto mit Rolle Admin (Erweiterung)
++-- Kennzeichen „Zweite Stufe aktiv" bzw. „nicht eingerichtet"
++-- Knopf „Zweite Stufe zurücksetzen" mit Rückfrage
++-- Beim eigenen Konto nicht anklickbar
+
+Verwaltung → Startseite (Erweiterung)
++-- Hinweisbalken, solange es nur ein einziges Admin-Konto gibt
+
+Benachrichtigungen (Erweiterung)
++-- Neue Art „Zweite Stufe zurückgesetzt" samt Vorlage
+```
+
+### Was gespeichert wird
+
+**Der Schlüssel der Authenticator-App:** in Supabases eigenem, geschütztem Bereich — nicht in unseren
+Tabellen, nicht in unseren Sicherungen, für uns nach der Einrichtung nicht mehr lesbar.
+
+**Neu in unserer Datenbank:** nichts weiter als ein zusätzlicher Eintrag in der bestehenden Liste
+erlaubter Benachrichtigungsarten. Diese Liste ist in der Datenbank festgeschrieben; fehlt der Eintrag,
+verschwindet die E-Mail lautlos, ohne Fehlermeldung. Das ist in diesem Projekt schon einmal passiert
+(PROJ-16) und darum hier vermerkt.
+
+**Geändert:** die eine Auskunftsfunktion aus Mauer 1.
+
+**Im Browser:** der Merker für das gemerkte Gerät — kein Geheimnis, keine Berechtigung.
+
+### Was wir nicht brauchen
+
+Keine neue Tabelle. Kein neues Paket. Keine Geräteliste, keine Wiederherstellungscodes, keine
+zusätzlichen Zugangsdaten und keinen weiteren Dienstleister — also auch keinen neuen
+Auftragsverarbeitungsvertrag.
+
+### Reihenfolge beim Ausrollen
+
+Zwei Schritte, nicht einer. Zuerst gehen Einrichtung, Code-Seite und Rücksetzung in Betrieb; die
+Admins richten ihre App ein. Erst danach wird die Datenbankregel scharf geschaltet. Andernfalls
+stünde im ungünstigsten Fall eine Verwaltung ohne Zugang **und** mit einem Einrichtungsweg da, der
+sich noch nie bewährt hat. Der Weg zurück wäre dann nur noch das Supabase-Dashboard.
+
+### Backend nötig?
+
+Ja. Datenbankfunktion ändern, eine Migration für die Benachrichtigungsart, Rücksetzung über den
+privilegierten Serverzugang, und die zwölf Stellen mit Generalschlüssel nachziehen.
+
+### Zusätzliche Pakete
+
+Keine.
 
 ## QA Test Results
 _To be added by /qa_

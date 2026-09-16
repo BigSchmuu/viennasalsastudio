@@ -87,7 +87,7 @@
 
 | PROJ-57 | Suchmaschinen-Grundlagen für öffentliche Seiten (Sitemap, DE/EN-Verknüpfung) | Deployed | [PROJ-57](../features/PROJ-57-suchmaschinen-grundlagen.md) | 2026-09-14 |
 
-| PROJ-58 | Zwei-Faktor-Anmeldung für Verwaltungskonten | Planned | [PROJ-58](../features/PROJ-58-zwei-faktor-verwaltungskonten.md) | 2026-09-16 |
+| PROJ-58 | Zwei-Faktor-Anmeldung für Verwaltungskonten | Architected | [PROJ-58](../features/PROJ-58-zwei-faktor-verwaltungskonten.md) | 2026-09-16 |
 
 <!-- Add features above this line -->
 
