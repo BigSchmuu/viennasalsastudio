@@ -77,13 +77,13 @@
 
 | PROJ-52 | Eine Probestunde je Kunde | Deployed | [PROJ-52](../features/PROJ-52-eine-probestunde-je-kunde.md) | 2026-09-12 |
 
-| PROJ-53 | Veranstaltungsprogramm | Approved | [PROJ-53](../features/PROJ-53-veranstaltungsprogramm.md) | 2026-09-14 |
+| PROJ-53 | Veranstaltungsprogramm | Deployed | [PROJ-53](../features/PROJ-53-veranstaltungsprogramm.md) | 2026-09-14 |
 
-| PROJ-54 | Event-Serien (regelmäßige Veranstaltungen) | Approved | [PROJ-54](../features/PROJ-54-event-serien.md) | 2026-09-14 |
+| PROJ-54 | Event-Serien (regelmäßige Veranstaltungen) | Deployed | [PROJ-54](../features/PROJ-54-event-serien.md) | 2026-09-14 |
 
-| PROJ-55 | Bilder & Videos für Events | Approved | [PROJ-55](../features/PROJ-55-event-bilder-videos.md) | 2026-09-14 |
+| PROJ-55 | Bilder & Videos für Events | Deployed | [PROJ-55](../features/PROJ-55-event-bilder-videos.md) | 2026-09-14 |
 
-| PROJ-56 | Ticketarten, Pässe & Einheiten | Approved | [PROJ-56](../features/PROJ-56-ticketarten-paesse.md) | 2026-09-14 |
+| PROJ-56 | Ticketarten, Pässe & Einheiten | Deployed | [PROJ-56](../features/PROJ-56-ticketarten-paesse.md) | 2026-09-14 |
 
 | PROJ-57 | Suchmaschinen-Grundlagen für öffentliche Seiten (Sitemap, DE/EN-Verknüpfung) | Roadmap | — | 2026-09-14 |
 

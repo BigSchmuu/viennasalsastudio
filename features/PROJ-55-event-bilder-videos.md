@@ -1,6 +1,6 @@
 # PROJ-55: Bilder & Videos für Events
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-09-14
 **Last Updated:** 2026-09-15
 
@@ -347,4 +347,36 @@ Nachgelaufen: 10 E2E in zwei Browsern (20 Läufe), PROJ-53 und PROJ-54 vollstän
 _To be added by /qa_
 
 ## Deployment
-_To be added by /deploy_
+
+**Deployed:** 2026-09-16
+**Produktions-URL:** https://app.viennasalsastudio.at
+**Commit:** `ecd2356`
+**Tag:** `v1.55.0-events`
+**Migration:** `20260915180000_proj55_event_bilder_videos.sql` — vom Betreiber eingespielt, vor dem Code
+
+### Gemeinsam ausgeliefert
+PROJ-53 bis PROJ-56 gingen zusammen live — sie bauen aufeinander auf, und ein
+einzelnes von ihnen auszuliefern hätte die Eventseite auf halbem Weg stehen
+lassen. Der Betreiber hat die sechs Migrationen der Reihe nach eingespielt,
+danach ging der Code raus.
+
+**Das Zeitfenster dazwischen war bekannt und angekündigt:** Zwischen Migration
+und Deploy lief der alte Code gegen die neue Datenbank. Der QR-Check-in ging
+in diesen Minuten nicht — die Funktion verlangt seit PROJ-54 den Termin, den
+der alte Code nicht mitschickte. Ticketkauf, Stornieren und alle Kundenseiten
+liefen durch; die Signaturen waren abwärtskompatibel gehalten.
+
+### Vor dem Deploy geprüft
+Die komplette E2E-Suite lief in einem Stück: 1208 bestanden, 2 gescheitert,
+2,2 Stunden. Die zwei Fehlschläge deckten eine Regression auf, die keine
+Einzelsuite gefunden hatte — Serientermine konnten keine Tickets mehr
+verkaufen. Nach der Behebung: 750 Unit-Tests, Build und 128 E2E-Tests über
+PROJ-14 und PROJ-53 bis PROJ-56 in beiden Browsern, alles grün.
+
+### Noch offen
+- **`src/lib/supabase/types.ts` neu erzeugen**, sobald der Supabase-Zugang
+  wieder steht — er war die ganze Umsetzung über nicht verbunden (HTTP 401).
+  Die App läuft auf der Handfassung; dass sie zur Datenbank passt, belegen die
+  Datenbanktests.
+- **Die Bestätigungs-Benachrichtigung** nennt weiterhin nur Event und
+  Zeitpunkt, nicht Ticketart, Einheiten und Frist (PROJ-56, Beobachtung 5).
