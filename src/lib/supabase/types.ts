@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -343,6 +368,68 @@ export type Database = {
           },
         ]
       }
+      course_memberships: {
+        Row: {
+          course_id: string
+          created_at: string
+          customer_id: string
+          dance_role: string | null
+          ended_on: string | null
+          id: string
+          started_on: string
+          subscription_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          customer_id: string
+          dance_role?: string | null
+          ended_on?: string | null
+          id?: string
+          started_on?: string
+          subscription_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          customer_id?: string
+          dance_role?: string | null
+          ended_on?: string | null
+          id?: string
+          started_on?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_memberships_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_memberships_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_memberships_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_memberships_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_schedule: {
         Row: {
           course_id: string
@@ -456,61 +543,6 @@ export type Database = {
           },
         ]
       }
-      course_memberships: {
-        Row: {
-          course_id: string
-          created_at: string
-          customer_id: string
-          dance_role: string | null
-          ended_on: string | null
-          id: string
-          started_on: string
-          subscription_id: string
-        }
-        Insert: {
-          course_id: string
-          created_at?: string
-          customer_id: string
-          dance_role?: string | null
-          ended_on?: string | null
-          id?: string
-          started_on?: string
-          subscription_id: string
-        }
-        Update: {
-          course_id?: string
-          created_at?: string
-          customer_id?: string
-          dance_role?: string | null
-          ended_on?: string | null
-          id?: string
-          started_on?: string
-          subscription_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_memberships_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_memberships_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_memberships_subscription_id_fkey"
-            columns: ["subscription_id"]
-            isOneToOne: false
-            referencedRelation: "subscriptions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       course_teachers: {
         Row: {
           course_id: string
@@ -563,8 +595,8 @@ export type Database = {
           pending_announced_at: string | null
           pending_effective_date: string | null
           pending_level: string | null
-          pending_runs_until: string | null
           pending_name: string | null
+          pending_runs_until: string | null
           prerequisite_note: string | null
           price: number | null
           role_query_enabled: boolean
@@ -584,8 +616,8 @@ export type Database = {
           pending_announced_at?: string | null
           pending_effective_date?: string | null
           pending_level?: string | null
-          pending_runs_until?: string | null
           pending_name?: string | null
+          pending_runs_until?: string | null
           prerequisite_note?: string | null
           price?: number | null
           role_query_enabled?: boolean
@@ -605,8 +637,8 @@ export type Database = {
           pending_announced_at?: string | null
           pending_effective_date?: string | null
           pending_level?: string | null
-          pending_runs_until?: string | null
           pending_name?: string | null
+          pending_runs_until?: string | null
           prerequisite_note?: string | null
           price?: number | null
           role_query_enabled?: boolean
@@ -936,83 +968,6 @@ export type Database = {
           },
         ]
       }
-      event_ticket_type_units: {
-        Row: {
-          ticket_type_id: string
-          unit_id: string
-        }
-        Insert: {
-          ticket_type_id: string
-          unit_id: string
-        }
-        Update: {
-          ticket_type_id?: string
-          unit_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_ticket_type_units_ticket_type_id_fkey"
-            columns: ["ticket_type_id"]
-            isOneToOne: false
-            referencedRelation: "event_ticket_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_ticket_type_units_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "event_units"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      event_ticket_types: {
-        Row: {
-          created_at: string
-          event_id: string
-          id: string
-          name: string
-          on_sale: boolean
-          position: number
-          price_normal: number
-          price_student: number
-          quota: number | null
-          scope: string
-        }
-        Insert: {
-          created_at?: string
-          event_id: string
-          id?: string
-          name: string
-          on_sale?: boolean
-          position?: number
-          price_normal: number
-          price_student: number
-          quota?: number | null
-          scope?: string
-        }
-        Update: {
-          created_at?: string
-          event_id?: string
-          id?: string
-          name?: string
-          on_sale?: boolean
-          position?: number
-          price_normal?: number
-          price_student?: number
-          quota?: number | null
-          scope?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_ticket_types_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       event_previous_slugs: {
         Row: {
           created_at: string
@@ -1113,6 +1068,101 @@ export type Database = {
           },
         ]
       }
+      event_ticket_type_units: {
+        Row: {
+          ticket_type_id: string
+          unit_id: string
+        }
+        Insert: {
+          ticket_type_id: string
+          unit_id: string
+        }
+        Update: {
+          ticket_type_id?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ticket_type_units_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ticket_type_units_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "event_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_ticket_types: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          name: string
+          on_sale: boolean
+          position: number
+          price_normal: number
+          price_student: number
+          quota: number | null
+          scope: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          name: string
+          on_sale?: boolean
+          position?: number
+          price_normal: number
+          price_student: number
+          quota?: number | null
+          scope?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          name?: string
+          on_sale?: boolean
+          position?: number
+          price_normal?: number
+          price_student?: number
+          quota?: number | null
+          scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ticket_types_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       event_units: {
         Row: {
           capacity: number | null
@@ -1150,24 +1200,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      event_types: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          name?: string
-        }
-        Relationships: []
       }
       event_videos: {
         Row: {
@@ -1216,6 +1248,7 @@ export type Database = {
       }
       events: {
         Row: {
+          cancellation_lead_days: number
           capacity: number | null
           created_at: string
           description: string | null
@@ -1223,23 +1256,23 @@ export type Database = {
           event_type_id: string
           id: string
           location: string | null
+          max_role_difference: number | null
           moved_at: string | null
           name: string
           occurrence_date: string | null
           overridden: boolean
+          payment_methods: string
           price_normal: number | null
           price_student: number | null
+          role_query_enabled: boolean
           sales_mode: string
           series_id: string | null
           slug: string
           starts_at: string
           status: string
-          payment_methods: string
-          cancellation_lead_days: number
-          role_query_enabled: boolean
-          max_role_difference: number | null
         }
         Insert: {
+          cancellation_lead_days?: number
           capacity?: number | null
           created_at?: string
           description?: string | null
@@ -1247,23 +1280,23 @@ export type Database = {
           event_type_id: string
           id?: string
           location?: string | null
+          max_role_difference?: number | null
           moved_at?: string | null
           name: string
           occurrence_date?: string | null
           overridden?: boolean
+          payment_methods?: string
           price_normal?: number | null
           price_student?: number | null
+          role_query_enabled?: boolean
           sales_mode?: string
           series_id?: string | null
           slug: string
           starts_at: string
           status?: string
-          payment_methods?: string
-          cancellation_lead_days?: number
-          role_query_enabled?: boolean
-          max_role_difference?: number | null
         }
         Update: {
+          cancellation_lead_days?: number
           capacity?: number | null
           created_at?: string
           description?: string | null
@@ -1271,21 +1304,20 @@ export type Database = {
           event_type_id?: string
           id?: string
           location?: string | null
+          max_role_difference?: number | null
           moved_at?: string | null
           name?: string
           occurrence_date?: string | null
           overridden?: boolean
+          payment_methods?: string
           price_normal?: number | null
           price_student?: number | null
+          role_query_enabled?: boolean
           sales_mode?: string
           series_id?: string | null
           slug?: string
           starts_at?: string
           status?: string
-          payment_methods?: string
-          cancellation_lead_days?: number
-          role_query_enabled?: boolean
-          max_role_difference?: number | null
         }
         Relationships: [
           {
@@ -1838,12 +1870,12 @@ export type Database = {
           consent_ip: string | null
           consent_user_agent: string | null
           consented_at: string
-          profile_name_at_consent: string | null
           created_at: string
           customer_id: string
           iban: string
           id: string
           mandate_reference: string
+          profile_name_at_consent: string | null
           revoked_at: string | null
         }
         Insert: {
@@ -1851,12 +1883,12 @@ export type Database = {
           consent_ip?: string | null
           consent_user_agent?: string | null
           consented_at?: string
-          profile_name_at_consent?: string | null
           created_at?: string
           customer_id: string
           iban: string
           id?: string
           mandate_reference: string
+          profile_name_at_consent?: string | null
           revoked_at?: string | null
         }
         Update: {
@@ -1864,12 +1896,12 @@ export type Database = {
           consent_ip?: string | null
           consent_user_agent?: string | null
           consented_at?: string
-          profile_name_at_consent?: string | null
           created_at?: string
           customer_id?: string
           iban?: string
           id?: string
           mandate_reference?: string
+          profile_name_at_consent?: string | null
           revoked_at?: string | null
         }
         Relationships: [
@@ -1979,10 +2011,12 @@ export type Database = {
       }
       tickets: {
         Row: {
+          cancellation_lead_days: number
           checked_in_at: string | null
           checked_in_by: string | null
           created_at: string
           customer_id: string
+          dance_role: string | null
           event_id: string
           id: string
           payment_method: string
@@ -1990,17 +2024,17 @@ export type Database = {
           status: string
           terms_accepted_at: string | null
           terms_version: string | null
-          wants_student_price: boolean
           ticket_type_id: string | null
           unit_id: string | null
-          dance_role: string | null
-          cancellation_lead_days: number
+          wants_student_price: boolean
         }
         Insert: {
+          cancellation_lead_days?: number
           checked_in_at?: string | null
           checked_in_by?: string | null
           created_at?: string
           customer_id: string
+          dance_role?: string | null
           event_id: string
           id?: string
           payment_method: string
@@ -2008,17 +2042,17 @@ export type Database = {
           status?: string
           terms_accepted_at?: string | null
           terms_version?: string | null
-          wants_student_price?: boolean
           ticket_type_id?: string | null
           unit_id?: string | null
-          dance_role?: string | null
-          cancellation_lead_days?: number
+          wants_student_price?: boolean
         }
         Update: {
+          cancellation_lead_days?: number
           checked_in_at?: string | null
           checked_in_by?: string | null
           created_at?: string
           customer_id?: string
+          dance_role?: string | null
           event_id?: string
           id?: string
           payment_method?: string
@@ -2026,27 +2060,11 @@ export type Database = {
           status?: string
           terms_accepted_at?: string | null
           terms_version?: string | null
-          wants_student_price?: boolean
           ticket_type_id?: string | null
           unit_id?: string | null
-          dance_role?: string | null
-          cancellation_lead_days?: number
+          wants_student_price?: boolean
         }
         Relationships: [
-          {
-            foreignKeyName: "tickets_ticket_type_id_fkey"
-            columns: ["ticket_type_id"]
-            isOneToOne: false
-            referencedRelation: "event_ticket_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tickets_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "event_units"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "tickets_customer_id_fkey"
             columns: ["customer_id"]
@@ -2066,6 +2084,20 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "event_units"
             referencedColumns: ["id"]
           },
         ]
@@ -2286,7 +2318,7 @@ export type Database = {
       add_course_to_flatrate: {
         Args: {
           p_course_id: string
-          p_dance_role?: string | null
+          p_dance_role?: string
           p_prerequisite_confirmed?: boolean
         }
         Returns: {
@@ -2299,12 +2331,18 @@ export type Database = {
           started_on: string
           subscription_id: string
         }
+        SetofOptions: {
+          from: "*"
+          to: "course_memberships"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       admin_add_course_membership: {
         Args: {
-          p_customer_id: string
           p_course_id: string
-          p_dance_role?: string | null
+          p_customer_id: string
+          p_dance_role?: string
           p_ignore_capacity?: boolean
         }
         Returns: {
@@ -2317,23 +2355,16 @@ export type Database = {
           started_on: string
           subscription_id: string
         }
+        SetofOptions: {
+          from: "*"
+          to: "course_memberships"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       admin_count_mandate_iban_sharers: {
         Args: { p_mandate_id: string }
         Returns: number
-      }
-      admin_list_failed_notifications: {
-        Args: { p_limit?: number }
-        Returns: {
-          id: string
-          event_type: string
-          customer_name: string
-          email_status: string | null
-          push_status: string | null
-          error_detail: string | null
-          created_at: string
-          processed_at: string | null
-        }[]
       }
       admin_list_customer_emails: {
         Args: never
@@ -2342,14 +2373,24 @@ export type Database = {
           id: string
         }[]
       }
+      admin_list_failed_notifications: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          customer_name: string
+          email_status: string
+          error_detail: string
+          event_type: string
+          id: string
+          processed_at: string
+          push_status: string
+        }[]
+      }
       admin_remove_course_membership: {
-        Args: { p_customer_id: string; p_course_id: string }
+        Args: { p_course_id: string; p_customer_id: string }
         Returns: number
       }
-      aktive_flatrate: {
-        Args: { p_customer_id: string }
-        Returns: string
-      }
+      aktive_flatrate: { Args: { p_customer_id: string }; Returns: string }
       assert_valid_terms_version: {
         Args: { p_version: string }
         Returns: string
@@ -2357,10 +2398,12 @@ export type Database = {
       cancel_event_ticket: {
         Args: { p_ticket_id: string }
         Returns: {
+          cancellation_lead_days: number
           checked_in_at: string | null
           checked_in_by: string | null
           created_at: string
           customer_id: string
+          dance_role: string | null
           event_id: string
           id: string
           payment_method: string
@@ -2368,6 +2411,8 @@ export type Database = {
           status: string
           terms_accepted_at: string | null
           terms_version: string | null
+          ticket_type_id: string | null
+          unit_id: string | null
           wants_student_price: boolean
         }
         SetofOptions: {
@@ -2388,7 +2433,7 @@ export type Database = {
         }[]
       }
       checkin_event_guest: {
-        Args: { p_guest_id: string; p_event_id: string; p_unit_id?: string | null }
+        Args: { p_event_id: string; p_guest_id: string; p_unit_id?: string }
         Returns: {
           created_at: string
           created_by: string | null
@@ -2398,14 +2443,22 @@ export type Database = {
           name: string
           note: string | null
         }
+        SetofOptions: {
+          from: "*"
+          to: "event_guests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       checkin_event_ticket: {
-        Args: { p_ticket_id: string; p_event_id: string; p_unit_id?: string | null }
+        Args: { p_event_id: string; p_ticket_id: string; p_unit_id?: string }
         Returns: {
+          cancellation_lead_days: number
           checked_in_at: string | null
           checked_in_by: string | null
           created_at: string
           customer_id: string
+          dance_role: string | null
           event_id: string
           id: string
           payment_method: string
@@ -2413,6 +2466,8 @@ export type Database = {
           status: string
           terms_accepted_at: string | null
           terms_version: string | null
+          ticket_type_id: string | null
+          unit_id: string | null
           wants_student_price: boolean
         }
         SetofOptions: {
@@ -2422,10 +2477,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      count_my_recent_attendance: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      count_my_recent_attendance: { Args: never; Returns: number }
       create_invoice_document: {
         Args: {
           p_amount: number
@@ -2474,40 +2526,6 @@ export type Database = {
           p_terms_accepted?: boolean
           p_terms_version?: string
           p_wants_student_price?: boolean
-        }
-        Returns: {
-          chosen_date: string
-          coupon_id: string | null
-          course_id: string
-          created_at: string
-          customer_id: string
-          dance_role: string | null
-          desired_plan: string | null
-          id: string
-          note: string | null
-          price: number | null
-          status: string
-          subscription_id: string | null
-          terms_accepted_at: string | null
-          terms_version: string | null
-          type: string
-          wants_student_price: boolean | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "course_bookings"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      rebook_self_service_booking: {
-        Args: {
-          p_booking_id: string
-          p_course_id: string
-          p_chosen_date: string
-          p_prerequisite_confirmed?: boolean
-          p_terms_accepted?: boolean
-          p_terms_version?: string
         }
         Returns: {
           chosen_date: string
@@ -2643,20 +2661,12 @@ export type Database = {
         Returns: string
       }
       get_course_trial_bookings: {
-        Args: { p_course_ids: string[]; p_von: string; p_bis: string }
+        Args: { p_bis: string; p_course_ids: string[]; p_von: string }
         Returns: {
           chosen_date: string
           course_id: string
           customer_id: string
           id: string
-        }[]
-      }
-      get_last_session_notes: {
-        Args: { p_course_ids: string[] }
-        Returns: {
-          course_id: string
-          note: string
-          occurrence_date: string
         }[]
       }
       get_event_occupancy: {
@@ -2669,15 +2679,23 @@ export type Database = {
       get_event_type_occupancy: {
         Args: { p_event_id: string }
         Returns: {
-          ticket_type_id: string
           ticket_count: number
+          ticket_type_id: string
         }[]
       }
       get_event_unit_occupancy: {
         Args: { p_event_id: string }
         Returns: {
-          unit_id: string
           ticket_count: number
+          unit_id: string
+        }[]
+      }
+      get_last_session_notes: {
+        Args: { p_course_ids: string[] }
+        Returns: {
+          course_id: string
+          note: string
+          occurrence_date: string
         }[]
       }
       get_my_todays_attendance: {
@@ -2716,6 +2734,7 @@ export type Database = {
           referrer_id: string
         }[]
       }
+      heute_wien: { Args: never; Returns: string }
       is_course_teacher: { Args: { p_course_id: string }; Returns: boolean }
       join_waitlist: {
         Args: {
@@ -2744,10 +2763,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      kurs_belegung: {
-        Args: { p_course_id: string }
-        Returns: number
-      }
+      kurs_belegung: { Args: { p_course_id: string }; Returns: number }
       kurs_rollenanzahl: {
         Args: { p_course_id: string; p_rolle: string }
         Returns: number
@@ -2784,22 +2800,28 @@ export type Database = {
         Args: { p_course_id: string }
         Returns: number
       }
+      promote_waitlist_internal: {
+        Args: { p_course_id: string }
+        Returns: number
+      }
       purchase_event_ticket: {
         Args: {
+          p_dance_role?: string
           p_event_id: string
           p_payment_method: string
           p_terms_accepted?: boolean
           p_terms_version?: string
+          p_ticket_type_id?: string
+          p_unit_id?: string
           p_wants_student_price: boolean
-          p_ticket_type_id?: string | null
-          p_unit_id?: string | null
-          p_dance_role?: string | null
         }
         Returns: {
+          cancellation_lead_days: number
           checked_in_at: string | null
           checked_in_by: string | null
           created_at: string
           customer_id: string
+          dance_role: string | null
           event_id: string
           id: string
           payment_method: string
@@ -2807,11 +2829,47 @@ export type Database = {
           status: string
           terms_accepted_at: string | null
           terms_version: string | null
+          ticket_type_id: string | null
+          unit_id: string | null
           wants_student_price: boolean
         }
         SetofOptions: {
           from: "*"
           to: "tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rebook_self_service_booking: {
+        Args: {
+          p_booking_id: string
+          p_chosen_date: string
+          p_course_id: string
+          p_prerequisite_confirmed?: boolean
+          p_terms_accepted?: boolean
+          p_terms_version?: string
+        }
+        Returns: {
+          chosen_date: string
+          coupon_id: string | null
+          course_id: string
+          created_at: string
+          customer_id: string
+          dance_role: string | null
+          desired_plan: string | null
+          id: string
+          note: string | null
+          price: number | null
+          status: string
+          subscription_id: string | null
+          terms_accepted_at: string | null
+          terms_version: string | null
+          type: string
+          wants_student_price: boolean | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "course_bookings"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2848,10 +2906,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      return_collection_item_credit: {
-        Args: { p_collection_item_id: string }
-        Returns: number
-      }
       remove_course_from_flatrate: {
         Args: { p_course_id: string }
         Returns: number
@@ -2866,6 +2920,10 @@ export type Database = {
           p_desired_plan: string
           p_wants_student_price?: boolean
         }
+        Returns: number
+      }
+      return_collection_item_credit: {
+        Args: { p_collection_item_id: string }
         Returns: number
       }
       self_reactivate_subscription: {
@@ -2979,12 +3037,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3008,11 +3066,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3033,11 +3091,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3058,11 +3116,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3075,11 +3133,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3089,6 +3147,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

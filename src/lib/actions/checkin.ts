@@ -167,7 +167,9 @@ export async function checkinTicket(
   const { data, error } = await supabase.rpc("checkin_event_ticket", {
     p_ticket_id: ticketId,
     p_event_id: eventId,
-    p_unit_id: unitId ?? null,
+    // Weglassen statt null: Der Vorgabewert der Funktion ist null, und die
+    // erzeugten Typen kennen für einen Parameter mit Vorgabe kein null.
+    p_unit_id: unitId ?? undefined,
   });
 
   if (error) {
@@ -228,7 +230,9 @@ export async function checkinGast(guestId: string, eventId: string, unitId?: str
   const { data, error } = await supabase.rpc("checkin_event_guest", {
     p_guest_id: guestId,
     p_event_id: eventId,
-    p_unit_id: unitId ?? null,
+    // Weglassen statt null: Der Vorgabewert der Funktion ist null, und die
+    // erzeugten Typen kennen für einen Parameter mit Vorgabe kein null.
+    p_unit_id: unitId ?? undefined,
   });
 
   if (error) {

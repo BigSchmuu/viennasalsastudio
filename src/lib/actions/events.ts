@@ -68,9 +68,10 @@ export async function purchaseTicket(
     p_wants_student_price: wantsStudentPrice,
     p_terms_accepted: termsAccepted,
     p_terms_version: AGB_VERSION,
-    p_ticket_type_id: auswahl.ticketTypeId ?? null,
-    p_unit_id: auswahl.unitId ?? null,
-    p_dance_role: auswahl.danceRole ?? null,
+    // Weglassen statt null: Der Vorgabewert dieser Parameter ist null.
+    p_ticket_type_id: auswahl.ticketTypeId ?? undefined,
+    p_unit_id: auswahl.unitId ?? undefined,
+    p_dance_role: auswahl.danceRole ?? undefined,
   });
 
   if (error) {
