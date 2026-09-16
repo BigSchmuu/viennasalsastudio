@@ -1,5 +1,6 @@
 import { heuteInWien } from "@/lib/constants/zeitzone";
 
+import { SELF_CHECKIN_VORLAUF_MINUTEN } from "@/lib/constants/checkin";
 // Weekday convention across the app: 0=Montag ... 6=Sonntag.
 // JS Date.getDay() uses 0=Sonntag ... 6=Samstag, so it needs remapping.
 export function jsDayToWeekday(jsDay: number): number {
@@ -192,8 +193,9 @@ export function viennaWallClockToDate(dateString: string, timeString: string): D
   return new Date(naiveUtc.getTime() - offsetMinutes * 60000);
 }
 
-/** Self-check-in window for a course occurrence: opens 30 minutes before the
- *  Vienna-local start time, closes (for undo purposes) at the Vienna-local end time. */
+/** Self-check-in window for a course occurrence: opens `SELF_CHECKIN_VORLAUF_MINUTEN`
+ *  before the Vienna-local start time, closes (for undo purposes) at the
+ *  Vienna-local end time. Dieselbe Frist steht in `self_checkin_course`. */
 export function selfCheckinWindow(
   occurrenceDate: string,
   startTime: string,
@@ -201,6 +203,6 @@ export function selfCheckinWindow(
 ): { opensAt: Date; endsAt: Date } {
   const start = viennaWallClockToDate(occurrenceDate, startTime);
   const endsAt = viennaWallClockToDate(occurrenceDate, endTime);
-  const opensAt = new Date(start.getTime() - 30 * 60000);
+  const opensAt = new Date(start.getTime() - SELF_CHECKIN_VORLAUF_MINUTEN * 60000);
   return { opensAt, endsAt };
 }

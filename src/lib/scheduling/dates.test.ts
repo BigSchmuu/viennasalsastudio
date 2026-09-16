@@ -8,6 +8,7 @@ import {
   selfCheckinWindow,
 } from "./dates";
 import { UNBEFRISTET } from "./ferien";
+import { SELF_CHECKIN_VORLAUF_MINUTEN } from "@/lib/constants/checkin";
 
 describe("jsDayToWeekday", () => {
   it("maps JS Sunday (0) to app Sonntag (6)", () => {
@@ -146,20 +147,25 @@ describe("selfCheckinWindow", () => {
   // interpret them that way (regression guard for a Vienna/UTC offset bug).
   it("interprets start/end as Vienna local time in summer (CEST, UTC+2)", () => {
     const { opensAt, endsAt } = selfCheckinWindow("2026-08-18", "18:00:00", "19:00:00");
-    expect(opensAt.toISOString()).toBe("2026-08-18T15:30:00.000Z"); // 17:30 Vienna - 30min = 15:30 UTC
+    // 18:00 Wien = 16:00 UTC, minus 6 Stunden Vorlauf = 10:00 UTC.
+    expect(opensAt.toISOString()).toBe("2026-08-18T10:00:00.000Z");
     expect(endsAt.toISOString()).toBe("2026-08-18T17:00:00.000Z"); // 19:00 Vienna = 17:00 UTC
   });
 
   it("interprets start/end as Vienna local time in winter (CET, UTC+1)", () => {
     const { opensAt, endsAt } = selfCheckinWindow("2026-01-18", "18:00:00", "19:00:00");
-    expect(opensAt.toISOString()).toBe("2026-01-18T16:30:00.000Z"); // 17:30 Vienna - 30min = 16:30 UTC
+    // 18:00 Wien = 17:00 UTC, minus 6 Stunden Vorlauf = 11:00 UTC.
+    expect(opensAt.toISOString()).toBe("2026-01-18T11:00:00.000Z");
     expect(endsAt.toISOString()).toBe("2026-01-18T18:00:00.000Z"); // 19:00 Vienna = 18:00 UTC
   });
 
-  it("opens exactly 30 minutes before the Vienna-local start time", () => {
+  it("öffnet genau den eingestellten Vorlauf vor dem Wiener Beginn", () => {
+    // Gegen die Zahl aus der Konstanten geprüft, nicht gegen eine zweite
+    // Kopie davon: Sonst müsste man bei jeder Änderung an zwei Stellen denken —
+    // und genau das ist bei dieser Frist schon einmal schiefgegangen.
     const { opensAt } = selfCheckinWindow("2026-08-18", "18:00:00", "19:00:00");
     const start = selfCheckinWindow("2026-08-18", "18:00:00", "18:00:00").endsAt;
-    expect(start.getTime() - opensAt.getTime()).toBe(30 * 60 * 1000);
+    expect(start.getTime() - opensAt.getTime()).toBe(SELF_CHECKIN_VORLAUF_MINUTEN * 60 * 1000);
   });
 });
 
