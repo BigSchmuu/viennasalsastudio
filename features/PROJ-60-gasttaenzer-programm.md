@@ -133,13 +133,117 @@ Zuruf und WhatsApp.
 | Der Gast steht auf der Anwesenheitsliste, als Gast erkennbar | Die Lehrkraft muss wissen, wer im Raum ist und warum. Und beim Nachrechnen darf ein Gastabend nicht wie ein bezahlter Platz aussehen | 2026-09-16 |
 
 ### Technical Decisions
-_To be added by /architecture_
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Eine Zusage ist eine **Buchung** der neuen Art „Gast", keine eigene Tabelle | Buchungen hängen bereits an Kurs und Termin, zählen gegen die Kapazität, erscheinen auf der Anwesenheitsliste und lassen sich stornieren. Eine eigene Tabelle hieße, all das ein zweites Mal zu bauen — und ein Gast, der irgendwo fehlt, fällt erst im Saal auf | 2026-09-16 |
+| Preis 0 statt „kein Preis" | Ein Nullbetrag rechnet sich überall mit, ein fehlender Wert muss überall abgefangen werden. Und in der Auswertung ist sichtbar, dass der Abend nichts gekostet hat, statt dass er fehlt | 2026-09-16 |
+| Die Vergabe des letzten Platzes läuft in einer Datenbankfunktion mit gesperrter Zeile | Dieselbe Bauart wie bei der Stornierung in PROJ-59, wo sich gezeigt hat, dass sie hält. Zwei gleichzeitige Zusagen dürfen nicht beide den letzten Platz bekommen | 2026-09-16 |
+| Die Rangfolge der Level steht in der Datenbank | „Mindestens eine Stufe drüber" muss beim Filtern der Empfänger ausgewertet werden, also dort, wo die Empfänger ermittelt werden. `open_level` bekommt bewusst **keinen** Rang — deshalb ist die Mindeststufe je Ausschreibung einstellbar | 2026-09-16 |
+| Die Anwesenheitsliste bekommt eine vierte Quelle „Gast" | Sie kennt bereits `abo`, `buchung` und `manuell` samt Rangfolge. Eine vierte Quelle fügt sich ein, statt daneben ein zweites Verfahren zu schaffen | 2026-09-16 |
+| Die Schieflage wird genauso gezählt wie beim Buchen | PROJ-30 zählt aktive Abos plus offene reguläre Buchungen je Rolle. Eine zweite, eigene Rechnung würde früher oder später eine andere Zahl liefern als die, die eine Buchung ablehnt | 2026-09-16 |
+| Einladungen gehen als einzelne Benachrichtigungen, nicht als Rundschreiben | Jede Einladung braucht einen eigenen Zustand — gelesen, angenommen, verfallen — und der Empfängerkreis ist gefiltert. Ein Newsletter kann beides nicht | 2026-09-16 |
+| Keine neuen Pakete | Alles Nötige ist vorhanden | 2026-09-16 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Die Grundidee
+
+Eine Zusage ist **eine Buchung wie jede andere** — nur mit der neuen Art „Gast" und dem Preis 0.
+Das ist die wichtigste Entscheidung des Entwurfs, denn daran hängt alles Weitere: Buchungen sind
+schon mit einem Kurs und einem Termin verknüpft, zählen gegen die Teilnehmerzahl, erscheinen auf der
+Anwesenheitsliste und lassen sich absagen. Eine eigene Gasttänzer-Tabelle hieße, all das ein zweites
+Mal zu bauen — und ein Gast, der in einer dieser Listen fehlt, fällt erst im Saal auf.
+
+Neu sind damit nur zwei Dinge: wer im Programm ist, und was gerade ausgeschrieben ist.
+
+### Was gespeichert wird
+
+**Wer im Programm ist** — je Kunde eine Zeile: Rolle (Leader, Follower oder beides), höchstes Level,
+seit wann dabei, und ob ausgeschlossen. Der Ausschluss wird vermerkt, nicht gelöscht: Sonst könnte
+sich derselbe Mensch am nächsten Tag neu anmelden, und niemand wüsste, warum er weg war.
+
+**Was ausgeschrieben ist** — je Ausschreibung: Kurs, Termin, gesuchte Rolle, Anzahl der Plätze,
+Mindeststufe, wer sie freigegeben hat, und ob sie zurückgezogen wurde. Wie viele Plätze noch frei
+sind, wird **nicht** gespeichert, sondern gezählt: Ein mitgeführter Zähler und die tatsächlichen
+Zusagen driften irgendwann auseinander, und dann glaubt man dem falschen.
+
+**Neu in der Liste der Benachrichtigungsarten** ein Eintrag für die Einladung. Diese Liste ist in der
+Datenbank festgeschrieben; fehlt der Eintrag, verschwindet die Einladung lautlos. Das ist in diesem
+Projekt bereits dreimal passiert.
+
+### Die Rangfolge der Level
+
+„Mindestens eine Stufe über dem Kurs" muss dort ausgewertet werden, wo die Empfänger ermittelt
+werden — also in der Datenbank. Die Rangfolge lautet:
+
+```
+beginner (1) < improver (2) < intermediate (3) < advanced (4)
+open_level: kein Rang
+```
+
+`open_level` bekommt bewusst keinen Platz in dieser Reihe, weil es keinen hat: Ein Open-Level-Kurs
+mischt alle Stufen. Genau deshalb ist die Mindeststufe je Ausschreibung einstellbar — der Betreiber
+entscheidet dort, wo die Regel nicht greift, statt dass sich die App etwas ausdenkt.
+
+### Was gebaut wird
+
+```
+Profil → neuer Abschnitt „Gasttänzer-Programm"
++-- Noch nicht dabei: kurze Erklärung, Rolle und höchstes Level, „Mitmachen"
++-- Dabei: Rolle und Level ändern, „Nicht mehr mitmachen"
++-- Offene Einladungen: Kurs, Termin, Uhrzeit, Ort, gesuchte Rolle
+|   +-- „Ich springe ein" mit der Bestätigung zum Level
++-- Zugesagte Abende, mit „Doch nicht"
+
+Verwaltung → neue Seite „Gasttänzer"
++-- Aus der Balance: Kurse, deren Differenz die Grenze überschreitet
+|   +-- je Zeile: fehlende Rolle, Anzahl, „Plätze ausschreiben" (vorausgefüllt)
++-- „Plätze ausschreiben" auch ohne Vorschlag — jeder Kurs mit Rollenabfrage
++-- Laufende Ausschreibungen: Kurs, Termin, Rolle, „2 von 3 vergeben", „Zurückziehen"
++-- Programmteilnehmer: Rolle, Level, seit wann, „Ausschließen"
+
+Ausschreiben-Dialog
++-- Kurs · Termin (nur Tage, an denen der Kurs wirklich stattfindet)
++-- Rolle · Anzahl der Plätze
++-- Mindeststufe, vorbelegt mit „eine Stufe über dem Kurs"
++-- Hinweis, falls der Kurs bereits voll ist — er hält niemanden auf
+
+Lehrerbereich → Anwesenheitsliste (Erweiterung)
++-- Der Gast steht dort mit der Quelle „Gast"
+```
+
+### Warum die Zusage in die Datenbank gehört
+
+Beim letzten freien Platz entscheidet sich, ob die Funktion taugt. Zwei Menschen, die im selben
+Moment auf „Ich springe ein" tippen, dürfen nicht beide einen Platz bekommen, den es nur einmal
+gibt. Deshalb läuft die Vergabe in einer Datenbankfunktion, die die Ausschreibung sperrt, die
+bisherigen Zusagen zählt und erst dann die Buchung anlegt — dieselbe Bauart wie die Stornierung in
+PROJ-59, wo sich gezeigt hat, dass sie hält.
+
+Dieselbe Funktion prüft auch, was die Oberfläche nur anzeigt: dass die Ausschreibung noch läuft,
+dass der Kurs noch nicht begonnen hat, dass der Zusagende im Programm und nicht ausgeschlossen ist,
+und dass er nicht ohnehin schon in diesem Kurs sitzt.
+
+### Wie die Schieflage gezählt wird
+
+Genauso, wie beim Buchen gezählt wird: aktive Abos plus offene reguläre Buchungen, je Rolle. Diese
+Rechnung steckt bereits in der Buchungsfunktion aus PROJ-30. Eine zweite, eigene Rechnung würde
+früher oder später eine andere Zahl liefern als die, die eine Buchung ablehnt — und dann stünde in
+der Verwaltung „im Gleichgewicht", während ein Kunde gerade hört, er dürfe wegen der Balance nicht
+buchen.
+
+### Backend nötig?
+
+Ja, und es ist der größere Teil: zwei neue Tabellen, die neue Buchungsart, die Rangfolge der Level,
+die Vergabefunktion, die Auskunft über die Schieflage, die vierte Quelle in der Anwesenheitsliste
+und die Einladung samt Migration.
+
+### Zusätzliche Pakete
+
+Keine.
 
 ## QA Test Results
 _To be added by /qa_
