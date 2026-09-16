@@ -65,6 +65,14 @@ export function GasttaenzerManager({
   const [vorbelegung, setVorbelegung] = useState<{ kursId: string; rolle: string; anzahl: number } | null>(
     null
   );
+  const [zeigeErledigte, setZeigeErledigte] = useState(false);
+
+  // „Erledigt" heißt: zurückgezogen oder alle Plätze vergeben. Beides braucht
+  // keine Aufmerksamkeit mehr — aber ganz verschwinden soll es nicht, sonst
+  // ließe sich nicht mehr nachsehen, was für Dienstag ausgeschrieben war.
+  const erledigt = ausschreibungen.filter((a) => a.zurueckgezogenAm || a.zusagen >= a.plaetze);
+  const offen = ausschreibungen.filter((a) => !a.zurueckgezogenAm && a.zusagen < a.plaetze);
+  const sichtbar = zeigeErledigte ? ausschreibungen : offen;
 
   function ausschreibenFuer(zeile: SchieflageZeile) {
     setVorbelegung({ kursId: zeile.courseId, rolle: zeile.fehlendeRolle, anzahl: zeile.fehlendeAnzahl });
@@ -132,16 +140,29 @@ export function GasttaenzerManager({
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h3 className="font-heading text-lg font-semibold">Laufende Ausschreibungen</h3>
-          <p className="text-sm text-muted-foreground">
-            Zusagen sind bis zum Kursbeginn möglich. Ziehst du eine Ausschreibung zurück, werden bereits
-            Zugesagte abgesagt und benachrichtigt.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="font-heading text-lg font-semibold">Laufende Ausschreibungen</h3>
+            <p className="text-sm text-muted-foreground">
+              Zusagen sind bis zum Kursbeginn möglich. Ziehst du eine Ausschreibung zurück, werden bereits
+              Zugesagte abgesagt und benachrichtigt.
+            </p>
+          </div>
+          {erledigt.length > 0 ? (
+            <Button variant="ghost" size="sm" onClick={() => setZeigeErledigte((z) => !z)}>
+              {zeigeErledigte
+                ? "Erledigte ausblenden"
+                : `Erledigte anzeigen (${erledigt.length})`}
+            </Button>
+          ) : null}
         </div>
 
-        {ausschreibungen.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nichts ausgeschrieben.</p>
+        {sichtbar.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {ausschreibungen.length === 0
+              ? "Nichts ausgeschrieben."
+              : "Nichts Offenes — alles vergeben oder zurückgezogen."}
+          </p>
         ) : (
           <Table>
             <TableHeader>
@@ -154,7 +175,7 @@ export function GasttaenzerManager({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ausschreibungen.map((a) => (
+              {sichtbar.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">{a.kursName}</TableCell>
                   <TableCell>{datumLang(a.termin)}</TableCell>
@@ -172,6 +193,13 @@ export function GasttaenzerManager({
                   <TableCell className="text-right">
                     {a.zurueckgezogenAm ? (
                       <Badge variant="outline">Zurückgezogen</Badge>
+                    ) : a.zusagen >= a.plaetze ? (
+                      // Besetzt, aber noch zurückziehbar: Ein Abend kann auch
+                      // dann noch ausfallen, wenn alle Plätze weg sind.
+                      <div className="flex items-center justify-end gap-2">
+                        <Badge variant="secondary">Besetzt</Badge>
+                        <Zurueckziehen id={a.id} zusagen={a.zusagen} />
+                      </div>
                     ) : (
                       <Zurueckziehen id={a.id} zusagen={a.zusagen} />
                     )}

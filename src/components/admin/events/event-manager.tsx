@@ -44,6 +44,7 @@ import { createGast, deleteGast, getEventProgramm, type GastZeile } from "@/lib/
 import { danceRoleOptions } from "@/lib/constants/booking";
 import { STANDARD_STORNOFRIST_TAGE, type Zahlungswahl } from "@/lib/events/tickets";
 import { StornoDialog } from "@/components/admin/events/storno-dialog";
+import { eventEnde } from "@/lib/events/event-zustand";
 import {
   Form,
   FormControl,
@@ -97,6 +98,17 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
   const [guestsLoading, setGuestsLoading] = useState(false);
   const [medienEvent, setMedienEvent] = useState<EventRow | null>(null);
   const [programmEvent, setProgrammEvent] = useState<EventRow | null>(null);
+  const [zeigeErledigte, setZeigeErledigte] = useState(false);
+
+  // Abgesagt oder vorbei — beides braucht keine Aufmerksamkeit mehr. Anders als
+  // bei den Gastplätzen gibt es hier keine Datumsgrenze in der Abfrage: Jede
+  // jemals angelegte Party blieb in der Liste stehen, und das wuchs unbegrenzt.
+  // Ausblenden, nicht wegwerfen: Wer im Februar nachsehen will, was im November
+  // lief, findet es hinter dem Schalter.
+  const istErledigt = (event: EventRow) =>
+    event.status === "abgesagt" || eventEnde(event.startsAt, event.endsAt) <= new Date();
+  const erledigte = events.filter(istErledigt);
+  const sichtbareEvents = zeigeErledigte ? events : events.filter((e) => !istErledigt(e));
 
   async function openGuestList(event: EventRow) {
     setGuestListEvent(event);
@@ -110,7 +122,12 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {erledigte.length > 0 ? (
+          <Button variant="ghost" size="sm" onClick={() => setZeigeErledigte((z) => !z)}>
+            {zeigeErledigte ? "Vergangene ausblenden" : `Vergangene anzeigen (${erledigte.length})`}
+          </Button>
+        ) : null}
         <Button
           onClick={() => {
             setEditing(null);
@@ -133,7 +150,7 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
           </TableRow>
         </TableHeader>
         <TableBody>
-          {events.map((event) => (
+          {sichtbareEvents.map((event) => (
             <TableRow key={event.id}>
               <TableCell className="font-medium">{event.name}</TableCell>
               <TableCell className="text-muted-foreground">{event.eventTypeName}</TableCell>
@@ -189,7 +206,7 @@ export function EventManager({ events, eventTypes }: { events: EventRow[]; event
               </TableCell>
             </TableRow>
           ))}
-          {events.length === 0 && (
+          {sichtbareEvents.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} className="text-center text-muted-foreground">
                 Noch keine Events angelegt.

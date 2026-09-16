@@ -132,6 +132,15 @@ export function CourseManager({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [editing, setEditing] = useState<CourseRow | null | "new">(null);
+  const [zeigeBeendete, setZeigeBeendete] = useState(false);
+
+  // Ein Kurs, dessen Laufzeit vorbei ist, braucht keine Aufmerksamkeit mehr —
+  // bleibt aber auffindbar. Dieselbe Überlegung wie bei Events und Serien.
+  const heute = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
+  const beendete = courses.filter((c) => c.runsUntil !== null && c.runsUntil < heute);
+  const sichtbareKurse = zeigeBeendete
+    ? courses
+    : courses.filter((c) => c.runsUntil === null || c.runsUntil >= heute);
   const [deleteTarget, setDeleteTarget] = useState<CourseRow | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [waitlistTarget, setWaitlistTarget] = useState<CourseRow | null>(null);
@@ -218,6 +227,11 @@ export function CourseManager({
             </SelectContent>
           </Select>
         </div>
+        {beendete.length > 0 && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setZeigeBeendete((z) => !z)}>
+            {zeigeBeendete ? "Beendete ausblenden" : `Beendete anzeigen (${beendete.length})`}
+          </Button>
+        )}
         {listFiltersActive && (
           <Button type="button" variant="outline" size="sm" onClick={resetListFilters}>
             Filter zurücksetzen
@@ -225,7 +239,7 @@ export function CourseManager({
         )}
       </div>
 
-      {courses.length === 0 ? (
+      {sichtbareKurse.length === 0 ? (
         <p className="text-sm text-muted-foreground py-8 text-center">
           {listFiltersActive ? "Keine Kurse gefunden." : "Noch keine Kurse vorhanden."}
         </p>
@@ -246,7 +260,7 @@ export function CourseManager({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {courses.map((course) => (
+            {sichtbareKurse.map((course) => (
               <TableRow key={course.id}>
                 <TableCell className="font-medium">{course.name}</TableCell>
                 <TableCell>{course.danceStyleName}</TableCell>

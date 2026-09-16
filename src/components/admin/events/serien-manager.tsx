@@ -27,7 +27,7 @@ import type { EventTypeOption } from "@/components/admin/events/event-manager";
 import { weekdayLabel, weekdayOptions } from "@/lib/constants/weekdays";
 import { toDatetimeLocal } from "@/lib/events/formular";
 import { MedienDialog } from "@/components/admin/events/medien-dialog";
-import { uhrzeitKurz, SERIE_BEENDET } from "@/lib/events/serie";
+import { uhrzeitKurz, SERIE_BEENDET, SERIE_AKTIV} from "@/lib/events/serie";
 import type { SalesMode } from "@/lib/events/event-zustand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,6 +108,12 @@ export function SerienManager({ serien, eventTypes }: { serien: SerieRow[]; even
   const [endTarget, setEndTarget] = useState<SerieRow | null>(null);
   const [endTickets, setEndTickets] = useState<number | null>(null);
   const [medienSerie, setMedienSerie] = useState<SerieRow | null>(null);
+  const [zeigeBeendete, setZeigeBeendete] = useState(false);
+
+  // Dieselbe Überlegung wie bei den Events: Eine beendete Serie ist erledigt,
+  // soll aber auffindbar bleiben.
+  const beendete = serien.filter((s) => s.status !== SERIE_AKTIV);
+  const sichtbareSerien = zeigeBeendete ? serien : serien.filter((s) => s.status === SERIE_AKTIV);
 
   // Vor dem Bestätigen die Zahl der betroffenen Tickets — eine Absage mit
   // Folgen für zahlende Gäste soll niemand blind auslösen. Geladen wird beim
@@ -120,7 +126,12 @@ export function SerienManager({ serien, eventTypes }: { serien: SerieRow[]; even
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {beendete.length > 0 ? (
+          <Button variant="ghost" size="sm" onClick={() => setZeigeBeendete((z) => !z)}>
+            {zeigeBeendete ? "Beendete ausblenden" : `Beendete anzeigen (${beendete.length})`}
+          </Button>
+        ) : null}
         <Button
           onClick={() => {
             setEditing(null);
@@ -143,7 +154,7 @@ export function SerienManager({ serien, eventTypes }: { serien: SerieRow[]; even
           </TableRow>
         </TableHeader>
         <TableBody>
-          {serien.map((serie) => (
+          {sichtbareSerien.map((serie) => (
             <TableRow key={serie.id}>
               <TableCell className="font-medium">{serie.name}</TableCell>
               <TableCell className="text-muted-foreground">{serie.eventTypeName}</TableCell>
@@ -190,7 +201,7 @@ export function SerienManager({ serien, eventTypes }: { serien: SerieRow[]; even
               </TableCell>
             </TableRow>
           ))}
-          {serien.length === 0 && (
+          {sichtbareSerien.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} className="text-center text-muted-foreground">
                 Noch keine Serien angelegt.
