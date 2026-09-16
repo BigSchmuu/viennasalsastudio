@@ -463,10 +463,10 @@ Die zwei Fehlschläge waren derselbe Test in beiden Browsern — und dahinter st
 2. **Die Rollenregel rechnet je Event, nicht je Einheit** — wie bei Kursen je Kurs. Für einen Workshop ist das Event die Gruppe; bei einem Programm mit sehr verschiedenen Einheiten könnte man es anders wollen.
 3. **Die Namenssuche am Einlass bleibt leer, bis jemand tippt.** Unverändert seit PROJ-14, fällt mit Einheiten aber mehr auf.
 4. **Firefox ist in Playwright weiterhin nicht eingerichtet**, Tabletbreite ungetestet.
-5. **Die Bestätigungs-Benachrichtigung nennt weiterhin nur Event und Zeitpunkt**, nicht Ticketart, Einheiten und Frist. Das Kriterium verlangt es; die Karte im Profil erfüllt es jetzt, die Nachricht nicht. Dafür bräuchte es eine neue Vorlagenfassung — eigener Durchgang, damit die Texte im Admin änderbar bleiben.
+5. ~~Die Bestätigungs-Benachrichtigung nennt weiterhin nur Event und Zeitpunkt.~~ **Nachgeliefert am 2026-09-16:** Unter dem Vorlagentext steht jetzt eine Liste mit Ticketart, Einheit, Preis und Stornofrist — als eigener Block, nicht als Platzhalter. So bleibt der Text im Admin änderbar, ohne dass eine angepasste Fassung die neuen Angaben verschluckt. Tickets aus der Zeit davor tragen die Angaben nicht; dann bleibt die Liste weg, statt leer dazustehen. Sechs Tests, deutsch und englisch.
 
 ### Zusammenfassung
-- **Abnahmekriterien:** 33 von 34 bestanden (offen: die Bestätigungs-Benachrichtigung, siehe Beobachtung 5)
+- **Abnahmekriterien:** 34 von 34 bestanden (die Bestätigungs-Benachrichtigung wurde am 2026-09-16 nachgeliefert, siehe Beobachtung 5)
 - **Fehler:** 4 gefunden, 4 behoben
 - **Sicherheit:** bestanden
 - **Automatisierte Tests:** 10 E2E in zwei Browsern, 23 Datenbanktests, 750 Unit-Tests — alle grün; dazu der gebündelte Lauf über alles

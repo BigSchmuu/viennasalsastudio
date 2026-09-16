@@ -123,6 +123,90 @@ describe("buildNotificationContent", () => {
     expect(reserved.emailHtml).toContain("vor Ort bezahlen");
   });
 
+  // PROJ-56: Der Kunde soll in der Bestätigung sehen, was er gekauft hat —
+  // vorher musste er dafür ins Profil.
+  it("nennt in der Ticketbestätigung Ticketart, Einheit, Preis und Stornofrist", () => {
+    const content = buildNotificationContent("event_tickets", {
+      subType: "purchased",
+      eventName: "Salsa Weekender",
+      startsAt: "2026-09-01T20:00:00Z",
+      ticketStatus: "confirmed",
+      ticketType: "Full Pass",
+      unit: "Styling",
+      price: 60,
+      cancellationLeadDays: 3,
+    });
+    expect(content.emailHtml).toContain("Ticketart: Full Pass");
+    expect(content.emailHtml).toContain("Einheit: Styling");
+    expect(content.emailHtml).toContain("Preis:");
+    expect(content.emailHtml).toContain("Stornieren bis 3 Tage vor Beginn möglich");
+  });
+
+  it("sagt bei einer Frist von 0 Tagen, dass es bis zum Beginn geht", () => {
+    const content = buildNotificationContent("event_tickets", {
+      subType: "purchased",
+      eventName: "Freitagsparty",
+      startsAt: "2026-09-01T20:00:00Z",
+      ticketStatus: "reserved",
+      cancellationLeadDays: 0,
+    });
+    expect(content.emailHtml).toContain("Stornieren bis zum Beginn möglich");
+  });
+
+  it("nennt eine kostenlose Ticketart als kostenlos, nicht als 0,00 €", () => {
+    const content = buildNotificationContent("event_tickets", {
+      subType: "purchased",
+      eventName: "Offene Probe",
+      startsAt: "2026-09-01T20:00:00Z",
+      ticketStatus: "confirmed",
+      ticketType: "Gast",
+      price: 0,
+    });
+    expect(content.emailHtml).toContain("kostenlos");
+  });
+
+  it("lässt die Liste weg, wenn nichts davon bekannt ist", () => {
+    // Tickets von vor PROJ-56 tragen keine dieser Angaben — dann sieht die
+    // Nachricht aus wie bisher, statt eine leere Liste zu zeigen.
+    const content = buildNotificationContent("event_tickets", {
+      subType: "purchased",
+      eventName: "Altes Ticket",
+      startsAt: "2026-09-01T20:00:00Z",
+      ticketStatus: "reserved",
+    });
+    expect(content.emailHtml).not.toContain("<ul");
+  });
+
+  it("schreibt die Einzelheiten auf Englisch, wenn der Kunde Englisch spricht", () => {
+    const content = buildNotificationContent(
+      "event_tickets",
+      {
+        subType: "purchased",
+        eventName: "Salsa Weekender",
+        startsAt: "2026-09-01T20:00:00Z",
+        ticketStatus: "confirmed",
+        ticketType: "Full Pass",
+        cancellationLeadDays: 2,
+      },
+      undefined,
+      "en"
+    );
+    expect(content.emailHtml).toContain("Ticket type: Full Pass");
+    expect(content.emailHtml).toContain("2 days before the start");
+  });
+
+  it("maskiert eine Ticketart, die wie Auszeichnung aussieht", () => {
+    const content = buildNotificationContent("event_tickets", {
+      subType: "purchased",
+      eventName: "Workshop",
+      startsAt: "2026-09-01T20:00:00Z",
+      ticketStatus: "confirmed",
+      ticketType: '<img src=x onerror=alert(1)>',
+    });
+    expect(content.emailHtml).not.toContain("<img src=x");
+    expect(content.emailHtml).toContain("&lt;img");
+  });
+
   it("builds an event-cancellation ticket message mentioning refunds happen outside the app", () => {
     const content = buildNotificationContent("event_tickets", {
       subType: "event_cancelled",

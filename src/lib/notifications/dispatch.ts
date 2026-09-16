@@ -197,7 +197,9 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
 
       const { data } = await service
         .from("tickets")
-        .select("status, events(name, starts_at)")
+        .select(
+          "status, price, cancellation_lead_days, events(name, starts_at), event_ticket_types(name), event_units(title)"
+        )
         .eq("id", payload.ticket_id as string)
         .maybeSingle();
       if (!data || !data.events) return null;
@@ -206,6 +208,12 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         eventName: data.events.name,
         startsAt: data.events.starts_at,
         ticketStatus: data.status as "confirmed" | "reserved",
+        // PROJ-56: Was genau gekauft wurde. Bei Tickets von vorher bleiben
+        // diese Angaben leer, und die Nachricht sieht aus wie bisher.
+        ticketType: data.event_ticket_types?.name ?? null,
+        unit: data.event_units?.title ?? null,
+        price: data.price,
+        cancellationLeadDays: data.cancellation_lead_days,
       };
       const key = resolveTemplateKey("event_tickets", details);
       return buildNotificationContent("event_tickets", details, key ? await fetchOverride(service, key, locale) : undefined, locale);

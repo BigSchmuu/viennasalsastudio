@@ -165,7 +165,17 @@ export type ZahlungserinnerungDetails = { invoiceNumber: string; grossAmount: nu
 /** Jemand hat versucht, sich mit einer bereits vergebenen Adresse zu registrieren. */
 export type KontoExistiertDetails = { attemptedAt: string };
 export type EventTicketDetails =
-  | { subType: "purchased"; eventName: string; startsAt: string; ticketStatus: "confirmed" | "reserved" }
+  | {
+      subType: "purchased";
+      eventName: string;
+      startsAt: string;
+      ticketStatus: "confirmed" | "reserved";
+      /** PROJ-56: Was genau gekauft wurde — fehlt bei Tickets von vorher. */
+      ticketType?: string | null;
+      unit?: string | null;
+      price?: number | null;
+      cancellationLeadDays?: number | null;
+    }
   | { subType: "event_cancelled"; eventName: string; startsAt: string }
   /** PROJ-54: Ein Termin ist verlegt worden — `startsAt` ist der neue. */
   | { subType: "event_moved"; eventName: string; startsAt: string };
@@ -259,6 +269,50 @@ export function resolveTemplateKey(
 /** PROJ-34: an admin-authored override for the one template variant this call
  *  will actually render — the caller resolves which `TemplateKey` applies
  *  (e.g. confirmed vs. rejected) and passes the matching row, if any. */
+/**
+ * Die Einzelheiten eines Tickets als Liste unter dem Vorlagentext (PROJ-56).
+ *
+ * Ticketart, Preis, Einheit und Stornofrist standen bisher nirgends in der
+ * Bestätigung — der Kunde musste ins Profil, um zu sehen, was er gekauft hat.
+ * Als eigener Block statt als Platzhalter: Wer den Text im Admin angepasst
+ * hat, verliert die Angaben sonst, weil seine Fassung die neuen Platzhalter
+ * nicht kennt.
+ */
+function ticketAngaben(d: Extract<EventTicketDetails, { subType: "purchased" }>, locale: string): string {
+  const en = locale === "en";
+  const zeilen: string[] = [];
+
+  if (d.ticketType) zeilen.push(`${en ? "Ticket type" : "Ticketart"}: ${escapeHtml(d.ticketType)}`);
+  if (d.unit) zeilen.push(`${en ? "Session" : "Einheit"}: ${escapeHtml(d.unit)}`);
+  if (typeof d.price === "number") {
+    zeilen.push(
+      `${en ? "Price" : "Preis"}: ${
+        d.price === 0
+          ? en
+            ? "free"
+            : "kostenlos"
+          : d.price.toLocaleString(en ? "en-IE" : "de-AT", { style: "currency", currency: "EUR" })
+      }`
+    );
+  }
+  if (typeof d.cancellationLeadDays === "number") {
+    zeilen.push(
+      d.cancellationLeadDays === 0
+        ? en
+          ? "Can be cancelled until it starts"
+          : "Stornieren bis zum Beginn möglich"
+        : en
+          ? `Can be cancelled up to ${d.cancellationLeadDays} days before the start`
+          : `Stornieren bis ${d.cancellationLeadDays} Tage vor Beginn möglich`
+    );
+  }
+
+  if (zeilen.length === 0) return "";
+  return `<ul style="margin: 16px 0; padding-left: 20px; color: #4a4a4a;">${zeilen
+    .map((zeile) => `<li>${zeile}</li>`)
+    .join("")}</ul>`;
+}
+
 export function buildNotificationContent(
   eventType:
     | NotificationEventGroup
@@ -432,8 +486,11 @@ export function buildNotificationContent(
       }
 
       const key: TemplateKey = d.ticketStatus === "confirmed" ? "event_ticket_bestaetigt" : "event_ticket_reserviert";
+      // Die Einzelheiten stehen unter dem Vorlagentext, nicht darin: So bleibt
+      // der Text im Admin änderbar, ohne dass eine angepasste Fassung die
+      // neuen Angaben verschluckt (PROJ-56).
       return {
-        ...renderTemplate(key, { event: d.eventName, zeitpunkt: whenText }, override, "", locale),
+        ...renderTemplate(key, { event: d.eventName, zeitpunkt: whenText }, override, ticketAngaben(d, locale), locale),
         url: "/profil",
       };
     }
