@@ -103,7 +103,7 @@ Dieses Projekt schließt genau diese Lücke — und nur sie.
 - [ ] Wie viele Admin-Konten gibt es derzeit? Für die Rücksetz-Regel entscheidend — der Betreiber prüft das in der Kundenverwaltung (aus der Konversation nicht abfragbar, siehe CLAUDE.md)
 - [ ] Soll die 30-Tage-Frist später einstellbar sein? Vorschlag: vorerst fest
 - [x] Verliert eine laufende Sitzung sofort ihre bestätigte zweite Stufe, wenn der Faktor entfernt wird? → Nein, und die Bibliothek kann fremde Sitzungen gar nicht beenden (sie verlangt dafür deren Anmeldetoken). Gelöst mit `admin_sitzungen_beenden` — einer Datenbankfunktion, die die Sitzungszeilen löscht, was ein Abmelden ohnehin tut (2026-09-16)
-- [ ] Zwei-Faktor für das Supabase-Dashboard selbst aktivieren — das ist der eigentliche Notausgang und sollte vor dem Deploy abgesichert sein (Betreiberaufgabe)
+- [x] Zwei-Faktor für das Supabase-Dashboard selbst aktivieren → vom Betreiber eingerichtet (2026-09-16). Damit ist auch der Notausgang nicht mehr nur mit einem Passwort geschützt
 
 ## Decision Log
 
@@ -511,8 +511,10 @@ Ein Zugangstoken, das noch von vor der Einrichtung stammt, trägt die zweite Stu
 wirken dann leer. Einmal abmelden und neu anmelden löst es. Das ist ein einmaliger Übergang, kein
 Fehler.
 
-### Offen, außerhalb des Codes
+### Außerhalb des Codes
 
-- [ ] Zwei-Faktor für das **Supabase-Dashboard** selbst aktivieren. Es ist der Notausgang, über den
-  sich ausgesperrte Admins retten lassen — und solange es nur mit einem Passwort geschützt ist, führt
-  an der ganzen Konstruktion eine Hintertür vorbei.
+- [x] Zwei-Faktor für das **Supabase-Dashboard** selbst — vom Betreiber am 2026-09-16 eingerichtet.
+  Das Dashboard ist der Notausgang, über den sich ausgesperrte Admins retten lassen; mit nur einem
+  Passwort davor hätte an der ganzen Konstruktion eine Hintertür vorbeigeführt.
+- [ ] Das zweite Verwaltungskonto richtet seine Authenticator-App ein. Bis dahin kann im Notfall
+  niemand den Betreiber zurücksetzen — der Weg zurück führt dann über das Dashboard.
