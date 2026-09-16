@@ -264,6 +264,53 @@ privilegierten Serverzugang, und die zwölf Stellen mit Generalschlüssel nachzi
 
 Keine.
 
+## Umsetzung — Frontend (2026-09-16)
+
+### Gebaut und lauffähig
+
+- **`/sicherheit/einrichten`** — dreischrittige Anleitung, QR-Code, Schlüssel zum Abtippen hinter
+  einem Aufklapper, Code-Feld. Bei falschem Code bleibt derselbe QR-Code gültig; ab dem zweiten
+  Fehlversuch erscheint der Hinweis auf die Uhrzeit des Handys.
+- **`/sicherheit/code`** — Code-Feld, Häkchen „Diesem Gerät 30 Tage vertrauen" (leer
+  vorausgewählt), Ausweg „Abmelden".
+- **Profil → „Anmeldesicherheit"** — nur für Admins sichtbar: Zustand samt Einrichtungsdatum und
+  „Alle Geräte abmelden" mit Rückfrage.
+- **`src/lib/auth/zweite-stufe.ts`** — gemeinsame Logik, 15 Unit-Tests.
+
+Die Seiten liegen unter `(staff)` neben Lehreransicht und Einlass, nicht im Kundenbereich: Sie sind
+einsprachig deutsch, unter `/en/...` stünde dort sonst deutscher Text. Die Middleware nimmt
+`/sicherheit` deshalb von der Sprachweiche aus.
+
+Einrichten, Prüfen und globales Abmelden laufen über die Sitzung im Browser — für das **eigene**
+Konto ist das der vorgesehene Weg und braucht keinen Serverzugang.
+
+### Umgesetzte Entwurfsentscheidungen
+
+- Der QR-Code wird aus der Adresse erzeugt, die Supabase mitliefert, statt dessen fertiges SVG
+  einzublenden — fremdes Markup ungeprüft in die Seite zu schreiben ist eine Gewohnheit, die man
+  sich nicht angewöhnen sollte. Das QR-Paket lag ohnehin im Projekt (Tickets).
+- Ein Eingabefeld statt sechs Kästchen: iOS und Android füllen einen Code nur dann von selbst ein,
+  wenn er in *ein* Feld mit `one-time-code` passt. Da die Einrichtung meist am Handy passiert, wiegt
+  das schwerer als das Aussehen.
+- Vor jeder Einrichtung werden unbestätigte Reste einer abgebrochenen früheren Einrichtung entfernt.
+  Sonst scheiterte der nächste Anlauf an einem belegten Namen — an etwas, das mit dem Vorgang nichts
+  zu tun hat.
+
+### Bewusst offen für /backend
+
+- **Die Torwächter.** Noch leitet nichts automatisch auf die beiden Seiten um; sie sind direkt
+  erreichbar. Die Weiche nach dem Anmelden, die Sperre der Verwaltung und die Sperre des
+  Kundenbereichs gehören zur Zugangsprüfung.
+- **Die Datenbankregel** (Mauer 1) und die zwölf Stellen mit Generalschlüssel.
+- **Zurücksetzen durch einen anderen Admin** samt Zustandsanzeige in der Kundenverwaltung — beides
+  braucht den privilegierten Serverzugang, den es im Browser nicht gibt. Deshalb hier bewusst nicht
+  halb gebaut.
+- **Die E-Mail beim Zurücksetzen** samt Migration der Benachrichtigungsart.
+- **Der Hinweis „nur ein Admin-Konto"**.
+- **Die zweite Hälfte des Gerätemerkers:** Der Merker wird gesetzt und gelöscht
+  (`src/lib/actions/geraet-merken.ts`), aber die Lebensdauer der Anmeldecookies richtet sich noch
+  nicht danach.
+
 ## QA Test Results
 _To be added by /qa_
 

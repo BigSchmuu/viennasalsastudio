@@ -32,6 +32,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/admin") ||
     pathname.startsWith("/lehrer") ||
     pathname.startsWith("/checkin") ||
+    // PROJ-58: Einrichtung und Code-Eingabe liegen neben dem Kundenbereich,
+    // weil sie einsprachig deutsch sind — unter /en/... stünde dort sonst
+    // deutscher Text.
+    pathname.startsWith("/sicherheit") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/auth");
 

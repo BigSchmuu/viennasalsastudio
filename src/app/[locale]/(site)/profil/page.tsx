@@ -23,7 +23,8 @@ import { BOOKING_CANCELLATION_LEAD_DAYS } from "@/lib/constants/booking";
 import { TICKET_CANCELLATION_LEAD_DAYS } from "@/lib/constants/events";
 import type { ProfileInput } from "@/lib/validations/auth";
 import { getTranslations } from "next-intl/server";
-import { getViewer } from "@/lib/auth/viewer";
+import { getViewerContext } from "@/lib/auth/viewer";
+import { Anmeldesicherheit } from "@/components/profile/anmeldesicherheit";
 
 // Code-split out of the main /profil bundle: each pulls in real extra weight
 // (react-hook-form+zod, the QR-code generator, the push-notification hook)
@@ -42,9 +43,9 @@ const NotificationSettingsSection = dynamic(() =>
 
 export default async function ProfilePage() {
   const supabase = await createClient();
-  // Der Rahmen hat das schon ermittelt — getViewer() gibt innerhalb einer
-  // Anfrage dieselbe Antwort zurück, ohne erneut zu fragen.
-  const user = await getViewer();
+  // Der Rahmen hat das schon ermittelt — getViewerContext() gibt innerhalb
+  // einer Anfrage dieselbe Antwort zurück, ohne erneut zu fragen.
+  const { user, isAdmin } = await getViewerContext();
 
   if (!user) {
     redirect("/login?redirect=/profil");
@@ -412,10 +413,22 @@ export default async function ProfilePage() {
             wert="benachrichtigungen"
             titel={t("sectionNotifications")}
             hinweis={t("sectionNotificationsHint")}
-            letzter
+            letzter={!isAdmin}
           >
             <NotificationSettingsSection preferences={notificationPreferences} />
           </ProfilAbschnitt>
+          {/* PROJ-58: Nur für Verwaltungskonten — und bewusst deutsch, wie die
+              ganze Verwaltung. */}
+          {isAdmin ? (
+            <ProfilAbschnitt
+              wert="anmeldesicherheit"
+              titel="Anmeldesicherheit"
+              hinweis="Zweite Stufe und vertraute Geräte"
+              letzter
+            >
+              <Anmeldesicherheit />
+            </ProfilAbschnitt>
+          ) : null}
         </ProfilGruppe>
       </div>
     </div>
