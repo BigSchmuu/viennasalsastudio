@@ -36,6 +36,10 @@ const DATUM = {
   gesperrt: "2029-05-07",
   rechte: "2029-05-08",
   guthaben: "2029-05-09",
+  // PROJ-61: die Reihenfolge Herunterladen → Bestätigen.
+  reihenfolge: "2029-05-11",
+  // Eigenes Datum: Zwei Läufe zum selben Fälligkeitstag gibt es nicht.
+  rueckfrage: "2029-05-12",
   // Bewusst in der Vergangenheit: der vergessene Entwurf.
   ueberfaellig: "2026-01-15",
 };
@@ -635,5 +639,71 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
     if (freigegeben?.length) {
       await expect(page.getByText(anzeige(freigegeben[0].due_date))).toHaveCount(0);
     }
+  });
+});
+
+/**
+ * PROJ-61: Erst herunterladen, dann bestätigen.
+ *
+ * Steht hier statt in einer eigenen Suite, weil der Aufbau derselbe ist — ein
+ * Lauf mit Positionen ist nicht in drei Zeilen gemacht.
+ *
+ * Anlass: Am 2026-09-16 lehnte die Bank eine Datei ab, und die Rechnungen
+ * standen bereits. Der Grund war die Reihenfolge, die die Oberfläche vorgab.
+ */
+test.describe("PROJ-61: Bankupload bestätigen", () => {
+  test("Die Datei gibt es schon im Entwurf — und das Herunterladen ändert nichts", async ({ page }) => {
+    await login(page, ADMIN);
+    await legeLaufAn(page, DATUM.reihenfolge);
+    const id = await laufId(DATUM.reihenfolge);
+
+    // Der Knopf steht vor dem Bestätigen, nicht dahinter.
+    await expect(page.getByRole("button", { name: "1. SEPA-XML herunterladen" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "2. Bei der Bank hochgeladen" })).toBeVisible();
+
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "1. SEPA-XML herunterladen" }).click();
+    await download;
+
+    // Entscheidend: Der Lauf ist danach immer noch ein Entwurf. Genau das
+    // brauchte der Fall vom 2026-09-16 — Bank lehnt ab, Lauf korrigieren.
+    const { data: lauf } = await svc
+      .from("sepa_collection_runs")
+      .select("released_at")
+      .eq("id", id)
+      .single();
+    expect(lauf!.released_at, "Das Herunterladen hat den Lauf gesperrt").toBeNull();
+
+    await expect(page.getByRole("button", { name: "Position hinzufügen" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Entwurf verwerfen" })).toBeEnabled();
+
+    // Rechnungen hängen an der Position, nicht am Lauf — also über die
+    // Positionen dieses Laufs zählen.
+    const { data: positionen } = await svc.from("sepa_collection_items").select("id").eq("run_id", id);
+    const { count } = await svc
+      .from("invoices")
+      .select("id", { count: "exact", head: true })
+      .in("collection_item_id", (positionen ?? []).map((p) => p.id));
+    expect(count ?? 0, "Das Herunterladen hat Rechnungen erzeugt").toBe(0);
+  });
+
+  test("Die Rückfrage sagt, dass es kein Zurück gibt", async ({ page }) => {
+    await login(page, ADMIN);
+    await legeLaufAn(page, DATUM.rueckfrage);
+
+    await page.getByRole("button", { name: "2. Bei der Bank hochgeladen" }).click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog.getByText(/nicht rückgängig machen/)).toBeVisible();
+    await expect(dialog.getByText(/erst, wenn die Bank die Datei angenommen hat/)).toBeVisible();
+
+    // Abbrechen lässt den Lauf unberührt.
+    await page.getByRole("button", { name: "Noch nicht" }).click();
+    const id = await laufId(DATUM.rueckfrage);
+    const { data: lauf } = await svc
+      .from("sepa_collection_runs")
+      .select("released_at")
+      .eq("id", id)
+      .single();
+    expect(lauf!.released_at).toBeNull();
   });
 });

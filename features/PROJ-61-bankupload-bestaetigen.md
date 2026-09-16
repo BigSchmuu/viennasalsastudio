@@ -140,8 +140,51 @@ Nein. Eine umbenannte Server-Handlung, sonst nur Oberfläche.
 
 Keine.
 
-## QA Test Results
-_To be added by /qa_
+## QA Test Results (2026-09-17)
+
+**Empfehlung: bereit für die Produktion.** Keine Migration nötig.
+
+| | |
+|---|---|
+| E2E Lastschriftläufe (PROJ-47 + PROJ-61) | 13 grün |
+| Unit- und Datenbanktests | 893 grün |
+| Produktfehler gefunden | keiner |
+
+### Was geprüft ist
+
+**Die Datei gibt es schon im Entwurf, und das Herunterladen ändert nichts.** Nach dem Download ist
+der Lauf weiterhin ein Entwurf, Positionen lassen sich hinzufügen und entfernen, und es entstehen
+keine Rechnungen. Genau das brauchte der Fall vom 2026-09-16.
+
+**Die Rückfrage benennt die Folgen** und sagt, dass es kein Zurück gibt. „Noch nicht" lässt den Lauf
+unberührt.
+
+Dazu die elf bestehenden Prüfungen aus PROJ-47, an die neue Reihenfolge angepasst.
+
+### Drei Regressionen, gefunden weil diese Suite lange nicht lief
+
+Keine davon stammt aus diesem Projekt — alle drei kamen ans Licht, weil PROJ-61 die
+Lastschrift-Suite zum ersten Mal seit PROJ-58 vollständig laufen ließ.
+
+**Ein Test meldete sich mit einem eigenen Client nur per Passwort an.** Seit PROJ-58 gilt er der
+Datenbank damit nicht als Admin: Die Änderung traf null Zeilen und kam **ohne** Fehler zurück — der
+Test prüfte also die Sperre und maß in Wahrheit ihre Abwesenheit. Er benutzt jetzt `angemeldetAls`.
+
+**`angemeldetAls` legte für Admins jedes Mal einen neuen Faktor an** und machte damit den Schlüssel
+ungültig, den der Playwright-Aufbau hinterlegt hatte. Die Browsertests blieben danach auf der
+Code-Seite hängen. Beide Testwelten teilen sich jetzt eine Ablage
+(`tests/zweite-stufe-speicher.ts`).
+
+**Ein PROJ-54-Test legte ein Event „in einer Stunde" an.** Um 23:20 liegt das im nächsten Tag, und
+die Prüfung heißt „am Veranstaltungstag" — sie maß das Gegenteil. Jetzt auf den heutigen Wiener
+Kalendertag festgenagelt.
+
+### Was ungeprüft bleibt
+
+Dass die Bank die Datei annimmt, lässt sich nur bei der Bank prüfen. Genau deshalb gibt es dieses
+Projekt: Die App fragt jetzt nach, statt es anzunehmen.
+
+## Deployment
 
 ## Deployment
 _To be added by /deploy_

@@ -93,7 +93,7 @@
 
 | PROJ-60 | Gasttänzer-Programm | Deployed | [PROJ-60](../features/PROJ-60-gasttaenzer-programm.md) | 2026-09-16 |
 
-| PROJ-61 | Bankupload bestätigen, bevor die Rechnungen entstehen | In Progress | [PROJ-61](../features/PROJ-61-bankupload-bestaetigen.md) | 2026-09-16 |
+| PROJ-61 | Bankupload bestätigen, bevor die Rechnungen entstehen | Approved | [PROJ-61](../features/PROJ-61-bankupload-bestaetigen.md) | 2026-09-16 |
 
 <!-- Add features above this line -->
 
