@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { teacherInviteSchema, type TeacherInviteInput } from "@/lib/validations/admin";
@@ -114,7 +115,14 @@ export function TeacherManager({
           <TableBody>
             {teachers.map((teacher) => (
               <TableRow key={teacher.id}>
-                <TableCell className="font-medium">{teacher.name}</TableCell>
+                <TableCell className="font-medium">
+                  {/* Von hier aus ins Profil — vorher war der Name eine
+                      Sackgasse, und wer etwas am Konto ändern wollte, musste
+                      die Adresse von Hand zusammensetzen. */}
+                  <Link href={`/admin/kunden/${teacher.id}`} className="hover:underline">
+                    {teacher.name}
+                  </Link>
+                </TableCell>
                 <TableCell>{teacher.email}</TableCell>
                 <TableCell className="text-right">
                   <Button

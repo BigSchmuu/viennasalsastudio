@@ -463,6 +463,23 @@ Kunden- und Lehrerkonten passiert dort nichts.
 eigens ausgelöst. Firefox ist im Projekt weiterhin nicht eingerichtet (Bestandslücke). Der Hinweis
 „nur ein Admin-Konto" ist nicht automatisiert geprüft — die Testdatenbank hat zwölf.
 
+### Nachtrag aus dem Betrieb (2026-09-16)
+
+**BUG-6 (Hoch, behoben) — der Notausgang war unerreichbar.**
+
+Beim Ausrollen fiel auf: Die Kundenliste zeigt nur Kunden und Konten mit Abo oder Mandat. Ein reines
+Verwaltungskonto ohne Zahlungsbeziehung stand nicht darin, und die Lehrerseite verlinkte gar nicht
+aufs Profil. Der Abschnitt „Anmeldesicherheit" war damit zwar gebaut und geprüft — aber von der
+Oberfläche aus nicht erreichbar. Ausgerechnet der Weg, der im Notfall zählt.
+
+**Warum die Tests das nicht fanden:** Sie sprangen direkt auf `/admin/kunden/<kennung>`. Damit war
+bewiesen, dass die Seite funktioniert — nie, dass man dort hinkommt. Ein blinder Fleck, der genau
+dort saß, wo er am meisten schadet.
+
+Behoben: Verwaltungskonten stehen jetzt in der Kundenliste, und Lehrernamen verlinken auf ihr Profil
+(nützlich über PROJ-58 hinaus — vorher war der Name dort eine Sackgasse). Dazu eine Prüfung, die den
+Weg **über die Liste** geht statt über die Adresszeile.
+
 ## Deployment
 
 _To be added by /deploy_

@@ -34,7 +34,10 @@ async function legeKontoAn(mail: string, rolle: "admin" | "customer"): Promise<s
   });
   if (error || !data.user) throw new Error(`PROJ-58 Konto ${mail}: ${error?.message}`);
 
-  await dienst.from("profiles").update({ role: rolle, full_name: "E2E58 Prüfkonto" }).eq("id", data.user.id);
+  // Eindeutige Namen: Die Prüfung über die Kundenliste sucht eine bestimmte
+  // Zeile, und zwei gleich benannte Konten machten den Treffer mehrdeutig.
+  const name = `E2E58 ${mail.split("@")[0].replace("e2e58-", "")}`;
+  await dienst.from("profiles").update({ role: rolle, full_name: name }).eq("id", data.user.id);
   return data.user.id;
 }
 
@@ -207,6 +210,28 @@ test.describe("PROJ-58: Zwei-Faktor-Anmeldung für Verwaltungskonten", () => {
     // Gegenprobe an der Datenbank, nicht nur an der Oberfläche.
     const { data } = await dienst.auth.admin.mfa.listFactors({ userId: kennungen[ZUM_ZURUECKSETZEN] });
     expect((data?.factors ?? []).filter((f) => f.status === "verified")).toHaveLength(0);
+  });
+
+  test("Der Notfallweg ist über die Kundenliste erreichbar, nicht nur über die Adresszeile", async ({
+    page,
+  }) => {
+    // Im Betrieb aufgefallen (2026-09-16): Die Liste zeigte nur Kunden und
+    // Konten mit Zahlungsbeziehung. Ein reines Verwaltungskonto stand nicht
+    // darin — der Abschnitt „Anmeldesicherheit" war damit zwar gebaut, aber
+    // unerreichbar. Die früheren Prüfungen sprangen direkt auf die Adresse und
+    // haben das nie bemerkt.
+    await anmelden(page, EINGERICHTET);
+    await zweiteStufeErledigen(page, EINGERICHTET);
+
+    await gehZu(page, "/admin/kunden");
+
+    // Ohne Suchfeld: Es filtert erst auf Knopfdruck, und geprüft werden soll
+    // die Liste selbst — steht das Verwaltungskonto überhaupt darin?
+    const zeile = page.getByRole("link", { name: "E2E58 reset" });
+    await expect(zeile).toBeVisible({ timeout: 15000 });
+    await zeile.click();
+
+    await expect(page.getByRole("heading", { name: "Anmeldesicherheit" })).toBeVisible();
   });
 
   test("Sicherheit: Die Einrichtungsseite ist ohne Anmeldung nicht erreichbar", async ({ page }) => {

@@ -57,9 +57,16 @@ export default async function CustomersPage({
     // Kunden immer — dazu jeder, der ein Abo oder ein gültiges Mandat hat.
     // Reine Lehrkräfte ohne Zahlungsbeziehung bleiben draußen; die Liste soll
     // die Abrechnung abbilden, nicht das Personal.
+    //
+    // PROJ-58: Verwaltungskonten dagegen gehören hierher, auch ohne
+    // Zahlungsbeziehung. Auf ihrer Detailseite steht seither „Anmeldesicherheit"
+    // — der einzige Weg, jemandem nach einem Handyverlust wieder hineinzuhelfen.
+    // Ohne diese Zeile stand der Notausgang zwar da, war aber von der Oberfläche
+    // aus nicht erreichbar (im Betrieb aufgefallen am 2026-09-16).
     .filter(
       (p) =>
         p.role === "customer" ||
+        p.role === "admin" ||
         (subscriptionCountById.get(p.id) ?? 0) > 0 ||
         mitMandat.has(p.id)
     )
