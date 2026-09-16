@@ -237,8 +237,60 @@ Projekts — und es ist auch sachlich besser: Beim Wechsel von einem Ticket zum 
 vorherige Fassung für einen Wimpernschlag die Zahlen des alten Tickets. Bei einem Dialog, in dem es
 um Geldbeträge geht, ist das kein Schönheitsfehler.
 
-## QA Test Results
-_To be added by /qa_
+## QA Test Results (2026-09-16)
+
+**Empfehlung: bereit für die Produktion.** Beide Prüfebenen laufen gegen die Testdatenbank, in der
+die Migration eingespielt ist.
+
+| | |
+|---|---|
+| Unit- und Datenbanktests | 823 grün (68 Dateien) |
+| davon PROJ-59 an der Datenbank | 11 grün |
+| E2E PROJ-59 | 4 grün |
+| Gefundene Fehler | 1 — im Testaufbau, nicht im Produkt |
+
+### Warum der Schwerpunkt an der Datenbank liegt
+
+Hier geht es um Geld. Eine Oberfläche, die sich vertut, ärgert; eine Datenbankfunktion, die sich
+vertut, kostet. Deshalb wurde jede Regel einzeln an der Datenbank geprüft, und die Oberfläche nur
+dort, wo sie den Betreiber in die Irre führen könnte.
+
+**Die wichtigste Einzelprüfung:** Zwei gleichzeitige Stornierungen desselben Tickets erzeugen
+**genau eine** Gutschrift. Das gesperrte Lesen in der Funktion hält, was es verspricht — der zweite
+Aufruf bekommt „bereits storniert" und schreibt nichts gut.
+
+Weiter belegt: Stornierung samt Vermerk (wann, wer, warum), Gutschrift nur auf Wunsch, keine
+Gutschrift bei einer Freikarte (die Guthaben-Tabelle lässt Nullbeträge nicht zu — ohne die Abfrage
+in der Funktion wäre das ein Fehler statt einer sauberen Stornierung), ein leerer Grund wird zu
+„kein Grund" statt zu einem Leerzeichen, ein Kundenkonto wird abgewiesen, und ein storniertes
+Ticket fällt aus dem nächsten Lastschriftlauf.
+
+### Die Geldlagen in der Oberfläche
+
+Alle vier Fälle einzeln im Browser geprüft: Bei Zahlung vor Ort fällt das Wort Guthaben nicht. Bei
+einem **nicht freigegebenen** Lauf steht der Hinweis, die Zeile erst aus dem Lauf zu nehmen — der
+Satz, der Geld spart. Bei einem **freigegebenen** Lauf steht „Bereits abgebucht", das Häkchen ist
+vorausgewählt, und die Gutschrift entsteht tatsächlich. Die stornierte Zeile bleibt stehen und nennt
+Datum, Person und Grund.
+
+### Ein Fund im Testaufbau, der etwas Gutes zeigt
+
+Der erste Anlauf scheiterte daran, dass sich einem **freigegebenen** Lastschriftlauf keine Position
+mehr hinzufügen lässt — die Datenbank verweigert es. Das ist keine Schwäche, sondern eine
+Schutzregel aus PROJ-47: Ist die Datei bei der Bank, darf nichts mehr hineinwandern. Der Testaufbau
+legt den Lauf jetzt offen an, füllt ihn und gibt ihn erst dann frei.
+
+Ein zweiter Testfehler war meiner: Ein Test klickte auf den ersten Storno-Knopf der Liste und traf
+damit ein Ticket aus der vorherigen Prüfung. Jetzt räumt jede Prüfung vorher auf.
+
+### Was ungeprüft bleibt
+
+Die Benachrichtigung an den Kunden ist in ihren Bausteinen geprüft (8 Unit-Tests: beide Sprachen,
+Grund vorhanden oder nicht, Guthaben genannt oder nicht, Maskierung) — dass sie am Ende wirklich im
+Postfach landet, hängt am Versand und wurde nicht ausgelöst. Firefox ist im Projekt weiterhin nicht
+eingerichtet.
+
+## Deployment
 
 ## Deployment
 _To be added by /deploy_
