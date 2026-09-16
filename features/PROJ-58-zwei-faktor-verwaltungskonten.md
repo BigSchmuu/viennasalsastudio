@@ -366,17 +366,19 @@ in den QA-Durchgang, sobald der Zugang wieder steht.
 
 ## QA Test Results (2026-09-16)
 
-**Empfehlung: noch nicht in Produktion** — nicht wegen eines offenen Fehlers, sondern weil die
-wichtigste Schicht ungeprüft ist (siehe „Was ungeprüft bleibt").
+**Empfehlung: bereit für die Produktion** — mit der Einspielreihenfolge aus dem Backend-Abschnitt.
+
+Beide Migrationen laufen in der Testdatenbank, und die Datenbankregel ist dort nachweislich scharf.
 
 ### Zahlen
 
 | | |
 |---|---|
-| Unit- und Datenbanktests | 796 grün (66 Dateien) |
+| Unit- und Datenbanktests | 804 grün (67 Dateien) |
 | E2E PROJ-58 | 22 grün (11 Prüfungen × Chromium und iPhone 13) |
-| E2E Regressionsprobe | 27 grün (PROJ-2 Auth, PROJ-4 Kundenverwaltung) |
-| Gefundene Fehler | 4 — alle behoben |
+| E2E mit scharfer Datenbankregel | 46 grün (PROJ-4, PROJ-53, PROJ-55, PROJ-58) |
+| E2E Regressionsprobe vorher | 27 grün (PROJ-2 Auth, PROJ-4 Kundenverwaltung) |
+| Gefundene Fehler | 5 — alle behoben |
 
 ### Die größte Entdeckung: 51 Bestandsdateien waren rot
 
@@ -435,13 +437,27 @@ war ein Produktfehler.
 | Eigene zweite Stufe zurücksetzen | in der Oberfläche nicht angeboten, in der Server-Action abgewiesen, in der Datenbankfunktion noch einmal abgewiesen |
 | Gerätemerker gefälscht | nutzlos — der Torwächter prüft zuerst die bestätigte Stufe; der Merker kann nur verkürzen |
 
-### Was ungeprüft bleibt
+### Mauer 1 — geprüft
 
-**Mauer 1 — die Datenbankregel.** `20260916121000_proj58_zweite_stufe_erzwingen.sql` ist in keiner
-Datenbank eingespielt, auch nicht in der Test-Datenbank. Damit ist ungeprüft, ob
-`auth.jwt() ->> 'aal'` in dieser Supabase-Version so heißt und ob die Regel greift. Das ist genau
-die Schicht, die einen Angreifer aufhält, der die Oberfläche umgeht — sie gehört geprüft, bevor
-irgendetwas in Produktion geht.
+Nach dem Einspielen der zweiten Migration in die Testdatenbank belegt `PROJ-58-zwei-faktor-db.test.ts`
+die Schicht, auf die es ankommt. Dasselbe Konto, zwei Anmeldungen — eine nur mit Passwort, eine mit
+bestätigtem Code:
+
+| Mit erbeutetem Passwort allein | Mit bestätigtem Code |
+|---|---|
+| sieht **eine** Profilzeile (die eigene) | sieht alle Profile |
+| sieht **null** SEPA-Mandate | — |
+| darf keine fremden Sitzungen beenden | darf es |
+| kann niemanden zum Admin machen | — |
+
+Für Kundenkonten ändert sich nichts. `auth.jwt() ->> 'aal'` heißt in dieser Supabase-Version
+tatsächlich so — das war vorher eine Annahme, jetzt ist es belegt.
+
+**BUG-5 (Mittel, behoben), gefunden genau dadurch:** Mit scharfer Regel scheiterte das Hochladen
+eines Eventbildes. Die Speicher-Regel fragt nach `current_role() = 'admin'`, und die Datenbanktests
+melden sich nur mit Passwort an — also erste Stufe. Kein Produktfehler, sondern die Sperre, die
+korrekt greift. `tests/anmeldung.ts` hebt Verwaltungskonten jetzt selbst auf die zweite Stufe; für
+Kunden- und Lehrerkonten passiert dort nichts.
 
 **Weitere Lücken:** Die Drosselung nach mehreren Fehlversuchen kommt von Supabase und wurde nicht
 eigens ausgelöst. Firefox ist im Projekt weiterhin nicht eingerichtet (Bestandslücke). Der Hinweis

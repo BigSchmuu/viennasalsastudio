@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { totpCode } from "./totp";
 
 /**
  * Angemeldete Clients für die Datenbanktests — einmal je Konto.
@@ -17,8 +18,9 @@ export function angemeldetAls(url: string, anonKey: string, mail: string, passwo
 
   const versprechen = (async () => {
     const client = createClient(url, anonKey, { auth: { persistSession: false } });
-    const { error } = await client.auth.signInWithPassword({ email: mail, password: passwort });
+    const { data, error } = await client.auth.signInWithPassword({ email: mail, password: passwort });
     if (error) throw error;
+    await zweiteStufeFallsNoetig(client, url, data.user.id);
     return client;
   })();
 
@@ -27,4 +29,43 @@ export function angemeldetAls(url: string, anonKey: string, mail: string, passwo
   versprechen.catch(() => offen.delete(schluessel));
   offen.set(schluessel, versprechen);
   return versprechen;
+}
+
+/**
+ * Verwaltungskonten auf die zweite Stufe heben (PROJ-58).
+ *
+ * Seit die Datenbank für Admins einen bestätigten Code verlangt, reicht ein
+ * Passwort nicht mehr: `current_role()` antwortet dann schlicht nicht mit
+ * 'admin', und jede Regel, die das verlangt, greift nicht — zuletzt aufgefallen
+ * beim Hochladen eines Eventbildes, wo die Speicher-Regel genau danach fragt.
+ *
+ * Für Kunden- und Lehrerkonten passiert hier nichts.
+ *
+ * Ein bestehender Faktor wird verworfen und neu angelegt: Sein Schlüssel ist
+ * nicht mehr auslesbar, und ohne Schlüssel gibt es keinen Code. Das ist
+ * ausdrücklich so gewollt — deshalb der Umweg.
+ */
+async function zweiteStufeFallsNoetig(client: SupabaseClient, url: string, kennung: string): Promise<void> {
+  const { data: profil } = await client.from("profiles").select("role").eq("id", kennung).maybeSingle();
+  if (profil?.role !== "admin") return;
+
+  const dienst = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+    auth: { persistSession: false },
+  });
+  const { data: alte } = await dienst.auth.admin.mfa.listFactors({ userId: kennung });
+  for (const faktor of alte?.factors ?? []) {
+    await dienst.auth.admin.mfa.deleteFactor({ id: faktor.id, userId: kennung });
+  }
+
+  const { data: neu, error: enrollFehler } = await client.auth.mfa.enroll({
+    factorType: "totp",
+    friendlyName: `DB-Test ${Date.now()}`,
+  });
+  if (enrollFehler || !neu) throw new Error(`tests: zweite Stufe konnte nicht eingerichtet werden (${enrollFehler?.message})`);
+
+  const { error: pruefFehler } = await client.auth.mfa.challengeAndVerify({
+    factorId: neu.id,
+    code: totpCode(neu.totp.secret),
+  });
+  if (pruefFehler) throw new Error(`tests: Code wurde abgelehnt (${pruefFehler.message})`);
 }
