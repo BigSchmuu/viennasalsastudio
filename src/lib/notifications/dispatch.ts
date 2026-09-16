@@ -6,6 +6,7 @@ import {
   resolveTemplateKey,
   zweiteStufeZurueckgesetztInhalt,
   ticketStorniertInhalt,
+  gasttaenzerInhalt,
   type EventTicketDetails,
   type NotificationContent,
 } from "@/lib/notifications/templates";
@@ -274,6 +275,30 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         newName: payload.neuer_name as string,
         effectiveDate: payload.datum as string,
       });
+    case "gasttaenzer_einladung": {
+      // Kurs, Uhrzeit und Ort stehen am Kurs, nicht in der Nutzlast: Sie
+      // sollen stimmen, wenn die Nachricht zugestellt wird — nicht, wie sie
+      // beim Einreihen aussahen.
+      const { data } = await service
+        .from("guest_slots")
+        .select("occurrence_date, dance_role, courses(name, course_schedule(start_time), rooms(name))")
+        .eq("id", payload.slot_id as string)
+        .maybeSingle();
+      if (!data?.courses) return null;
+      const plan = data.courses.course_schedule;
+      const uhrzeit = Array.isArray(plan) ? (plan[0]?.start_time ?? null) : null;
+      return gasttaenzerInhalt(
+        {
+          subType: (payload.sub_type as "einladung" | "zurueckgezogen") ?? "einladung",
+          kursName: data.courses.name,
+          datum: data.occurrence_date,
+          uhrzeit: uhrzeit ? uhrzeit.slice(0, 5) + " Uhr" : null,
+          ort: data.courses.rooms?.name ?? null,
+          rolle: data.dance_role as "leader" | "follower",
+        },
+        locale
+      );
+    }
     case "ticket_storniert": {
       // Der Grund steht am Ticket, nicht im Nutzlastfeld: So bleibt er auch
       // dann richtig, wenn die Nachricht erst beim naechsten Lauf zugestellt

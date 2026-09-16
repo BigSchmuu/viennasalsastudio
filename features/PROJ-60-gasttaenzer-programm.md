@@ -245,6 +245,44 @@ und die Einladung samt Migration.
 
 Keine.
 
+## Umsetzung — Backend (2026-09-16)
+
+### Gebaut
+
+- **Zwei Migrationen.** Die erste bringt die beiden Tabellen, die Buchungsart `guest`, die Rangfolge
+  der Level, die Vergabe, den Empfängerkreis und die vierte Quelle „gast" auf der Anwesenheitsliste.
+  Die zweite die Auskunft über die Schieflage.
+- **Die Regeln als eigenes Stück Code** (`src/lib/gasttaenzer/`) — dieselben Regeln entscheiden über
+  Empfängerkreis und Zusage, deshalb stehen sie an einer Stelle. 37 Tests.
+- **Server-Handlungen** für beide Seiten: anmelden, ändern, abmelden, zusagen, absagen — und
+  ausschreiben, zurückziehen, ausschließen, wieder zulassen.
+- **Die Einladung**, zweisprachig, mit einer zweiten Fassung für den Fall, dass eine Ausschreibung
+  zurückgezogen wird.
+
+### Geprüft
+
+15 Prüfungen an der Testdatenbank, im ersten Anlauf grün. Die wichtigste: **Zwei gleichzeitige
+Zusagen auf einen einzigen Platz — genau eine kommt durch.** Dazu jede Abweisung einzeln und der
+Gast auf der Anwesenheitsliste. Insgesamt 875 Unit- und Datenbanktests grün.
+
+### Entscheidungen beim Bauen
+
+**Eine zurückgezogene Ausschreibung sagt bestehende Zusagen mit ab**, nicht nur die Ausschreibung
+selbst. Wer zugesagt hat, stünde sonst am Dienstag umsonst im Studio — und auf der Anwesenheitsliste
+der Lehrkraft.
+
+**Die Einladung liest Kurs, Uhrzeit und Ort erst beim Zustellen**, nicht beim Einreihen. Sie sollen
+stimmen, wenn die Nachricht ankommt.
+
+**Die Typdatei wurde aus der Testdatenbank erzeugt**, nicht von Hand nachgezogen. Nebenbei hat das
+bestätigt, dass die handgeschriebenen Einträge aus PROJ-58 und PROJ-59 mit dem wirklichen Schema
+übereinstimmten.
+
+### Offen für /frontend
+
+Die gesamte Oberfläche: der Profilabschnitt (zweisprachig), die Verwaltungsseite mit Schieflage-Liste
+und Ausschreiben-Dialog, und die Kennzeichnung des Gasts auf der Anwesenheitsliste.
+
 ## QA Test Results
 _To be added by /qa_
 

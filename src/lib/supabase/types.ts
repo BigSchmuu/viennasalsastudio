@@ -255,6 +255,7 @@ export type Database = {
           customer_id: string
           dance_role: string | null
           desired_plan: string | null
+          guest_slot_id: string | null
           id: string
           note: string | null
           price: number | null
@@ -273,6 +274,7 @@ export type Database = {
           customer_id: string
           dance_role?: string | null
           desired_plan?: string | null
+          guest_slot_id?: string | null
           id?: string
           note?: string | null
           price?: number | null
@@ -291,6 +293,7 @@ export type Database = {
           customer_id?: string
           dance_role?: string | null
           desired_plan?: string | null
+          guest_slot_id?: string | null
           id?: string
           note?: string | null
           price?: number | null
@@ -328,6 +331,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_bookings_guest_slot_id_fkey"
+            columns: ["guest_slot_id"]
+            isOneToOne: false
+            referencedRelation: "guest_slots"
             referencedColumns: ["id"]
           },
           {
@@ -1336,6 +1346,95 @@ export type Database = {
           },
         ]
       }
+      guest_dancers: {
+        Row: {
+          customer_id: string
+          dance_role: string
+          excluded_at: string | null
+          excluded_by: string | null
+          joined_at: string
+          level: string
+        }
+        Insert: {
+          customer_id: string
+          dance_role: string
+          excluded_at?: string | null
+          excluded_by?: string | null
+          joined_at?: string
+          level: string
+        }
+        Update: {
+          customer_id?: string
+          dance_role?: string
+          excluded_at?: string | null
+          excluded_by?: string | null
+          joined_at?: string
+          level?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_dancers_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_dancers_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "teacher_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_slots: {
+        Row: {
+          course_id: string
+          created_at: string
+          created_by: string | null
+          dance_role: string
+          id: string
+          min_level: string | null
+          occurrence_date: string
+          seats: number
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          dance_role: string
+          id?: string
+          min_level?: string | null
+          occurrence_date: string
+          seats: number
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          dance_role?: string
+          id?: string
+          min_level?: string | null
+          occurrence_date?: string
+          seats?: number
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_slots_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_number_counters: {
         Row: {
           last_number: number
@@ -2012,9 +2111,9 @@ export type Database = {
       tickets: {
         Row: {
           cancellation_lead_days: number
+          cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
-          cancellation_reason: string | null
           checked_in_at: string | null
           checked_in_by: string | null
           created_at: string
@@ -2033,9 +2132,9 @@ export type Database = {
         }
         Insert: {
           cancellation_lead_days?: number
+          cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
-          cancellation_reason?: string | null
           checked_in_at?: string | null
           checked_in_by?: string | null
           created_at?: string
@@ -2054,9 +2153,9 @@ export type Database = {
         }
         Update: {
           cancellation_lead_days?: number
+          cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
-          cancellation_reason?: string | null
           checked_in_at?: string | null
           checked_in_by?: string | null
           created_at?: string
@@ -2324,20 +2423,6 @@ export type Database = {
       }
     }
     Functions: {
-      admin_ticket_stornieren: {
-        Args: {
-          p_ticket_id: string
-          p_grund?: string
-          p_guthaben?: boolean
-        }
-        Returns: Json
-      }
-      admin_sitzungen_beenden: {
-        Args: {
-          p_user_id: string
-        }
-        Returns: number
-      }
       add_course_to_flatrate: {
         Args: {
           p_course_id: string
@@ -2413,6 +2498,11 @@ export type Database = {
         Args: { p_course_id: string; p_customer_id: string }
         Returns: number
       }
+      admin_sitzungen_beenden: { Args: { p_user_id: string }; Returns: number }
+      admin_ticket_stornieren: {
+        Args: { p_grund?: string; p_guthaben?: boolean; p_ticket_id: string }
+        Returns: Json
+      }
       aktive_flatrate: { Args: { p_customer_id: string }; Returns: string }
       assert_valid_terms_version: {
         Args: { p_version: string }
@@ -2422,6 +2512,9 @@ export type Database = {
         Args: { p_ticket_id: string }
         Returns: {
           cancellation_lead_days: number
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           checked_in_at: string | null
           checked_in_by: string | null
           created_at: string
@@ -2477,6 +2570,9 @@ export type Database = {
         Args: { p_event_id: string; p_ticket_id: string; p_unit_id?: string }
         Returns: {
           cancellation_lead_days: number
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           checked_in_at: string | null
           checked_in_by: string | null
           created_at: string
@@ -2558,6 +2654,7 @@ export type Database = {
           customer_id: string
           dance_role: string | null
           desired_plan: string | null
+          guest_slot_id: string | null
           id: string
           note: string | null
           price: number | null
@@ -2594,6 +2691,7 @@ export type Database = {
           customer_id: string
           dance_role: string | null
           desired_plan: string | null
+          guest_slot_id: string | null
           id: string
           note: string | null
           price: number | null
@@ -2624,6 +2722,17 @@ export type Database = {
           p_payload: Json
         }
         Returns: undefined
+      }
+      gastplatz_absagen: { Args: { p_booking_id: string }; Returns: undefined }
+      gastplatz_empfaenger: {
+        Args: { p_slot_id: string }
+        Returns: {
+          customer_id: string
+        }[]
+      }
+      gastplatz_zusagen: {
+        Args: { p_level_bestaetigt: boolean; p_slot_id: string }
+        Returns: string
       }
       generate_referral_code: { Args: never; Returns: string }
       get_course_active_subscribers: {
@@ -2677,6 +2786,18 @@ export type Database = {
           birthdate: string
           customer_id: string
           full_name: string
+        }[]
+      }
+      get_course_role_balance: {
+        Args: never
+        Returns: {
+          course_id: string
+          course_name: string
+          fehlende_anzahl: number
+          fehlende_rolle: string
+          follower_count: number
+          leader_count: number
+          max_role_difference: number
         }[]
       }
       get_course_session_note: {
@@ -2791,6 +2912,11 @@ export type Database = {
         Args: { p_course_id: string; p_rolle: string }
         Returns: number
       }
+      kursabend_beginn: {
+        Args: { p_course_id: string; p_datum: string }
+        Returns: string
+      }
+      level_rang: { Args: { p_level: string }; Returns: number }
       list_attendance_eligible_customers: {
         Args: never
         Returns: {
@@ -2840,6 +2966,9 @@ export type Database = {
         }
         Returns: {
           cancellation_lead_days: number
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           checked_in_at: string | null
           checked_in_by: string | null
           created_at: string
@@ -2880,6 +3009,7 @@ export type Database = {
           customer_id: string
           dance_role: string | null
           desired_plan: string | null
+          guest_slot_id: string | null
           id: string
           note: string | null
           price: number | null

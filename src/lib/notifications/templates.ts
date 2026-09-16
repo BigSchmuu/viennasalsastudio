@@ -402,6 +402,78 @@ export function ticketStorniertInhalt(d: TicketStorniertDetails, locale = "de"):
   };
 }
 
+/** PROJ-60: Einladung zu einem Gastplatz — oder die Nachricht, dass er entfällt. */
+export type GasttaenzerDetails = {
+  subType: "einladung" | "zurueckgezogen";
+  kursName: string;
+  datum: string;
+  uhrzeit: string | null;
+  ort: string | null;
+  rolle: "leader" | "follower";
+};
+
+/**
+ * Gasttänzer-Einladung (PROJ-60).
+ *
+ * Wie die anderen Nachrichten dieser Art ohne anpassbare Vorlage: Der Anlass
+ * ist eine Einladung mit festen Angaben, an denen es nichts zu gestalten gibt.
+ * Kundenseitig, also zweisprachig.
+ */
+export function gasttaenzerInhalt(d: GasttaenzerDetails, locale = "de"): NotificationContent {
+  const en = locale === "en";
+  const datum = new Date(`${d.datum}T12:00:00`).toLocaleDateString(en ? "en-GB" : "de-AT", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Europe/Vienna",
+  });
+  const rolle = en
+    ? d.rolle === "leader" ? "a leader" : "a follower"
+    : d.rolle === "leader" ? "einen Leader" : "einen Follower";
+
+  if (d.subType === "zurueckgezogen") {
+    const subject = en ? `Guest spot cancelled: ${d.kursName}` : `Gastplatz entfällt: ${d.kursName}`;
+    return {
+      subject,
+      emailHtml: emailShell(
+        subject,
+        `<p>${en ? "Hello," : "Hallo,"}</p><p>${
+          en
+            ? `the guest spot for <strong>${escapeHtml(d.kursName)}</strong> on ${datum} is no longer needed. Thank you for offering — we will get in touch next time.`
+            : `der Gastplatz für <strong>${escapeHtml(d.kursName)}</strong> am ${datum} wird nicht mehr gebraucht. Danke, dass du eingesprungen wärst — beim nächsten Mal melden wir uns wieder.`
+        }</p>`
+      ),
+      pushTitle: en ? "Guest spot cancelled" : "Gastplatz entfällt",
+      pushBody: d.kursName,
+      url: "/profil#gasttaenzer",
+    };
+  }
+
+  const subject = en ? `We need ${rolle}: ${d.kursName}` : `Wir suchen ${rolle}: ${d.kursName}`;
+  const wo = [d.uhrzeit, d.ort].filter(Boolean).join(" · ");
+  return {
+    subject,
+    emailHtml: emailShell(
+      subject,
+      `<p>${en ? "Hello," : "Hallo,"}</p>` +
+        `<p>${
+          en
+            ? `for <strong>${escapeHtml(d.kursName)}</strong> on ${datum} we are looking for ${rolle}.`
+            : `für <strong>${escapeHtml(d.kursName)}</strong> am ${datum} suchen wir ${rolle}.`
+        }</p>` +
+        (wo ? `<p>${escapeHtml(wo)}</p>` : "") +
+        `<p>${
+          en
+            ? "The class is free for you. First come, first served — you can accept in your profile."
+            : "Der Abend ist für dich gratis. Wer zuerst zusagt, bekommt den Platz — annehmen kannst du in deinem Profil."
+        }</p>`
+    ),
+    pushTitle: en ? `We need ${rolle}` : `Wir suchen ${rolle}`,
+    pushBody: `${d.kursName} · ${datum}`,
+    url: "/profil#gasttaenzer",
+  };
+}
+
 export function buildNotificationContent(
   eventType:
     | NotificationEventGroup

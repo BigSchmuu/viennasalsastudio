@@ -66,4 +66,5 @@ export const notificationEventTypeLabel: Record<string, string> = {
   kursumwandlung: "Kursumwandlung",
   zweite_stufe_zurueckgesetzt: "Zwei-Faktor zurückgesetzt",
   ticket_storniert: "Ticket storniert",
+  gasttaenzer_einladung: "Gasttänzer-Einladung",
 };
