@@ -109,13 +109,101 @@ gibt es gar nichts.
 | Wann, durch wen und warum wird am Ticket festgehalten | Ohne das ließe sich später nicht klären, warum ein Platz frei wurde. Wird außerdem für die Nachricht an den Kunden gebraucht | 2026-09-16 |
 
 ### Technical Decisions
-_To be added by /architecture_
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| „Bereits abgebucht" heißt: in einem **freigegebenen** Lastschriftlauf | PROJ-47 hat den Zustand „freigegeben" eingeführt — erst dann ist die Datei bei der Bank. Nur auf „steht in einem Lauf" zu schauen, würde Geld als weg melden, das noch im Haus ist, und dem Betreiber eine Gutschrift aufdrängen, die er gar nicht braucht | 2026-09-16 |
+| Guthaben über die bestehende Herkunft „Storno" | Die gibt es seit PROJ-46 samt der Regel, dass ein Grund dabeistehen muss. Keine neue Tabelle, kein neuer Wert, keine Migration — und Stornogutschriften stehen an einer Stelle beisammen, gleich ob sie von einer Rechnung oder einem Ticket kommen | 2026-09-16 |
+| Eigene Datenbankfunktion statt Erweiterung der Kunden-Stornierung | Die Regeln sind verschieden: Der Kunde darf nur sein eigenes Ticket und nur innerhalb der Frist, die Verwaltung jedes Ticket ohne Frist. Beides in eine Funktion zu pressen hieße, den empfindlichsten Weg der App mit Verzweigungen zu versehen | 2026-09-16 |
+| Stornierung und Gutschrift in **einem** Schritt der Datenbank | Sonst könnte ein abgebrochener Vorgang ein storniertes Ticket ohne Gutschrift hinterlassen — der Kunde hätte weder Platz noch Geld | 2026-09-16 |
+| Die Rechteprüfung steht in der Datenbank, nicht nur in der Oberfläche | Sie erbt damit automatisch die Zwei-Faktor-Pflicht aus PROJ-58: Ohne bestätigten Code gilt niemand als Admin, auch nicht an der Oberfläche vorbei | 2026-09-16 |
+| Keine neuen Pakete | Alles Nötige ist vorhanden | 2026-09-16 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Die Grundidee
+
+Der Weg besteht schon fast vollständig. Die Gästeliste zeigt bereits jedes Ticket mit Status, Preis
+und Zahlungsart. Das Guthaben kennt seit PROJ-46 die Herkunft „Storno". Was fehlt, ist ein Knopf,
+ein Dialog und **eine** Handlung in der Datenbank, die beides zusammen erledigt.
+
+### Die heikelste Frage: Ist das Geld schon weg?
+
+Davon hängt ab, ob dem Betreiber eine Gutschrift vorgeschlagen wird — und eine falsche Antwort
+kostet bares Geld. Ein Ticket gilt als abgebucht, wenn es in einem Lastschriftlauf steht, **der
+freigegeben wurde**. Den Zustand „freigegeben" hat PROJ-47 eingeführt; erst dann ist die Datei bei
+der Bank.
+
+Daraus ergeben sich drei Lagen, und der Dialog sagt jede ausdrücklich:
+
+| Lage | Was der Dialog sagt |
+|---|---|
+| Vor Ort zu zahlen | Es floss nie Geld durch die App — von Guthaben ist keine Rede |
+| Lastschrift, noch in keinem freigegebenen Lauf | Es wurde nichts abgebucht. Das Ticket fällt aus künftigen Läufen heraus |
+| Lastschrift, in einem freigegebenen Lauf | Abgebucht am … — „als Guthaben gutschreiben" ist vorausgewählt |
+
+Der mittlere Fall umfasst auch ein Ticket, das in einem **erzeugten, aber nicht freigegebenen** Lauf
+steht. Dort ist das Geld noch im Haus, und die Zeile lässt sich über PROJ-47 aus dem Lauf nehmen.
+Hier „bereits abgebucht" zu melden wäre der teuerste Denkfehler des ganzen Projekts.
+
+### Was gebaut wird
+
+```
+Verwaltung → Events → „Gästeliste" (bestehend, wird erweitert)
++-- je Ticketzeile ein „Stornieren" — nur für Admins, nur solange nicht storniert
++-- Stornierte Zeilen bleiben stehen, mit Status und dem Vermerk wer/wann/warum
++-- Storno-Dialog (neu)
+    +-- Um welches Ticket geht es: Name, Ticketart, Einheit, Preis, Zahlungsart
+    +-- Die Geldlage in einem Satz (siehe Tabelle oben)
+    |   +-- Häkchen „Betrag als Guthaben gutschreiben" — nur im dritten Fall, vorausgewählt
+    +-- Warnung, falls die Person eingecheckt war
+    +-- Warnung, falls das Event vorbei ist
+    +-- Feld „Grund (optional)" — geht an den Kunden
+    +-- Abbrechen · Stornieren
+
+Benachrichtigungen (Erweiterung)
++-- neue Art „Ticket storniert" mit Eventname, Termin, Grund und ggf. Guthabenbetrag
+```
+
+### Was gespeichert wird
+
+**Am Ticket** kommen drei Angaben dazu: wann storniert, durch wen, mit welchem Grund. Ohne die ließe
+sich später nicht klären, warum ein Platz frei wurde — und die Nachricht an den Kunden braucht den
+Grund ohnehin.
+
+**Im Guthaben** entsteht bei Bedarf eine Zeile mit der bestehenden Herkunft „Storno". Neue Tabelle
+oder neuer Wert sind dafür nicht nötig.
+
+**In der Liste der Benachrichtigungsarten** kommt ein Eintrag dazu. Diese Liste ist in der Datenbank
+festgeschrieben; fehlt der Eintrag, verschwindet die Nachricht lautlos, ohne Fehlermeldung. Das ist
+in diesem Projekt schon zweimal passiert.
+
+**Der frei gewordene Platz** braucht nichts: Die Belegung zählt Tickets, die nicht storniert sind.
+
+### Warum eine eigene Datenbankfunktion
+
+Die bestehende Stornierung ist für Kunden gebaut und prüft zwei Dinge, die hier gerade nicht gelten
+sollen: dass das Ticket dem Aufrufer gehört, und dass die Frist noch läuft. Beides in eine Funktion
+zu pressen hieße, den empfindlichsten Weg der App mit Verzweigungen zu versehen — also lieber eine
+zweite, die ihre eigenen Regeln hat: nur Verwaltungskonten, keine Frist, Gutschrift inbegriffen.
+
+Stornierung und Gutschrift laufen darin als **ein** Schritt. Sonst könnte ein abgebrochener Vorgang
+ein storniertes Ticket ohne Gutschrift hinterlassen — der Kunde hätte weder Platz noch Geld.
+
+Die Rechteprüfung steht in dieser Funktion und nicht nur in der Oberfläche. Damit erbt sie
+automatisch die Zwei-Faktor-Pflicht aus PROJ-58: Wer den Code nicht bestätigt hat, gilt für die
+Datenbank nicht als Admin — auch nicht an den Seiten vorbei.
+
+### Backend nötig?
+
+Ja: eine Migration für die drei Angaben am Ticket und die Benachrichtigungsart, die neue
+Datenbankfunktion, die Server-Handlung dahinter und die Nachricht an den Kunden.
+
+### Zusätzliche Pakete
+
+Keine.
 
 ## QA Test Results
 _To be added by /qa_
