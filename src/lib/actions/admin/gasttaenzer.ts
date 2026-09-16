@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { enqueueNotification } from "@/lib/notifications/dispatch";
+import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 import { ausschreibungSchema } from "@/lib/validations/gasttaenzer";
 
 type Ergebnis = { error: string } | { success: true };
@@ -169,14 +169,24 @@ export async function ausschreiben(formData: FormData): Promise<Ergebnis> {
     console.error("Empfängerkreis nicht ermittelbar", empfaengerFehler);
   }
 
-  for (const e of empfaenger ?? []) {
-    await enqueueNotification({
-      customerId: e.customer_id,
-      eventType: "gasttaenzer_einladung",
-      payload: { slot_id: slot.id, sub_type: "einladung" },
-      dedupeKey: `gasttaenzer_einladung:${slot.id}:${e.customer_id}`,
-    });
-  }
+  // Sofort zustellen, nicht nur einreihen: Die Warteschlange wird zweimal am
+  // Tag geleert (06:00 und 18:00). Eine Einladung kann für **heute Abend**
+  // sein — dann wäre sie wertlos, wenn sie erst am nächsten Morgen ankommt.
+  // Genau dieser Fehler ist beim ersten Versuch in der Produktion aufgefallen.
+  //
+  // Nebeneinander statt nacheinander: Jede Zustellung ist ein eigener Aufruf
+  // nach draußen, und bei zwanzig Empfängern summierte sich das sonst zu einer
+  // spürbaren Wartezeit für den Betreiber.
+  await Promise.all(
+    (empfaenger ?? []).map((e) =>
+      enqueueAndDispatch({
+        customerId: e.customer_id,
+        eventType: "gasttaenzer_einladung",
+        payload: { slot_id: slot.id, sub_type: "einladung" },
+        dedupeKey: `gasttaenzer_einladung:${slot.id}:${e.customer_id}`,
+      })
+    )
+  );
 
   revalidatePath("/admin/gasttaenzer");
   return { success: true };
@@ -210,7 +220,9 @@ export async function ausschreibungZurueckziehen(slotId: string): Promise<Ergebn
 
   for (const z of zusagen ?? []) {
     await supabase.rpc("gastplatz_absagen", { p_booking_id: z.id });
-    await enqueueNotification({
+    // Auch hier sofort: Wer zugesagt hat, soll nicht abends im Studio stehen,
+    // weil die Absage noch in der Warteschlange liegt.
+    await enqueueAndDispatch({
       customerId: z.customer_id,
       eventType: "gasttaenzer_einladung",
       payload: { slot_id: slotId, sub_type: "zurueckgezogen" },
