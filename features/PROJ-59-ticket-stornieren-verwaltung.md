@@ -205,6 +205,38 @@ Datenbankfunktion, die Server-Handlung dahinter und die Nachricht an den Kunden.
 
 Keine.
 
+## Umsetzung — Frontend (2026-09-16)
+
+### Gebaut
+
+- **„Stornieren" je Ticketzeile** in der Gästeliste. Stornierte Zeilen bleiben stehen, dort gibt es
+  nur nichts mehr zu tun.
+- **Storno-Dialog** mit Kunde, Ticketart, Einheit und Preis; der Geldlage in einem Satz; Warnung bei
+  Check-in oder vergangenem Event; Feld für den Grund.
+- **`getStornoLage()`** — die Auskunft, wo das Geld steht. Sie unterscheidet die vier Fälle:
+  Freikarte, Zahlung vor Ort, Lastschrift ohne freigegebenen Lauf, Lastschrift mit freigegebenem
+  Lauf. Nur im letzten Fall erscheint das Häkchen für die Gutschrift, und dann vorausgewählt.
+
+Beim Fall „steht in einem Lauf, der noch nicht freigegeben ist" nennt der Dialog ausdrücklich den
+nächsten Schritt: die Zeile aus dem Lauf nehmen, bevor er freigegeben wird (PROJ-47). Sonst würde
+zuerst abgebucht und danach gutgeschrieben — zweimal Arbeit für nichts.
+
+### Bewusst offen für /backend
+
+**Das Stornieren selbst.** `ticketStornieren()` gibt bis dahin eine klare Meldung zurück, statt etwas
+Halbes zu tun. Der Grund steht im Entwurf: Stornierung und Gutschrift müssen als **ein** Schritt in
+der Datenbank laufen, sonst könnte ein Abbruch ein storniertes Ticket ohne Gutschrift hinterlassen.
+Das verlangt eine neue Datenbankfunktion samt Migration — beides gehört in den Backend-Schritt.
+
+Ebenfalls dort: die drei Angaben am Ticket (wann, durch wen, warum) und die Benachrichtigung.
+
+### Anmerkung zum Aufbau
+
+Der Dialog leitet seinen Ladezustand ab, statt ihn im Effekt zu setzen. Das verlangt der Linter des
+Projekts — und es ist auch sachlich besser: Beim Wechsel von einem Ticket zum nächsten zeigte die
+vorherige Fassung für einen Wimpernschlag die Zahlen des alten Tickets. Bei einem Dialog, in dem es
+um Geldbeträge geht, ist das kein Schönheitsfehler.
+
 ## QA Test Results
 _To be added by /qa_
 

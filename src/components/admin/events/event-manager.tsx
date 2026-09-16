@@ -43,6 +43,7 @@ import { ProgrammDialog } from "@/components/admin/events/programm-dialog";
 import { createGast, deleteGast, getEventProgramm, type GastZeile } from "@/lib/actions/admin/event-programm";
 import { danceRoleOptions } from "@/lib/constants/booking";
 import { STANDARD_STORNOFRIST_TAGE, type Zahlungswahl } from "@/lib/events/tickets";
+import { StornoDialog } from "@/components/admin/events/storno-dialog";
 import {
   Form,
   FormControl,
@@ -656,6 +657,8 @@ function GuestListDialog({
   const [handgaeste, setHandgaeste] = useState<GastZeile[] | null>(null);
   const [einheiten, setEinheiten] = useState<{ id: string; titel: string }[]>([]);
   const [neuOffen, setNeuOffen] = useState(false);
+  // PROJ-59: Welches Ticket gerade storniert werden soll.
+  const [stornoTicket, setStornoTicket] = useState<string | null>(null);
 
   const ladenHandgaeste = useCallback(async (eventId: string) => {
     const programm = await getEventProgramm(eventId);
@@ -704,6 +707,7 @@ function GuestListDialog({
                       {rolleZeigen ? <TableHead>Rolle</TableHead> : null}
                       <TableHead>Zahlungsart</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Aktion</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -728,6 +732,17 @@ function GuestListDialog({
                           <Badge style={{ backgroundColor: ticketStatusColor(g.status) }} className="text-white">
                             {ticketStatusLabel(g.status)}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {/* PROJ-59: Ein storniertes Ticket bleibt in der Liste
+                              stehen — es verschwinden zu lassen sähe aus, als
+                              hätte es das Ticket nie gegeben. Nur zu stornieren
+                              gibt es dort nichts mehr. */}
+                          {g.status === "cancelled" ? null : (
+                            <Button size="sm" variant="ghost" onClick={() => setStornoTicket(g.id)}>
+                              Stornieren
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -803,6 +818,16 @@ function GuestListDialog({
             </section>
           </div>
         )}
+
+        {/* PROJ-59: Liegt über der Gästeliste, damit sie nach dem Stornieren
+            gleich den neuen Stand zeigt. */}
+        <StornoDialog
+          ticketId={stornoTicket}
+          onOpenChange={(offen) => {
+            if (!offen) setStornoTicket(null);
+          }}
+          onErledigt={onReload}
+        />
 
         {event && neuOffen ? (
           <GastDialog

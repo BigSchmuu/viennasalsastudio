@@ -89,7 +89,7 @@
 
 | PROJ-58 | Zwei-Faktor-Anmeldung für Verwaltungskonten | Deployed | [PROJ-58](../features/PROJ-58-zwei-faktor-verwaltungskonten.md) | 2026-09-16 |
 
-| PROJ-59 | Ticket stornieren durch die Verwaltung | Architected | [PROJ-59](../features/PROJ-59-ticket-stornieren-verwaltung.md) | 2026-09-16 |
+| PROJ-59 | Ticket stornieren durch die Verwaltung | In Progress | [PROJ-59](../features/PROJ-59-ticket-stornieren-verwaltung.md) | 2026-09-16 |
 
 <!-- Add features above this line -->
 
