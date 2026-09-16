@@ -482,4 +482,37 @@ Weg **über die Liste** geht statt über die Adresszeile.
 
 ## Deployment
 
-_To be added by /deploy_
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-16 · **Tag:** `v1.57.0-PROJ-58`
+
+### Reihenfolge, wie sie tatsächlich lief
+
+1. Migration `20260916120000_proj58_zweite_stufe_grundlage.sql` in die Produktion
+2. Code ausgerollt (Vercel, 2 Minuten Build) — ab hier führt jedes Verwaltungskonto zur Einrichtung
+3. Der Betreiber richtet seine Authenticator-App ein
+4. Nachtrag `6b8b8ed`: BUG-6 behoben und erneut ausgerollt (siehe Nachtrag oben)
+5. Lisas Konto von `teacher` auf `admin` gesetzt — von Hand per SQL, weil die App bewusst keine
+   Oberfläche zur Vergabe von Admin-Rechten hat
+6. Migration `20260916121000_proj58_zweite_stufe_erzwingen.sql` in die Produktion
+
+Schritt 3 vor Schritt 6 war die kritische Bedingung. Sie hat sich bewährt: Der Einrichtungsweg war in
+der echten Umgebung bewiesen, bevor die Datenbank ihn verlangt hat.
+
+### Nachgeprüft
+
+Öffentlich, von außen: Startseite, Kurse, Events, Stundenplan, englische Fassung, Sitemap und
+robots.txt liefern alle 200; 12 Kurse im Katalog und 2 Events verlinkt. Für Kundinnen und Kunden hat
+sich nichts geändert.
+
+Verwaltung, vom Betreiber bestätigt: Kundenliste, Rechnungen und Lastschriften vollständig.
+
+### Was beim Umstieg auffallen kann
+
+Ein Zugangstoken, das noch von vor der Einrichtung stammt, trägt die zweite Stufe nicht — Listen
+wirken dann leer. Einmal abmelden und neu anmelden löst es. Das ist ein einmaliger Übergang, kein
+Fehler.
+
+### Offen, außerhalb des Codes
+
+- [ ] Zwei-Faktor für das **Supabase-Dashboard** selbst aktivieren. Es ist der Notausgang, über den
+  sich ausgesperrte Admins retten lassen — und solange es nur mit einem Passwort geschützt ist, führt
+  an der ganzen Konstruktion eine Hintertür vorbei.
