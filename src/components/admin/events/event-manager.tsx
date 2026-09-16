@@ -732,6 +732,16 @@ function GuestListDialog({
                           <Badge style={{ backgroundColor: ticketStatusColor(g.status) }} className="text-white">
                             {ticketStatusLabel(g.status)}
                           </Badge>
+                          {/* PROJ-59: Warum ein Platz frei wurde, gehört an die
+                              Zeile — sonst ist es in drei Monaten nicht mehr
+                              zu klären. */}
+                          {g.storniertAm ? (
+                            <span className="mt-1 block text-xs text-muted-foreground">
+                              {new Date(g.storniertAm).toLocaleDateString("de-AT", { timeZone: "Europe/Vienna" })}
+                              {g.storniertVon ? ` · ${g.storniertVon}` : ""}
+                              {g.stornoGrund ? ` · ${g.stornoGrund}` : ""}
+                            </span>
+                          ) : null}
                         </TableCell>
                         <TableCell className="text-right">
                           {/* PROJ-59: Ein storniertes Ticket bleibt in der Liste

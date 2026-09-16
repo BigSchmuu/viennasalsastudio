@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { getStornoLage, ticketStornieren, type StornoLage } from "@/lib/actions/admin/ticket-storno";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,9 @@ export function StornoDialog({
       setFehler(ergebnis.error);
       return;
     }
+    // Der Hinweis erscheint, wenn der Kunde in derselben Sekunde selbst
+    // storniert hat — dann ist nichts geschehen, und das gehört gesagt.
+    toast.success(ergebnis.hinweis ?? "Ticket storniert.");
     onErledigt();
     onOpenChange(false);
   }

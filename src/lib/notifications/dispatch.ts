@@ -5,6 +5,7 @@ import {
   buildNotificationContent,
   resolveTemplateKey,
   zweiteStufeZurueckgesetztInhalt,
+  ticketStorniertInhalt,
   type EventTicketDetails,
   type NotificationContent,
 } from "@/lib/notifications/templates";
@@ -273,6 +274,26 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         newName: payload.neuer_name as string,
         effectiveDate: payload.datum as string,
       });
+    case "ticket_storniert": {
+      // Der Grund steht am Ticket, nicht im Nutzlastfeld: So bleibt er auch
+      // dann richtig, wenn die Nachricht erst beim naechsten Lauf zugestellt
+      // wird.
+      const { data } = await service
+        .from("tickets")
+        .select("cancellation_reason, events(name, starts_at)")
+        .eq("id", payload.ticket_id as string)
+        .maybeSingle();
+      if (!data?.events) return null;
+      return ticketStorniertInhalt(
+        {
+          eventName: data.events.name,
+          startsAt: data.events.starts_at,
+          grund: data.cancellation_reason,
+          gutschrift: Number(payload.gutschrift ?? 0),
+        },
+        locale
+      );
+    }
     case "zweite_stufe_zurueckgesetzt":
       return zweiteStufeZurueckgesetztInhalt((payload.durch_name as string | null) ?? null);
     case "konto_existiert":

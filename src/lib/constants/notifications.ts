@@ -65,4 +65,5 @@ export const notificationEventTypeLabel: Record<string, string> = {
   konto_existiert: "Konto existiert bereits",
   kursumwandlung: "Kursumwandlung",
   zweite_stufe_zurueckgesetzt: "Zwei-Faktor zurückgesetzt",
+  ticket_storniert: "Ticket storniert",
 };

@@ -339,6 +339,69 @@ export function zweiteStufeZurueckgesetztInhalt(durchName: string | null): Notif
   };
 }
 
+/** PROJ-59: Die Nachricht, wenn die Verwaltung ein Ticket storniert hat. */
+export type TicketStorniertDetails = {
+  eventName: string;
+  startsAt: string;
+  grund: string | null;
+  gutschrift: number;
+};
+
+/**
+ * Ticket durch die Verwaltung storniert (PROJ-59).
+ *
+ * Wie die Sicherheitsmeldung aus PROJ-58 bewusst ohne anpassbare Vorlage: Der
+ * Anlass ist ein Einzelfall, den der Betreiber selbst mit einem Satz begründen
+ * kann. Anders als jene geht sie aber an Kunden — also zweisprachig.
+ *
+ * Der Grund stammt aus einem Eingabefeld und wird maskiert. Ein Name oder eine
+ * Begründung darf keinen HTML-Schnipsel in die Mail tragen.
+ */
+export function ticketStorniertInhalt(d: TicketStorniertDetails, locale = "de"): NotificationContent {
+  const en = locale === "en";
+  const termin = new Date(d.startsAt).toLocaleDateString(en ? "en-GB" : "de-AT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Vienna",
+  });
+  const subject = en ? `Your ticket was cancelled: ${d.eventName}` : `Dein Ticket wurde storniert: ${d.eventName}`;
+
+  const saetze = [
+    en
+      ? `your ticket for <strong>${escapeHtml(d.eventName)}</strong> on ${termin} has been cancelled by the studio.`
+      : `dein Ticket für <strong>${escapeHtml(d.eventName)}</strong> am ${termin} wurde vom Studio storniert.`,
+  ];
+
+  if (d.grund) {
+    saetze.push(en ? `Reason: ${escapeHtml(d.grund)}` : `Grund: ${escapeHtml(d.grund)}`);
+  }
+
+  if (d.gutschrift > 0) {
+    const betrag = d.gutschrift.toLocaleString(en ? "en-IE" : "de-AT", { style: "currency", currency: "EUR" });
+    saetze.push(
+      en
+        ? `We credited ${betrag} to your account — it will be offset against your next booking.`
+        : `${betrag} haben wir dir als Guthaben gutgeschrieben — es wird bei deiner nächsten Buchung verrechnet.`
+    );
+  }
+
+  saetze.push(
+    en ? "If anything is unclear, just get in touch." : "Wenn etwas unklar ist, melde dich einfach bei uns."
+  );
+
+  return {
+    subject,
+    emailHtml: emailShell(
+      subject,
+      `<p>${en ? "Hello," : "Hallo,"}</p>` + saetze.map((s) => `<p>${s}</p>`).join("")
+    ),
+    pushTitle: en ? "Ticket cancelled" : "Ticket storniert",
+    pushBody: d.eventName,
+    url: "/profil#tickets",
+  };
+}
+
 export function buildNotificationContent(
   eventType:
     | NotificationEventGroup

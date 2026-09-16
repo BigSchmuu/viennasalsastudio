@@ -258,6 +258,10 @@ export type EventGuestRow = {
   ticketart: string | null;
   einheit: string | null;
   rolle: string | null;
+  /** PROJ-59: Nur bei stornierten Tickets gesetzt. */
+  storniertAm: string | null;
+  storniertVon: string | null;
+  stornoGrund: string | null;
 };
 
 export async function getEventGuestList(eventId: string): Promise<EventGuestRow[]> {
@@ -266,10 +270,23 @@ export async function getEventGuestList(eventId: string): Promise<EventGuestRow[
   const { data } = await supabase
     .from("tickets")
     .select(
-      "id, customer_id, payment_method, status, price, checked_in_at, dance_role, profiles(full_name), event_ticket_types(name), event_units(title)"
+      "id, customer_id, payment_method, status, price, checked_in_at, dance_role, cancelled_at, cancelled_by, cancellation_reason, profiles(full_name), event_ticket_types(name), event_units(title)"
     )
     .eq("event_id", eventId)
     .order("created_at", { ascending: true });
+
+  // PROJ-59: Wer storniert hat, steht als Kennung am Ticket. Ein Verweis auf
+  // die Profile lässt sich daraus nicht automatisch bilden, weil die Spalte auf
+  // die Anmeldedaten zeigt — also eine zweite, kleine Abfrage statt einer
+  // Verknüpfung, die es nicht gibt.
+  const stornierer = [...new Set((data ?? []).map((t) => t.cancelled_by).filter((id): id is string => !!id))];
+  const namen = new Map<string, string>();
+  if (stornierer.length > 0) {
+    const { data: profile } = await supabase.from("profiles").select("id, full_name").in("id", stornierer);
+    for (const eintrag of profile ?? []) {
+      namen.set(eintrag.id, eintrag.full_name || "Unbenannt");
+    }
+  }
 
   return (data ?? []).map((t) => ({
     id: t.id,
@@ -282,5 +299,8 @@ export async function getEventGuestList(eventId: string): Promise<EventGuestRow[
     ticketart: t.event_ticket_types?.name ?? null,
     einheit: t.event_units?.title ?? null,
     rolle: t.dance_role,
+    storniertAm: t.cancelled_at,
+    storniertVon: t.cancelled_by ? (namen.get(t.cancelled_by) ?? null) : null,
+    stornoGrund: t.cancellation_reason,
   }));
 }

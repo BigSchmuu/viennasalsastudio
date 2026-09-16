@@ -1,6 +1,8 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { enqueueAndDispatch } from "@/lib/notifications/dispatch";
 import { eventEnde } from "@/lib/events/event-zustand";
 
 /**
@@ -73,18 +75,55 @@ export async function getStornoLage(ticketId: string): Promise<StornoLage | null
 /**
  * Ein Ticket durch die Verwaltung stornieren (PROJ-59).
  *
- * NOCH NICHT UMGESETZT — wird im Backend-Schritt gebaut.
- *
- * Stornierung und Gutschrift müssen als **ein** Schritt in der Datenbank
- * laufen: Sonst könnte ein abgebrochener Vorgang ein storniertes Ticket ohne
- * Gutschrift hinterlassen, und der Kunde hätte weder Platz noch Geld. Das
- * verlangt eine neue Datenbankfunktion samt Migration — beides gehört in
- * /backend, nicht hierher.
+ * Stornierung und Gutschrift laufen als **ein** Schritt in der Datenbank.
+ * Getrennt ausgeführt könnte ein Abbruch ein storniertes Ticket ohne Gutschrift
+ * hinterlassen — der Kunde hätte weder Platz noch Geld.
  */
 export async function ticketStornieren(
-  _ticketId: string,
-  _angaben: { grund: string; guthabenGutschreiben: boolean }
-): Promise<{ error: string } | { success: true }> {
-  await requireAdmin();
-  return { error: "Das Stornieren wird gerade gebaut und ist noch nicht scharf geschaltet." };
+  ticketId: string,
+  angaben: { grund: string; guthabenGutschreiben: boolean }
+): Promise<{ error: string } | { success: true; hinweis?: string }> {
+  const { supabase } = await requireAdmin();
+
+  const { data, error } = await supabase.rpc("admin_ticket_stornieren", {
+    p_ticket_id: ticketId,
+    p_grund: angaben.grund,
+    p_guthaben: angaben.guthabenGutschreiben,
+  });
+
+  if (error) {
+    if (error.message.includes("not authorized")) {
+      return { error: "Dafür fehlen dir die Rechte." };
+    }
+    if (error.message.includes("ticket not found")) {
+      return { error: "Ticket nicht gefunden." };
+    }
+    console.error("Ticket konnte nicht storniert werden", error);
+    return { error: "Das Ticket konnte nicht storniert werden. Bitte versuche es erneut." };
+  }
+
+  const ergebnis = (data ?? {}) as { status?: string; gutschrift?: number };
+
+  // Der Kunde war schneller. Kein Fehler — nur nichts mehr zu tun, und deshalb
+  // auch keine zweite Nachricht an ihn.
+  if (ergebnis.status === "bereits_storniert") {
+    revalidatePath("/admin/events");
+    return { success: true, hinweis: "Das Ticket war bereits storniert." };
+  }
+
+  const { data: ticket } = await supabase.from("tickets").select("customer_id").eq("id", ticketId).maybeSingle();
+
+  if (ticket) {
+    await enqueueAndDispatch({
+      customerId: ticket.customer_id,
+      eventType: "ticket_storniert",
+      payload: { ticket_id: ticketId, gutschrift: ergebnis.gutschrift ?? 0 },
+      // Mit Zeitstempel: Ein erneutes Storno wäre ein neues Ereignis. Zweimal
+      // dasselbe Ticket zu stornieren geht ohnehin nicht.
+      dedupeKey: `ticket_storniert:${ticketId}`,
+    });
+  }
+
+  revalidatePath("/admin/events");
+  return { success: true };
 }

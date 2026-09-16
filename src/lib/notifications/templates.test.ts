@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildNotificationContent,
   zweiteStufeZurueckgesetztInhalt,
+  ticketStorniertInhalt,
 } from "./templates";
 
 /**
@@ -389,5 +390,53 @@ describe("zweiteStufeZurueckgesetztInhalt (PROJ-58)", () => {
 
   it("führt zur Einrichtung, nicht ins Profil", () => {
     expect(zweiteStufeZurueckgesetztInhalt("Lisa").url).toBe("/sicherheit/einrichten");
+  });
+});
+
+describe("ticketStorniertInhalt (PROJ-59)", () => {
+  const basis = { eventName: "Salsa Party", startsAt: "2026-10-03T20:00:00Z", grund: null, gutschrift: 0 };
+
+  it("nennt Event und Termin", () => {
+    const inhalt = ticketStorniertInhalt(basis);
+    expect(inhalt.subject).toContain("Salsa Party");
+    expect(inhalt.emailHtml).toContain("03.10.2026");
+  });
+
+  it("nennt den Grund, wenn einer angegeben wurde", () => {
+    expect(ticketStorniertInhalt({ ...basis, grund: "Auf deinen Wunsch" }).emailHtml).toContain(
+      "Auf deinen Wunsch"
+    );
+  });
+
+  it("lässt die Zeile weg, wenn kein Grund angegeben wurde", () => {
+    expect(ticketStorniertInhalt(basis).emailHtml).not.toContain("Grund:");
+  });
+
+  it("nennt den Betrag, wenn ein Guthaben gutgeschrieben wurde", () => {
+    const inhalt = ticketStorniertInhalt({ ...basis, gutschrift: 18 });
+    expect(inhalt.emailHtml).toContain("18,00");
+    expect(inhalt.emailHtml).toContain("Guthaben");
+  });
+
+  it("schweigt vom Guthaben, wenn keines gutgeschrieben wurde", () => {
+    expect(ticketStorniertInhalt(basis).emailHtml).not.toContain("Guthaben");
+  });
+
+  it("maskiert HTML im Grund", () => {
+    const grund = '<script>alert(1)</script>';
+    const inhalt = ticketStorniertInhalt({ ...basis, grund });
+    expect(inhalt.emailHtml).not.toContain(grund);
+    expect(inhalt.emailHtml).toContain("&lt;script&gt;");
+  });
+
+  it("antwortet auf Englisch, wenn der Kunde Englisch eingestellt hat", () => {
+    const inhalt = ticketStorniertInhalt({ ...basis, gutschrift: 18 }, "en");
+    expect(inhalt.subject).toContain("cancelled");
+    expect(inhalt.emailHtml).toContain("has been cancelled by the studio");
+    expect(inhalt.emailHtml).toContain("offset against your next booking");
+  });
+
+  it("führt zu den eigenen Tickets", () => {
+    expect(ticketStorniertInhalt(basis).url).toBe("/profil#tickets");
   });
 });

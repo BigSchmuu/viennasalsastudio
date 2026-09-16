@@ -2012,6 +2012,9 @@ export type Database = {
       tickets: {
         Row: {
           cancellation_lead_days: number
+          cancelled_at: string | null
+          cancelled_by: string | null
+          cancellation_reason: string | null
           checked_in_at: string | null
           checked_in_by: string | null
           created_at: string
@@ -2030,6 +2033,9 @@ export type Database = {
         }
         Insert: {
           cancellation_lead_days?: number
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cancellation_reason?: string | null
           checked_in_at?: string | null
           checked_in_by?: string | null
           created_at?: string
@@ -2048,6 +2054,9 @@ export type Database = {
         }
         Update: {
           cancellation_lead_days?: number
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cancellation_reason?: string | null
           checked_in_at?: string | null
           checked_in_by?: string | null
           created_at?: string
@@ -2315,6 +2324,14 @@ export type Database = {
       }
     }
     Functions: {
+      admin_ticket_stornieren: {
+        Args: {
+          p_ticket_id: string
+          p_grund?: string
+          p_guthaben?: boolean
+        }
+        Returns: Json
+      }
       admin_sitzungen_beenden: {
         Args: {
           p_user_id: string
