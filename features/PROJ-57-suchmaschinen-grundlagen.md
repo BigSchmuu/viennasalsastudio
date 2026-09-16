@@ -1,6 +1,6 @@
 # PROJ-57: Suchmaschinen-Grundlagen für öffentliche Seiten
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-09-16
 **Last Updated:** 2026-09-16
 
@@ -194,7 +194,75 @@ Gegen die Testdatenbank, nicht die Produktion:
 - **Noch keine E2E-Tests**; sie kommen in der QA.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-09-16
+**Umgebung:** localhost:3100 gegen die Testdatenbank
+**Tester:** QA Engineer (AI)
+
+Diese Suite prüft Dinge, die kein Mensch je zu Gesicht bekommt — und genau deshalb braucht es sie. Beim Bauen hatte die Sprachweiche Sitemap und robots.txt verschluckt und die 404-Seite ausgeliefert; ohne einen Abruf am laufenden Server wäre das erst in der Produktion aufgefallen, wo niemand hinsieht. Die erste Prüfung jedes Tests lautet deshalb: Kommt überhaupt etwas anderes zurück als HTML?
+
+### Abnahmekriterien
+
+#### Sitemap
+- [x] Kommende Einzelevents und laufende Serien, je Eintrag beide Sprachen — E2E
+- [x] Vergangene und abgesagte Events stehen nicht darin — E2E
+- [x] Von einer Serie nur die Serienseite, nicht die einzelnen Termine — E2E
+- [x] Eine beendete Serie steht nicht mehr darin — E2E
+- [x] Änderungen bilden sich ohne Zutun ab: Ein Event absagen nimmt es heraus, zurücknehmen bringt es wieder — E2E
+- [x] Keine Adresse, die eine Anmeldung verlangt — E2E
+
+#### robots.txt
+- [x] Verweist auf die Sitemap — E2E
+- [x] Verwaltung, Check-in, Lehrerbereich, „Mein Bereich", Profil und Rechnungen sind ausgeschlossen — E2E
+
+#### Was nicht in den Index soll
+- [x] Startseite, Kurse, Stundenplan, Login, Registrieren sagen „nicht aufnehmen" — E2E
+- [x] AGB, Datenschutz und Impressum ebenso — E2E
+- [x] Vergangene und abgesagte Events sagen „nicht aufnehmen", bleiben aber erreichbar — E2E, beides geprüft
+- [x] Serientermin-Seiten sagen „nicht aufnehmen", bleiben aber erreichbar — E2E
+
+#### Sprachen
+- [x] Jede indexierte Seite nennt ihre Entsprechung in der anderen Sprache — E2E
+- [x] Die Vorgabe für Unzuordenbare führt auf die deutsche Fassung — E2E, in Seitenkopf und Sitemap
+- [x] Jede Fassung verweist als kanonische Adresse auf sich selbst — E2E, deutsch und englisch getrennt geprüft
+
+#### Vorschau
+- [x] Eine indexierte Seite trägt Titel und Kurzbeschreibung — E2E
+- [x] Ein Event ohne Titelbild liefert die Vorschau ohne Bild statt mit einem kaputten — E2E
+
+### Edge Cases
+- [x] Ein Event wird abgesagt, nachdem es in der Sitemap stand → verschwindet sofort daraus und sagt auf der Seite „nicht aufnehmen" — E2E
+- [x] Eine Serie ist beendet → fällt aus der Sitemap, die Seite bleibt erreichbar — E2E
+- [x] Ein Event ohne Ende → gilt einen Tag lang als kommend, dieselbe Grenze wie der Ticketverkauf — Unit
+- [x] Ein laufendes Event → bleibt im Index, bis es vorbei ist — Unit
+- [ ] **Ungetestet:** sehr viele Events. Die Grenze von 50.000 Adressen je Sitemap ist für ein Studio nicht erreichbar; eine Prüfung dafür wäre Theater
+- [x] Ein Event wird umbenannt → die alte Adresse leitet weiter (PROJ-53), die Sitemap nennt nur die neue
+
+### Sicherheitsprüfung
+- [x] **Keine Adresse hinter der Anmeldung in der Sitemap** — ausdrücklich geprüft, nicht angenommen
+- [x] **robots.txt sperrt nur, was ohnehin Anmeldung verlangt.** Was öffentlich ist, aber aus dem Index soll, wird *nicht* gesperrt, sondern sagt auf der Seite „nicht aufnehmen" — eine gesperrte Seite bekäme Google nie zu sehen und könnte trotzdem im Index landen, nur ohne Inhalt
+- [x] **Die Sitemap gibt nichts preis, was nicht ohnehin öffentlich ist:** Adressen von Eventseiten
+- [x] **Ein Lesefehler führt zu einem Fehler, nicht zu einer leeren Sitemap** — „keine Seiten" wäre für Google die Aussage, die bekannten Adressen seien erledigt
+
+### Regression
+- [x] PROJ-53, PROJ-54, PROJ-55 und PROJ-56: vollständig grün, zusammen mit dieser Suite 124 Läufe in zwei Browsern
+- [x] Unit-Suite: 763 Tests in 64 Dateien
+
+### Gefundene Fehler
+Keine. Der einzige Fehler dieses Projekts fiel beim Bauen auf und ist dort festgehalten: Die Sprachweiche verschluckte Sitemap und robots.txt. Er ist behoben, und die ersten beiden Tests dieser Suite halten fest, dass beide Dateien wirklich ausgeliefert werden.
+
+### Beobachtungen
+1. **Die Sprachadressen haben weiterhin keinen Unit-Test.** Die Adressberechnung zieht die Navigation von next-intl herein, die im Unit-Test nicht aufzulösen ist. Geprüft sind sie jetzt als E2E am ausgelieferten Seitenkopf — dort, wo sie zählen, und in beiden Sprachen getrennt.
+2. **Ob Google die Sitemap liest, sieht niemand.** Dafür bräuchte es die Google Search Console; sie steht als offene Frage in der Spezifikation. Ohne sie ist dieses Projekt technisch fertig, aber unbeobachtet.
+3. **Firefox ist in Playwright weiterhin nicht eingerichtet**, Tabletbreite ungetestet — beides schon vorher so und für dieses Projekt ohne Belang: Suchmaschinen haben keine Bildschirmbreite.
+
+### Zusammenfassung
+- **Abnahmekriterien:** 17 von 17 bestanden
+- **Fehler:** keine offen
+- **Sicherheit:** bestanden
+- **Automatisierte Tests:** 10 E2E in zwei Browsern, 7 Unit-Tests, dazu 763 Unit-Tests gesamt — alle grün
+- **Auslieferungsreif:** JA
+- **Empfehlung:** ausliefern. Danach die Search Console einrichten, sonst bleibt unbeobachtet, ob Google die Sitemap überhaupt abholt
 
 ## Deployment
 _To be added by /deploy_
