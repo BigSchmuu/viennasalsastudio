@@ -1,31 +1,41 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 import { MERKER_DAUER, MERKER_NAME } from "@/lib/auth/zweite-stufe";
 
 /**
- * Den Merker für ein gemerktes Gerät setzen oder löschen (PROJ-58).
+ * Den Merker für dieses Gerät setzen (PROJ-58).
  *
- * Der Merker ist bewusst inhaltsleer. Er sagt nur: „Die Anmeldung in diesem
- * Browser darf das Schließen überdauern." Er ist kein Ausweis — wer ihn kopiert,
- * hat damit gar nichts, weil er allein keine Sitzung eröffnet.
+ * `merken = true` → er bleibt 30 Tage liegen, das Gerät fragt so lange nicht
+ * erneut nach einem Code.
+ * `merken = false` → er endet mit dem Browser. Genau das ist der Unterschied
+ * zwischen „mein Handy" und „der Rechner an der Rezeption".
  *
- * Die zweite Hälfte — die Lebensdauer der Anmeldecookies daran auszurichten —
- * gehört zur Sitzungsauffrischung und wird in /backend nachgezogen.
+ * Aufgerufen wird das erst *nach* bestandener Codeprüfung — vorher wüsste der
+ * Merker nicht, wessen Gerät er sich merkt.
  */
 export async function geraetMerken(merken: boolean): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
   const store = await cookies();
-
-  if (!merken) {
-    store.delete(MERKER_NAME);
-    return;
-  }
-
-  store.set(MERKER_NAME, "1", {
-    maxAge: MERKER_DAUER,
+  store.set(MERKER_NAME, user.id, {
+    // Ohne maxAge entsteht ein Cookie, das der Browser beim Schließen vergisst.
+    ...(merken ? { maxAge: MERKER_DAUER } : {}),
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
   });
+}
+
+/** Das Gerät wieder vergessen — beim Abmelden aller Geräte. */
+export async function geraetVergessen(): Promise<void> {
+  const store = await cookies();
+  store.delete(MERKER_NAME);
 }

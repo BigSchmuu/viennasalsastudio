@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { heuteInWien } from "@/lib/constants/zeitzone";
 import { nameWeichtAb } from "@/lib/sepa/kontoinhaber";
+import { ZweiteStufeVerwaltung } from "@/components/admin/customers/zweite-stufe-verwaltung";
+import { zweiteStufeEingerichtet } from "@/lib/auth/zweite-stufe-admin";
+import { getViewer } from "@/lib/auth/viewer";
 
 export default async function CustomerDetailPage({
   params,
@@ -36,6 +39,13 @@ export default async function CustomerDetailPage({
   if (!profile) {
     notFound();
   }
+
+  // PROJ-58: Nur für Verwaltungskonten nachschlagen — für alle anderen gäbe es
+  // nichts zu zeigen, und der Aufruf ginge an den privilegierten Zugang.
+  const [hatZweiteStufe, betrachter] = await Promise.all([
+    profile.role === "admin" ? zweiteStufeEingerichtet(id) : Promise.resolve(false),
+    getViewer(),
+  ]);
 
   const [emailsRes, subscriptionsRes, mandateRes, mandateHistoryRes, coursesRes, kursplaetzeRes, creditsRes] =
     await Promise.all([
@@ -225,6 +235,18 @@ export default async function CustomerDetailPage({
         <h3 className="font-heading text-lg font-semibold">Profil</h3>
         <CustomerProfileForm customerId={id} defaultValues={defaultValues} />
       </div>
+
+      {/* PROJ-58: Nur Verwaltungskonten haben eine zweite Stufe. */}
+      {profile.role === "admin" && (
+        <div className="space-y-3">
+          <h3 className="font-heading text-lg font-semibold">Anmeldesicherheit</h3>
+          <ZweiteStufeVerwaltung
+            kontoId={id}
+            eingerichtet={hatZweiteStufe}
+            eigenesKonto={id === betrachter?.id}
+          />
+        </div>
+      )}
 
       <div className="space-y-3">
         <h3 className="font-heading text-lg font-semibold">Abos</h3>

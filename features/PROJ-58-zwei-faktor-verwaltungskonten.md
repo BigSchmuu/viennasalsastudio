@@ -102,7 +102,7 @@ Dieses Projekt schließt genau diese Lücke — und nur sie.
 ## Open Questions
 - [ ] Wie viele Admin-Konten gibt es derzeit? Für die Rücksetz-Regel entscheidend — der Betreiber prüft das in der Kundenverwaltung (aus der Konversation nicht abfragbar, siehe CLAUDE.md)
 - [ ] Soll die 30-Tage-Frist später einstellbar sein? Vorschlag: vorerst fest
-- [ ] Verliert eine bereits laufende Sitzung sofort ihre bestätigte zweite Stufe, wenn der hinterlegte Faktor entfernt wird? /backend prüft das am Testprojekt. Falls nein, müssen beim Zurücksetzen zusätzlich alle Sitzungen des Kontos ausdrücklich beendet werden
+- [x] Verliert eine laufende Sitzung sofort ihre bestätigte zweite Stufe, wenn der Faktor entfernt wird? → Nein, und die Bibliothek kann fremde Sitzungen gar nicht beenden (sie verlangt dafür deren Anmeldetoken). Gelöst mit `admin_sitzungen_beenden` — einer Datenbankfunktion, die die Sitzungszeilen löscht, was ein Abmelden ohnehin tut (2026-09-16)
 - [ ] Zwei-Faktor für das Supabase-Dashboard selbst aktivieren — das ist der eigentliche Notausgang und sollte vor dem Deploy abgesichert sein (Betreiberaufgabe)
 
 ## Decision Log
@@ -130,6 +130,10 @@ Dieses Projekt schließt genau diese Lücke — und nur sie.
 | Die Rollenauskunft der Datenbank verlangt die bestätigte zweite Stufe | Ein einziger Ort, an dem rund 50 bestehende Sicherheitsregeln die Prüfung erben. Jede Regel einzeln zu ändern hieße, an fünfzig Stellen nichts vergessen zu dürfen | 2026-09-16 |
 | Torwächter in der bestehenden Zugangsprüfung, nicht in der Middleware | Die Middleware läuft bei jedem einzelnen Seiten- und Bildaufruf, kennt die Rolle aber nicht — sie müsste jedes Mal die Datenbank fragen. Das wäre auf jeder Seite spürbar, für einen Schutz, der an der richtigen Stelle nichts kostet | 2026-09-16 |
 | Handgriffe mit dem Generalschlüssel prüfen zusätzlich selbst | Der Generalschlüssel umgeht die Datenbankregeln absichtlich (Einladungen, Benachrichtigungen, offene Posten). Dort greift die Datenbanksperre nicht, also muss der Handgriff selbst nachsehen | 2026-09-16 |
+| „Gerät merken" über die Lebensdauer des **Merkers**, nicht der Anmeldecookies | Beim Bauen stellte sich heraus: `@supabase/ssr` überschreibt jede selbst gesetzte Cookie-Dauer mit ihrer eigenen Vorgabe von 400 Tagen, und zwar in drei verschiedenen Schreibern. Daran zu drehen hieße, die Anmeldung aller Kunden anzufassen — hohes Risiko für eine Bequemlichkeitsfunktion. Der Merker erreicht dasselbe: Mit Häkchen liegt er 30 Tage, ohne Häkchen endet er mit dem Browser, und der Torwächter verlangt ihn zusätzlich zur bestätigten Stufe | 2026-09-16 |
+| Der Merker trägt die Kontokennung | Damit gilt ein gemerktes Gerät nur für ein Konto. Meldet sich jemand anderes am selben Gerät an, passt der Merker nicht und der Code wird verlangt | 2026-09-16 |
+| Die Sicherheitsmeldung läuft **nicht** über die anpassbaren Vorlagen | Sie richtet sich an Studiopersonal, nicht an Kunden, und an ihrem Wortlaut gibt es nichts zu gestalten. In der Vorlagenliste stünde sie den Kundennachrichten nur im Weg. Nebeneffekt: Da für diesen Typ keine Einstellung existiert, greift die Vorgabe „zustellen" — eine Sicherheitsmeldung lässt sich nicht versehentlich abschalten | 2026-09-16 |
+| Fremde Sitzungen über eine eigene Datenbankfunktion beenden | Die Bibliothek verlangt zum Abmelden das Anmeldetoken des Betroffenen, das wir nicht haben. Das Löschen der Sitzungszeile ist genau das, was ein Abmelden tut | 2026-09-16 |
 | Ausrollen in zwei Schritten | Die Datenbankregel wird erst scharf geschaltet, wenn die Einrichtung nachweislich funktioniert. Sonst stünde im schlimmsten Fall eine Verwaltung ohne Zugang und mit kaputtem Einrichtungsweg da | 2026-09-16 |
 
 ---
@@ -310,6 +314,55 @@ Konto ist das der vorgesehene Weg und braucht keinen Serverzugang.
 - **Die zweite Hälfte des Gerätemerkers:** Der Merker wird gesetzt und gelöscht
   (`src/lib/actions/geraet-merken.ts`), aber die Lebensdauer der Anmeldecookies richtet sich noch
   nicht danach.
+
+## Umsetzung — Backend (2026-09-16)
+
+### Eine Korrektur am Entwurf
+
+Der Entwurf rechnete mit zwölf Stellen, die mit Generalschlüssel arbeiten und einzeln nachgezogen
+werden müssten. Beim Nachsehen stellte sich heraus: **Alle rufen bereits `requireAdmin()` auf**, und
+die Seiten unter `/admin` hängen ohnehin am gemeinsamen Layout, das dasselbe tut. Die Prüfung
+einmal in `requireAdmin()` einzubauen deckt sie deshalb vollständig ab. Die übrigen Fundstellen sind
+kein Verwaltungszugang: der nächtliche Lauf (durch ein eigenes Geheimnis geschützt), die
+Registrierung und die Versandbibliotheken.
+
+### Gebaut
+
+- **`zweiteStufeLage()`** — die eine Auskunft: `einrichten`, `bestaetigen` oder `erfuellt`. Sie liest
+  das Anmeldetoken, das ohnehin vorliegt; es geht keine Anfrage hinaus. Bei einem Fehler lautet die
+  Antwort `einrichten` — ein Torwächter, der im Zweifel durchlässt, ist keiner.
+- **Torwächter** in `requireAdmin()`, `requireAdminOrTeacher()` (dort nur für Admins) und im Rahmen
+  des Kundenbereichs.
+- **Zurücksetzen** durch einen anderen Admin, samt Abmelden aller Geräte des Betroffenen und E-Mail
+  an ihn. Das eigene Konto ist ausgenommen, und zwar doppelt: in der Server-Action und noch einmal
+  in der Datenbankfunktion.
+- **Zustandsanzeige** im Kundendatensatz eines Verwaltungskontos.
+- **Hinweis im Verwaltungsrahmen**, solange es nur ein einziges Admin-Konto gibt.
+- **Zwei Migrationen**, bewusst getrennt (siehe unten).
+
+### Was sich gegenüber dem Entwurf geändert hat
+
+„Gerät 30 Tage merken" hängt jetzt an der Lebensdauer des **Merkers**, nicht an der der
+Anmeldecookies. Grund: `@supabase/ssr` überschreibt jede selbst gesetzte Cookie-Dauer mit ihrer
+eigenen Vorgabe von 400 Tagen, in drei verschiedenen Schreibern. Daran zu drehen hieße, die
+Anmeldung sämtlicher Kunden anzufassen — viel Risiko für eine Bequemlichkeitsfunktion. Der Merker
+erreicht dasselbe Ergebnis mit einem Bruchteil der Angriffsfläche, und er kann eine Anmeldung nur
+verkürzen, nie verlängern: Der Torwächter verlangt weiterhin die bestätigte zweite Stufe.
+
+### Einspielen — Reihenfolge
+
+1. **`20260916120000_proj58_zweite_stufe_grundlage.sql`** — jederzeit. Ändert keine Rechte, sperrt
+   niemanden aus.
+2. Die Admins richten ihre Authenticator-App ein.
+3. **`20260916121000_proj58_zweite_stufe_erzwingen.sql`** — erst danach. Ab hier verlangt die
+   Datenbank die bestätigte zweite Stufe für jede Admin-Berechtigung.
+
+### Noch nicht geprüft
+
+Der Supabase-Zugang meldet in dieser Sitzung `AUTH_HEADER_REJECTED`. Beide Migrationen sind deshalb
+**an keiner Datenbank gelaufen** — weder an der Test- noch an der Produktionsdatenbank. Lint,
+Typprüfung, Build und 100 Unit-Tests laufen durch, aber das sagt über das SQL nichts aus. Das gehört
+in den QA-Durchgang, sobald der Zugang wieder steht.
 
 ## QA Test Results
 _To be added by /qa_

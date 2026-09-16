@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 // Kundenbereich und hat keine Sprachebene — ein Präfix führte ins Leere.
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { geraetMerken } from "@/lib/actions/geraet-merken";
+import { geraetVergessen } from "@/lib/actions/geraet-merken";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,7 +59,7 @@ export function Anmeldesicherheit() {
     const supabase = createClient();
     // Erst den Merker löschen, dann abmelden: Nach dem Abmelden bekäme der
     // Server keine gültige Sitzung mehr zu sehen.
-    await geraetMerken(false);
+    await geraetVergessen();
     await supabase.auth.signOut({ scope: "global" });
     window.location.href = "/login";
   }

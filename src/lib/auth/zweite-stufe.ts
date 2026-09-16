@@ -13,8 +13,20 @@ export const CODE_LAENGE = 6;
 export const WEG_EINRICHTEN = "/sicherheit/einrichten";
 export const WEG_CODE = "/sicherheit/code";
 
-/** Merker im Browser: „Diese Anmeldung darf das Schließen überdauern." Enthält kein Geheimnis. */
-export const MERKER_NAME = "vss_geraet_gemerkt";
+/**
+ * Merker im Browser: „Dieses Gerät hat die zweite Stufe bestätigt."
+ *
+ * Er trägt die Kontokennung und sonst nichts. Ein Geheimnis ist das nicht — die
+ * Kennung steht in jeder Antwort, die der Besitzer des Kontos ohnehin bekommt.
+ * Vor allem aber *öffnet* er nichts: Der Torwächter verlangt zusätzlich eine
+ * Anmeldung, die die zweite Stufe bestätigt hat. Der Merker kann eine Anmeldung
+ * also nur verkürzen, nie verlängern.
+ *
+ * Mit Häkchen wird er 30 Tage aufbewahrt, ohne Häkchen endet er mit dem
+ * Browser. Genau daraus entsteht „Gerät 30 Tage merken" — ohne an der
+ * Lebensdauer der Anmeldecookies zu drehen.
+ */
+export const MERKER_NAME = "vss_zweite_stufe";
 
 /** 30 Tage in Sekunden — die Frist aus dem Spec. */
 export const MERKER_DAUER = 60 * 60 * 24 * 30;

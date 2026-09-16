@@ -2315,6 +2315,12 @@ export type Database = {
       }
     }
     Functions: {
+      admin_sitzungen_beenden: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: number
+      }
       add_course_to_flatrate: {
         Args: {
           p_course_id: string
