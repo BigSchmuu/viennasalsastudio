@@ -58,7 +58,14 @@ export const config = {
   // Geltungsbereich, und iOS blendete auf manchen Seiten die Adressleiste ein.
   // Aufgefallen erst durch den Betreiber am 2026-09-09; im Browser sieht man
   // davon nichts.
+  //
+  // Dieselbe Falle ein zweites Mal, am 2026-09-16: robots.txt und sitemap.xml
+  // sind ebenfalls keine Seiten, sondern eigene Routen. Ohne Ausnahme schickte
+  // die Sprachweiche sie auf einen Sprachpfad, und beide lieferten die
+  // 404-Seite als HTML aus — Google hätte weder das eine noch das andere je zu
+  // sehen bekommen. Wer hier eine Datei ergänzt, die keine Seite ist, gehört
+  // in diese Liste.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

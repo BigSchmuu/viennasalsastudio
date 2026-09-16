@@ -13,7 +13,9 @@ import { EventPreis, EventVerfuegbarkeit } from "@/components/events/event-angab
 import { SerienSeite, type SerienTermin } from "@/components/events/serien-seite";
 import { eventEnde, eventZustand, freiePlaetze, stornierbar, type SalesMode } from "@/lib/events/event-zustand";
 import { eventTermin } from "@/lib/events/termin";
-import { ferienpauseBis, uhrzeitKurz, SERIEN_VORSCHAU_TAGE } from "@/lib/events/serie";
+import { ferienpauseBis, uhrzeitKurz, SERIEN_VORSCHAU_TAGE, SERIE_AKTIV } from "@/lib/events/serie";
+import { eventDarfInDenIndex, INDEXIEREN, NICHT_INDEXIEREN } from "@/lib/seo/regeln";
+import { sprachAdressen } from "@/lib/seo/adressen";
 import { ladeFerien } from "@/lib/scheduling/ferien";
 import { alsSkriptInhalt, eventDaten } from "@/lib/events/strukturierte-daten";
 import { EventTitelbild } from "@/components/events/event-titelbild";
@@ -33,7 +35,7 @@ type Props = {
   params: Promise<{ adresse: string }>;
 };
 
-const EVENT_SPALTEN = `id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, event_types(name), ${BILD_SPALTEN}, ${VIDEO_SPALTEN}, ${KAUF_SPALTEN}`;
+const EVENT_SPALTEN = `id, name, description, location, starts_at, ends_at, capacity, price_normal, price_student, status, sales_mode, slug, series_id, event_types(name), ${BILD_SPALTEN}, ${VIDEO_SPALTEN}, ${KAUF_SPALTEN}`;
 
 const SERIEN_SPALTEN = `id, name, slug, description, location, weekday, start_time, end_time, starts_on, ends_on, pause_in_holidays, capacity, price_normal, price_student, sales_mode, status, event_types(name), ${BILD_SPALTEN}, ${VIDEO_SPALTEN}`;
 
@@ -82,7 +84,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {
       title: `${event.name} · Vienna Salsa Studio`,
       description: beschreibung,
-      alternates: { canonical: url },
+      // PROJ-57: Nur ein kommendes, nicht abgesagtes Einzelevent gehört in den
+      // Index. Ein Serientermin ist eine von vielen fast gleichen Seiten —
+      // dort vertritt die Serienseite.
+      robots: eventDarfInDenIndex(
+        { status: event.status, startsAt: event.starts_at, endsAt: event.ends_at, seriesId: event.series_id },
+        new Date()
+      )
+        ? INDEXIEREN
+        : NICHT_INDEXIEREN,
+      alternates: sprachAdressen(`/events/${event.slug}`, locale),
       // Die Link-Vorschau (WhatsApp, Instagram) zeigt Name und Termin — das,
       // was jemand wissen will, bevor er den Link öffnet.
       openGraph: {
@@ -113,7 +124,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${serie.name} · Vienna Salsa Studio`,
     description: kuerzen(serie.description) ?? `${rhythmus} · Vienna Salsa Studio`,
-    alternates: { canonical: url },
+    // PROJ-57: Die Serienseite ist die dauerhafte Adresse der regelmäßigen
+    // Veranstaltung — sie gehört in den Index, solange die Serie läuft.
+    robots: serie.status === SERIE_AKTIV ? INDEXIEREN : NICHT_INDEXIEREN,
+    alternates: sprachAdressen(`/events/${serie.slug}`, locale),
     openGraph: {
       title: serie.name,
       description: [rhythmus, serie.location].filter(Boolean).join(" · "),

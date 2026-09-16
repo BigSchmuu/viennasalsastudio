@@ -1,6 +1,6 @@
 # PROJ-57: Suchmaschinen-Grundlagen für öffentliche Seiten
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-09-16
 **Last Updated:** 2026-09-16
 
@@ -162,6 +162,36 @@ Keine.
 - **Die App braucht eine feste Grundadresse** in ihren Angaben, damit aus relativen Pfaden vollständige Adressen werden. Die gibt es als Einstellung bereits; sie wird jetzt auch für die Seitenangaben benutzt.
 - **Die Eventseite hat ihre kanonische Adresse schon** (PROJ-53); dazu kommt die Verknüpfung der Sprachen.
 - **Tests:** Sitemap und robots.txt lassen sich wie jede andere Adresse abrufen und prüfen — welche Seiten drinstehen, welche nicht, und ob ein abgesagtes Event verschwindet. Die Angaben je Seite prüft man am ausgelieferten Seitenkopf.
+
+## Implementation Notes (Frontend)
+
+**Stand 2026-09-16:** Fertig. Kein Backend nötig — keine Migration, keine neuen Daten, keine neuen Pakete. Unit-Tests 763 in 64 Dateien, Typprüfung, Lint und `npm run build` sauber.
+
+### Gebaut
+- **Regeln** `src/lib/seo/regeln.ts` (7 Tests): was in den Index darf, die Voreinstellung „nicht aufnehmen" und der ausdrückliche Widerspruch. Drei Gründe dagegen — Serientermin, abgesagt, vorbei — jeweils mit derselben Zeitgrenze wie der Ticketverkauf.
+- **Adressberechnung** `src/lib/seo/adressen.ts`: die Sprachfassungen einer Seite, gebaut mit der Adressberechnung der App. Deutsch ohne Präfix, Englisch mit, Deutsch als Vorgabe für Unzuordenbare.
+- **`/sitemap.xml`**: kommende Einzelevents und laufende Serien, je Eintrag beide Sprachen plus Vorgabe. Bei jedem Abruf neu gerechnet. Ein Lesefehler wirft — eine leere Sitemap wäre für Google die Aussage, es gebe nichts mehr.
+- **`/robots.txt`**: die Bereiche hinter der Anmeldung, dazu der Verweis auf die Sitemap.
+- **Voreinstellung** im Wurzel-Layout: „nicht aufnehmen" für die ganze App, dazu die Grundadresse für vollständige Links.
+- **Eventseite und Serienseite** widersprechen ausdrücklich — die Eventseite nur, solange das Event kommt, nicht abgesagt ist und kein Serientermin ist.
+
+### Gefunden beim Bauen: dieselbe Falle ein zweites Mal
+Der erste Aufruf von `/robots.txt` lieferte die 404-Seite als HTML. Ursache war die Sprachweiche: Sie behandelte beide Dateien wie Seiten und schickte sie auf einen Sprachpfad. **Google hätte weder das eine noch das andere je zu sehen bekommen** — und ohne den Versuch am laufenden Server wäre das erst in der Produktion aufgefallen, wo niemand hinsieht.
+
+Genau dieselbe Falle steht seit dem 2026-09-09 im Kommentar über der betroffenen Zeile, damals für `manifest.webmanifest`. Der Kommentar ist jetzt erweitert: Wer dort eine Datei ergänzt, die keine Seite ist, gehört in diese Liste.
+
+### Am laufenden Server geprüft
+Gegen die Testdatenbank, nicht die Produktion:
+- `/robots.txt` liefert die Regeln und den Verweis auf die Sitemap
+- `/sitemap.xml` liefert 11 Einträge mit `hreflang` für beide Sprachen
+- Startseite und Kursseite: `noindex, follow`
+- Eventseite: `index, follow`, kanonisch auf sich selbst, `hreflang` de/en/x-default
+- Englische Fassung: kanonisch auf die englische Adresse, nicht auf die deutsche
+- Vergangenes Event: `noindex, follow`
+
+### Abweichungen und Offenes
+- **Die Sprachadressen haben keinen Unit-Test.** Die Adressberechnung der App zieht die Navigation von next-intl herein, und daran scheitert jeder Test, der bloß Pfade vergleichen will. Geprüft ist sie am ausgelieferten Seitenkopf — dort zählt sie; die QA hält das als E2E fest.
+- **Noch keine E2E-Tests**; sie kommen in der QA.
 
 ## QA Test Results
 _To be added by /qa_

@@ -5,11 +5,20 @@ import { Inter, Raleway } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { SentryInit } from "@/components/monitoring/sentry-init";
 import "./globals.css";
+import { NICHT_INDEXIEREN, SITE_URL } from "@/lib/seo/regeln";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const raleway = Raleway({ subsets: ["latin"], variable: "--font-raleway" });
 
 export const metadata: Metadata = {
+  // PROJ-57: Die Grundadresse, damit aus relativen Pfaden in den Angaben
+  // vollständige Adressen werden.
+  metadataBase: new URL(SITE_URL),
+  // PROJ-57: „Nicht aufnehmen" gilt für die ganze App. Nur Eventseiten und
+  // Serienseiten widersprechen ausdrücklich. Andersherum — jede Seite einzeln
+  // ausschließen — wäre eine Liste, die beim nächsten neuen Bereich jemand zu
+  // ergänzen vergisst, und dann steht „Mein Bereich" bei Google.
+  robots: NICHT_INDEXIEREN,
   title: "Vienna Salsa Studio",
   description: "Kurse buchen, Abo verwalten und Beispiel-Videos ansehen.",
   appleWebApp: {
