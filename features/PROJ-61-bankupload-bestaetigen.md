@@ -187,4 +187,20 @@ Projekt: Die App fragt jetzt nach, statt es anzunehmen.
 ## Deployment
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-17 · **Tag:** `v1.60.0-PROJ-61`
+
+Keine Migration — `released_at` behält Spalte und Bedeutungsträger, nur der Moment, zu dem der
+Betreiber es auslöst, ist ein anderer. Damit gab es auch keine Reihenfolge zu beachten: Code
+ausrollen genügte.
+
+### Nachgeprüft
+
+Öffentlich, von außen: Startseite, Kurse und Events liefern 200.
+
+### Was sich für den Betrieb ändert
+
+Im Entwurf stehen jetzt zwei nummerierte Knöpfe. Der zweite ist erst dran, wenn die Bank die Datei
+angenommen hat — vorher lässt sich der Lauf noch korrigieren und die Datei erneut herunterladen.
+
+Ein bereits bestätigter Lauf verhält sich wie bisher ein freigegebener: gesperrt, mit Rechnungen.
