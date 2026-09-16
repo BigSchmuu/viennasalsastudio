@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 const ADMIN = { email: "e2e8-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const CUSTOMER = { email: "e2e8-customer@viennasalsastudio.test", password: "CorrectPassword123!" };
@@ -15,6 +16,7 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, email);
   // Auf die Umleitung warten statt auf eine feste Frist -- unter Last ist die
   // Anmeldung danach sonst noch unterwegs, und die naechste Navigation des
   // Tests bricht sie ab. Genau daran ist PROJ-27 im Volllauf gescheitert.

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 const ADMIN = { email: "e2e30-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 const KUNDE = { email: "e2e8-customer@viennasalsastudio.test", password: "CorrectPassword123!" };
@@ -18,6 +19,7 @@ async function login(page: Page, creds: { email: string; password: string }) {
   await page.getByLabel("E-Mail").fill(creds.email);
   await page.getByLabel("Passwort").fill(creds.password);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, creds.email);
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 });
 }
 

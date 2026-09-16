@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getViewerContext } from "@/lib/auth/viewer";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ZweiteStufeEinrichten } from "@/components/auth/zweite-stufe-einrichten";
 
 /**
@@ -24,15 +24,18 @@ export default async function VerwaltungAbsichernPage() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-8">
+      {/* Eine echte Überschrift, kein gestyltes div (QA-Befund BUG-2): Auf den
+          beiden Seiten, an denen niemand vorbeikommt, hätte ein Screenreader
+          sonst keinen Ankerpunkt. */}
+      <div className="mb-6">
+        <h1 className="font-heading text-2xl font-bold tracking-[-0.5px]">Verwaltung absichern</h1>
+        <p className="text-muted-foreground">
+          Die Verwaltung führt zu Bankdaten und allen Kundenprofilen. Deshalb reicht ein Passwort
+          allein hier nicht — es braucht zusätzlich einen Code aus einer App auf deinem Handy.
+        </p>
+      </div>
       <Card className="rounded-card shadow-soft">
-        <CardHeader>
-          <CardTitle className="font-heading text-2xl tracking-[-0.5px]">Verwaltung absichern</CardTitle>
-          <CardDescription>
-            Die Verwaltung führt zu Bankdaten und allen Kundenprofilen. Deshalb reicht ein Passwort
-            allein hier nicht — es braucht zusätzlich einen Code aus einer App auf deinem Handy.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <ZweiteStufeEinrichten weiterNach="/admin" />
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
 // the fixtures below need SUPABASE_SERVICE_ROLE_KEY.
@@ -57,6 +58,7 @@ async function login(page: Page, creds: { email: string; password: string }) {
   await page.getByLabel("E-Mail").fill(creds.email);
   await page.getByLabel("Passwort").fill(creds.password);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, creds.email);
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 });
 }
 

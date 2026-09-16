@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 /**
  * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
@@ -60,6 +61,7 @@ async function anmelden(page: Page) {
   await page.getByLabel("Passwort").fill(KUNDE.passwort);
   await page.waitForTimeout(1000);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, KUNDE.email);
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 20000 });
 }
 

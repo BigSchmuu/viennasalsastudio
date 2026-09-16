@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 try {
   ladeTestUmgebung();
@@ -29,6 +30,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
+    await zweiteStufeErledigen(page, CONFIRMED_EMAIL);
 
     await expect(page).toHaveURL(/\/profil$/);
     await expect(page.getByText(CONFIRMED_EMAIL)).toBeVisible();
@@ -45,6 +47,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
       await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
       await page.waitForTimeout(1000);
       await page.getByRole("button", { name: "Einloggen" }).click();
+      await zweiteStufeErledigen(page, CONFIRMED_EMAIL);
 
       // Erst auf das Ziel warten, dann prüfen. Vorher las der Test die URL nach
       // einer festen Wartezeit — kompilierte der Dev-Server /mein-bereich
@@ -75,6 +78,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: "Einloggen" }).click();
+    await zweiteStufeErledigen(page, CONFIRMED_EMAIL);
     await expect(page).toHaveURL(/\/profil$/);
   });
 
@@ -87,6 +91,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill("FalschesPasswort!");
     await page.getByRole("button", { name: "Einloggen" }).click();
+    await zweiteStufeErledigen(page, CONFIRMED_EMAIL);
 
     await expect(page.getByText("E-Mail oder Passwort falsch")).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
@@ -103,6 +108,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill("existiert-nicht@viennasalsastudio.test");
     await page.getByLabel("Passwort").fill("Irgendwas123");
     await page.getByRole("button", { name: "Einloggen" }).click();
+    await zweiteStufeErledigen(page, "existiert-nicht@viennasalsastudio.test");
 
     await expect(page.getByText("E-Mail oder Passwort falsch")).toBeVisible();
   });
@@ -116,6 +122,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(UNCONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
+    await zweiteStufeErledigen(page, UNCONFIRMED_EMAIL);
 
     await expect(page.getByText("Bitte bestätige zuerst deine E-Mail-Adresse")).toBeVisible();
     await expect(page.getByRole("button", { name: "Bestätigungs-E-Mail erneut senden" })).toBeVisible();
@@ -327,6 +334,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
+    await zweiteStufeErledigen(page, CONFIRMED_EMAIL);
     // Seit PROJ-45 landet ein Kunde auf /mein-bereich. Diese Prüfung gilt
     // dem Profil, also wird dorthin gewechselt.
     await expect(page).toHaveURL(/\/mein-bereich$/);
@@ -361,6 +369,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL_2);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
+    await zweiteStufeErledigen(page, CONFIRMED_EMAIL_2);
     // Seit PROJ-45 landet ein Kunde auf /mein-bereich. Diese Prüfung gilt
     // dem Profil, also wird dorthin gewechselt.
     await expect(page).toHaveURL(/\/mein-bereich$/);
@@ -386,6 +395,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL_2);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
+    await zweiteStufeErledigen(page, CONFIRMED_EMAIL_2);
     // Seit PROJ-45 landet ein Kunde auf /mein-bereich. Diese Prüfung gilt
     // dem Profil, also wird dorthin gewechselt.
     await expect(page).toHaveURL(/\/mein-bereich$/);
@@ -405,6 +415,7 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.getByRole("button", { name: "Einloggen" }).click();
+    await zweiteStufeErledigen(page, CONFIRMED_EMAIL);
     // Seit PROJ-45 landet ein Kunde auf /mein-bereich. Diese Prüfung gilt
     // dem Profil, also wird dorthin gewechselt.
     await expect(page).toHaveURL(/\/mein-bereich$/);

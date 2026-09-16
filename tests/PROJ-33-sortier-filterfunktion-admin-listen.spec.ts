@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 const ADMIN = { email: "e2e30-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 
@@ -14,6 +15,7 @@ async function login(page: Page, creds: { email: string; password: string }) {
   await page.getByLabel("Passwort").fill(creds.password);
   await page.waitForTimeout(1500);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, creds.email);
   // Admin lands on /admin after login, every other role on /profil.
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
   // Seit PROJ-45 landen Kunden auf /mein-bereich, die Pruefungen hier gelten

@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { gehZu } from "./navigation";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 /**
  * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
@@ -25,6 +26,7 @@ async function login(page: Page, email: string) {
   await page.getByLabel("Passwort").fill(PASSWORD);
   await page.waitForTimeout(1500); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, email);
   // Admin lands on /admin after login, every other role on /profil.
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
   // Seit PROJ-45 landen Kunden auf /mein-bereich, die Pruefungen hier gelten

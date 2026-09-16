@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
 // the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
@@ -41,6 +42,7 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000); // let hydration settle, see PROJ-2 BUG-1
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, email);
   // Admin lands on /admin after login, every other role on /profil.
   // 20s rather than 10s: WebKit is noticeably slower than Chromium here and
   // the shorter budget made this flaky on the Mobile Safari project.

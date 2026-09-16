@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 ladeTestUmgebung();
 
@@ -126,6 +127,7 @@ async function login(page: Page, creds: { email: string; password: string }) {
   await page.getByLabel("Passwort").fill(creds.password);
   await page.waitForTimeout(300);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, creds.email);
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 });
 }
 

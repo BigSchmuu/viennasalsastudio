@@ -64,4 +64,5 @@ export const notificationEventTypeLabel: Record<string, string> = {
   guthaben: "Guthaben",
   konto_existiert: "Konto existiert bereits",
   kursumwandlung: "Kursumwandlung",
+  zweite_stufe_zurueckgesetzt: "Zwei-Faktor zurückgesetzt",
 };

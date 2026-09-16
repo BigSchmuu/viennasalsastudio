@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildNotificationContent } from "./templates";
+import { buildNotificationContent,
+  zweiteStufeZurueckgesetztInhalt,
+} from "./templates";
 
 /**
  * Der Mailkopf trägt seit dem Logo ein eigenes Bild.
@@ -356,5 +358,36 @@ describe("buildNotificationContent", () => {
     });
     expect(ohneKopfzeile(content.emailHtml)).not.toContain("<img");
     expect(content.emailHtml).toContain("&lt;img");
+  });
+});
+
+describe("zweiteStufeZurueckgesetztInhalt (PROJ-58)", () => {
+  it("nennt den Namen dessen, der zurückgesetzt hat", () => {
+    const inhalt = zweiteStufeZurueckgesetztInhalt("Lisa");
+    expect(inhalt.emailHtml).toContain("von Lisa zurückgesetzt");
+  });
+
+  it("nennt ohne Namen eine neutrale Umschreibung", () => {
+    expect(zweiteStufeZurueckgesetztInhalt(null).emailHtml).toContain("einem anderen Verwaltungskonto");
+    expect(zweiteStufeZurueckgesetztInhalt("   ").emailHtml).toContain("einem anderen Verwaltungskonto");
+  });
+
+  it("maskiert HTML im Namen, statt es in die Mail zu lassen", () => {
+    const name = '<img src=x onerror="alert(1)">';
+    const inhalt = zweiteStufeZurueckgesetztInhalt(name);
+    // Geprüft wird genau die Eigenschaft, auf die es ankommt: Der Name steht
+    // maskiert in der Mail und nirgends unverändert. Nicht auf „<img" oder
+    // „onerror" prüfen — der Briefkopf trägt selbst ein Bild, und das Wort
+    // steht als harmloser Text im maskierten Namen.
+    expect(inhalt.emailHtml).toContain("&lt;img");
+    expect(inhalt.emailHtml).not.toContain(name);
+  });
+
+  it("fordert zum Melden auf, wenn es niemand veranlasst hat", () => {
+    expect(zweiteStufeZurueckgesetztInhalt("Lisa").emailHtml).toContain("melde dich bitte sofort im Studio");
+  });
+
+  it("führt zur Einrichtung, nicht ins Profil", () => {
+    expect(zweiteStufeZurueckgesetztInhalt("Lisa").url).toBe("/sicherheit/einrichten");
   });
 });

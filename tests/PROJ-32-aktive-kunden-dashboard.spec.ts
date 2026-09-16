@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { gehZu } from "./navigation";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 const ADMIN = { email: "e2e30-admin@viennasalsastudio.test", password: "CorrectPassword123!" };
 
@@ -11,6 +12,7 @@ async function login(page: import("@playwright/test").Page, { email, password }:
   await page.getByLabel("E-Mail").fill(email);
   await page.getByLabel("Passwort").fill(password);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, email);
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 10000 });
   // Seit PROJ-45 landen Kunden auf /mein-bereich, die Pruefungen hier gelten
   // aber dem Profil. Faehrt der Test unmittelbar danach selbst woandershin,

@@ -4,6 +4,7 @@ import { sendPushToCustomer } from "@/lib/notifications/push";
 import {
   buildNotificationContent,
   resolveTemplateKey,
+  zweiteStufeZurueckgesetztInhalt,
   type EventTicketDetails,
   type NotificationContent,
 } from "@/lib/notifications/templates";
@@ -272,25 +273,8 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
         newName: payload.neuer_name as string,
         effectiveDate: payload.datum as string,
       });
-    case "zweite_stufe_zurueckgesetzt": {
-      // PROJ-58: Eine Sicherheitsmeldung, keine Kundennachricht — deshalb
-      // bewusst *nicht* über die anpassbaren Vorlagen. Wer die Verwaltung
-      // bedient, soll erfahren, dass jemand seine zweite Stufe entfernt hat;
-      // an diesem Satz gibt es nichts zu gestalten, und in der Vorlagenliste
-      // stünde er nur Kundennachrichten im Weg.
-      const durch = (payload.durch_name as string) || "einem anderen Verwaltungskonto";
-      const text =
-        `deine Zwei-Faktor-Anmeldung wurde von ${durch} zurückgesetzt. ` +
-        "Beim nächsten Anmelden richtest du sie neu ein. " +
-        "Warst du das nicht und hast du auch niemanden darum gebeten, melde dich bitte sofort im Studio.";
-      return {
-        subject: "Deine Zwei-Faktor-Anmeldung wurde zurückgesetzt",
-        emailHtml: `<p>Hallo,</p><p>${text}</p>`,
-        pushTitle: "Zwei-Faktor-Anmeldung zurückgesetzt",
-        pushBody: "Beim nächsten Anmelden richtest du sie neu ein.",
-        url: "/sicherheit/einrichten",
-      };
-    }
+    case "zweite_stufe_zurueckgesetzt":
+      return zweiteStufeZurueckgesetztInhalt((payload.durch_name as string | null) ?? null);
     case "konto_existiert":
       // Die einzige Nachricht hier, die keinen Datensatz nachschlägt: Es gibt
       // nichts nachzuschlagen — der Anlass ist der Versuch selbst.

@@ -14,6 +14,9 @@ const TEST_PORT = 3100
 
 export default defineConfig({
   testDir: './tests',
+  // PROJ-58: Legt vor dem Lauf fuer jedes Verwaltungskonto eine
+  // Authenticator-App an. Ohne das kaeme kein Test mehr nach /admin.
+  globalSetup: './tests/global-setup.ts',
   testMatch: '**/*.spec.ts',
   fullyParallel: true,
   // Tests share a single `npm run dev` server. Auth/session-heavy specs were

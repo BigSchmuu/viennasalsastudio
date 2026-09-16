@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 /**
  * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
@@ -72,6 +73,7 @@ async function login(page: import("@playwright/test").Page, email: string) {
   await page.getByLabel("Passwort").fill("CorrectPassword123!");
   await page.waitForTimeout(1000);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, email);
   // Auf die Umleitung warten statt auf eine feste Frist: unter Last war die
   // Anmeldung nach 1500 ms noch unterwegs, und das folgende goto des Tests
   // brach sie ab ("interrupted by another navigation").

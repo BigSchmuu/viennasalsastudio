@@ -3,6 +3,7 @@ import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 import { fehlendeAnwesenheit } from "../src/lib/teacher/uebersicht";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 try {
   ladeTestUmgebung();
@@ -41,6 +42,7 @@ async function anmelden(page: Page, email: string) {
   await page.getByLabel("Passwort").fill(PASSWORT);
   await page.waitForTimeout(1200);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, email);
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 20000 });
 }
 

@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 try {
   ladeTestUmgebung();
@@ -45,6 +46,7 @@ async function anmelden(page: Page, konto: { email: string; passwort: string }) 
   await page.getByLabel("Passwort").fill(konto.passwort);
   await page.waitForTimeout(1200);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, konto.email);
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 20000 });
 }
 

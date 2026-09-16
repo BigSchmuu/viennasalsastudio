@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 ladeTestUmgebung();
 const SP = "/private/tmp/claude-501/-Users-samumamu-Documents-Programmieren-Vienna-Salsa-Studio-App/5c27567f-1050-4ac0-9f1c-beba9bd0759d/scratchpad";
 const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
@@ -19,6 +20,7 @@ test("PROJ-44: der Betreiber schreibt gut und zieht ab, ein Abzug ins Minus wird
   await page.getByLabel("Passwort").fill("CorrectPassword123!");
   await page.waitForTimeout(500);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, "e2e8-admin@viennasalsastudio.test");
   await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 15000 });
 
   await page.goto("/admin/kunden/" + kunde);
@@ -64,6 +66,7 @@ test("PROJ-44: der Kunde sieht Kontostand, Grund und den Hinweis auf die Verrech
   await page.getByLabel("Passwort").fill("CorrectPassword123!");
   await page.waitForTimeout(500);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, "e2e12-a@viennasalsastudio.test");
   await page.waitForURL(/\/(mein-bereich|profil)$/, { timeout: 15000 });
   // Seit PROJ-45 landen Kunden auf /mein-bereich, die Pruefungen hier gelten
   // aber dem Profil. Faehrt der Test unmittelbar danach selbst woandershin,

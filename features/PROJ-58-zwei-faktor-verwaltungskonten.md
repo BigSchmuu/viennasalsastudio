@@ -364,8 +364,89 @@ Der Supabase-Zugang meldet in dieser Sitzung `AUTH_HEADER_REJECTED`. Beide Migra
 Typprüfung, Build und 100 Unit-Tests laufen durch, aber das sagt über das SQL nichts aus. Das gehört
 in den QA-Durchgang, sobald der Zugang wieder steht.
 
-## QA Test Results
-_To be added by /qa_
+## QA Test Results (2026-09-16)
+
+**Empfehlung: noch nicht in Produktion** — nicht wegen eines offenen Fehlers, sondern weil die
+wichtigste Schicht ungeprüft ist (siehe „Was ungeprüft bleibt").
+
+### Zahlen
+
+| | |
+|---|---|
+| Unit- und Datenbanktests | 796 grün (66 Dateien) |
+| E2E PROJ-58 | 22 grün (11 Prüfungen × Chromium und iPhone 13) |
+| E2E Regressionsprobe | 27 grün (PROJ-2 Auth, PROJ-4 Kundenverwaltung) |
+| Gefundene Fehler | 4 — alle behoben |
+
+### Die größte Entdeckung: 51 Bestandsdateien waren rot
+
+Der Torwächter greift für jedes Admin-Konto, auch ohne eingerichtete App. Damit lief **jeder**
+bestehende Verwaltungstest auf die Einrichtungsseite statt in die Verwaltung — nachgewiesen an einem
+echten Lauf, nicht vermutet. 54 von 57 Spec-Dateien melden sich als Admin an.
+
+Gelöst mit drei neuen Bausteinen:
+
+- **`tests/totp.ts`** — erzeugt gültige Codes, wie eine Authenticator-App. Gegen alle sechs
+  Prüfwerte aus RFC 6238 geprüft, bevor irgendetwas darauf aufbaut (13 Tests).
+- **`tests/global-setup.ts`** — legt vor dem Lauf für jedes Verwaltungskonto der Testdatenbank eine
+  App an, über den normalen Weg. Supabase kann einen Faktor nicht von außen anlegen, und das ist gut so.
+- **`zweiteStufeErledigen()`** — eine Zeile hinter jedem der 66 Anmelde-Klicks. Bewusst so
+  eingefügt statt 44 gewachsene `login()`-Funktionen zu vereinheitlichen: Der kleinere Eingriff
+  ändert nichts an ihrem Verhalten.
+
+Der Helfer schweigt, wenn keine Code-Abfrage kommt — sonst hätte er die Tests für *misslungene*
+Anmeldungen mit einer irreführenden Meldung zum Scheitern gebracht. Genau die laufen grün.
+
+### Gefundene Fehler
+
+**BUG-1 (Hoch, behoben) — Nach der Einrichtung ging es nicht weiter.**
+Wer den QR-Code scannte und den ersten Code richtig eingab, landete wieder auf der Code-Seite und
+musste sofort einen zweiten Code eintippen. Ursache war meine eigene Naht zwischen zwei
+Arbeitsschritten: Der Torwächter aus dem Backend verlangt zusätzlich den Gerätemerker, die
+Einrichtungsseite aus dem Frontend kannte ihn noch nicht und setzte ihn nicht. Verletzte ein
+Abnahmekriterium und hätte **jeden** Admin beim ersten Mal getroffen.
+
+**BUG-2 (Niedrig, behoben) — Die beiden neuen Seiten hatten keine Überschrift.**
+`CardTitle` rendert ein `div`. Jede andere Seite der App hat ein echtes `h1`; ausgerechnet auf den
+zwei Seiten, an denen niemand vorbeikommt, fehlte Screenreadern der Ankerpunkt.
+
+**BUG-3 (Niedrig, behoben) — Der neue Ereignistyp hatte keine Beschriftung.**
+Gefunden von einem Test, den das Projekt genau dafür gebaut hat. In der Warteschlange der
+Verwaltung hätte der technische Schlüssel gestanden statt „Zwei-Faktor zurückgesetzt".
+
+**BUG-4 (Niedrig, behoben) — Ein Name wanderte ungefiltert in die E-Mail.**
+Meine Sicherheitsmeldung setzte den Namen dessen, der zurückgesetzt hat, ohne Maskierung ins HTML —
+während das restliche Projekt dafür durchgehend `escapeHtml` benutzt. Der Inhalt liegt jetzt in
+`templates.ts`, wo das Maskieren zu Hause ist, samt fünf Tests.
+
+Dazu kamen vier Fehler in **meinen Tests** (zu grobe Locators, ein Klick auf einen Knopf, den es auf
+der Zielseite nicht gibt, und zweimal eine zu grobe Behauptung über die Maskierung). Keiner davon
+war ein Produktfehler.
+
+### Sicherheitsprüfung
+
+| Angriff | Ergebnis |
+|---|---|
+| Kundenkonto ruft `admin_sitzungen_beenden` für ein fremdes Konto auf | abgewiesen |
+| Kundenkonto liest `profiles` | 1 Zeile — die eigene |
+| Kundenkonto liest `sepa_mandates` | 0 Zeilen |
+| `/sicherheit/einrichten` und `/sicherheit/code` ohne Anmeldung | Umleitung auf `/login` |
+| `/admin` über die Adresszeile, ohne Code | Umleitung auf die Code-Abfrage |
+| Eigene zweite Stufe zurücksetzen | in der Oberfläche nicht angeboten, in der Server-Action abgewiesen, in der Datenbankfunktion noch einmal abgewiesen |
+| Gerätemerker gefälscht | nutzlos — der Torwächter prüft zuerst die bestätigte Stufe; der Merker kann nur verkürzen |
+
+### Was ungeprüft bleibt
+
+**Mauer 1 — die Datenbankregel.** `20260916121000_proj58_zweite_stufe_erzwingen.sql` ist in keiner
+Datenbank eingespielt, auch nicht in der Test-Datenbank. Damit ist ungeprüft, ob
+`auth.jwt() ->> 'aal'` in dieser Supabase-Version so heißt und ob die Regel greift. Das ist genau
+die Schicht, die einen Angreifer aufhält, der die Oberfläche umgeht — sie gehört geprüft, bevor
+irgendetwas in Produktion geht.
+
+**Weitere Lücken:** Die Drosselung nach mehreren Fehlversuchen kommt von Supabase und wurde nicht
+eigens ausgelöst. Firefox ist im Projekt weiterhin nicht eingerichtet (Bestandslücke). Der Hinweis
+„nur ein Admin-Konto" ist nicht automatisiert geprüft — die Testdatenbank hat zwölf.
 
 ## Deployment
+
 _To be added by /deploy_

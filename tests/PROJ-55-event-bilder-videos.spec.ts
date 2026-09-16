@@ -4,6 +4,7 @@ import { gehZu } from "./navigation";
 import { ladeTestUmgebung } from "./env";
 import { erzeugePng } from "./bild-erzeugen";
 import { BILDER_BUCKET } from "../src/lib/events/medien";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 try {
   ladeTestUmgebung();
@@ -140,6 +141,7 @@ async function login(page: Page) {
   await page.getByLabel("Passwort").fill(ADMIN.password);
   await page.waitForTimeout(1000);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, ADMIN.email);
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 

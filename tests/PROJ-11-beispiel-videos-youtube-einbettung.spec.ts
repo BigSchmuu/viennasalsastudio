@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 /**
  * Der Buchungsknopf heißt nicht immer gleich (PROJ-8/PROJ-26, 2026-09-12):
@@ -32,6 +33,7 @@ async function login(page: Page, email: string) {
   await page.getByLabel("Passwort").fill(PASSWORD);
   await page.waitForTimeout(1000);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, email);
   await page.waitForURL(/\/(profil)?$/, { timeout: 10000 }).catch(() => {});
 }
 

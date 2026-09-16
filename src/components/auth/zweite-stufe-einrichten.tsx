@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/client";
+import { geraetMerken } from "@/lib/actions/geraet-merken";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -102,6 +103,12 @@ export function ZweiteStufeEinrichten({ weiterNach }: { weiterNach: string }) {
         return;
       }
 
+      // QA-Befund BUG-1: Ohne diesen Schritt fehlt der Merker, den der
+      // Torwächter zusätzlich verlangt — und der frisch eingerichtete Admin
+      // landete sofort wieder auf der Code-Seite. `false`, weil hier niemand
+      // um Vertrauen für dieses Gerät gebeten hat: Der Merker endet mit dem
+      // Browser, wie bei einer Anmeldung ohne Häkchen.
+      await geraetMerken(false);
       window.location.href = weiterNach;
     } finally {
       setSpeichert(false);

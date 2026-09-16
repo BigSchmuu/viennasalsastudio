@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { gehZu, oeffnePreise } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 ladeTestUmgebung();
 
 const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -29,6 +30,7 @@ async function anmelden(page: import("@playwright/test").Page, mail: string, zie
   await page.getByLabel("Passwort").fill("CorrectPassword123!");
   await page.waitForTimeout(400);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, mail);
   await page.waitForURL(ziel, { timeout: 15000 });
   // Seit PROJ-45 landen Kunden auf /mein-bereich, die Pruefungen hier gelten
   // aber dem Profil. Faehrt der Test unmittelbar danach selbst woandershin,

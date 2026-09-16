@@ -2,6 +2,7 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
 // the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
@@ -149,6 +150,7 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, email);
   // Auf die Umleitung warten statt auf eine feste Frist -- unter Last ist die
   // Anmeldung danach sonst noch unterwegs, und die naechste Navigation des
   // Tests bricht sie ab. Genau daran ist PROJ-27 im Volllauf gescheitert.

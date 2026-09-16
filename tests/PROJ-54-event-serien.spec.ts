@@ -4,6 +4,7 @@ import { gehZu } from "./navigation";
 import { ladeTestUmgebung } from "./env";
 import { viennaWallClockToDate } from "../src/lib/scheduling/dates";
 import { heuteInWien } from "../src/lib/constants/zeitzone";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 try {
   ladeTestUmgebung();
@@ -301,6 +302,7 @@ async function login(page: Page, { email, password }: { email: string; password:
   await page.getByLabel("Passwort").fill(password);
   await page.waitForTimeout(1000);
   await page.getByRole("button", { name: "Einloggen" }).click();
+  await zweiteStufeErledigen(page, email);
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 

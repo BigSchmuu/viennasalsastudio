@@ -313,6 +313,32 @@ function ticketAngaben(d: Extract<EventTicketDetails, { subType: "purchased" }>,
     .join("")}</ul>`;
 }
 
+/**
+ * Die Sicherheitsmeldung nach einem Zurücksetzen (PROJ-58).
+ *
+ * Bewusst **nicht** über die anpassbaren Vorlagen: Sie richtet sich an
+ * Studiopersonal, nicht an Kunden, und an ihrem Wortlaut gibt es nichts zu
+ * gestalten. Sie steht trotzdem hier und nicht beim Versand, weil hier das
+ * Maskieren zu Hause ist — ein Name darf keinen HTML-Schnipsel in die Mail
+ * tragen (QA-Befund BUG-4).
+ */
+export function zweiteStufeZurueckgesetztInhalt(durchName: string | null): NotificationContent {
+  const durch = durchName?.trim() ? escapeHtml(durchName.trim()) : "einem anderen Verwaltungskonto";
+  const subject = "Deine Zwei-Faktor-Anmeldung wurde zurückgesetzt";
+  const text =
+    `deine Zwei-Faktor-Anmeldung wurde von ${durch} zurückgesetzt. ` +
+    "Beim nächsten Anmelden richtest du sie neu ein. " +
+    "Warst du das nicht und hast du auch niemanden darum gebeten, melde dich bitte sofort im Studio.";
+
+  return {
+    subject,
+    emailHtml: emailShell(subject, `<p>Hallo,</p><p>${text}</p>`),
+    pushTitle: "Zwei-Faktor-Anmeldung zurückgesetzt",
+    pushBody: "Beim nächsten Anmelden richtest du sie neu ein.",
+    url: "/sicherheit/einrichten",
+  };
+}
+
 export function buildNotificationContent(
   eventType:
     | NotificationEventGroup

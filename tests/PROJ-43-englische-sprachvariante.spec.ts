@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
+import { zweiteStufeErledigen } from "./zweite-stufe";
 
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
 // the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
@@ -346,6 +347,7 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     await page.getByLabel("Passwort").fill("CorrectPassword123!");
     await page.waitForTimeout(400);
     await page.getByRole("button", { name: "Einloggen" }).click();
+    await zweiteStufeErledigen(page, "e2e8-admin@viennasalsastudio.test");
     await page.waitForURL(/\/(mein-bereich|profil|admin)$/, { timeout: 15000 });
 
     await page.goto("/admin/benachrichtigungen/buchungsstatus_bestaetigt");
