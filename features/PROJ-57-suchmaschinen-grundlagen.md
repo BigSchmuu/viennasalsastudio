@@ -1,6 +1,6 @@
 # PROJ-57: Suchmaschinen-Grundlagen für öffentliche Seiten
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-09-16
 **Last Updated:** 2026-09-16
 
@@ -99,12 +99,69 @@ PROJ-57 macht die Eventseiten **auffindbar und sauber teilbar**. Ob sie bei „S
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| „Nicht aufnehmen" wird zentral voreingestellt; Eventseiten widersprechen ausdrücklich | Die Gegenrichtung wäre eine Liste, die beim nächsten neuen Bereich jemand zu ergänzen vergisst — und dann steht „Mein Bereich" bei Google | 2026-09-16 |
+| Sitemap wird bei jedem Abruf neu gerechnet, nicht zwischengespeichert | Google holt sie selten; eine Sitemap, die ein abgesagtes Event noch nennt, ist schlimmer als eine, die eine halbe Sekunde braucht | 2026-09-16 |
+| Bei einem Lesefehler ein Fehler statt einer leeren Sitemap | „Keine Seiten" wäre für Google eine Aussage — es hielte die bekannten Adressen für erledigt. „Gerade nicht verfügbar" ist keine | 2026-09-16 |
+| Die Sprachverknüpfung nutzt die vorhandene Adressberechnung | Deutsch ohne Präfix, Englisch mit — das von Hand zusammenzubauen ist in PROJ-53 schon einmal schiefgegangen | 2026-09-16 |
+| Keine neuen Pakete, keine neue Tabelle, keine Migration | Next.js bringt Sitemap und robots.txt mit; die Daten stehen seit PROJ-53 und PROJ-54 bereit | 2026-09-16 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+PROJ-57 braucht **kein Backend im üblichen Sinn**: keine neue Tabelle, keine Migration, keine neuen Daten. Es liest nur, was seit PROJ-53 bis PROJ-56 ohnehin da ist, und sagt Suchmaschinen, was sie damit tun sollen.
+
+Der Kern in einem Satz: **Nicht aufnehmen ist ab jetzt die Voreinstellung**, und nur Eventseiten und Serienseiten nehmen sich davon aus.
+
+### A) Was gebaut wird
+
+```
+App
++-- /sitemap.xml     — erzeugt bei jedem Abruf aus der Datenbank
+|   +-- kommende Einzelevents, je Sprache
+|   +-- laufende Serien, je Sprache
+|
++-- /robots.txt      — feste Regeln plus Verweis auf die Sitemap
+|   +-- Verwaltung, Check-in, Lehrerbereich, Mein Bereich, Profil,
+|       Rechnungen: ausgeschlossen
+|
++-- Angaben je Seite
+    +-- „nicht aufnehmen" als Voreinstellung für die ganze App
+    +-- Eventseite und Serienseite nehmen sich ausdrücklich aus —
+    |   solange das Event kommt und nicht abgesagt ist
+    +-- Sprachverknüpfung: deutsch ↔ englisch, wechselseitig
+    +-- kanonische Adresse: jede Fassung zeigt auf sich selbst
+```
+
+Es entsteht **kein einziger sichtbarer Baustein**. Wer die App im Browser benutzt, merkt von diesem Projekt nichts — außer dass eine geteilte Eventseite in WhatsApp weiterhin gut aussieht.
+
+### B) Datenmodell (in Worten)
+**Nichts Neues.** Die Sitemap fragt bei jedem Abruf:
+
+- welche Einzelevents kommen noch und sind nicht abgesagt (Serientermine ausgenommen)
+- welche Serien laufen noch
+
+Beides steht seit PROJ-53 und PROJ-54 in der Datenbank. Gespeichert wird nichts, gemerkt wird nichts.
+
+### C) Technische Entscheidungen (für den Betreiber erklärt)
+
+- **„Nicht aufnehmen" ist die Voreinstellung, nicht die Ausnahme.** Die App sagt einmal zentral: nichts in den Index. Eventseiten und Serienseiten widersprechen dem ausdrücklich. Andersherum — jede Seite einzeln ausschließen — wäre eine Liste, die beim nächsten neuen Bereich jemand zu ergänzen vergisst, und dann steht „Mein Bereich" bei Google. Diese Richtung ist die sichere: Wer eine Seite in den Index will, muss es sagen.
+- **Die Sitemap wird bei jedem Abruf neu gerechnet**, statt zwischengespeichert. Google holt sie selten, die Abfrage ist klein, und eine Sitemap, die ein abgesagtes Event noch nennt, ist schlimmer als eine, die eine halbe Sekunde braucht.
+- **Geht die Abfrage schief, gibt es einen Fehler — keine leere Sitemap.** Für Google wäre „keine Seiten" eine Aussage: Es würde beginnen, die bekannten Adressen für erledigt zu halten. „Gerade nicht verfügbar" ist keine Aussage; Google kommt wieder.
+- **Die Sprachverknüpfung entsteht aus der Adressberechnung, die es schon gibt.** Deutsch läuft ohne Präfix, Englisch mit — das zusammenzubauen ist schon einmal falsch gemacht worden (PROJ-53, der Link ins falsche Profil). Es gibt genau eine Stelle, die Adressen baut, und die wird benutzt.
+- **Vergangene, abgesagte und Serientermin-Seiten bleiben erreichbar**, sagen aber „nicht aufnehmen". Ein geteilter Link soll nicht ins Leere laufen, nur weil das Event vorbei ist.
+- **Keine neuen Pakete.** Next.js bringt beides mit; Sitemap und robots.txt sind dort vorgesehene Bausteine.
+
+### D) Abhängigkeiten (Pakete)
+Keine.
+
+### Auswirkungen auf Bestehendes
+- **Die Startseite, Kurse und der Stundenplan verschwinden aus Google**, soweit sie je darin waren. Das ist die Entscheidung aus der Spezifikation, hier noch einmal als sichtbare Folge.
+- **Die App braucht eine feste Grundadresse** in ihren Angaben, damit aus relativen Pfaden vollständige Adressen werden. Die gibt es als Einstellung bereits; sie wird jetzt auch für die Seitenangaben benutzt.
+- **Die Eventseite hat ihre kanonische Adresse schon** (PROJ-53); dazu kommt die Verknüpfung der Sprachen.
+- **Tests:** Sitemap und robots.txt lassen sich wie jede andere Adresse abrufen und prüfen — welche Seiten drinstehen, welche nicht, und ob ein abgesagtes Event verschwindet. Die Angaben je Seite prüft man am ausgelieferten Seitenkopf.
 
 ## QA Test Results
 _To be added by /qa_
