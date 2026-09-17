@@ -3,6 +3,7 @@ import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 import { zweiteStufeErledigen } from "./zweite-stufe";
+import { angemeldetAls } from "./anmeldung";
 
 ladeTestUmgebung();
 
@@ -589,13 +590,18 @@ test.describe("PROJ-46: Rechnungen stornieren und gutschreiben", () => {
     // Der Admin ist die einzige Rolle mit einer UPDATE-Regel auf `invoices` —
     // beim Kunden greift schon RLS, hier greift der Trigger. Das ist der Weg,
     // auf dem ein Versehen tatsächlich passieren würde.
-    const alsAdmin = createClient(
+    //
+    // Über `angemeldetAls`, nicht über einen eigenen Client: Seit PROJ-58
+    // verlangt die Datenbank für Admin-Rechte die bestätigte zweite Stufe. Mit
+    // reiner Passwort-Anmeldung gilt der Client ihr nicht als Admin — die
+    // Änderung träfe dann null Zeilen und käme *ohne* Fehler zurück. Der Test
+    // hätte grün gemeldet, was er gar nicht mehr geprüft hat.
+    const alsAdmin = await angemeldetAls(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false, autoRefreshToken: false } }
+      ADMIN.email,
+      ADMIN.password
     );
-    const { error: loginFehler } = await alsAdmin.auth.signInWithPassword(ADMIN);
-    expect(loginFehler).toBeNull();
 
     const { error: belegAendern } = await alsAdmin
       .from("invoices")

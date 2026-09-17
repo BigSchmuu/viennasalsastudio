@@ -420,9 +420,11 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
       await gehZu(page, "/mein-bereich");
       await page.waitForTimeout(1500);
 
+      // Auf die Umleitung warten statt auf eine feste Frist: Auf WebKit war
+      // der Klick im Volllauf nach 2,5 Sekunden noch unterwegs, und der Test
+      // meldete „steht noch auf /mein-bereich" — ein Messfehler, kein Befund.
       await page.getByRole("link", { name: "Lehrmaterial" }).first().click();
-      await page.waitForTimeout(2500);
-      expect(page.url()).toContain(`/lehrer/${KURS_ID}`);
+      await page.waitForURL(`**/lehrer/${KURS_ID}`, { timeout: 20000 });
 
       // Nicht nur „irgendwo auf der Seite": Das Material muss ohne Scrollen zu
       // sehen sein, sonst führt der Knopf nicht wirklich dorthin.

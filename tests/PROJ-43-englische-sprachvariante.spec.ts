@@ -202,6 +202,10 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     await page.getByLabel(/^(Passwort|Password)$/).fill("CorrectPassword123!");
     await page.waitForTimeout(400);
     await page.getByRole("button", { name: /^(Einloggen|Log in)$/ }).click();
+    // Seit PROJ-58 kommt ein Verwaltungskonto nur mit der zweiten Stufe
+    // weiter — ohne diesen Schritt bleibt die Anmeldung auf /sicherheit/code
+    // stehen, und der Test scheitert an etwas, das er gar nicht prüft.
+    await zweiteStufeErledigen(page, "e2e8-admin@viennasalsastudio.test");
     await page.waitForURL(/\/(en\/)?(mein-bereich|profil|admin)$/, { timeout: 15000 });
 
     await page.goto("/en/kurse");

@@ -254,11 +254,12 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
     if (await bestaetigen.count()) { await bestaetigen.first().click(); await page.waitForTimeout(6000); }
 
     // Seit PROJ-47 entsteht der Lauf als Entwurf: Rechnungen und
-    // Vorabankündigung gibt es erst mit der Freigabe. Die Guthabenverrechnung
+    // Vorabankündigung gibt es erst, wenn der Bankupload bestätigt ist
+    // (PROJ-61). Die Guthabenverrechnung
     // passiert weiterhin beim Anlegen — der Betreiber soll sehen, was
     // tatsächlich abgebucht wird, bevor er zusagt.
-    await page.getByRole("button", { name: "Lauf freigeben" }).click();
-    await page.getByRole("button", { name: "Freigeben" }).click();
+    await page.getByRole("button", { name: "2. Bei der Bank hochgeladen" }).click();
+    await page.getByRole("button", { name: "Ja, hochgeladen" }).click();
     await page.waitForTimeout(6000);
 
     // Sofort vermerken, noch vor der ersten Prüfung: Ein Lauf, den erst eine

@@ -3,6 +3,7 @@ import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 import { zweiteStufeErledigen } from "./zweite-stufe";
+import { SELF_CHECKIN_VORLAUF_MINUTEN, SELF_CHECKIN_VORLAUF_STUNDEN } from "@/lib/constants/checkin";
 
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
 // the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
@@ -13,7 +14,8 @@ try {
 }
 
 // This feature's core behavior is deliberately wall-clock-time-sensitive
-// (self-check-in window opens 30 min before class, closes at class end),
+// (the self-check-in window opens SELF_CHECKIN_VORLAUF_STUNDEN hours before
+// class and closes at class end),
 // and course_schedule.weekday must match "today" in Vienna time for an
 // occurrence to render at all (see src/lib/scheduling/dates.ts). A fixed
 // fixture anchor date goes stale as soon as it isn't run on that exact day —
@@ -69,6 +71,13 @@ const EARLIEST_HOUR = 2; // needs 2h of elapsed day behind it
 // wies sie zurueck; sichtbar wurde nur ein "Could not reprime".
 const LATEST_HOUR = 20; // needs 4h of remaining day ahead of it
 
+// „Zu früh" heißt, was vor dem Fenster liegt — die Zahl steht in
+// src/lib/constants/checkin.ts, damit sie hier nicht ein zweites Mal
+// festgeschrieben wird und beim nächsten Mal auseinanderläuft.
+const ZU_FRUEH_START = SELF_CHECKIN_VORLAUF_MINUTEN + 60;
+const ZU_FRUEH_ENDE = ZU_FRUEH_START + 60;
+let zuFruehGesetzt = false;
+
 test.beforeAll(async () => {
   const now = viennaNow();
   const hour = now.getHours();
@@ -96,7 +105,15 @@ test.beforeAll(async () => {
     if (error) throw new Error(`Could not reprime schedule for '${courseName}': ${error.message}`);
   }
 
-  await setSchedule("E2E25 Zu Früh Kurs", 120, 180); // starts in 2h — well outside the 30-min pre-window
+  // Eine Stunde jenseits des Fensters — mit +120 lag der Termin seit der
+  // Umstellung auf sechs Stunden (2026-09-16) mitten *im* Fenster, und der
+  // Test meldete einen Fehler, wo die Anwendung genau das tat, was sie soll.
+  // Am Nachmittag passt dieser Termin nicht mehr in denselben Kalendertag;
+  // dann bleibt der Kurs ungesetzt und AC1 überspringt sich unten selbst.
+  zuFruehGesetzt = dateString(addMinutes(now, ZU_FRUEH_ENDE)) === today;
+  if (zuFruehGesetzt) {
+    await setSchedule("E2E25 Zu Früh Kurs", ZU_FRUEH_START, ZU_FRUEH_ENDE);
+  }
   await setSchedule("E2E25 Im Fenster Kurs", 15, 90); // starts in 15min (inside window), ends in 90min
   await setSchedule("E2E25 Beendet Kurs", -120, -60); // started 2h ago, ended 1h ago — but still today
 
@@ -163,7 +180,14 @@ function courseCard(page: Page, name: string): Locator {
 }
 
 test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => {
-  test("AC1: Mehr als 30 Minuten vor Kursbeginn ist kein Self-Check-In-Button sichtbar", async ({ page }) => {
+  test(`AC1: Mehr als ${SELF_CHECKIN_VORLAUF_STUNDEN} Stunden vor Kursbeginn ist kein Self-Check-In-Button sichtbar`, async ({
+    page,
+  }) => {
+    test.skip(
+      !zuFruehGesetzt,
+      `Ein Termin ${ZU_FRUEH_START / 60} Stunden voraus passt zu dieser Tageszeit nicht mehr in denselben ` +
+        `Kalendertag — und nur heutige Termine stehen unter „Mein Bereich".`
+    );
     await login(page, CUSTOMER_WITH_ABO);
     await gehZu(page, "/mein-bereich");
     await page.waitForTimeout(1500);
@@ -173,7 +197,7 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
     await expect(card.getByRole("button", { name: "✓ Eingecheckt" })).toHaveCount(0);
   });
 
-  test("AC2, AC3: Ab 30 Minuten vor Kursbeginn erscheint 'Ich bin da', Klick checkt sofort ein", async ({ page }) => {
+  test("AC2, AC3: Im Fenster vor Kursbeginn erscheint 'Ich bin da', Klick checkt sofort ein", async ({ page }) => {
     await login(page, CUSTOMER_WITH_ABO);
     await gehZu(page, "/mein-bereich");
     await page.waitForTimeout(1500);
@@ -230,8 +254,8 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
   });
 
   test("Rand: Eine beendete Stunde steht nicht mehr unter „Mein Bereich“", async ({ page }) => {
-    // Entscheidung vom 2026-09-10: Das Einchecken hat sein Fenster — ab 30
-    // Minuten vor Beginn bis Kursende. Danach ist der Moment vorbei; wer es
+    // Entscheidung vom 2026-09-10: Das Einchecken hat sein Fenster — von
+    // einigen Stunden vor Beginn (siehe checkin.ts) bis Kursende. Danach ist der Moment vorbei; wer es
     // vergessen hat, wird vom Lehrer in der Anwesenheitsliste eingetragen.
     //
     // Vorher stand die beendete Stunde im Stundenplan noch bis Mitternacht mit

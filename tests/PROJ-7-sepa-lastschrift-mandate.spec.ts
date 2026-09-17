@@ -246,11 +246,12 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
     await expect(page.getByText("30,00").first()).toBeVisible();
 
     // Seit PROJ-47 entsteht der Lauf als Entwurf. Eine Rücklastschrift gibt es
-    // erst, wenn eingezogen wurde — die Markierung erscheint deshalb erst nach
-    // der Freigabe. Die Betraege stehen schon im Entwurf, darum steht die
+    // erst, wenn eingezogen wurde — die Markierung erscheint deshalb erst, wenn
+    // der Bankupload bestätigt ist (seit PROJ-61 der Schritt, der den Entwurf
+    // abschließt). Die Betraege stehen schon im Entwurf, darum steht die
     // Pruefung darauf oben.
-    await page.getByRole("button", { name: "Lauf freigeben" }).click();
-    await page.getByRole("button", { name: "Freigeben" }).click();
+    await page.getByRole("button", { name: "2. Bei der Bank hochgeladen" }).click();
+    await page.getByRole("button", { name: "Ja, hochgeladen" }).click();
     await page.waitForTimeout(3000);
 
     await page.getByRole("button", { name: "Als rückgebucht markieren" }).first().click();

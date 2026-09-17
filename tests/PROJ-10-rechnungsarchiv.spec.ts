@@ -103,10 +103,11 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
     await expect(page).toHaveURL(/\/admin\/lastschriften\/.+/);
 
     // Seit PROJ-47 entsteht der Lauf als Entwurf: Rechnungen und
-    // Vorabankündigung gibt es erst mit der Freigabe. Alles, was diese Datei
+    // Vorabankündigung gibt es erst, wenn der Bankupload bestätigt ist
+    // (PROJ-61). Alles, was diese Datei
     // danach prüft, setzt die Rechnungen voraus.
-    await page.getByRole("button", { name: "Lauf freigeben" }).click();
-    await page.getByRole("button", { name: "Freigeben" }).click();
+    await page.getByRole("button", { name: "2. Bei der Bank hochgeladen" }).click();
+    await page.getByRole("button", { name: "Ja, hochgeladen" }).click();
     await page.waitForTimeout(2500);
     await expect(page.getByRole("button", { name: "SEPA-XML herunterladen" })).toBeVisible();
   });
