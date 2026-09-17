@@ -516,5 +516,6 @@ Fehler.
 - [x] Zwei-Faktor für das **Supabase-Dashboard** selbst — vom Betreiber am 2026-09-16 eingerichtet.
   Das Dashboard ist der Notausgang, über den sich ausgesperrte Admins retten lassen; mit nur einem
   Passwort davor hätte an der ganzen Konstruktion eine Hintertür vorbeigeführt.
-- [ ] Das zweite Verwaltungskonto richtet seine Authenticator-App ein. Bis dahin kann im Notfall
-  niemand den Betreiber zurücksetzen — der Weg zurück führt dann über das Dashboard.
+- [x] Das zweite Verwaltungskonto hat seine Authenticator-App eingerichtet (2026-09-17). Damit
+  können sich die beiden Verwaltungskonten im Notfall gegenseitig zurücksetzen, und der Hinweis
+  „Es gibt nur ein Verwaltungskonto" verschwindet von selbst.
