@@ -140,6 +140,44 @@ test.describe("PROJ-60: Gasttänzer-Programm", () => {
     expect(data![0].dance_role).toBe("follower");
   });
 
+  test("Die Verwaltung sieht, welche Rolle im Kurs fehlt", async ({ page }) => {
+    // Der Vorschlag ist die halbe Idee des Programms: Die Verwaltung soll
+    // nicht selbst nachzählen müssen. Bis zum 2026-09-17 war er nie zu sehen —
+    // die Datenbankfunktion brach mit „column reference course_id is
+    // ambiguous" ab, die Seite schluckte den Fehler und schrieb „Gerade ist
+    // nichts zu tun". Kein Test hat das bemerkt, weil keiner den Vorschlag
+    // selbst geprüft hat. Dieser tut es.
+    await service.from("courses").update({ max_role_difference: 0 }).eq("id", kursId);
+    const { error: buchungFehler } = await service.from("course_bookings").insert({
+      customer_id: nutzer[LEADER],
+      course_id: kursId,
+      type: "regular",
+      status: "open",
+      dance_role: "leader",
+      chosen_date: new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" }),
+    });
+    if (buchungFehler) throw new Error(`PROJ-60 Schieflage-Buchung: ${buchungFehler.message}`);
+
+    try {
+      await anmelden(page, ADMIN);
+      await gehZu(page, "/admin/gasttaenzer");
+      const zeile = page.locator("tr").filter({ hasText: "E2E60 Gastkurs" }).first();
+      await expect(zeile).toBeVisible({ timeout: 20000 });
+      await expect(zeile.getByText("1 × Follower")).toBeVisible();
+
+      // Und der Knopf in dieser Zeile führt in den Ausschreiben-Dialog, mit
+      // dem Kurs schon eingetragen.
+      await zeile.getByRole("button", { name: "Plätze ausschreiben" }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      // Am Auswahlfeld selbst, nicht irgendwo im Dialog: Radix legt neben den
+      // sichtbaren Knopf ein verstecktes <select> mit demselben Text.
+      await expect(dialog.getByRole("combobox", { name: "Kurs" })).toContainText("E2E60 Gastkurs");
+    } finally {
+      await service.from("courses").update({ max_role_difference: 2 }).eq("id", kursId);
+    }
+  });
+
   test("Ohne Level-Bestätigung lässt sich nicht zusagen", async ({ page }) => {
     await service
       .from("guest_dancers")
@@ -211,8 +249,16 @@ test.describe("PROJ-60: Gasttänzer-Programm", () => {
 
     await anmelden(page, ADMIN);
     await gehZu(page, "/admin/gasttaenzer");
+    // Die Zusage oben hat den einen Platz gefüllt — seit dem Ausblenden
+    // erledigter Ausschreibungen (2026-09-17) steht sie damit hinter
+    // „Erledigte anzeigen". Zurückziehen geht weiterhin, nur eben von dort.
+    const erledigte = page.getByRole("button", { name: /Erledigte anzeigen/ });
+    if (await erledigte.count()) await erledigte.first().click();
+    // Die eigene Zeile, nicht irgendeine: In der Liste stehen auch
+    // Ausschreibungen anderer Kurse.
+    const zeile = page.locator("tr").filter({ hasText: "E2E60 Gastkurs" });
     page.once("dialog", (d) => d.accept());
-    await page.getByRole("button", { name: "Zurückziehen" }).first().click();
+    await zeile.getByRole("button", { name: "Zurückziehen" }).click();
     await expect(page.getByText("Ausschreibung zurückgezogen.")).toBeVisible({ timeout: 20000 });
 
     const { data: buchungen } = await service

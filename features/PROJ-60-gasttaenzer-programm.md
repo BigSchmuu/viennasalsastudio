@@ -371,8 +371,6 @@ Projekt weiterhin nicht eingerichtet.
 
 ## Deployment
 
-## Deployment
-
 **Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-16 · **Tag:** `v1.59.0-PROJ-60`
 
 ### Reihenfolge
@@ -404,3 +402,32 @@ Verwaltung, Lehrerbereich und Profil vom Betreiber bestätigt.
 
 Das Programm ist da, aber leer: Solange sich niemand anmeldet, gibt es niemanden einzuladen. Ein
 Aufruf per Newsletter oder im Kurs ist der nächste Schritt — und liegt außerhalb der App.
+
+## Nachtrag (2026-09-18): Der Vorschlag war blind
+
+Im Volllauf vom 2026-09-17 stand 22-mal in der Serverausgabe:
+
+```
+Schieflage nicht lesbar { code: '42702', message: 'column reference "course_id" is ambiguous' }
+```
+
+`get_course_role_balance()` gibt eine Tabelle mit einer Spalte `course_id` zurück — und damit legt
+PL/pgSQL eine **Variable** dieses Namens an. Die beiden Zählungen der offenen regulären Buchungen
+schrieben `where course_id = c.id` ohne Tabellenpräfix, und Postgres wies den ganzen Aufruf ab.
+
+Sichtbar war davon nichts: `getSchieflage()` protokolliert den Fehler und liefert eine leere Liste,
+woraufhin die Seite „Gerade ist nichts zu tun — kein Kurs überschreitet seine Grenze" schreibt. Die
+halbe Idee des Programms — die Verwaltung muss nicht selbst nachzählen — hat vom Ausrollen am
+2026-09-16 bis zur Korrektur nie funktioniert.
+
+**Warum kein Test das gemeldet hat:** Alle sieben E2E-Prüfungen schrieben selbst aus (über
+„Plätze ausschreiben" oben rechts) und prüften danach die Zusage. Keine prüfte den Vorschlag selbst.
+Ein leerer, gültig aussehender Zustand ist für einen Test nicht von einem richtigen zu unterscheiden.
+
+**Behoben mit** `20260917214500_proj60_schieflage_spalten.sql` — gleiche Signatur, Spalten überall
+mit Tabellenpräfix. Eingespielt in Test und Produktion am 2026-09-18.
+
+**Neu geprüft:** `tests/PROJ-60-gasttaenzer.spec.ts` → „Die Verwaltung sieht, welche Rolle im Kurs
+fehlt" baut eine Schieflage (ein offener Leader-Platz, Grenze 0), erwartet „1 × Follower" in der
+Zeile des Kurses und öffnet den Ausschreiben-Dialog aus dieser Zeile — mit dem Kurs schon
+eingetragen. Der Test wurde vor dem Einspielen des SQL absichtlich rot laufen gelassen.
