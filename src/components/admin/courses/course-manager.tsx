@@ -83,6 +83,7 @@ export type CourseRow = {
   maxParticipants: number | null;
   price: number | null;
   prerequisiteNote: string | null;
+  description: string | null;
   /** PROJ-51: Kurszeitraum — null heißt unbefristet. */
   runsFrom: string | null;
   runsUntil: string | null;
@@ -421,6 +422,7 @@ function CourseFormDialog({
       max_participants: course?.maxParticipants != null ? String(course.maxParticipants) : "",
       price: course?.price != null ? String(course.price) : "",
       prerequisite_note: course?.prerequisiteNote ?? "",
+      description: course?.description ?? "",
       role_query_enabled: course?.roleQueryEnabled ?? false,
       max_role_difference: course?.maxRoleDifference != null ? String(course.maxRoleDifference) : "",
       runs_from: course?.runsFrom ?? "",
@@ -443,6 +445,7 @@ function CourseFormDialog({
       formData.set("max_participants", values.max_participants ?? "");
       formData.set("price", values.price ?? "");
       formData.set("prerequisite_note", values.prerequisite_note ?? "");
+      formData.set("description", values.description ?? "");
       formData.set("role_query_enabled", String(values.role_query_enabled ?? false));
       formData.set("max_role_difference", values.max_role_difference ?? "");
       formData.set("runs_from", values.runs_from ?? "");
@@ -718,6 +721,27 @@ function CourseFormDialog({
                 )}
               />
             </div>
+
+            {/* PROJ-62: Steht vor dem Vorkenntnis-Hinweis, weil sie das
+                Größere ist — der Hinweis ist ein Zusatz, die Beschreibung der
+                eigentliche Text über den Kurs. */}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Beschreibung (optional, erscheint auf der Kursseite)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Für wen ist der Kurs, was lernt man, was sollte man mitbringen?"
+                      rows={5}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

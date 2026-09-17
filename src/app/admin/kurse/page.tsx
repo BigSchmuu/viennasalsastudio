@@ -21,7 +21,7 @@ export default async function CoursesPage({
   let coursesQuery = supabase
     .from("courses")
     .select(
-      "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date, notified_at)), course_entry_dates(id, entry_date), max_participants, price, prerequisite_note, role_query_enabled, max_role_difference, runs_from, runs_until, pending_name, pending_level, pending_effective_date, pending_runs_until"
+      "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id, profiles(full_name)), video_set_id, video_sets(name), course_schedule(id, weekday, start_time, end_time, course_schedule_pauses(id, pause_date, notified_at)), course_entry_dates(id, entry_date), max_participants, price, prerequisite_note, description, role_query_enabled, max_role_difference, runs_from, runs_until, pending_name, pending_level, pending_effective_date, pending_runs_until"
     )
     .order("created_at", { ascending: true });
 
@@ -164,6 +164,7 @@ export default async function CoursesPage({
     maxParticipants: c.max_participants,
     price: c.price,
     prerequisiteNote: c.prerequisite_note,
+    description: c.description,
     runsFrom: c.runs_from,
     runsUntil: c.runs_until,
     pendingName: c.pending_name,

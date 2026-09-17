@@ -35,7 +35,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
+        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, description, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
       )
       .eq("id", id)
       .single(),
@@ -210,6 +210,19 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
           <p className="rounded-lg bg-muted px-3 py-2 text-sm">{course.prerequisite_note}</p>
         )}
       </div>
+
+      {/* PROJ-62: Die Beschreibung steht vor dem Steckbrief — sie beantwortet
+          die Frage, die zuerst kommt („ist das überhaupt mein Kurs?"), während
+          der Steckbrief die Einzelheiten nachreicht. Fehlt sie, entsteht keine
+          Lücke: Der ganze Block erscheint dann nicht.
+
+          `whitespace-pre-line` erhält die Absätze, ohne den Text als Markup zu
+          behandeln — er kommt aus einem Eingabefeld, und React maskiert ihn. */}
+      {course.description?.trim() && (
+        <p className="whitespace-pre-line text-base leading-relaxed text-muted-foreground">
+          {course.description.trim()}
+        </p>
+      )}
 
       {/* Der Steckbrief beantwortet die vier Fragen, die vor einer Buchung
           kommen — wann, wo, bei wem, zu welchem Preis. */}

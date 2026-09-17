@@ -16,6 +16,7 @@ import type { ProbestundenStand } from "@/lib/bookings/probestunde";
 
 import type { Zeitraumhinweis } from "@/lib/scheduling/kursanzeige";
 
+import { Link } from "@/i18n/navigation";
 export type ScheduleEntry = {
   courseId: string;
   courseName: string;
@@ -90,7 +91,14 @@ function ScheduleCard({
     <Card className="rounded-card border-border/70 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-soft-lg">
       <CardHeader>
         <CardTitle className="flex items-baseline justify-between gap-2 text-lg">
-          <span>{entry.courseName}</span>
+          {/* PROJ-62: Nur der Name verlinkt, nicht die ganze Karte — die trägt
+              bereits Knöpfe zum Buchen und zum Self-Check-in, und eine
+              klickbare Karte würde diese Klicks verschlucken.
+              Der sprachbewusste Link: Ein englischer Besucher landet auf der
+              englischen Kursseite, nicht auf der deutschen. */}
+          <Link href={`/kurse/${entry.courseId}`} className="hover:underline">
+            {entry.courseName}
+          </Link>
           <span className="whitespace-nowrap text-sm font-normal tabular-nums text-muted-foreground">
             {formatTime(entry.startTime)}–{formatTime(entry.endTime)}
           </span>

@@ -54,6 +54,13 @@ export const courseSchema = z.object({
     .optional()
     .or(z.literal("")),
   prerequisite_note: z.string().trim().max(500, "Hinweis ist zu lang").optional().or(z.literal("")),
+  // PROJ-62: Freiwillig, dieselbe Grenze wie bei den Events.
+  description: z
+    .string()
+    .trim()
+    .max(2000, "Beschreibung ist zu lang (höchstens 2000 Zeichen)")
+    .optional()
+    .or(z.literal("")),
   role_query_enabled: z.boolean().optional(),
   max_role_difference: z
     .string()

@@ -16,6 +16,7 @@ function parseCourseFormData(formData: FormData) {
     max_participants: formData.get("max_participants"),
     price: formData.get("price"),
     prerequisite_note: formData.get("prerequisite_note"),
+    description: formData.get("description"),
     role_query_enabled: formData.get("role_query_enabled") === "true",
     max_role_difference: formData.get("max_role_difference"),
     runs_from: formData.get("runs_from"),
@@ -83,6 +84,7 @@ export async function createCourse(formData: FormData): Promise<ActionResult> {
       max_participants: parsed.data.max_participants ? Number(parsed.data.max_participants) : null,
       price: parsed.data.price ? Number(parsed.data.price) : null,
       prerequisite_note: parsed.data.prerequisite_note || null,
+      description: parsed.data.description || null,
       role_query_enabled: parsed.data.role_query_enabled ?? false,
       max_role_difference: parsed.data.max_role_difference ? Number(parsed.data.max_role_difference) : null,
       // PROJ-51: Leer heißt unbefristet — der Normalfall.
@@ -123,6 +125,7 @@ export async function updateCourse(id: string, formData: FormData): Promise<Acti
       max_participants: parsed.data.max_participants ? Number(parsed.data.max_participants) : null,
       price: parsed.data.price ? Number(parsed.data.price) : null,
       prerequisite_note: parsed.data.prerequisite_note || null,
+      description: parsed.data.description || null,
       role_query_enabled: parsed.data.role_query_enabled ?? false,
       max_role_difference: parsed.data.max_role_difference ? Number(parsed.data.max_role_difference) : null,
       // PROJ-51: Leer heißt unbefristet — der Normalfall.

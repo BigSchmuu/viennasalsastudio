@@ -95,7 +95,9 @@
 
 | PROJ-61 | Bankupload bestätigen, bevor die Rechnungen entstehen | Deployed | [PROJ-61](../features/PROJ-61-bankupload-bestaetigen.md) | 2026-09-16 |
 
+| PROJ-62 | Kursbeschreibung und Verlinkung aus dem Stundenplan | Approved | [PROJ-62](../features/PROJ-62-kursbeschreibung-und-verlinkung.md) | 2026-09-17 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-62
+## Next Available ID: PROJ-63
