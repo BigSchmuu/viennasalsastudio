@@ -128,4 +128,23 @@ Datenbank.
 ## Deployment
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-17 · **Tag:** `v1.61.0-PROJ-62`
+
+1. Migration `20260917090000_proj62_kursbeschreibung.sql`
+2. Code ausgerollt (Vercel, 2 Minuten Build)
+
+Die Migration musste zuerst laufen, und hier war es ernst: Die Kursseite fragt die neue Spalte mit
+ab. Ohne sie hätte die Abfrage nicht funktioniert und **alle Kursseiten** wären ausgefallen — genau
+die, auf die die Website künftig verlinken soll.
+
+### Nachgeprüft
+
+Drei Kursseiten liefern 200, und der Stundenplan trägt jetzt Verweise auf die Kursseiten.
+
+### Wozu es dient
+
+Die Website kann ihre Stundenplan-Einträge jetzt direkt auf
+`app.viennasalsastudio.at/kurse/<kennung>` zeigen lassen, statt auf das Buchungsformular von
+Nimbuscloud. Wer dort nicht angemeldet ist, wird zur Anmeldung geführt und kommt anschließend auf
+dieselbe Kursseite zurück.
