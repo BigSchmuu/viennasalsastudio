@@ -260,3 +260,20 @@ ist, dass die Karte genau den Teil zeigt, der eingestellt wurde.
 
 Firefox ist im Projekt weiterhin nicht eingerichtet.
 
+## Deployment
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-23 · **Tag:** `v1.62.0-PROJ-63`
+
+### Reihenfolge
+
+1. `20260923090000_proj63_bildausschnitt.sql` — die Spalte mit Standard „mittig"
+2. Code ausgerollt (Vercel)
+
+Die Migration musste zuerst laufen: Die Bilderabfragen lesen die neue Spalte mit, und ohne sie
+lieferte jede Seite mit Titelbild einen Fehler. Umgekehrt ist die Spalte allein harmlos — solange
+niemand etwas verstellt, steht überall 50 und alles sieht aus wie vorher.
+
+### Zurückrollen
+
+Gefahrlos: Die vorige Codefassung liest die Spalte nicht und schneidet wieder mittig zu. Die Spalte
+darf stehen bleiben.
