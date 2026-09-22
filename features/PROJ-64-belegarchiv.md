@@ -201,3 +201,15 @@ Wie das Ergebnis im PDF-Dialog eines bestimmten Browsers aussieht — Seitenrän
 entscheidet der Druckdialog, nicht die App. Ein Jahrgang mit mehreren hundert Belegen wurde nicht
 erzeugt; geprüft ist die Zahl der Abfragen, nicht die Ladezeit bei 500 Belegen.
 
+## Deployment
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-23 · **Tag:** `v1.63.0-PROJ-64`
+
+Keine Migration — reiner Code. Nachgeprüft von außen: `/admin/rechnungen/archiv` weist
+Nicht-Angemeldete zur Anmeldung (307), während eine erfundene Adresse darunter weiterhin 404
+liefert. Damit ist belegt, dass die Seite wirklich existiert und nicht bloß der Server antwortet.
+
+### Zurückrollen
+
+Gefahrlos: Die vorige Fassung kennt die Seite nicht, der Knopf in der Liste verschwindet mit ihr.
+An den Daten ändert sich nichts.
