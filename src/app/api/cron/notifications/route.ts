@@ -6,6 +6,7 @@ import { vollzieheFaelligeUmwandlungen } from "@/lib/courses/umwandlungen";
 import { ergaenzeSerienTermine } from "@/lib/events/termine-nachlegen";
 import { raeumeVerwaisteBilder } from "@/lib/events/bilder-aufraeumen";
 import { fuehreSchrittAus, laufSammler } from "@/lib/cron/schritt";
+import { laufArt } from "@/lib/cron/laufart";
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -22,10 +23,29 @@ export async function GET(request: NextRequest) {
   // wird. Ein Ausfall soll den betroffenen Schritt kosten, nicht den Lauf.
   const lauf = laufSammler();
 
+  const art = laufArt(request.nextUrl.searchParams.get("run"));
+
+  // Der kurze Lauf leert nur die Warteschlange und kehrt sofort um.
+  // Bewusst als eigener Zweig und nicht als Kette von Ausnahmen weiter unten:
+  // Ein Schritt, den jemand später hinzufügt, liefe sonst aus Versehen
+  // sechsmal pro Stunde mit.
+  //
+  // Dass er sich mit dem Morgen- oder Abendlauf überschneidet, ist unkritisch:
+  // Eine Zeile wird mit `status = 'pending'` in der Bedingung übernommen — wer
+  // zuerst kommt, bekommt sie, der andere bekommt nichts.
+  if (art === "warteschlange") {
+    const nurWarteschlange = lauf.nimm(
+      await fuehreSchrittAus("warteschlange", { processed: 0 }, () => drainPendingQueue(service))
+    );
+    return lauf.fehler.length > 0
+      ? NextResponse.json({ ...nurWarteschlange, fehler: lauf.fehler }, { status: 500 })
+      : NextResponse.json(nurWarteschlange);
+  }
+
   // PROJ-29: the evening run (separate cron schedule, ?run=evening) only sends the
   // same-day trial reminder — the morning run keeps its existing checks plus the
   // second, next-occurrence-timed trial reminder.
-  const isEveningRun = request.nextUrl.searchParams.get("run") === "evening";
+  const isEveningRun = art === "abend";
   const checks = isEveningRun
     ? lauf.nimm(await fuehreSchrittAus("abendlauf", { evening: 0 }, () => runEveningChecks(service)))
     : {

@@ -102,6 +102,47 @@ describe("GET /api/cron/notifications", () => {
     });
   });
 
+  it("leert bei ?run=queue nur die Warteschlange und nichts sonst", async () => {
+    // Der kurze Lauf. Liefe hier versehentlich ein Tagesschritt mit,
+    // verschickte er Erinnerungen sechsmal pro Stunde — deshalb steht diese
+    // Prüfung auf *jedem* anderen Schritt einzeln.
+    const { GET } = await import("./route");
+    const request = new NextRequest("http://localhost/api/cron/notifications?run=queue", {
+      headers: { authorization: "Bearer test-secret" },
+    });
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(drainPendingQueue).toHaveBeenCalledTimes(1);
+    expect(runDailyChecks).not.toHaveBeenCalled();
+    expect(runFollowupChecks).not.toHaveBeenCalled();
+    expect(runEveningChecks).not.toHaveBeenCalled();
+    expect(vollzieheFaelligeAenderungen).not.toHaveBeenCalled();
+    expect(vollzieheFaelligeUmwandlungen).not.toHaveBeenCalled();
+    expect(ergaenzeSerienTermine).not.toHaveBeenCalled();
+    expect(raeumeVerwaisteBilder).not.toHaveBeenCalled();
+    // Nur das Ergebnis der Warteschlange, keine Nullwerte der übrigen Schritte:
+    // Ein Lauf soll nicht so aussehen, als hätte er etwas geprüft.
+    expect(body).toEqual({ processed: 3 });
+  });
+
+  it("meldet einen Fehler in der Warteschlange auch im Viertelstundenlauf", async () => {
+    // Vercel zeigt in der Übersicht nur den Statuscode. Ein stiller 200er wäre
+    // hier besonders tückisch: Der Lauf käme alle 10 Minuten wieder und
+    // scheiterte jedes Mal unbemerkt.
+    drainPendingQueue.mockRejectedValueOnce(new Error("SMTP weg"));
+    const { GET } = await import("./route");
+    const request = new NextRequest("http://localhost/api/cron/notifications?run=queue", {
+      headers: { authorization: "Bearer test-secret" },
+    });
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.fehler).toBeTruthy();
+  });
+
   it("runs only the PROJ-29 evening check when ?run=evening, not the morning checks", async () => {
     const { GET } = await import("./route");
     const request = new NextRequest("http://localhost/api/cron/notifications?run=evening", {
