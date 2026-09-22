@@ -1,4 +1,5 @@
 import { BILD_TITEL, type BildRolle, type EventBild } from "@/lib/events/medien";
+import { begrenzeAusschnitt } from "@/lib/events/ausschnitt";
 
 /**
  * Bildzeilen aus der Datenbank in die Form bringen, in der die Seiten sie
@@ -8,7 +9,8 @@ import { BILD_TITEL, type BildRolle, type EventBild } from "@/lib/events/medien"
  * Serienseite. Ohne sie schriebe jede Seite dieselbe Umbenennung noch einmal,
  * und eine davon vergäße die Maße; dann springt der Text beim Laden.
  */
-export const BILD_SPALTEN = "event_images(id, role, storage_path, alt_text, width, height, position)";
+export const BILD_SPALTEN =
+  "event_images(id, role, storage_path, alt_text, width, height, position, focus_percent)";
 
 /** Dieselben Spalten, wenn nur das Titelbild gebraucht wird. */
 export const TITELBILD_SPALTEN = BILD_SPALTEN;
@@ -21,6 +23,7 @@ export type BildZeile = {
   width: number;
   height: number;
   position: number;
+  focus_percent: number;
 };
 
 export function alsBild(zeile: BildZeile): EventBild {
@@ -31,6 +34,7 @@ export function alsBild(zeile: BildZeile): EventBild {
     beschreibung: zeile.alt_text,
     breite: zeile.width,
     hoehe: zeile.height,
+    ausschnitt: begrenzeAusschnitt(zeile.focus_percent),
   };
 }
 

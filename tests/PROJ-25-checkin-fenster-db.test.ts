@@ -46,6 +46,22 @@ function restDesTages(): number {
   return 24 - jetzt.getHours() - jetzt.getMinutes() / 60;
 }
 
+/**
+ * Wie viele Stunden der Wiener Tag schon hinter sich hat.
+ *
+ * Das Gegenstück zu `restDesTages()`. Ein Kurs, der „vor einer halben Stunde
+ * begonnen hat", liegt kurz nach Mitternacht am gestrigen Abend — der
+ * Stundenplan hält aber nur eine Uhrzeit, und die gilt als *heutige*. Aus
+ * „läuft gerade" würde damit „beginnt heute Abend", und die Datenbank
+ * antwortete völlig zu Recht „too early". Genau das ist im Lauf vom
+ * 2026-09-23 um 00:08 passiert.
+ */
+function bisherigeStunden(): number {
+  const wien = new Date().toLocaleString("en-US", { timeZone: "Europe/Vienna" });
+  const jetzt = new Date(wien);
+  return jetzt.getHours() + jetzt.getMinutes() / 60;
+}
+
 /** Der heutige Wiener Wochentag in der Zählung des Projekts (0 = Montag). */
 function heutigerWochentag(): number {
   const wien = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
@@ -147,14 +163,14 @@ describe(`PROJ-25: Das Fenster öffnet ${SELF_CHECKIN_VORLAUF_STUNDEN} Stunden v
     expect(data).toBe("present");
   });
 
-  it("lässt einchecken, wenn der Kurs gerade läuft", async () => {
+  it.skipIf(bisherigeStunden() < 1)("lässt einchecken, wenn der Kurs gerade läuft", async () => {
     const kurs = await kursDerHeuteBeginntIn(-0.25);
     const { data, error } = await alsKunde.rpc("self_toggle_attendance", { p_course_id: kurs });
     expect(error).toBeNull();
     expect(data).toBe("present");
   });
 
-  it("nimmt den Check-in auf demselben Weg wieder zurück", async () => {
+  it.skipIf(bisherigeStunden() < 1)("nimmt den Check-in auf demselben Weg wieder zurück", async () => {
     // Ein Kurs, der gerade läuft: im Fenster und noch nicht zu Ende. Damit
     // hängt die Prüfung nicht davon ab, wie viel vom Tag noch übrig ist.
     const kurs = await kursDerHeuteBeginntIn(-0.5);

@@ -97,7 +97,9 @@
 
 | PROJ-62 | Kursbeschreibung und Verlinkung aus dem Stundenplan | Deployed | [PROJ-62](../features/PROJ-62-kursbeschreibung-und-verlinkung.md) | 2026-09-17 |
 
+| PROJ-63 | Bildausschnitt für das Event-Titelbild | In Review | [PROJ-63](../features/PROJ-63-bildausschnitt-titelbild.md) | 2026-09-22 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-63
+## Next Available ID: PROJ-64

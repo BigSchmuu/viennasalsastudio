@@ -14,6 +14,7 @@ import {
   type BildRolle,
   type MedienZiel,
 } from "@/lib/events/medien";
+import { AUSSCHNITT_STANDARD, begrenzeAusschnitt } from "@/lib/events/ausschnitt";
 import type { ActionResult } from "@/lib/actions/types";
 
 type AdminSupabase = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
@@ -25,6 +26,8 @@ export type MedienBildZeile = {
   beschreibung: string | null;
   breite: number;
   hoehe: number;
+  /** PROJ-63: Lage des sichtbaren Ausschnitts auf der Karte, 0-100. */
+  ausschnitt: number;
 };
 
 export type MedienVideoZeile = {
@@ -97,10 +100,10 @@ export async function getEventMedien(ziel: MedienZiel): Promise<MedienBestand> {
   const { supabase } = await requireAdmin();
 
   const [bilderRes, videosRes] = await Promise.all([
-    zielFilter(supabase.from("event_images").select("id, role, storage_path, alt_text, width, height"), ziel).order(
-      "position",
-      { ascending: true }
-    ),
+    zielFilter(
+      supabase.from("event_images").select("id, role, storage_path, alt_text, width, height, focus_percent"),
+      ziel
+    ).order("position", { ascending: true }),
     zielFilter(supabase.from("event_videos").select("id, youtube_id, title"), ziel).order("position", {
       ascending: true,
     }),
@@ -116,6 +119,7 @@ export async function getEventMedien(ziel: MedienZiel): Promise<MedienBestand> {
     beschreibung: bild.alt_text,
     breite: bild.width,
     hoehe: bild.height,
+    ausschnitt: begrenzeAusschnitt(bild.focus_percent),
   }));
 
   return {
@@ -183,9 +187,19 @@ export async function saveEventBild(
     // danebentritt: „Höchstens ein Titelbild je Event" ist eine Sperre in der
     // Datenbank, und ein Eintrag neben dem alten scheiterte daran (QA-Befund
     // BUG-1). Die Beschreibung gehörte zum alten Bild und geht mit ihm.
+    //
+    // Und der Ausschnitt genauso (PROJ-63): Er war auf den Titel *dieses*
+    // Flyers gelegt. Am nächsten Bild wäre er geraten — und weil die Zeile
+    // bleibt, bliebe er ohne diese Zeile stillschweigend stehen.
     const { error: aenderFehler } = await supabase
       .from("event_images")
-      .update({ storage_path: bild.pfad, width: bild.breite, height: bild.hoehe, alt_text: null })
+      .update({
+        storage_path: bild.pfad,
+        width: bild.breite,
+        height: bild.hoehe,
+        alt_text: null,
+        focus_percent: AUSSCHNITT_STANDARD,
+      })
       .eq("id", altesTitelbild.id);
 
     if (aenderFehler) {
@@ -242,6 +256,31 @@ export async function updateBildBeschreibung(id: string, formData: FormData): Pr
 
   if (error || !data) {
     return { error: "Beschreibung konnte nicht gespeichert werden." };
+  }
+
+  neuLaden(await zieladressen(supabase, zielAusZeile(data)));
+  return { success: true };
+}
+
+/**
+ * Welcher Teil des Bildes auf der Karte zu sehen ist (PROJ-63).
+ *
+ * Kommt vom Regler im Bilder-Dialog und trifft beim Loslassen ein, nicht bei
+ * jeder Bewegung. Der Wert wird hier noch einmal begrenzt: Die Datenbank lässt
+ * ohnehin nur 0 bis 100 zu, aber eine abgewiesene Zeile wäre eine Fehlermeldung
+ * statt einer Einstellung.
+ */
+export async function setzeBildausschnitt(id: string, wert: number): Promise<ActionResult> {
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase
+    .from("event_images")
+    .update({ focus_percent: begrenzeAusschnitt(wert) })
+    .eq("id", id)
+    .select("event_id, series_id")
+    .single();
+
+  if (error || !data) {
+    return { error: "Bildausschnitt konnte nicht gespeichert werden." };
   }
 
   neuLaden(await zieladressen(supabase, zielAusZeile(data)));

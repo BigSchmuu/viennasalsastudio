@@ -37,6 +37,8 @@ export type EventBild = {
   beschreibung: string | null;
   breite: number;
   hoehe: number;
+  /** PROJ-63: Lage des sichtbaren Ausschnitts auf der Karte, 0-100. */
+  ausschnitt: number;
 };
 
 export type EventVideo = {

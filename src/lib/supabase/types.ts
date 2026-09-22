@@ -932,6 +932,7 @@ export type Database = {
           alt_text: string | null
           created_at: string
           event_id: string | null
+          focus_percent: number
           height: number
           id: string
           position: number
@@ -944,6 +945,7 @@ export type Database = {
           alt_text?: string | null
           created_at?: string
           event_id?: string | null
+          focus_percent?: number
           height: number
           id?: string
           position?: number
@@ -956,6 +958,7 @@ export type Database = {
           alt_text?: string | null
           created_at?: string
           event_id?: string | null
+          focus_percent?: number
           height?: number
           id?: string
           position?: number

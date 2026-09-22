@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { EventTitelbild } from "@/components/events/event-titelbild";
 import { YoutubeEmbed } from "@/components/video/youtube-embed";
 import { createClient } from "@/lib/supabase/client";
 import { verkleinereBild } from "@/lib/bilder/verkleinern";
@@ -25,6 +27,10 @@ import {
   type MedienZiel,
 } from "@/lib/events/medien";
 import {
+  ausschnittEnden,
+  ausschnittrichtung,
+} from "@/lib/events/ausschnitt";
+import {
   addEventVideo,
   deleteEventBild,
   deleteEventVideo,
@@ -32,6 +38,7 @@ import {
   moveEventBild,
   moveEventVideo,
   saveEventBild,
+  setzeBildausschnitt,
   updateBildBeschreibung,
   type MedienBestand,
   type MedienBildZeile,
@@ -165,22 +172,30 @@ export function MedienDialog({
               <div>
                 <h3 className="font-heading font-bold">Titelbild</h3>
                 <p className="text-sm text-muted-foreground">
-                  Erscheint auf der Karte in der Übersicht und oben auf der Seite. Auf der Karte im Querformat
-                  zugeschnitten.
+                  Erscheint auf der Karte in der Übersicht und oben auf der Seite. Auf der Seite ganz, auf der
+                  Karte im Querformat zugeschnitten — welchen Teil sie zeigt, stellst du unten ein.
                 </p>
               </div>
 
               {bestand.titelbild ? (
-                <div className="flex flex-wrap items-start gap-3">
-                  <Vorschau bild={bestand.titelbild} name={name} />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => mitMeldung(deleteEventBild(bestand.titelbild!.id), "Titelbild entfernt.")}
-                  >
-                    <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />
-                    Entfernen
-                  </Button>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-start gap-3">
+                    <Vorschau bild={bestand.titelbild} name={name} />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => mitMeldung(deleteEventBild(bestand.titelbild!.id), "Titelbild entfernt.")}
+                    >
+                      <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />
+                      Entfernen
+                    </Button>
+                  </div>
+                  <Bildausschnitt
+                    key={bestand.titelbild.id}
+                    bild={bestand.titelbild}
+                    name={name}
+                    aufGespeichert={() => ziel && laden(ziel)}
+                  />
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">Noch kein Titelbild.</p>
@@ -325,6 +340,83 @@ export function MedienDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Welcher Teil des Titelbilds auf der Karte landet (PROJ-63).
+ *
+ * Die Vorschau ist nicht nachgebaut, sondern **dieselbe** Karte, die die
+ * Übersicht zeigt — sonst liefen Vorschau und Wirklichkeit früher oder später
+ * auseinander, und niemand wüsste, welcher von beiden zu glauben ist.
+ *
+ * Gespeichert wird beim Loslassen, nicht bei jeder Bewegung: Aus einer
+ * Reglerfahrt würden sonst dreißig Schreibvorgänge.
+ */
+function Bildausschnitt({
+  bild,
+  name,
+  aufGespeichert,
+}: {
+  bild: MedienBildZeile;
+  name: string;
+  aufGespeichert: () => void;
+}) {
+  const richtung = ausschnittrichtung(bild.breite, bild.hoehe);
+  const enden = ausschnittEnden(richtung);
+  // Der Regler führt seinen eigenen Stand, solange er steht. Beim Wechsel des
+  // Bildes setzt ihn der Schlüssel am Aufruf zurück — nicht ein Abgleich im
+  // Effekt: Der liefe nach jedem Speichern mit, und wer mit den Pfeiltasten
+  // schiebt, verlöre dabei jedes Mal den Tastaturfokus.
+  const [wert, setWert] = useState(bild.ausschnitt);
+
+  if (!enden) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Dieses Bild hat genau das Format der Karte — es wird nichts zugeschnitten.
+      </p>
+    );
+  }
+
+  async function speichern(neuerWert: number) {
+    const ergebnis = await setzeBildausschnitt(bild.id, neuerWert);
+    if ("error" in ergebnis) {
+      toast.error(ergebnis.error);
+      // Zurück auf den Stand, der wirklich gespeichert ist — sonst zeigt der
+      // Regler eine Einstellung, die es nicht gibt.
+      setWert(bild.ausschnitt);
+      return;
+    }
+    toast.success("Bildausschnitt gespeichert.");
+    aufGespeichert();
+  }
+
+  return (
+    <div className="max-w-sm space-y-2">
+      <Label htmlFor={`ausschnitt-${bild.id}`}>So sieht die Karte in der Übersicht aus</Label>
+      <div className="overflow-hidden rounded-card border">
+        <EventTitelbild
+          bild={{ ...bild, ausschnitt: wert }}
+          eventName={name}
+          typeName={null}
+          variante="karte"
+        />
+      </div>
+      <Slider
+        id={`ausschnitt-${bild.id}`}
+        value={[wert]}
+        min={0}
+        max={100}
+        step={1}
+        aria-label={`Bildausschnitt verschieben: ${enden.anfang} bis ${enden.ende}`}
+        onValueChange={([neu]) => setWert(neu)}
+        onValueCommit={([neu]) => void speichern(neu)}
+      />
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{enden.anfang}</span>
+        <span>{enden.ende}</span>
+      </div>
+    </div>
   );
 }
 
