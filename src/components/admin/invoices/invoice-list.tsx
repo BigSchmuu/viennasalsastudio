@@ -131,6 +131,9 @@ export function InvoiceList({
   if (initialFrom) exportParams.set("from", initialFrom);
   if (initialTo) exportParams.set("to", initialTo);
   const exportHref = `/api/admin/rechnungen/export${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
+  // Dasselbe Suchfeld, derselbe Zeitraum: Zahlen-Export und Belegarchiv sollen
+  // bei gleicher Einstellung dieselben Belege enthalten (PROJ-64).
+  const archivHref = `/admin/rechnungen/archiv${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
 
   const filtersActive =
     initialQuery !== "" || initialFrom !== "" || initialTo !== "" || searchParams.has("sort");
@@ -190,6 +193,9 @@ export function InvoiceList({
         )}
         <Button variant="outline" size="sm" className="ml-auto" asChild>
           <a href={exportHref}>CSV exportieren</a>
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={archivHref}>Belege zum Aufbewahren</Link>
         </Button>
       </div>
 
