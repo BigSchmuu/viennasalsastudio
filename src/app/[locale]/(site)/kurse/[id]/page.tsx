@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
+import { Link as SprachLink } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { heuteInWien } from "@/lib/constants/zeitzone";
@@ -25,6 +26,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   const supabase = await createClient();
   const t = await getTranslations("courses");
   const tag = await getTranslations("weekdays");
+  const tFaq = await getTranslations("faq");
   const locale = await getLocale();
 
   // Der Rahmen hat das schon ermittelt — getViewer() gibt innerhalb einer
@@ -252,6 +254,14 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
         pricing={readStudioPricing(pricingRow)}
         probestunde={await ladeProbestundenStand(supabase, user?.id ?? null)}
       />
+
+      {/* Hier entstehen die Fragen: Probestunde, Drop-in oder Anmeldung? Der
+          Verweis steht deshalb direkt unter dem Buchungsbereich. */}
+      <p className="text-sm text-muted-foreground">
+        <SprachLink href="/faq" className="underline underline-offset-4 hover:text-foreground">
+          {tFaq("link")}
+        </SprachLink>
+      </p>
 
       {lessons.length > 0 && (
         <div className="space-y-4">

@@ -618,5 +618,10 @@
     "noAccepted": "You have not accepted anything.",
     "withdraw": "Actually, no",
     "withdrawConfirm": "Really withdraw? The spot will be offered again."
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "intro": "The essentials about trying a class, booking and paying — answered briefly.",
+    "link": "FAQ"
   }
 }

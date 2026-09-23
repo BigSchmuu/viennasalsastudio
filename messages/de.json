@@ -618,5 +618,10 @@
     "noAccepted": "Du hast nichts zugesagt.",
     "withdraw": "Doch nicht",
     "withdrawConfirm": "Wirklich absagen? Der Platz wird dann wieder angeboten."
+  },
+  "faq": {
+    "title": "Häufige Fragen",
+    "intro": "Das Wichtigste zum Ausprobieren, Buchen und Bezahlen — kurz beantwortet.",
+    "link": "Häufige Fragen"
   }
 }

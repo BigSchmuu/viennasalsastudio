@@ -18,6 +18,7 @@ import { levelOptions } from "@/lib/constants/levels";
  */
 export default async function Home() {
   const t = await getTranslations("home");
+  const tFaq = await getTranslations("faq");
   const user = await getViewer();
 
   return (
@@ -111,6 +112,12 @@ export default async function Home() {
             <Button asChild className="mt-6 rounded-full px-8">
               <Link href={user ? "/profil" : "/login"}>{user ? t("profileCta") : t("memberCta")}</Link>
             </Button>
+            {/* Wer hier noch zögert, hat meist eine Frage — nicht zu wenig Werbung. */}
+            <p className="mt-4 text-sm text-muted-foreground">
+              <Link href="/faq" className="underline underline-offset-4 hover:text-foreground">
+                {tFaq("link")}
+              </Link>
+            </p>
           </div>
           <div className="relative min-h-[220px]">
             <Image
