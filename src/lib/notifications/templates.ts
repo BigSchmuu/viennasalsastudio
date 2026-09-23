@@ -760,7 +760,17 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
     case "kursstart_erinnerung":
       return buildNotificationContent(
         "kursstart_erinnerung",
-        { courseName: "Salsa Beginner 1", chosenDate: "2026-09-07", type: "trial" },
+        {
+          courseName: "Salsa Beginner 1",
+          chosenDate: "2026-09-07",
+          type: "trial",
+          // PROJ-67: Dieselben Beispielwerte wie in der Platzhalterliste
+          // daneben. Fehlen sie hier, zeigt die Vorschau eine Lücke, wo im
+          // Ernstfall der Standort steht — und der Betreiber glaubt, der
+          // Platzhalter sei kaputt.
+          ort: "Studio Nord, Musterstraße 1, 1020 Wien",
+          adresse: "Musterstraße 1, 1020 Wien",
+        },
         fields
       );
     case "sepa_ankuendigung":

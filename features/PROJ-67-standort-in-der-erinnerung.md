@@ -133,3 +133,20 @@ Beispielwerten in der Vorschau) und am nächsten Abend an der echten Erinnerung.
 
 Gefahrlos: Die vorige Fassung kennt die Platzhalter nicht und verschickt den alten Text. An den Daten
 ändert sich nichts.
+
+## Nachtrag (2026-09-23): Die Vorschau blieb leer
+
+Der Betreiber meldete direkt nach dem Ausrollen: Die Platzhalter stehen in der Liste, aber die
+Vorschau zeigt an ihrer Stelle nichts.
+
+Ursache: `buildPreviewContent` führt **eigene** Beispieldaten je Vorlage — getrennt von den
+`samples`, die in der Verwaltung neben der Platzhalterliste stehen. Die neuen Felder kamen dort nie
+an, also ersetzte die Vorschau `{ort}` durch nichts. Funktioniert hätte die echte Erinnerung
+trotzdem; kaputt war nur das, was der Betreiber sieht — und das ist schlimm genug, weil er den
+Platzhalter daraufhin für kaputt hält und weglässt.
+
+Behoben, und gegen die Wiederholung abgesichert: `vorschau-vollstaendig.test.ts` baut für **jeden**
+Platzhalter **jeder** Vorlage einen Text, der nur aus diesem Platzhalter besteht, und besteht darauf,
+dass etwas übrig bleibt. 40 Kombinationen, alle grün — die übrigen Vorlagen hatten die Lücke also
+nicht. Zur Gegenprobe wurden die Beispielwerte einmal wieder entfernt: Der Test fiel prompt, und
+zwar genau an den beiden neuen Platzhaltern.
