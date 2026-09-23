@@ -118,3 +118,20 @@ ein englisches Feld, das den deutschen Satz wiederholt, ebenfalls.
 
 Ob die Antworten inhaltlich das sagen, was das Studio sagen will — das entscheidet der Betreiber.
 Geprüft ist, dass sie vollständig, zweisprachig und auffindbar sind.
+
+## Deployment
+
+**Produktion:** https://app.viennasalsastudio.at/faq · **Ausgerollt:** 2026-09-23 · **Tag:** `v1.65.0-PROJ-66`
+
+Keine Migration — reiner Code, nach 90 Sekunden ausgeliefert.
+
+### Nachgeprüft, von außen
+
+Deutsche und englische Fassung liefern 200 und tragen ihre jeweiligen Texte. Die strukturierten
+Daten stehen ausgelieferten Quelltext, sind gültiges JSON, melden `FAQPage` mit 15 Fragen, und jede
+davon hat eine nicht leere Antwort.
+
+### Zurückrollen
+
+Gefahrlos: Die vorige Fassung kennt die Seite nicht, die drei Verweise verschwinden mit ihr. An den
+Daten ändert sich nichts.

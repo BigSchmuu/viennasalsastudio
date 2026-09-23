@@ -103,7 +103,7 @@
 
 | PROJ-65 | Belege als ZIP mit einzelnen PDF-Dateien | Roadmap | — | — |
 
-| PROJ-66 | Seite mit häufigen Fragen | In Review | [PROJ-66](../features/PROJ-66-haeufige-fragen.md) | 2026-09-23 |
+| PROJ-66 | Seite mit häufigen Fragen | Deployed | [PROJ-66](../features/PROJ-66-haeufige-fragen.md) | 2026-09-23 |
 
 <!-- Add features above this line -->
 
