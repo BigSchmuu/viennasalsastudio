@@ -112,3 +112,24 @@ fiele damit auf.
 
 Ob eine bereits angepasste Vorlage in der Produktion den Platzhalter enthält — das sieht nur der
 Betreiber in seiner Verwaltung.
+
+## Deployment
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-23 · **Tag:** `v1.66.0-PROJ-67`
+
+Keine Migration — reiner Code.
+
+### Nachgeprüft
+
+Von außen nur die Erreichbarkeit: Startseite, Kurse und FAQ liefern 200, `/admin/benachrichtigungen`
+weist Nicht-Angemeldete ab. Die Wirkung selbst steht im Text einer Erinnerung und ist von außen nicht
+sichtbar — der Betreiber sieht sie in der Vorlage (Platzhalter `{ort}` und `{adresse}` mit
+Beispielwerten in der Vorschau) und am nächsten Abend an der echten Erinnerung.
+
+**Offen für den Betreiber:** Falls die Vorlage in der Verwaltung schon einmal angepasst wurde, muss
+`{ort}` dort von Hand ergänzt werden — eine eigene Fassung kennt den neuen Platzhalter nicht.
+
+### Zurückrollen
+
+Gefahrlos: Die vorige Fassung kennt die Platzhalter nicht und verschickt den alten Text. An den Daten
+ändert sich nichts.
