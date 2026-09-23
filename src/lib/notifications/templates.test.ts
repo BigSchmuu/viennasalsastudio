@@ -77,6 +77,39 @@ describe("buildNotificationContent", () => {
     expect(dropin.subject).toContain("Drop-in");
   });
 
+  it("nennt in der Kursstart-Erinnerung den Standort mit Anschrift (PROJ-67)", () => {
+    // Zwei Häuser: Ohne diese Angabe steht in der Erinnerung nur der Kursname,
+    // und wer beide Standorte kennt, rät.
+    const content = buildNotificationContent("kursstart_erinnerung", {
+      courseName: "Salsa Cubana",
+      chosenDate: "2026-09-01",
+      type: "trial",
+      ort: "Studio Nord, Musterstraße 1, 1020 Wien",
+      adresse: "Musterstraße 1, 1020 Wien",
+    });
+
+    expect(content.emailHtml).toContain("Studio Nord");
+    expect(content.emailHtml).toContain("Musterstraße 1, 1020 Wien");
+    // Auch auf dem Sperrbildschirm, dort zählt jede Zeile.
+    expect(content.pushBody).toContain("Studio Nord");
+  });
+
+  it("bleibt lesbar, wenn zu einem Kurs kein Standort hinterlegt ist", () => {
+    // Der Versand sorgt dafür, dass hier nie nichts ankommt: Fehlt der
+    // Standort, tritt der Raumname an seine Stelle. Diese Prüfung hält die
+    // Untergrenze fest — die Erinnerung geht raus und nennt ihren Kurs, statt
+    // an einer fehlenden Angabe zu scheitern.
+    const content = buildNotificationContent("kursstart_erinnerung", {
+      courseName: "Salsa Cubana",
+      chosenDate: "2026-09-01",
+      type: "trial",
+    });
+
+    expect(content.subject).toContain("Salsa Cubana");
+    expect(content.emailHtml).not.toContain("undefined");
+    expect(content.pushBody).not.toContain("undefined");
+  });
+
   it("formats the SEPA pre-notification with amount and due date", () => {
     const content = buildNotificationContent("sepa_ankuendigung", {
       amount: 40,

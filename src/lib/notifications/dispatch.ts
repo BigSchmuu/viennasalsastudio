@@ -11,13 +11,14 @@ import {
   type NotificationContent,
 } from "@/lib/notifications/templates";
 import type { TemplateFields } from "@/lib/notifications/template-registry";
+import { nurAdresse, ortMitAdresse } from "@/lib/notifications/ort";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { hasConvertedSince } from "@/lib/trials/conversion";
 import type { Json } from "@/lib/supabase/types";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
-type QueueRow = {
+export type QueueRow = {
   id: string;
   customer_id: string;
   event_type: string;
@@ -79,7 +80,15 @@ async function recipientLocale(service: ServiceClient, customerId: string): Prom
   return data?.language ?? "de";
 }
 
-async function resolveContent(service: ServiceClient, row: QueueRow): Promise<NotificationContent | null> {
+/**
+ * Aus einer Zeile der Warteschlange den fertigen Text machen.
+ *
+ * Nach außen sichtbar, damit sich genau diese Verknüpfung prüfen lässt: Ob
+ * aus einer Buchung wirklich Kurs, Termin **und Standort** werden, ist sonst
+ * nur am verschickten Text zu sehen — und Tests verschicken nichts. Der
+ * Aufrufer bleibt `processQueueRow`.
+ */
+export async function resolveContent(service: ServiceClient, row: QueueRow): Promise<NotificationContent | null> {
   const payload = row.payload;
   const locale = await recipientLocale(service, row.customer_id);
 
@@ -122,16 +131,27 @@ async function resolveContent(service: ServiceClient, row: QueueRow): Promise<No
       return buildNotificationContent("abo_kuendigung", details, key ? await fetchOverride(service, key, locale) : undefined, locale);
     }
     case "kursstart_erinnerung": {
+      // PROJ-67: Der Standort kommt über den Raum. Zwei Häuser, und in der
+      // Erinnerung stand bisher nur der Kursname — wer beide kennt, ist schon
+      // am falschen gestanden.
       const { data } = await service
         .from("course_bookings")
-        .select("type, chosen_date, courses(name)")
+        .select("type, chosen_date, courses(name, rooms(name, locations(name, address)))")
         .eq("id", payload.booking_id as string)
         .maybeSingle();
       if (!data) return null;
+      const raum = data.courses?.rooms ?? null;
+      const standort = raum?.locations ?? null;
+      const ortsangabe = standort ? { name: standort.name, adresse: standort.address } : null;
+      // Fällt der Standort einmal weg, ist der Raumname immer noch besser als
+      // ein Satz, der mit einem Doppelpunkt ins Leere läuft.
+      const ort = ortMitAdresse(ortsangabe) || (raum?.name ?? "");
       const details = {
         courseName: data.courses?.name ?? "Kurs",
         chosenDate: data.chosen_date,
         type: data.type as "trial" | "dropin",
+        ort,
+        adresse: nurAdresse(ortsangabe),
       };
       const key = resolveTemplateKey("kursstart_erinnerung", details);
       return buildNotificationContent(

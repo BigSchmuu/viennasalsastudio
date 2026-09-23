@@ -105,7 +105,9 @@
 
 | PROJ-66 | Seite mit häufigen Fragen | Deployed | [PROJ-66](../features/PROJ-66-haeufige-fragen.md) | 2026-09-23 |
 
+| PROJ-67 | Standort in der Kursstart-Erinnerung | In Review | [PROJ-67](../features/PROJ-67-standort-in-der-erinnerung.md) | 2026-09-23 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-67
+## Next Available ID: PROJ-68

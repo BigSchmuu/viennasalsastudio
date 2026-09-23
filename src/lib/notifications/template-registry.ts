@@ -156,21 +156,31 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
     key: "kursstart_erinnerung",
     eventGroupLabel: "Kursstart-Erinnerung",
     variantLabel: "Erinnerung",
-    placeholders: ["kurs", "datum", "typ"],
+    // PROJ-67: `{ort}` trägt Name und Anschrift zusammen („Studio Nord,
+    // Musterstraße 1"), `{adresse}` nur die Anschrift — für alle, die ihren
+    // Text selbst zusammensetzen wollen. Zwei Standorte, und es stand bisher
+    // in keiner Erinnerung, welcher gemeint ist.
+    placeholders: ["kurs", "datum", "typ", "ort", "adresse"],
     boldPlaceholder: "kurs",
-    samples: { kurs: "Salsa Beginner 1", datum: "07.09.2026", typ: "Probestunde" },
+    samples: {
+      kurs: "Salsa Beginner 1",
+      datum: "07.09.2026",
+      typ: "Probestunde",
+      ort: "Studio Nord, Musterstraße 1, 1020 Wien",
+      adresse: "Musterstraße 1, 1020 Wien",
+    },
     defaults: {
       emailSubject: "Erinnerung: {typ} morgen in {kurs}",
-      emailBody: "Denk dran: Morgen, {datum}, hast du deine {typ} in {kurs}.",
+      emailBody: "Denk dran: Morgen, {datum}, hast du deine {typ} in {kurs}. Wir sehen uns hier: {ort}.",
       pushTitle: "Erinnerung: {typ} morgen in {kurs}",
-      pushBody: "Morgen: {typ} in {kurs}.",
+      pushBody: "Morgen: {typ} in {kurs} · {ort}.",
     },
     defaultsEn: {
       emailSubject: "Reminder: {typ} tomorrow in {kurs}",
       emailBody:
-        "A quick reminder: tomorrow, {datum}, you have your {typ} in {kurs}.",
+        "A quick reminder: tomorrow, {datum}, you have your {typ} in {kurs}. Here is where to find us: {ort}.",
       pushTitle: "Reminder: {typ} tomorrow in {kurs}",
-      pushBody: "Tomorrow: {typ} in {kurs}.",
+      pushBody: "Tomorrow: {typ} in {kurs} · {ort}.",
     },
   },
   {

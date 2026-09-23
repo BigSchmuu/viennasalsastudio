@@ -153,7 +153,15 @@ export type AboKuendigungDetails = {
   newStatus: "paused" | "cancelled";
   effectiveDate: string;
 };
-export type KursstartErinnerungDetails = { courseName: string; chosenDate: string; type: "trial" | "dropin" };
+export type KursstartErinnerungDetails = {
+  courseName: string;
+  chosenDate: string;
+  type: "trial" | "dropin";
+  /** PROJ-67: Name und Anschrift des Standorts, fertig zusammengesetzt. */
+  ort?: string;
+  /** PROJ-67: nur die Anschrift. */
+  adresse?: string;
+};
 export type SepaAnkuendigungDetails = { amount: number; dueDate: string };
 /** PROJ-37: invoice amount and bank fee stay separate so the customer can see
  *  why more is owed than the invoice says. */
@@ -530,7 +538,13 @@ export function buildNotificationContent(
       return {
         ...renderTemplate(
           "kursstart_erinnerung",
-          { kurs: d.courseName, datum: formatDate(d.chosenDate), typ: label },
+          {
+            kurs: d.courseName,
+            datum: formatDate(d.chosenDate),
+            typ: label,
+            ort: d.ort ?? "",
+            adresse: d.adresse ?? "",
+          },
           override,
           "",
           locale
