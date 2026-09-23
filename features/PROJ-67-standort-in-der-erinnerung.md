@@ -150,3 +150,5 @@ Platzhalter **jeder** Vorlage einen Text, der nur aus diesem Platzhalter besteht
 dass etwas übrig bleibt. 40 Kombinationen, alle grün — die übrigen Vorlagen hatten die Lücke also
 nicht. Zur Gegenprobe wurden die Beispielwerte einmal wieder entfernt: Der Test fiel prompt, und
 zwar genau an den beiden neuen Platzhaltern.
+
+Vom Betreiber nach dem Ausrollen bestätigt: Die Vorschau zeigt den vollständigen Satz.
