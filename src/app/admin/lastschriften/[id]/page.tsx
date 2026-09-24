@@ -15,6 +15,8 @@ import {
   laufZustand,
 } from "@/lib/sepa/laeufe";
 import { heuteInWien } from "@/lib/constants/zeitzone";
+import { ladeFerien } from "@/lib/scheduling/ferien";
+import { istFaellig } from "@/lib/sepa/faelligkeit";
 
 /**
  * Was dieser Lauf übersehen hat.
@@ -29,7 +31,8 @@ async function offenePositionen(
   runId: string,
   dueDate: string
 ): Promise<OffenePosition[]> {
-  const [abosRes, ticketsRes, eingezogenRes, imLaufRes, mandateRes, profileRes] = await Promise.all([
+  const [abosRes, ticketsRes, eingezogenRes, imLaufRes, mandateRes, profileRes, frühereRes, ferien] =
+    await Promise.all([
     supabase
       .from("subscriptions")
       .select("id, customer_id, name, price, pending_effective_date")
@@ -43,6 +46,15 @@ async function offenePositionen(
     supabase.from("sepa_collection_items").select("subscription_id, event_ticket_id").eq("run_id", runId),
     supabase.from("sepa_mandates").select("customer_id").is("revoked_at", null),
     supabase.from("profiles").select("id, full_name"),
+    // PROJ-70: Dieselbe Sperre wie beim Anlegen. Ohne sie böte diese Liste
+    // genau die Abos wieder an, die der Lauf gerade übersprungen hat — und
+    // der Betreiber trüge sie gutgläubig nach.
+    supabase
+      .from("sepa_collection_items")
+      .select("subscription_id, sepa_collection_runs(due_date)")
+      .not("subscription_id", "is", null)
+      .neq("run_id", runId),
+    ladeFerien(supabase),
   ]);
 
   const mitMandat = new Set((mandateRes.data ?? []).map((m) => m.customer_id));
@@ -52,16 +64,41 @@ async function offenePositionen(
     (imLaufRes.data ?? []).flatMap((i) => [i.subscription_id, i.event_ticket_id].filter(Boolean))
   );
 
+  const einzuegeJeAbo = new Map<string, string[]>();
+  for (const zeile of frühereRes.data ?? []) {
+    const abo = zeile.subscription_id;
+    const faellig = zeile.sepa_collection_runs?.due_date;
+    if (!abo || !faellig) continue;
+    const bisher = einzuegeJeAbo.get(abo) ?? [];
+    bisher.push(faellig);
+    einzuegeJeAbo.set(abo, bisher);
+  }
+
   const abos: OffenePosition[] = (abosRes.data ?? [])
     .filter((s) => s.price !== null && mitMandat.has(s.customer_id) && !imLauf.has(s.id))
     .filter((s) => !s.pending_effective_date || s.pending_effective_date > dueDate)
-    .map((s) => ({
-      id: s.id,
-      art: "abo" as const,
-      kundenname: nameJeKunde.get(s.customer_id) ?? "Unbenannt",
-      bezeichnung: s.name ?? "Abo",
-      vorschlagsbetrag: Number(s.price),
-    }));
+    .map((s) => {
+      // PROJ-70: Nicht ausfiltern, sondern kennzeichnen. Der automatische Lauf
+      // lässt diese Abos aus; von Hand soll der Betreiber sie trotzdem
+      // eintragen können — etwa nach einer Rücklastschrift. Ohne den Satz
+      // daneben wäre das aber genau der Doppeleinzug, den wir loswerden wollen.
+      const einzuege = einzuegeJeAbo.get(s.id) ?? [];
+      const faellig = istFaellig(dueDate, einzuege, ferien);
+      // Der nächstliegende Einzug erklärt die Sperre am besten.
+      const naechster = einzuege
+        .slice()
+        .sort((a, b) => Math.abs(Date.parse(a) - Date.parse(dueDate)) - Math.abs(Date.parse(b) - Date.parse(dueDate)))[0];
+      return {
+        id: s.id,
+        art: "abo" as const,
+        kundenname: nameJeKunde.get(s.customer_id) ?? "Unbenannt",
+        bezeichnung: s.name ?? "Abo",
+        vorschlagsbetrag: Number(s.price),
+        hinweis: faellig
+          ? undefined
+          : `Einzug am ${new Date(naechster).toLocaleDateString("de-AT")} — keine vier Wochen Abstand.`,
+      };
+    });
 
   const tickets: OffenePosition[] = (ticketsRes.data ?? [])
     .filter((t) => mitMandat.has(t.customer_id) && !schonEingezogen.has(t.id) && !imLauf.has(t.id))
@@ -76,8 +113,16 @@ async function offenePositionen(
   return [...abos, ...tickets].sort((a, b) => a.kundenname.localeCompare(b.kundenname, "de-AT"));
 }
 
-export default async function LastschriftDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LastschriftDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ uebersprungen?: string }>;
+}) {
   const { id } = await params;
+  const { uebersprungen } = await searchParams;
+  const uebersprungeneAbos = Number(uebersprungen) > 0 ? Number(uebersprungen) : 0;
   const supabase = await createClient();
 
   const { data: run } = await supabase
@@ -141,6 +186,19 @@ export default async function LastschriftDetailPage({ params }: { params: Promis
           </Badge>
         </div>
       </div>
+
+      {/* PROJ-70: Ein Lauf mit weniger Positionen als erwartet sieht aus wie
+          ein Fehler, wenn niemand sagt, warum. */}
+      {uebersprungeneAbos > 0 && (
+        <div className="rounded-card border border-border bg-muted/50 px-4 py-3 text-sm">
+          <span className="font-medium">
+            {uebersprungeneAbos} {uebersprungeneAbos === 1 ? "Abo" : "Abos"} nicht aufgenommen.
+          </span>{" "}
+          Der letzte Einzug liegt noch keine vier Wochen zurück; Ferienwochen zählen dabei nicht mit.
+          Unter „Offene Positionen“ stehen sie mit diesem Hinweis — wer trotzdem einziehen will,
+          etwa nach einer Rücklastschrift, trägt sie dort von Hand ein.
+        </div>
+      )}
       <CollectionRunDetail
         runId={run.id}
         items={items}

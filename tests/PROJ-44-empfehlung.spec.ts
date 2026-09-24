@@ -246,7 +246,10 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
     await anmelden(page, "e2e8-admin@viennasalsastudio.test");
     await page.goto("/admin/lastschriften");
     await page.waitForTimeout(1500);
-    const faellig = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+    // PROJ-70: Vier Wochen Abstand zum ersten Lauf — vorher nimmt der Lauf das
+    // Abo des Geworbenen gar nicht mit, und ohne seine Position gibt es auch
+    // keine Belohnung zu prüfen.
+    const faellig = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
     await page.locator('input[type="date"]').first().fill(faellig);
     await page.getByRole("button", { name: /Lauf erstellen|Erstellen|Anlegen/ }).first().click();
     await page.waitForTimeout(6000);

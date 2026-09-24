@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { ladeFerien } from "@/lib/scheduling/ferien";
+import { istFaellig } from "@/lib/sepa/faelligkeit";
 import { enqueueNotification } from "@/lib/notifications/dispatch";
 import { collectionRunSchema } from "@/lib/validations/sepa";
 import { generateSepaDirectDebitXml, type SepaXmlItem } from "@/lib/sepa/xml";
@@ -12,7 +14,7 @@ import { sepaKennung } from "@/lib/sepa/kennungen";
 type CreateRunResult =
   | { error: string }
   | { duplicate: true; existingCount: number }
-  | { success: true; runId: string; itemCount: number };
+  | { success: true; runId: string; itemCount: number; uebersprungen: number };
 
 export async function createCollectionRun(formData: FormData): Promise<CreateRunResult> {
   const parsed = collectionRunSchema.safeParse({
@@ -37,7 +39,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     }
   }
 
-  const [subscriptionsRes, ticketsRes, collectedTicketIdsRes, mandatesRes] = await Promise.all([
+  const [subscriptionsRes, ticketsRes, collectedTicketIdsRes, letzteEinzuegeRes, mandatesRes, ferien] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("id, customer_id, name, price, pending_effective_date")
@@ -49,18 +51,52 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
       .in("status", ["confirmed", "checked_in"]),
     // Tickets already picked up by an earlier run must not be billed twice.
     supabase.from("sepa_collection_items").select("event_ticket_id").not("event_ticket_id", "is", null),
+    // PROJ-70: Dasselbe für Abos — nur dass ein Abo wiederkehrt. Gefragt ist
+    // deshalb nicht „schon einmal", sondern „wann zuletzt". Entwürfe zählen
+    // mit: Zwei offene Entwürfe zum selben Zyklus wären zwei Abbuchungen,
+    // sobald beide bestätigt werden.
+    supabase
+      .from("sepa_collection_items")
+      .select("subscription_id, sepa_collection_runs(due_date)")
+      .not("subscription_id", "is", null),
     supabase
       .from("sepa_mandates")
       .select("customer_id, iban, account_holder_name, mandate_reference")
       .is("revoked_at", null),
+    ladeFerien(supabase),
   ]);
 
   const mandateByCustomer = new Map((mandatesRes.data ?? []).map((m) => [m.customer_id, m]));
   const alreadyCollectedTicketIds = new Set((collectedTicketIdsRes.data ?? []).map((i) => i.event_ticket_id));
 
+  // Je Abo alle bisherigen Einzüge. Eine leere Liste hieße „noch nie eingezogen" —
+  // und damit wäre die Sperre wirkungslos, deshalb wird der Fehler laut.
+  if (letzteEinzuegeRes.error) {
+    console.error("Frühere Einzüge nicht lesbar", letzteEinzuegeRes.error);
+    return { error: "Frühere Einzüge konnten nicht geprüft werden. Bitte erneut versuchen." };
+  }
+  const einzuegeJeAbo = new Map<string, string[]>();
+  for (const zeile of letzteEinzuegeRes.data ?? []) {
+    const abo = zeile.subscription_id;
+    const faellig = zeile.sepa_collection_runs?.due_date;
+    if (!abo || !faellig) continue;
+    const bisher = einzuegeJeAbo.get(abo) ?? [];
+    bisher.push(faellig);
+    einzuegeJeAbo.set(abo, bisher);
+  }
+
+  let uebersprungen = 0;
+
   const subscriptionItems = (subscriptionsRes.data ?? [])
     .filter((s) => s.price !== null && mandateByCustomer.has(s.customer_id))
     .filter((s) => !s.pending_effective_date || s.pending_effective_date > dueDate)
+    .filter((s) => {
+      // PROJ-70: Vier Wochen Abstand, verlängert um Ferientage — in einer
+      // Woche ohne Unterricht läuft kein Zyklus weiter.
+      if (istFaellig(dueDate, einzuegeJeAbo.get(s.id), ferien)) return true;
+      uebersprungen += 1;
+      return false;
+    })
     .map((s) => {
       const mandate = mandateByCustomer.get(s.customer_id)!;
       return {
@@ -92,7 +128,12 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   const items = [...subscriptionItems, ...ticketItems];
 
   if (items.length === 0) {
-    return { error: "Keine Kunden für diesen Lauf gefunden." };
+    return {
+      error:
+        uebersprungen > 0
+          ? `Keine offenen Beiträge: ${uebersprungen} ${uebersprungen === 1 ? "Abo wurde" : "Abos wurden"} in diesem Zyklus bereits eingezogen.`
+          : "Keine Kunden für diesen Lauf gefunden.",
+    };
   }
 
   // PROJ-47: Der Lauf entsteht als Entwurf. Rechnungen und Vorabankuendigung
@@ -193,7 +234,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   );
 
   revalidatePath("/admin/lastschriften");
-  return { success: true, runId: run.id, itemCount: items.length };
+  return { success: true, runId: run.id, itemCount: items.length, uebersprungen };
 }
 
 type RunXmlResult = { error: string } | { success: true; xml: string; filename: string };

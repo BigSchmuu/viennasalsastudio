@@ -111,7 +111,9 @@
 
 | PROJ-69 | Ein Kursplatz gilt erst ab seinem Starttermin | Deployed | [PROJ-69](../features/PROJ-69-kursplatz-beginnt.md) | 2026-09-24 |
 
+| PROJ-70 | Kein zweiter Einzug im selben Zyklus | In Review | [PROJ-70](../features/PROJ-70-kein-doppelter-einzug.md) | 2026-09-25 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-70
+## Next Available ID: PROJ-71

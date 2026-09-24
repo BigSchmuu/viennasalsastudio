@@ -20,7 +20,12 @@ const svc = createClient(
 test.use({ locale: "de-DE" });
 
 /**
- * Eigene Fälligkeitsdaten, weit in der Zukunft.
+ * Eigene Fälligkeitsdaten, weit in der Zukunft — und je Prüfung ein eigener
+ * Monat.
+ *
+ * PROJ-70: Ein Abo wird nur alle vier Wochen eingezogen. Lägen die Daten wie
+ * früher alle im selben Mai, wäre jeder Lauf nach dem ersten leer, und diese
+ * Datei prüfte nichts mehr.
  *
  * Ein Lauf erfasst jeden abbuchbaren Kunden der Testdatenbank — auch die
  * Fixtures von PROJ-10 und PROJ-36. Deshalb bekommt jede Prüfung ihr eigenes
@@ -28,18 +33,18 @@ test.use({ locale: "de-DE" });
  */
 const DATUM = {
   entwurf: "2029-05-01",
-  betrag: "2029-05-02",
-  entfernen: "2029-05-03",
-  hinzufuegen: "2029-05-04",
-  verwerfen: "2029-05-05",
-  freigabe: "2029-05-06",
-  gesperrt: "2029-05-07",
-  rechte: "2029-05-08",
-  guthaben: "2029-05-09",
+  betrag: "2029-06-02",
+  entfernen: "2029-07-03",
+  hinzufuegen: "2029-08-04",
+  verwerfen: "2029-09-05",
+  freigabe: "2029-10-06",
+  gesperrt: "2029-11-07",
+  rechte: "2029-12-08",
+  guthaben: "2030-01-09",
   // PROJ-61: die Reihenfolge Herunterladen → Bestätigen.
-  reihenfolge: "2029-05-11",
+  reihenfolge: "2030-02-11",
   // Eigenes Datum: Zwei Läufe zum selben Fälligkeitstag gibt es nicht.
-  rueckfrage: "2029-05-12",
+  rueckfrage: "2030-04-12",
   // Bewusst in der Vergangenheit: der vergessene Entwurf.
   ueberfaellig: "2026-01-15",
 };

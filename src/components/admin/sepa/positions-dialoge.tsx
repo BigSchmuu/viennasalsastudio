@@ -34,6 +34,14 @@ export type OffenePosition = {
   kundenname: string;
   bezeichnung: string;
   vorschlagsbetrag: number;
+  /**
+   * PROJ-70: Warum diese Position **nicht** von selbst in den Lauf kam.
+   *
+   * Der automatische Lauf lässt ein Abo aus, dessen letzter Einzug noch keine
+   * vier Wochen her ist. Von Hand geht es trotzdem — aber nur mit diesem Satz
+   * daneben, sonst trägt jemand gutgläubig eine zweite Abbuchung ein.
+   */
+  hinweis?: string;
 };
 
 /**
@@ -239,6 +247,11 @@ export function PositionHinzufuegenDialog({
                     <span className="block text-sm text-muted-foreground">
                       {position.bezeichnung}
                     </span>
+                    {position.hinweis && (
+                      <span className="block text-xs text-amber-700 dark:text-amber-500">
+                        {position.hinweis}
+                      </span>
+                    )}
                   </span>
                   <span className="tabular-nums text-sm text-muted-foreground">
                     {euro(position.vorschlagsbetrag)}

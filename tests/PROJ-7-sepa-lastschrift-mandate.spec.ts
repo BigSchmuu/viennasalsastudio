@@ -18,7 +18,10 @@ const service = createClient(
   { auth: { persistSession: false, autoRefreshToken: false } }
 );
 
-const RUN_DATES = ["2026-11-01", "2026-11-15"];
+// PROJ-70: Die beiden Daten müssen in verschiedenen Zyklen liegen. Seit ein
+// Abo nur alle vier Wochen eingezogen wird, wäre der zweite Lauf sonst leer —
+// und diese Datei prüft nicht die Sperre, sondern was ein Lauf anzeigt.
+const RUN_DATES = ["2026-11-01", "2026-12-15"];
 const MANDATE_FIXTURE_CUSTOMERS = ["E2E7 Solo Kunde", "E2E7 Multi Kunde"];
 
 /**
@@ -210,7 +213,7 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
     await login(page, ADMIN);
     await page.goto("/admin/lastschriften");
     await page.waitForTimeout(400);
-    await page.locator("#due-date").fill("2026-11-15");
+    await page.locator("#due-date").fill("2026-12-15");
     await page.getByRole("button", { name: "Lauf erstellen" }).click();
     await page.waitForURL("**/admin/lastschriften/*", { timeout: 10000 });
     await page.waitForTimeout(600);
@@ -228,7 +231,7 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
     await login(page, ADMIN);
     await page.goto("/admin/lastschriften");
     await page.waitForTimeout(400);
-    await page.locator("#due-date").fill("2026-11-15");
+    await page.locator("#due-date").fill("2026-12-15");
     await page.getByRole("button", { name: "Lauf erstellen" }).click();
     await page.waitForTimeout(800);
     await expect(page.getByText(/Bereits ein Lauf für dieses Datum/)).toBeVisible();
@@ -238,7 +241,7 @@ test.describe("PROJ-7: SEPA-Lastschriftmandate & Sammel-Einzug", () => {
     await login(page, ADMIN);
     await page.goto("/admin/lastschriften");
     await page.waitForTimeout(400);
-    await page.getByRole("row", { name: /15\.11\.2026/ }).getByRole("link", { name: "Ansehen" }).click();
+    await page.getByRole("row", { name: /15\.12\.2026/ }).getByRole("link", { name: "Ansehen" }).click();
     await page.waitForTimeout(600);
     // Both of the Multi customer's subscriptions cost 30,00, so an unscoped
     // text match is ambiguous — the assertion is "the amount is shown", not
