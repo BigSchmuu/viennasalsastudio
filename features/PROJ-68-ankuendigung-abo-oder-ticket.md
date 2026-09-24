@@ -111,3 +111,27 @@ die Migration schließt.
 
 Ob eine angepasste Fassung in der Produktion existiert und korrekt übernommen wird — das zeigt sich
 erst beim Einspielen. Der Betreiber sieht danach in den Vorlagen zwei Einträge statt einem.
+
+## Deployment
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-24 · **Tag:** `v1.67.0-PROJ-68`
+
+### Reihenfolge
+
+1. `20260924080000_proj68_ankuendigung_art.sql` — Art in die Nutzlast, angepasste Vorlage übernehmen
+2. Code ausgerollt (Vercel)
+
+Die Migration musste zuerst laufen: Der Code liest `payload.art`, und ohne sie stünde dort nichts —
+was nicht schlimm wäre (es gälte die Abo-Fassung), aber die Ticket-Unterscheidung fehlte. Umgekehrt
+ist die Migration allein harmlos: Die Art stünde in der Nutzlast und würde von der alten Codefassung
+schlicht ignoriert.
+
+### Was erst später wirkt
+
+Ankündigungen, die beim Ausrollen schon in der Warteschlange lagen, tragen die Art nicht und gehen
+als Abo-Fassung raus. Die Unterscheidung greift ab dem nächsten freigegebenen Lastschriftlauf.
+
+### Zurückrollen
+
+Gefahrlos: Die vorige Codefassung kennt nur einen Schlüssel und verschickt wieder den alten Text.
+Die übernommenen Vorlagen blieben dann ungenutzt stehen.

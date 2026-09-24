@@ -107,7 +107,7 @@
 
 | PROJ-67 | Standort in der Kursstart-Erinnerung | Deployed | [PROJ-67](../features/PROJ-67-standort-in-der-erinnerung.md) | 2026-09-23 |
 
-| PROJ-68 | Vorabankündigung sagt, wofür abgebucht wird | In Review | [PROJ-68](../features/PROJ-68-ankuendigung-abo-oder-ticket.md) | 2026-09-24 |
+| PROJ-68 | Vorabankündigung sagt, wofür abgebucht wird | Deployed | [PROJ-68](../features/PROJ-68-ankuendigung-abo-oder-ticket.md) | 2026-09-24 |
 
 <!-- Add features above this line -->
 
