@@ -110,6 +110,41 @@ describe("buildNotificationContent", () => {
     expect(content.pushBody).not.toContain("undefined");
   });
 
+  it("sagt beim Abo, dass es weiterläuft — und wie man es beendet (PROJ-68)", () => {
+    const inhalt = buildNotificationContent("sepa_ankuendigung", {
+      amount: 40,
+      dueDate: "2026-09-15",
+      art: "abo",
+    });
+
+    expect(inhalt.emailHtml).toContain("läuft damit weiter");
+    expect(inhalt.emailHtml).toContain("Profil");
+  });
+
+  it("sagt beim Event-Ticket ausdrücklich, dass nichts weiterläuft (PROJ-68)", () => {
+    const inhalt = buildNotificationContent("sepa_ankuendigung", {
+      amount: 25,
+      dueDate: "2026-09-15",
+      art: "ticket",
+    });
+
+    expect(inhalt.emailHtml).toContain("Event-Ticket");
+    expect(inhalt.emailHtml).toContain("es läuft nichts weiter");
+    // Der Abo-Satz hat hier nichts verloren — er wäre schlicht falsch.
+    expect(inhalt.emailHtml).not.toContain("läuft damit weiter");
+  });
+
+  it("nimmt eine Ankündigung ohne Art als Abo (PROJ-68)", () => {
+    // Zeilen, die vor PROJ-68 in die Warteschlange gelangt sind, tragen die
+    // Art nicht. Sie dürfen nicht ohne Text dastehen.
+    const inhalt = buildNotificationContent("sepa_ankuendigung", {
+      amount: 40,
+      dueDate: "2026-09-15",
+    });
+
+    expect(inhalt.emailHtml).toContain("läuft damit weiter");
+  });
+
   it("formats the SEPA pre-notification with amount and due date", () => {
     const content = buildNotificationContent("sepa_ankuendigung", {
       amount: 40,

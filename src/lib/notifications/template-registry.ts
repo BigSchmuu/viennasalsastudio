@@ -5,7 +5,8 @@ export type TemplateKey =
   | "abo_pausiert"
   | "abo_gekuendigt"
   | "kursstart_erinnerung"
-  | "sepa_ankuendigung"
+  | "sepa_ankuendigung_abo"
+  | "sepa_ankuendigung_ticket"
   | "event_ticket_bestaetigt"
   | "event_ticket_reserviert"
   | "event_abgesagt"
@@ -250,22 +251,48 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
     },
   },
   {
-    key: "sepa_ankuendigung",
+    // PROJ-68: Zwei Fassungen, weil eine Position im Lauf entweder ein Abo
+    // oder ein Event-Ticket ist (seit PROJ-14). Der Hinweis aufs Weiterlaufen
+    // gehört nur an die erste — bei einem Ticket gibt es nichts, was weiterläuft.
+    key: "sepa_ankuendigung_abo",
     eventGroupLabel: "SEPA-Ankündigung",
-    variantLabel: "Ankündigung",
+    variantLabel: "Für ein Abo",
     placeholders: ["betrag", "datum"],
     boldPlaceholder: "betrag",
     samples: { betrag: "40,00 €", datum: "15.09.2026" },
     defaults: {
       emailSubject: "Bevorstehender Lastschrifteinzug: {betrag}",
-      emailBody: "Am {datum} ziehen wir {betrag} per SEPA-Lastschrift von deinem Konto ein.",
+      emailBody:
+        "Am {datum} ziehen wir {betrag} per SEPA-Lastschrift von deinem Konto ein. Dein Abo läuft damit weiter. Pausieren oder kündigen kannst du jederzeit selbst in deinem Profil, wirksam zum Ende des laufenden Zyklus.",
       pushTitle: "Bevorstehender Lastschrifteinzug: {betrag}",
       pushBody: "{betrag} am {datum}.",
     },
     defaultsEn: {
       emailSubject: "Upcoming direct debit: {betrag}",
       emailBody:
-        "On {datum} we'll collect {betrag} from your account by SEPA direct debit.",
+        "On {datum} we'll collect {betrag} from your account by SEPA direct debit. Your membership continues. You can pause or cancel it yourself at any time in your profile, effective at the end of the current cycle.",
+      pushTitle: "Upcoming direct debit: {betrag}",
+      pushBody: "{betrag} on {datum}.",
+    },
+  },
+  {
+    key: "sepa_ankuendigung_ticket",
+    eventGroupLabel: "SEPA-Ankündigung",
+    variantLabel: "Für ein Event-Ticket",
+    placeholders: ["betrag", "datum"],
+    boldPlaceholder: "betrag",
+    samples: { betrag: "25,00 €", datum: "15.09.2026" },
+    defaults: {
+      emailSubject: "Bevorstehender Lastschrifteinzug: {betrag}",
+      emailBody:
+        "Am {datum} ziehen wir {betrag} per SEPA-Lastschrift von deinem Konto ein — für dein Event-Ticket. Eine einmalige Abbuchung; es läuft nichts weiter.",
+      pushTitle: "Bevorstehender Lastschrifteinzug: {betrag}",
+      pushBody: "{betrag} am {datum}.",
+    },
+    defaultsEn: {
+      emailSubject: "Upcoming direct debit: {betrag}",
+      emailBody:
+        "On {datum} we'll collect {betrag} from your account by SEPA direct debit — for your event ticket. This is a one-off payment; nothing continues.",
       pushTitle: "Upcoming direct debit: {betrag}",
       pushBody: "{betrag} on {datum}.",
     },

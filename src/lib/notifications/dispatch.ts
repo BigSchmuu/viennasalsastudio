@@ -184,7 +184,14 @@ export async function resolveContent(service: ServiceClient, row: QueueRow): Pro
       );
     }
     case "sepa_ankuendigung": {
-      const details = { amount: payload.amount as number, dueDate: payload.due_date as string };
+      // PROJ-68: `art` sagt, ob hinter der Position ein Abo oder ein
+      // Event-Ticket steht. Zeilen aus der Zeit davor tragen sie nicht — dann
+      // gilt „abo", der Fall, der praktisch immer zutrifft.
+      const details = {
+        amount: payload.amount as number,
+        dueDate: payload.due_date as string,
+        art: payload.art === "ticket" ? ("ticket" as const) : ("abo" as const),
+      };
       const key = resolveTemplateKey("sepa_ankuendigung", details);
       return buildNotificationContent(
         "sepa_ankuendigung",

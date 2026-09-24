@@ -162,7 +162,18 @@ export type KursstartErinnerungDetails = {
   /** PROJ-67: nur die Anschrift. */
   adresse?: string;
 };
-export type SepaAnkuendigungDetails = { amount: number; dueDate: string };
+export type SepaAnkuendigungDetails = {
+  amount: number;
+  dueDate: string;
+  /**
+   * PROJ-68: Wofür abgebucht wird — ein Abo oder ein Event-Ticket.
+   *
+   * Fehlt die Angabe, gilt „abo". Das betrifft nur Zeilen, die vor PROJ-68 in
+   * die Warteschlange gelangt sind; sie tragen die Art noch nicht, und ein Abo
+   * ist der Fall, der praktisch immer zutrifft.
+   */
+  art?: "abo" | "ticket";
+};
 /** PROJ-37: invoice amount and bank fee stay separate so the customer can see
  *  why more is owed than the invoice says. */
 /** PROJ-38: which course, and which date fell through. */
@@ -246,7 +257,9 @@ export function resolveTemplateKey(
     case "kursstart_erinnerung":
       return "kursstart_erinnerung";
     case "sepa_ankuendigung":
-      return "sepa_ankuendigung";
+      return (details as SepaAnkuendigungDetails).art === "ticket"
+        ? "sepa_ankuendigung_ticket"
+        : "sepa_ankuendigung_abo";
     case "zahlungserinnerung":
       return "zahlungserinnerung";
     case "kursausfall":
@@ -555,8 +568,9 @@ export function buildNotificationContent(
     case "sepa_ankuendigung": {
       const d = details as SepaAnkuendigungDetails;
       const amountText = d.amount.toLocaleString("de-AT", { style: "currency", currency: "EUR" });
+      const schluessel: TemplateKey = d.art === "ticket" ? "sepa_ankuendigung_ticket" : "sepa_ankuendigung_abo";
       return {
-        ...renderTemplate("sepa_ankuendigung", { betrag: amountText, datum: formatDate(d.dueDate) }, override, "", locale),
+        ...renderTemplate(schluessel, { betrag: amountText, datum: formatDate(d.dueDate) }, override, "", locale),
         url: "/rechnungen",
       };
     }
@@ -773,8 +787,18 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
         },
         fields
       );
-    case "sepa_ankuendigung":
-      return buildNotificationContent("sepa_ankuendigung", { amount: 40, dueDate: "2026-09-15" }, fields);
+    case "sepa_ankuendigung_abo":
+      return buildNotificationContent(
+        "sepa_ankuendigung",
+        { amount: 40, dueDate: "2026-09-15", art: "abo" },
+        fields
+      );
+    case "sepa_ankuendigung_ticket":
+      return buildNotificationContent(
+        "sepa_ankuendigung",
+        { amount: 25, dueDate: "2026-09-15", art: "ticket" },
+        fields
+      );
     case "kursausfall":
       return buildNotificationContent(
         "kursausfall",
