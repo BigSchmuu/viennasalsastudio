@@ -113,3 +113,26 @@ Falle aus `.claude/rules/backend.md` — `create or replace function` setzt die 
 
 Ob in der Produktion jemand vor der Korrektur zu früh eingecheckt hat. Diese Einträge bleiben
 stehen; der Lehrer kann sie in der Anwesenheitsliste entfernen.
+
+## Deployment
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-24 · **Tag:** `v1.68.0-PROJ-69`
+
+### Reihenfolge
+
+1. `20260924210000_proj69_kursplatz_beginnt.sql` — Sicht, beide Funktionen, Rechte-Block
+2. Code ausgerollt (Vercel)
+
+Die Sicht muss **vor** den Funktionen laufen: `self_toggle_attendance` liest `gilt_ab`, und ohne die
+Spalte bricht der Aufruf ab. Beim Einspielen in die Testdatenbank ist genau das passiert — der erste
+Anlauf enthielt nur die Sicht, die Funktionen fehlten, und der Test blieb rot. Gut, dass er lief.
+
+### Was offen bleibt
+
+Wer sich vor der Korrektur zu früh eingecheckt hat, bleibt eingetragen. Die Migration räumt das
+bewusst nicht auf; der Lehrer entfernt solche Einträge in der Anwesenheitsliste.
+
+### Zurückrollen
+
+Die vorige Codefassung kommt mit der erweiterten Sicht zurecht (eine Spalte mehr stört sie nicht),
+verwendet sie aber nicht — dann gilt wieder das alte Verhalten.

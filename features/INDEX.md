@@ -109,7 +109,7 @@
 
 | PROJ-68 | Vorabankündigung sagt, wofür abgebucht wird | Deployed | [PROJ-68](../features/PROJ-68-ankuendigung-abo-oder-ticket.md) | 2026-09-24 |
 
-| PROJ-69 | Ein Kursplatz gilt erst ab seinem Starttermin | In Review | [PROJ-69](../features/PROJ-69-kursplatz-beginnt.md) | 2026-09-24 |
+| PROJ-69 | Ein Kursplatz gilt erst ab seinem Starttermin | Deployed | [PROJ-69](../features/PROJ-69-kursplatz-beginnt.md) | 2026-09-24 |
 
 <!-- Add features above this line -->
 
