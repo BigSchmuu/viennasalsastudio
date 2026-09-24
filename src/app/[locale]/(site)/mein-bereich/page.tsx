@@ -119,11 +119,15 @@ export default async function MeinBereichPage() {
       .eq("customer_id", user.id)
       .is("revoked_at", null)
       .maybeSingle(),
+    // PROJ-69: `cycle_anchor_date` ist der Einstiegstermin. Ohne diese Grenze
+    // stand ein Kurs, der erst im Oktober beginnt, schon im September hier —
+    // samt Eincheck-Knopf. Aus dem Betrieb gemeldet am 2026-09-24.
     supabase
       .from("subscriptions")
       .select(`id, status, course_id, courses(${kursAuswahl})`)
       .eq("customer_id", user.id)
-      .eq("status", "active"),
+      .eq("status", "active")
+      .lte("cycle_anchor_date", heute),
     // PROJ-50: Die Kurse einer Flatrate stehen am Kursplatz, nicht am Abo.
     // Ohne diese Abfrage blieb „Dein nächster Kurs" für jeden Flatrate-Kunden
     // leer — und der Selbst-Check-in ebenfalls, weil beides an derselben Liste
@@ -132,7 +136,9 @@ export default async function MeinBereichPage() {
       .from("course_memberships")
       .select(`course_id, courses(${kursAuswahl})`)
       .eq("customer_id", user.id)
-      .is("ended_on", null),
+      .is("ended_on", null)
+      // PROJ-69: dasselbe für den Flatrate-Platz — er gilt ab `started_on`.
+      .lte("started_on", heute),
     supabase
       .from("course_bookings")
       .select(`id, type, status, chosen_date, course_id, courses(${kursAuswahl})`)

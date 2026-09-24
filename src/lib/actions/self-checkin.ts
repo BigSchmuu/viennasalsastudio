@@ -23,6 +23,12 @@ export async function selfToggleAttendance(courseId: string): Promise<SelfChecki
     if (error.message.includes("no active subscription")) {
       return { error: "Du hast kein aktives Abo für diesen Kurs." };
     }
+    // PROJ-69: Der Platz ist gebucht, gilt aber erst später. Die Oberfläche
+    // zeigt den Kurs bis dahin gar nicht an; diese Meldung greift, wenn jemand
+    // mit einem alten Tab oder genau am Vortag um Mitternacht klickt.
+    if (error.message.includes("membership not started")) {
+      return { error: "Dein Platz in diesem Kurs beginnt erst später — ab dann kannst du dich einchecken." };
+    }
     if (error.message.includes("cannot undo after class end")) {
       return { error: "Nach Kursende kann der Check-In nicht mehr rückgängig gemacht werden." };
     }
