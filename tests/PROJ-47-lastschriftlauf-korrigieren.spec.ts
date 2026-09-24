@@ -286,6 +286,14 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
     await page.getByRole("button", { name: "Verwerfen", exact: true }).last().click();
     await page.waitForTimeout(2500);
 
+    // PROJ-47 prüfte bisher nur, dass Lauf und Positionen weg sind — nicht,
+    // wo der Betreiber danach steht. Er stand auf der Seite des gelöschten
+    // Laufs, und die antwortet mit 404. Aus dem Betrieb gemeldet am
+    // 2026-09-25.
+    await expect(page).toHaveURL(/\/admin\/lastschriften$/, { timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /Lastschrift/ }).first()).toBeVisible();
+    await expect(page.getByText(/404|Seite nicht gefunden|not found/i)).toHaveCount(0);
+
     const { count: laeufe } = await svc
       .from("sepa_collection_runs")
       .select("id", { count: "exact", head: true })

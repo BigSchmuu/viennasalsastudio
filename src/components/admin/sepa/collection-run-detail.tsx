@@ -118,7 +118,16 @@ export function CollectionRunDetail({
   async function ausfuehren(
     kennung: string,
     vorgang: () => Promise<PositionsErgebnis>,
-    erfolgsmeldung: string
+    erfolgsmeldung: string,
+    /**
+     * Wohin danach, wenn es diese Seite nicht mehr gibt.
+     *
+     * Nach dem Verwerfen ist der Lauf gelöscht — ein `router.refresh()` lud
+     * damit die Seite eines Laufs neu, den es nicht mehr gibt, und der
+     * Betreiber landete auf einer 404. Aus dem Betrieb gemeldet am
+     * 2026-09-25.
+     */
+    zielNachErfolg?: string
   ) {
     setError(null);
     setLaufendeAktion(kennung);
@@ -129,7 +138,11 @@ export function CollectionRunDetail({
         return ergebnis;
       }
       toast.success(erfolgsmeldung);
-      router.refresh();
+      if (zielNachErfolg) {
+        router.push(zielNachErfolg);
+      } else {
+        router.refresh();
+      }
       return ergebnis;
     } finally {
       setLaufendeAktion(null);
@@ -384,7 +397,12 @@ export function CollectionRunDetail({
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
-                ausfuehren("verwerfen", () => verwirfLaufEntwurf(runId), "Entwurf verworfen")
+                ausfuehren(
+                  "verwerfen",
+                  () => verwirfLaufEntwurf(runId),
+                  "Entwurf verworfen",
+                  "/admin/lastschriften"
+                )
               }
             >
               Verwerfen

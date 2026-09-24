@@ -635,3 +635,22 @@ zeigt, dass die Warnung danach verschwindet.
 Ein Aufbaufehler in dieser Prüfung fiel dabei auf: Sie nahm das erste Mandat,
 dessen Inhaber aber kein Abo hat — und eine Position braucht genau eine
 Quelle. Derselbe Fehler war schon in einer früheren Probe passiert.
+
+## Nachtrag (2026-09-25): 404 nach dem Verwerfen
+
+Aus dem Betrieb gemeldet: Wer einen Entwurf verwirft, landet auf einer 404-Seite.
+
+Ursache: Nach jeder Aktion auf der Laufseite rief die Oberfläche `router.refresh()` auf — und lud
+damit nach dem Verwerfen die Seite eines Laufs neu, den es gerade nicht mehr gibt. Der Server
+antwortet dort korrekt mit „nicht gefunden".
+
+Behoben: Das Verwerfen führt zurück auf die Übersicht. Alle anderen Aktionen auf der Seite lassen
+den Lauf bestehen und aktualisieren weiterhin an Ort und Stelle.
+
+**Was der Test übersehen hat:** „AC Verwerfen: Lauf und Positionen sind weg" prüfte die Datenbank —
+und nur sie. Dass der Betreiber danach vor einer Fehlerseite steht, kam darin nicht vor. Die Prüfung
+sieht jetzt auch nach, wo er landet; zur Gegenprobe wurde die Umleitung einmal entfernt, worauf sie
+prompt fiel.
+
+Andere Verwaltungsseiten haben die Falle nicht: Sie löschen Untergeordnetes (Räume, Lektionen), nicht
+sich selbst.
