@@ -121,3 +121,19 @@ Behoben: Die Regel prüft gegen alle Einzüge und in beide Richtungen.
 
 Ob in der Produktion bereits doppelt eingezogen wurde. Das steht in den Läufen und Rechnungen und
 ist Buchhaltung, kein Code.
+
+## Deployment
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-25 · **Tag:** `v1.69.0-PROJ-70`
+
+Keine Migration — reiner Code. Die Regel rechnet aus dem, was ohnehin dasteht: den
+Fälligkeitsdaten der Läufe und den Ferienzeiträumen.
+
+### Was erst beim nächsten Lauf sichtbar wird
+
+Bestehende Läufe ändern sich nicht. Beim nächsten Anlegen zeigt sich, ob Abos ausgelassen werden —
+der Hinweis steht dann oben auf der Laufseite.
+
+### Zurückrollen
+
+Gefahrlos: Die vorige Fassung nimmt wieder alle aktiven Abos mit. An den Daten ändert sich nichts.
