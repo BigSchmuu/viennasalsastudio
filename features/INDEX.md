@@ -113,7 +113,7 @@
 
 | PROJ-70 | Kein zweiter Einzug im selben Zyklus | Deployed | [PROJ-70](../features/PROJ-70-kein-doppelter-einzug.md) | 2026-09-25 |
 
-| PROJ-71 | Ein Abo wird erst ab seinem Beginn eingezogen | In Review | [PROJ-71](../features/PROJ-71-abo-beginnt-spaeter.md) | 2026-09-25 |
+| PROJ-71 | Ein Abo wird erst ab seinem Beginn eingezogen | Deployed | [PROJ-71](../features/PROJ-71-abo-beginnt-spaeter.md) | 2026-09-25 |
 
 <!-- Add features above this line -->
 

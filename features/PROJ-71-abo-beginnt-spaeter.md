@@ -96,3 +96,19 @@ eingezogen".
 ### Nicht geprüft
 
 Ob in der Produktion bereits zu früh eingezogen wurde. Das steht in den Läufen und Rechnungen.
+
+## Deployment
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-09-25 · **Tag:** `v1.70.0-PROJ-71`
+
+Keine Migration — reiner Code. `cycle_anchor_date` steht seit PROJ-9 an jedem Abo.
+
+### Was erst beim nächsten Lauf sichtbar wird
+
+Bestehende Läufe bleiben unverändert. Beim nächsten Anlegen zeigt sich, ob Abos wegen ihres Beginns
+ausgelassen werden — der Hinweis steht dann oben auf der Laufseite, der Grund je Abo unter „Offene
+Positionen".
+
+### Zurückrollen
+
+Gefahrlos: Die vorige Fassung nimmt wieder alle aktiven Abos mit, unabhängig vom Beginn.
