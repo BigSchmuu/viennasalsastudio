@@ -25,6 +25,9 @@ const KENNUNG = `E2E70-${Date.now()}`;
 const ERSTER = "2031-06-01";
 const ZU_FRUEH = "2031-06-10";
 const NACH_VIER_WOCHEN = "2031-06-29";
+// PROJ-71: Nach dem Beginn des späten Abos — und weit genug von allem anderen.
+const SPAETER_BEGINN = "2031-08-01";
+const NACH_DEM_BEGINN = "2031-09-15";
 
 const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -41,6 +44,9 @@ let ferienId = "";
 // zustande, womit der Weg „von Hand nachtragen" ungeprüft bliebe.
 let kundeBId = "";
 let aboBId = "";
+// PROJ-71: Ein Kunde, dessen Abo erst später beginnt.
+let kundeCId = "";
+let aboCId = "";
 
 async function loescheLaeufe(daten: string[]) {
   const { data: laeufe } = await svc.from("sepa_collection_runs").select("id").in("due_date", daten);
@@ -61,7 +67,7 @@ async function loescheLaeufe(daten: string[]) {
 }
 
 async function raeumeLaeufeWeg() {
-  await loescheLaeufe([ERSTER, ZU_FRUEH, NACH_VIER_WOCHEN]);
+  await loescheLaeufe([ERSTER, ZU_FRUEH, NACH_VIER_WOCHEN, NACH_DEM_BEGINN]);
 }
 
 test.beforeAll(async () => {
@@ -125,6 +131,36 @@ test.beforeAll(async () => {
   });
   if (mandatBFehler) throw new Error(`PROJ-70 Mandat B: ${mandatBFehler.message}`);
 
+  const { data: kontoC, error: kontoCFehler } = await svc.auth.admin.createUser({
+    email: `${KENNUNG.toLowerCase()}-c@viennasalsastudio.test`,
+    password: "CorrectPassword123!",
+    email_confirm: true,
+  });
+  if (kontoCFehler || !kontoC.user) throw new Error(`PROJ-70 Konto C: ${kontoCFehler?.message}`);
+  kundeCId = kontoC.user.id;
+  await svc.from("profiles").update({ full_name: `${KENNUNG} Spaetstarter` }).eq("id", kundeCId);
+  const { error: mandatCFehler } = await svc.from("sepa_mandates").insert({
+    customer_id: kundeCId,
+    iban: "AT611904300234573201",
+    account_holder_name: `${KENNUNG} Spaetstarter`,
+    mandate_reference: `${KENNUNG}-MANDAT-C`,
+  });
+  if (mandatCFehler) throw new Error(`PROJ-70 Mandat C: ${mandatCFehler.message}`);
+  const { data: aboC, error: aboCFehler } = await svc
+    .from("subscriptions")
+    .insert({
+      customer_id: kundeCId,
+      course_id: kursId,
+      status: "active",
+      name: `${KENNUNG} Abo C`,
+      price: 45,
+      cycle_anchor_date: SPAETER_BEGINN,
+    })
+    .select("id")
+    .single();
+  if (aboCFehler) throw new Error(`PROJ-70 Abo C: ${aboCFehler.message}`);
+  aboCId = aboC!.id;
+
   await raeumeLaeufeWeg();
 });
 
@@ -136,6 +172,9 @@ test.afterAll(async () => {
   if (aboId) await svc.from("subscriptions").delete().eq("id", aboId);
   if (aboBId) await svc.from("subscriptions").delete().eq("id", aboBId);
   if (kundeBId) await svc.auth.admin.deleteUser(kundeBId).catch(() => {});
+  if (kundeCId) await svc.from("sepa_mandates").delete().eq("customer_id", kundeCId);
+  if (aboCId) await svc.from("subscriptions").delete().eq("id", aboCId);
+  if (kundeCId) await svc.auth.admin.deleteUser(kundeCId).catch(() => {});
   if (kursId) await svc.from("courses").delete().eq("id", kursId);
   if (kundeId) await svc.auth.admin.deleteUser(kundeId).catch(() => {});
 });
@@ -163,7 +202,7 @@ async function legeLaufAn(page: Page, datum: string): Promise<boolean> {
 }
 
 /** Die Positionen dieses Abos in einem Lauf zum Datum. */
-async function positionenZu(datum: string): Promise<number> {
+async function positionenZu(datum: string, abo: string = aboId): Promise<number> {
   const { data: lauf } = await svc
     .from("sepa_collection_runs")
     .select("id")
@@ -174,7 +213,7 @@ async function positionenZu(datum: string): Promise<number> {
     .from("sepa_collection_items")
     .select("id", { count: "exact", head: true })
     .eq("run_id", lauf.id)
-    .eq("subscription_id", aboId);
+    .eq("subscription_id", abo);
   return count ?? 0;
 }
 
@@ -231,6 +270,28 @@ test.describe("PROJ-70: Kein zweiter Einzug im selben Zyklus", () => {
     await anmelden(page);
     expect(await legeLaufAn(page, NACH_VIER_WOCHEN)).toBe(true);
     expect(await positionenZu(NACH_VIER_WOCHEN), "Abo fehlt nach vier Wochen").toBe(1);
+  });
+
+  test("PROJ-71: Ein Abo, das erst später beginnt, bleibt draußen", async ({ page }) => {
+    // Der erste Lauf liegt zwei Monate vor dem Beginn dieses Abos.
+    expect(await positionenZu(ERSTER, aboCId), "Zu früh eingezogen").toBe(0);
+
+    await anmelden(page);
+    const { data: lauf } = await svc
+      .from("sepa_collection_runs")
+      .select("id")
+      .eq("due_date", ERSTER)
+      .single();
+    await gehZu(page, `/admin/lastschriften/${lauf!.id}`);
+    await page.getByRole("button", { name: /Position hinzufügen/ }).click();
+    // Sichtbar bleibt es trotzdem — mit dem Grund daneben.
+    await expect(page.getByText(/Beginnt erst am/).first()).toBeVisible();
+  });
+
+  test("PROJ-71: Ab seinem Beginn ist es dabei", async ({ page }) => {
+    await anmelden(page);
+    expect(await legeLaufAn(page, NACH_DEM_BEGINN)).toBe(true);
+    expect(await positionenZu(NACH_DEM_BEGINN, aboCId), "Nach dem Beginn nicht dabei").toBe(1);
   });
 
   test("Eine Ferienwoche schiebt den Termin nach hinten", async ({ page }) => {

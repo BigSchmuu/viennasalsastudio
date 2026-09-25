@@ -35,7 +35,7 @@ async function offenePositionen(
     await Promise.all([
     supabase
       .from("subscriptions")
-      .select("id, customer_id, name, price, pending_effective_date")
+      .select("id, customer_id, name, price, pending_effective_date, cycle_anchor_date")
       .eq("status", "active"),
     supabase
       .from("tickets")
@@ -84,6 +84,9 @@ async function offenePositionen(
       // daneben wäre das aber genau der Doppeleinzug, den wir loswerden wollen.
       const einzuege = einzuegeJeAbo.get(s.id) ?? [];
       const faellig = istFaellig(dueDate, einzuege, ferien);
+      // PROJ-71: Beginnt das Abo erst später, ist das der wichtigere Grund —
+      // er steht deshalb vor dem Zyklus-Hinweis.
+      const beginntSpaeter = s.cycle_anchor_date > dueDate;
       // Der nächstliegende Einzug erklärt die Sperre am besten.
       const naechster = einzuege
         .slice()
@@ -94,9 +97,11 @@ async function offenePositionen(
         kundenname: nameJeKunde.get(s.customer_id) ?? "Unbenannt",
         bezeichnung: s.name ?? "Abo",
         vorschlagsbetrag: Number(s.price),
-        hinweis: faellig
-          ? undefined
-          : `Einzug am ${new Date(naechster).toLocaleDateString("de-AT")} — keine vier Wochen Abstand.`,
+        hinweis: beginntSpaeter
+          ? `Beginnt erst am ${new Date(s.cycle_anchor_date).toLocaleDateString("de-AT")}.`
+          : faellig
+            ? undefined
+            : `Einzug am ${new Date(naechster).toLocaleDateString("de-AT")} — keine vier Wochen Abstand.`,
       };
     });
 
@@ -194,9 +199,10 @@ export default async function LastschriftDetailPage({
           <span className="font-medium">
             {uebersprungeneAbos} {uebersprungeneAbos === 1 ? "Abo" : "Abos"} nicht aufgenommen.
           </span>{" "}
-          Der letzte Einzug liegt noch keine vier Wochen zurück; Ferienwochen zählen dabei nicht mit.
-          Unter „Offene Positionen“ stehen sie mit diesem Hinweis — wer trotzdem einziehen will,
-          etwa nach einer Rücklastschrift, trägt sie dort von Hand ein.
+          Entweder liegt der letzte Einzug noch keine vier Wochen zurück — Ferienwochen zählen dabei
+          nicht mit — oder das Abo beginnt erst nach diesem Fälligkeitstag. Unter „Offene Positionen“
+          stehen sie mit dem jeweiligen Grund; wer trotzdem einziehen will, trägt sie dort von Hand
+          ein.
         </div>
       )}
       <CollectionRunDetail

@@ -31,6 +31,24 @@ const MANDATE_FIXTURE_CUSTOMERS = ["E2E7 Solo Kunde", "E2E7 Multi Kunde"];
  * "Mandat ersetzen" — and the tests, which expected a fresh start, failed.
  * There is no staging database, so the starting state is restored here.
  */
+/**
+ * Auch hinterher aufräumen, nicht nur davor.
+ *
+ * Diese Datei gibt einen Lauf frei, und damit entstehen Rechnungen. Sie blieben
+ * bisher liegen — und tauchten in PROJ-10 als zweite Zeile desselben Kunden
+ * auf, sobald dort eine Prüfung die ungefilterte Liste erwischte. Wer Daten
+ * erzeugt, räumt sie weg (2026-09-25).
+ */
+test.afterAll(async () => {
+  const { data: runs } = await service.from("sepa_collection_runs").select("id").in("due_date", RUN_DATES);
+  const runIds = (runs ?? []).map((r) => r.id);
+  await service.from("invoices").delete().in("invoice_date", RUN_DATES);
+  if (runIds.length) {
+    await service.from("sepa_collection_items").delete().in("run_id", runIds);
+    await service.from("sepa_collection_runs").delete().in("id", runIds);
+  }
+});
+
 test.beforeAll(async () => {
   const { data: runs } = await service.from("sepa_collection_runs").select("id").in("due_date", RUN_DATES);
   const runIds = (runs ?? []).map((r) => r.id);

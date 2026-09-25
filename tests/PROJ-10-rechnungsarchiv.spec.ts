@@ -119,7 +119,13 @@ test.describe("PROJ-10: Rechnungsarchiv", () => {
     await page.getByLabel("Von").fill(FIXTURE_DUE_DATE);
     await page.getByLabel("Bis").fill(FIXTURE_DUE_DATE);
     await page.getByRole("button", { name: "Filtern" }).click();
+    // Auf den gewirkten Filter warten, nicht auf Netzruhe: Ohne das prüfte die
+    // Zeile darunter gelegentlich noch die ungefilterte Liste — und fand dort
+    // denselben Kunden ein zweites Mal, mit einer Rechnung aus einem anderen
+    // Zeitraum (2026-09-25).
+    await page.waitForURL(new RegExp(`from=${FIXTURE_DUE_DATE}`), { timeout: 15000 });
     await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("row", { name: /15\.01\.2028/ }).first()).toBeVisible();
 
     await expect(page.getByRole("row", { name: /E2E7 Multi Kunde/ }).first()).toBeVisible();
     await expect(page.getByRole("row", { name: /E2E8 Kunde/ })).toBeVisible();

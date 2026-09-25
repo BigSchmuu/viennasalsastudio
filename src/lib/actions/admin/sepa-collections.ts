@@ -42,7 +42,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   const [subscriptionsRes, ticketsRes, collectedTicketIdsRes, letzteEinzuegeRes, mandatesRes, ferien] = await Promise.all([
     supabase
       .from("subscriptions")
-      .select("id, customer_id, name, price, pending_effective_date")
+      .select("id, customer_id, name, price, pending_effective_date, cycle_anchor_date")
       .eq("status", "active"),
     supabase
       .from("tickets")
@@ -90,6 +90,15 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   const subscriptionItems = (subscriptionsRes.data ?? [])
     .filter((s) => s.price !== null && mandateByCustomer.has(s.customer_id))
     .filter((s) => !s.pending_effective_date || s.pending_effective_date > dueDate)
+    .filter((s) => {
+      // PROJ-71: Das Spiegelbild der Zeile darüber. Eine Kündigung, die zum
+      // Fälligkeitstag wirkt, nimmt das Abo aus dem Lauf — ein Beginn nach
+      // diesem Tag muss es genauso draußen halten. Sonst zahlt jemand im
+      // September für einen Kurs, den er ab Dezember besucht.
+      if (s.cycle_anchor_date <= dueDate) return true;
+      uebersprungen += 1;
+      return false;
+    })
     .filter((s) => {
       // PROJ-70: Vier Wochen Abstand, verlängert um Ferientage — in einer
       // Woche ohne Unterricht läuft kein Zyklus weiter.
