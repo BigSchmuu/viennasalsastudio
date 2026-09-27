@@ -103,14 +103,15 @@ export function FlatrateCourseManager({
         <ul className="divide-y rounded-lg border">
           {kursplaetze.map((k) => (
             <li key={k.kursId} className="flex flex-wrap items-center justify-between gap-2 p-3">
-              <span className="font-medium">
+              {/* Kein span: Der Badge darin ist ein Blockelement. */}
+              <div className="font-medium">
                 {k.kursName}
                 {k.tanzrolle && (
                   <Badge variant="secondary" className="ml-2">
                     {danceRoleLabel(k.tanzrolle)}
                   </Badge>
                 )}
-              </span>
+              </div>
               <Button variant="ghost" size="sm" onClick={() => entfernen(k)} disabled={laeuft}>
                 Entfernen
               </Button>

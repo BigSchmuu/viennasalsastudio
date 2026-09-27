@@ -688,12 +688,13 @@ function TermineDialog({ serie, onOpenChange }: { serie: SerieRow | null; onOpen
                   <p className={termin.abgesagt ? "text-sm line-through text-muted-foreground" : "text-sm font-medium"}>
                     {formatDateTime(termin.startsAt)}
                   </p>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {/* Kein Absatz: Die Badges darin sind Blockelemente. */}
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {termin.abgesagt ? <Badge variant="destructive">Fällt aus</Badge> : null}
                     {termin.verlegt ? <Badge variant="secondary">Verlegt</Badge> : null}
                     {termin.inFerien && !termin.abgesagt ? <Badge variant="outline">In Studioferien</Badge> : null}
                     {termin.ticketCount > 0 ? `${termin.ticketCount} Tickets` : "keine Tickets"}
-                  </p>
+                  </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <Button variant="outline" size="sm" onClick={() => setVerlegen(termin)}>

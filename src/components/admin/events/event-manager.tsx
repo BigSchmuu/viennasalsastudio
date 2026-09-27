@@ -801,10 +801,16 @@ function GuestListDialog({
                   {handgaeste.map((gast) => (
                     <li key={gast.id} className="flex flex-wrap items-center gap-2 py-2">
                       <div className="min-w-0 flex-1">
-                        <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                        {/* Bewusst kein Absatz: Ein Badge ist ein Blockelement,
+                            und ein Blockelement in einem Absatz ist ungültiges
+                            HTML. Der Browser schließt den Absatz davor, und React
+                            findet seinen Knoten später nicht mehr — genau der
+                            „removeChild"-Fehler aus dem Sentry-Bericht vom
+                            2026-09-27. */}
+                        <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
                           {gast.name}
                           <Badge variant="secondary">Gast</Badge>
-                        </p>
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {[
                             gast.notiz,

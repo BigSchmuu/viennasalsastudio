@@ -170,10 +170,11 @@ export function ProgrammDialog({
                   {programm.ticketarten.map((art) => (
                     <li key={art.id} className="flex flex-wrap items-center gap-2 py-3">
                       <div className="min-w-0 flex-1">
-                        <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                        {/* Kein Absatz: Ein Badge ist ein Blockelement. */}
+                        <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
                           {art.name}
                           {art.imVerkauf ? null : <Badge variant="secondary">Nicht im Verkauf</Badge>}
-                        </p>
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {formatPrice(art.preisNormal, "de")} · Studierende {formatPrice(art.preisStudierend, "de")}
                           {art.kontingent === null ? "" : ` · Kontingent ${art.verkauft}/${art.kontingent}`}
