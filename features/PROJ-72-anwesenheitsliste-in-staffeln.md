@@ -111,3 +111,21 @@ ersetzt ist.
 
 Und die Fixture dort säte auf **feste Daten aus 2026** — die lagen schon vorher am Rand des Fensters
 und wären mit vier Terminen endgültig draußen. Sie sät jetzt auf den jüngsten vergangenen Termin.
+
+## Deployment
+
+**Produktion:** https://app.viennasalsastudio.at · **Ausgerollt:** 2026-10-04 · **Tag:** `v1.72.0-PROJ-72`
+
+Keine Migration — reiner Code. Gerechnet wird aus dem, was ohnehin dasteht: Wochentermin, Pausen,
+Ferien und `runs_from`.
+
+### Was der Betreiber noch tun kann
+
+Kurse ohne hinterlegtes `runs_from` bekommen keine verankerten Staffeln, sondern eine Einteilung ab
+dem heutigen Tag. Wer die Anzeige mit den Abrechnungsblöcken deckungsgleich haben will, trägt das
+Startdatum an den bestehenden Kursen nach — derselbe Handgriff, der auch die Buchung vor dem
+Kursbeginn sperrt (PROJ-51).
+
+### Zurückrollen
+
+Gefahrlos: Die vorige Fassung zeigt wieder die letzten acht Termine. An den Daten ändert sich nichts.

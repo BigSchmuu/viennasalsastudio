@@ -115,7 +115,7 @@
 
 | PROJ-71 | Ein Abo wird erst ab seinem Beginn eingezogen | Deployed | [PROJ-71](../features/PROJ-71-abo-beginnt-spaeter.md) | 2026-09-25 |
 
-| PROJ-72 | Anwesenheitsliste in Staffeln | In Review | [PROJ-72](../features/PROJ-72-anwesenheitsliste-in-staffeln.md) | 2026-10-04 |
+| PROJ-72 | Anwesenheitsliste in Staffeln | Deployed | [PROJ-72](../features/PROJ-72-anwesenheitsliste-in-staffeln.md) | 2026-10-04 |
 
 <!-- Add features above this line -->
 
