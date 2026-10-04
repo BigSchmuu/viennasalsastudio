@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { requireCourseAccess } from "@/lib/auth/require-teacher";
-import { formatDateLocal, jsDayToWeekday, pastOccurrences } from "@/lib/scheduling/dates";
+import { formatDateLocal, jsDayToWeekday, occurrencesBetween } from "@/lib/scheduling/dates";
+import { aktuelleStaffel, staffelplan } from "@/lib/scheduling/staffel";
 import { isBirthdayToday } from "@/lib/birthdays";
 import {
   AttendanceMatrix,
@@ -11,12 +12,27 @@ import {
   type MatrixCell,
   type EligibleCustomer,
 } from "@/components/teacher/attendance-matrix";
-import type { RosterRow } from "@/lib/actions/teacher/load-more-occurrences";
+import type { RosterRow } from "@/lib/actions/teacher/staffel-laden";
 import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 import { Lehrmaterial, type Lektion } from "@/components/teacher/lehrmaterial";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 
-const PAST_WINDOW = 8;
+/**
+ * Wie weit die Seite Termine überhaupt in Betracht zieht (PROJ-72).
+ *
+ * Nicht, was sie zeigt — gezeigt wird eine Staffel von vier. Diese Grenzen
+ * sagen nur, woraus der Staffelplan gebaut wird: ein Jahr zurück, ein
+ * Vierteljahr voraus. Ohne hinterlegten Kursbeginn ist das zugleich der Anfang
+ * der Zählung.
+ */
+const RUECKBLICK_TAGE = 365;
+const VORSCHAU_TAGE = 91;
+
+function tagePlus(datum: string, tage: number): string {
+  const d = new Date(datum + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + tage);
+  return d.toISOString().slice(0, 10);
+}
 
 export default async function TeacherCoursePage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
@@ -83,22 +99,31 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
   let columns: MatrixColumn[] = [];
   let rows: MatrixRow[] = [];
   let eligibleCustomers: EligibleCustomer[] = [];
+  // PROJ-72: Der Staffelplan — nur Daten, keine Anwesenheiten. Die Oberfläche
+  // weiß damit, was es vor und nach der gezeigten Staffel gibt, ohne dass die
+  // Seite alles lädt.
+  let plan: string[][] = [];
+  let staffelIndex = -1;
 
   if (schedule) {
     const pauseDates = schedule.course_schedule_pauses.map((p) => p.pause_date);
     const todayDate = heuteInWien();
-    const isTodayOccurrence = jsDayToWeekday(heuteAlsDatumInWien().getDay()) === schedule.weekday && !pauseDates.includes(todayDate);
 
-    const past = pastOccurrences(schedule.weekday, {
-      count: PAST_WINDOW,
+    // PROJ-72: Erst der ganze Plan, dann die eine Staffel daraus. Gezeigt wird
+    // die laufende; frühere und spätere holt die Oberfläche auf Klick nach.
+    const alleTermine = occurrencesBetween(schedule.weekday, {
+      von: course.runs_from ?? tagePlus(todayDate, -RUECKBLICK_TAGE),
+      bis: course.runs_until ?? tagePlus(todayDate, VORSCHAU_TAGE),
       pauseDates,
       // PROJ-51: Eine Stunde vor Kursbeginn oder in den Ferien hat nie
       // stattgefunden — sie gehört nicht in die Anwesenheitsliste.
       zeitraum: kurszeitraum(course),
       ferien: await ladeFerien(supabase),
     });
-    const chronologicalPast = [...past].reverse();
-    const allDates = isTodayOccurrence ? [...chronologicalPast, todayDate] : chronologicalPast;
+
+    plan = staffelplan(alleTermine, { heute: todayDate, kursbeginn: Boolean(course.runs_from) });
+    staffelIndex = aktuelleStaffel(plan, todayDate);
+    const allDates = staffelIndex >= 0 ? plan[staffelIndex] : [];
 
     const [perDate, eligibleRes] = await Promise.all([
       Promise.all(
@@ -191,6 +216,8 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
       ) : (
         <AttendanceMatrix
           courseId={course.id}
+          plan={plan}
+          staffelIndex={staffelIndex}
           columns={columns}
           rows={rows}
           eligibleCustomers={eligibleCustomers}

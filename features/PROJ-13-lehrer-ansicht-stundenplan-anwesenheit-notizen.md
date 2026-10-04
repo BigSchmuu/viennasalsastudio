@@ -500,3 +500,16 @@ Already covered by earlier deployments in this project (error tracking, security
 Already covered by earlier deployments in this project (error tracking, security headers, etc.); nothing new required for this feature.
 
 </details>
+
+## Nachtrag (2026-10-04): AC3b/AC6 ersetzt durch PROJ-72
+
+Die Matrix zeigte „heutige + letzte 8 vergangene Termine, keine zukünftigen". Auf Wunsch des
+Betreibers zeigt sie jetzt die **laufende Staffel** von vier Terminen; frühere und spätere holt ein
+Klick, und künftige gibt es überhaupt erstmals. Der Knopf „Mehr laden (4 weitere)" heißt jetzt
+„← Frühere Termine", daneben steht „Spätere Termine →".
+
+Die beiden Prüfungen dazu sind in dieser Datei umgeschrieben. Die Fixture säte auf feste Daten aus
+2026 — mit vier Terminen lagen die endgültig außerhalb des Fensters; sie sät jetzt auf den jüngsten
+vergangenen Termin des Kurses.
+
+Einzelheiten in [PROJ-72](PROJ-72-anwesenheitsliste-in-staffeln.md).

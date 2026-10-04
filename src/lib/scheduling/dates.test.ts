@@ -4,6 +4,7 @@ import {
   formatDateLocal,
   upcomingOccurrences,
   pastOccurrences,
+  occurrencesBetween,
   daysUntil,
   selfCheckinWindow,
 } from "./dates";
@@ -238,5 +239,50 @@ describe("Kurszeitraum und Ferien (PROJ-51)", () => {
     });
     // 20.8. und 6.8. bleiben; der 13.8. liegt in den Ferien.
     expect(dates).toEqual(["2026-08-20", "2026-08-06"]);
+  });
+});
+
+describe("PROJ-72: occurrencesBetween", () => {
+  const OHNE = { zeitraum: { von: null, bis: null }, ferien: [] };
+
+  it("listet alle Termine des Wochentags im Fenster", () => {
+    // 2026-10-05 ist ein Montag (Wochentag 0 in der Zählung des Projekts).
+    expect(
+      occurrencesBetween(0, { von: "2026-10-01", bis: "2026-10-31", ...OHNE })
+    ).toEqual(["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26"]);
+  });
+
+  it("nimmt beide Grenzen mit", () => {
+    expect(occurrencesBetween(0, { von: "2026-10-05", bis: "2026-10-12", ...OHNE })).toEqual([
+      "2026-10-05",
+      "2026-10-12",
+    ]);
+  });
+
+  it("lässt Pausen und Ferien aus", () => {
+    expect(
+      occurrencesBetween(0, {
+        von: "2026-10-01",
+        bis: "2026-10-31",
+        pauseDates: ["2026-10-12"],
+        zeitraum: { von: null, bis: null },
+        ferien: [{ von: "2026-10-19", bis: "2026-10-25" }],
+      })
+    ).toEqual(["2026-10-05", "2026-10-26"]);
+  });
+
+  it("achtet auf den Kurszeitraum", () => {
+    expect(
+      occurrencesBetween(0, {
+        von: "2026-10-01",
+        bis: "2026-10-31",
+        zeitraum: { von: "2026-10-12", bis: "2026-10-19" },
+        ferien: [],
+      })
+    ).toEqual(["2026-10-12", "2026-10-19"]);
+  });
+
+  it("gibt bei verdrehten Grenzen nichts zurück", () => {
+    expect(occurrencesBetween(0, { von: "2026-10-31", bis: "2026-10-01", ...OHNE })).toEqual([]);
   });
 });

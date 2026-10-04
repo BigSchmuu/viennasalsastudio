@@ -63,6 +63,51 @@ function imZeitraum(datum: string, zeitraum: Kurszeitraum): boolean {
  */
 const MAX_WOCHEN = 520;
 
+/**
+ * Alle Termine zwischen zwei Tagen, chronologisch (PROJ-72).
+ *
+ * Die beiden Funktionen darunter zählen von **heute** aus — vorwärts oder
+ * rückwärts. Für die Staffeln der Anwesenheitsliste zählt aber der Kursbeginn,
+ * und der liegt beliebig weit zurück. Dieselbe Rechnung wie dort, nur mit
+ * zwei festen Grenzen statt einer Anzahl.
+ *
+ * `von` und `bis` sind einschließlich. Pausen, Ferien und der Kurszeitraum
+ * gelten wie überall.
+ */
+export function occurrencesBetween(
+  weekday: number,
+  {
+    von,
+    bis,
+    pauseDates = [],
+    zeitraum,
+    ferien,
+  }: {
+    von: string;
+    bis: string;
+    pauseDates?: string[];
+    zeitraum: Kurszeitraum;
+    ferien: Ferienzeitraum[];
+  }
+): string[] {
+  if (von > bis) return [];
+  const pausen = new Set(pauseDates);
+
+  // Vom ersten Tag des Fensters zum ersten passenden Wochentag vorrücken.
+  const start = new Date(von + "T12:00:00Z");
+  const tageBisWochentag = (weekday - jsDayToWeekday(start.getUTCDay()) + 7) % 7;
+  start.setUTCDate(start.getUTCDate() + tageBisWochentag);
+
+  const termine: string[] = [];
+  for (let woche = 0; woche < MAX_WOCHEN; woche++) {
+    const datum = start.toISOString().slice(0, 10);
+    if (datum > bis) break;
+    if (imZeitraum(datum, zeitraum) && !faelltAus(datum, pausen, ferien)) termine.push(datum);
+    start.setUTCDate(start.getUTCDate() + 7);
+  }
+  return termine;
+}
+
 /** Next `count` upcoming dates (today or later) matching `weekday`, skipping pauses, holidays and anything outside the course period. */
 export function upcomingOccurrences(
   weekday: number,

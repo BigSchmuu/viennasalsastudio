@@ -3,6 +3,7 @@ import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 import { zweiteStufeErledigen } from "./zweite-stufe";
+import { pastOccurrences } from "../src/lib/scheduling/dates";
 
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
 // the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
@@ -22,6 +23,17 @@ const LEHRER_B = { email: "e2e13-lehrer-b@viennasalsastudio.test", password: "Co
 const LEHRER_C_UNASSIGNED = { email: "e2e13-lehrer-c@viennasalsastudio.test", password: "CorrectPassword123!" };
 
 const COURSE_ID = "6032ce07-b19c-445b-9f42-f45921df557e"; // "E2E13 Kurs"
+
+/**
+ * Der Termin, auf den die Fixture ihre Saat legt (PROJ-72).
+ *
+ * Früher standen hier feste Daten aus 2026 — die Anwesenheitsliste zeigte acht
+ * vergangene Termine, und das reichte knapp. Seit sie die laufende Staffel
+ * zeigt (vier Termine), liegt alles Ältere hinter einem Klick. Feste Daten
+ * wären damit endgültig aus dem Fenster gewandert, und zwar mit jeder Woche
+ * weiter. Jetzt sät die Fixture auf den jüngsten vergangenen Termin.
+ */
+let saatTermin = "";
 const COURSE_NO_SCHEDULE_ID = "502077db-5c24-416f-b126-0838e580bd03"; // "E2E13 Kurs Ohne Termin"
 
 // The fixture course's weekly schedule is deliberately set to weekday=3
@@ -114,10 +126,49 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     // Zeile fehlt, und dann faellt AC8 mit "found = false" um, ohne zu sagen
     // warum. Genau das ist passiert, als ein anderer Test die Notiz mit
     // wegraeumte. Die Fixture stellt sich jetzt selbst wieder her.
+    // Den jüngsten vergangenen Termin des Kurses bestimmen — auf ihn geht die
+    // Saat, damit sie in der laufenden Staffel liegt.
+    const [{ data: plan }, { data: kurs }, { data: ferienZeilen }] = await Promise.all([
+      service
+        .from("course_schedule")
+        .select("weekday, course_schedule_pauses(pause_date)")
+        .eq("course_id", COURSE_ID)
+        .maybeSingle(),
+      service.from("courses").select("runs_from, runs_until").eq("id", COURSE_ID).maybeSingle(),
+      service.from("studio_holidays").select("starts_on, ends_on"),
+    ]);
+    if (!plan) throw new Error("PROJ-13: Für den Fixture-Kurs fehlt der Wochentermin");
+
+    const letzte = pastOccurrences(plan.weekday, {
+      count: 1,
+      pauseDates: (plan.course_schedule_pauses ?? []).map((p) => p.pause_date),
+      zeitraum: { von: kurs?.runs_from ?? null, bis: kurs?.runs_until ?? null },
+      ferien: (ferienZeilen ?? []).map((f) => ({ von: f.starts_on, bis: f.ends_on })),
+    });
+    if (letzte.length === 0) throw new Error("PROJ-13: Für den Fixture-Kurs liegt kein Termin zurück");
+    saatTermin = letzte[0];
+
+    // „Abwesend" für AC5b — erst aufräumen, damit genau eine rote Markierung
+    // in der Zeile steht und die Zählung darunter etwas aussagt.
+    const { data: aboKunde } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", "E2E13 Abo Kunde")
+      .single();
+    if (!aboKunde) throw new Error("PROJ-13 fixture customer 'E2E13 Abo Kunde' not found");
+    await service.from("course_attendance").delete().eq("course_id", COURSE_ID).eq("customer_id", aboKunde.id);
+    const { error: abwesendFehler } = await service.from("course_attendance").insert({
+      course_id: COURSE_ID,
+      customer_id: aboKunde.id,
+      occurrence_date: saatTermin,
+      status: "absent",
+    });
+    if (abwesendFehler) throw new Error(`PROJ-13 Abwesenheits-Saat: ${abwesendFehler.message}`);
+
     const { error: saatFehler } = await service
       .from("course_session_notes")
       .upsert(
-        { course_id: COURSE_ID, occurrence_date: "2026-08-06", note: "E2E13: Vorbereitete Testnotiz" },
+        { course_id: COURSE_ID, occurrence_date: saatTermin, note: "E2E13: Vorbereitete Testnotiz" },
         { onConflict: "course_id,occurrence_date" }
       );
     if (saatFehler) throw new Error(`PROJ-13 Notiz-Saat fehlgeschlagen: ${saatFehler.message}`);
@@ -157,25 +208,25 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     await expect(page.getByText("E2E13 Kurs", { exact: true })).toBeVisible();
   });
 
-  test("AC3b/AC6: Matrix zeigt heutige + letzte 8 vergangene Termine als Spalten, keine zukünftigen", async ({ page }) => {
+  test("AC3b/AC6: Matrix zeigt die laufende Staffel — vier Termine, keine mehr (PROJ-72)", async ({ page }) => {
+    // Bis PROJ-72 waren es die letzten acht Termine. Jetzt ist es die Staffel,
+    // in der heute liegt; alles davor und danach holt ein Klick.
     await login(page, LEHRER_A);
     await page.goto(`/lehrer/${COURSE_ID}`);
     await page.waitForTimeout(1000);
 
     const headerRow = page.locator("thead tr");
     const dateHeaders = headerRow.locator("th").filter({ hasNotText: "Kursteilnehmer" });
-    // 8 past + (1 "Heute" column only if today happens to match the fixture's
-    // weekday — see the re-priming comment above). Assert on the always-true
-    // invariant (at least the 8 past columns, no future ones) rather than a
-    // fixed 9, so this doesn't flake on days where "Heute" doesn't apply.
     const count = await dateHeaders.count();
-    expect(count).toBeGreaterThanOrEqual(8);
-    if (count === 9) {
-      await expect(page.getByText("Heute")).toBeVisible();
-    }
+    expect(count).toBeGreaterThan(0);
+    expect(count, "Mehr als eine Staffel auf einmal").toBeLessThanOrEqual(4);
+
+    // „Heute" steht nur dann da, wenn heute wirklich Kurstag ist.
+    const heuteSichtbar = await page.getByText("Heute").isVisible().catch(() => false);
+    if (heuteSichtbar) expect(count).toBeGreaterThanOrEqual(1);
   });
 
-  test("AC-LoadMore: 'Mehr laden' fügt 4 weitere, ältere Termine als Spalten hinzu, in chronologisch korrekter Reihenfolge", async ({ page }) => {
+  test("AC-LoadMore: „Frühere Termine“ holt die Staffel davor, in richtiger Reihenfolge", async ({ page }) => {
     await login(page, LEHRER_A);
     await page.goto(`/lehrer/${COURSE_ID}`);
     await page.waitForTimeout(1000);
@@ -184,8 +235,8 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     const dateHeaders = headerRow.locator("th").filter({ hasNotText: "Kursteilnehmer" });
     const countBefore = await dateHeaders.count();
 
-    await page.getByRole("button", { name: "Mehr laden (4 weitere)" }).click();
-    await page.waitForTimeout(1000);
+    await page.getByRole("button", { name: /Frühere Termine/ }).click();
+    await page.waitForTimeout(1500);
 
     const dateHeadersAfter = headerRow.locator("th").filter({ hasNotText: "Kursteilnehmer" });
     await expect(dateHeadersAfter).toHaveCount(countBefore + 4);
@@ -209,9 +260,9 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
       expect(monthDay[i]).toBeGreaterThan(monthDay[i - 1]);
     }
 
-    // Repeatable: a second click loads 4 more again.
-    await page.getByRole("button", { name: "Mehr laden (4 weitere)" }).click();
-    await page.waitForTimeout(1000);
+    // Wiederholbar: Der zweite Klick holt die Staffel davor.
+    await page.getByRole("button", { name: /Frühere Termine/ }).click();
+    await page.waitForTimeout(1500);
     await expect(headerRow.locator("th").filter({ hasNotText: "Kursteilnehmer" })).toHaveCount(countBefore + 8);
   });
 
@@ -255,7 +306,8 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     await page.goto(`/lehrer/${COURSE_ID}`);
     await page.waitForTimeout(1000);
 
-    // Fixture: E2E13 Abo Kunde was pre-marked "absent" on 2026-07-30.
+    // Fixture: „E2E13 Abo Kunde" ist auf dem jüngsten vergangenen Termin als
+    // abwesend eingetragen — also in der laufenden Staffel (PROJ-72).
     const row = rowFor(page, "E2E13 Abo Kunde");
     const markedAbsent = row.locator("button.border-red-600");
     await expect(markedAbsent).toHaveCount(1);
@@ -293,7 +345,7 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     await page.goto(`/lehrer/${COURSE_ID}`);
     await page.waitForTimeout(1000);
 
-    // Fixture: a note was pre-seeded by Lehrer A on 2026-08-06.
+    // Fixture: Die Notiz liegt auf dem jüngsten vergangenen Termin (PROJ-72).
     const noteButtons = page.getByRole("button", { name: "Notiz zu diesem Termin" });
     const count = await noteButtons.count();
     let found = false;

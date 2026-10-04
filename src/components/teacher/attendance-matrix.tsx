@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, X, FileText, Cake } from "lucide-react";
 import { markAttendance } from "@/lib/actions/teacher/attendance";
-import { loadMoreOccurrences } from "@/lib/actions/teacher/load-more-occurrences";
+import { ladeStaffel } from "@/lib/actions/teacher/staffel-laden";
 import { attendanceSourceLabel } from "@/lib/constants/attendance";
 import { danceRoleLabel } from "@/lib/constants/booking";
 import { cn } from "@/lib/utils";
@@ -54,6 +54,8 @@ function formatDialogDate(date: string): string {
 
 export function AttendanceMatrix({
   courseId,
+  plan,
+  staffelIndex,
   columns: initialColumns,
   rows: initialRows,
   eligibleCustomers,
@@ -62,6 +64,14 @@ export function AttendanceMatrix({
   roleByCustomer,
 }: {
   courseId: string;
+  /**
+   * PROJ-72: Alle Staffeln des Kurses, nur die Termine. Daraus weiß die
+   * Oberfläche, ob es vor und nach der gezeigten noch etwas gibt — ohne dass
+   * die Seite alle Anwesenheiten lädt.
+   */
+  plan: string[][];
+  /** Welche Staffel gezeigt wird; -1, wenn es keine gibt. */
+  staffelIndex: number;
   columns: MatrixColumn[];
   rows: MatrixRow[];
   eligibleCustomers: EligibleCustomer[];
@@ -79,7 +89,11 @@ export function AttendanceMatrix({
     Object.fromEntries(initialColumns.map((c) => [c.date, c.initialNote.trim().length > 0]))
   );
   const [unsavedIds, setUnsavedIds] = useState<Set<string>>(new Set());
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState<"frueher" | "spaeter" | null>(null);
+  // Von welcher Staffel bis zu welcher ist geladen. Beides wächst nach außen,
+  // damit ein zweiter Klick die nächste holt und nicht dieselbe.
+  const [vonStaffel, setVonStaffel] = useState(staffelIndex);
+  const [bisStaffel, setBisStaffel] = useState(staffelIndex);
 
   async function handleMark(customerId: string, date: string, status: "present" | "absent") {
     const key = `${customerId}:${date}`;
@@ -123,53 +137,68 @@ export function AttendanceMatrix({
     setUnsavedIds((prev) => new Set(prev).add(customer.id));
   }
 
-  async function handleLoadMore() {
-    if (columns.length === 0) return;
-    const oldestDate = columns[0].date;
-    setLoadingMore(true);
+  /**
+   * Eine Staffel nachladen — frühere nach vorn, spätere nach hinten.
+   *
+   * Die Termine kommen aus dem Staffelplan, nicht aus einer zweiten Rechnung
+   * hier: Sonst zeigte die Oberfläche eine andere Einteilung als die Seite.
+   */
+  async function ladeNach(richtung: "frueher" | "spaeter") {
+    const index = richtung === "frueher" ? vonStaffel - 1 : bisStaffel + 1;
+    const termine = plan[index];
+    if (!termine || termine.length === 0) return;
+
+    setLoadingMore(richtung);
     setError(null);
     try {
-      const result = await loadMoreOccurrences(courseId, oldestDate);
-      if ("error" in result) {
-        setError(result.error);
+      const ergebnis = await ladeStaffel(courseId, termine);
+      if ("error" in ergebnis) {
+        setError(ergebnis.error);
         return;
       }
-      // result.dates comes back most-recent-first (like pastOccurrences());
-      // reverse to chronological order before prepending, matching the
-      // ascending oldest-first layout the rest of the matrix already uses.
-      const newColumns: MatrixColumn[] = [...result.dates].reverse().map((d) => ({
+
+      const neueSpalten: MatrixColumn[] = ergebnis.dates.map((d) => ({
         date: d.date,
         isToday: false,
         initialNote: d.note,
       }));
-      setColumns((prev) => [...newColumns, ...prev]);
+
+      setColumns((prev) =>
+        richtung === "frueher" ? [...neueSpalten, ...prev] : [...prev, ...neueSpalten]
+      );
       setNoteFilled((prev) => ({
-        ...Object.fromEntries(newColumns.map((c) => [c.date, c.initialNote.trim().length > 0])),
+        ...Object.fromEntries(neueSpalten.map((c) => [c.date, c.initialNote.trim().length > 0])),
         ...prev,
       }));
       setRows((prev) => {
         const byId = new Map(prev.map((r) => [r.customerId, r]));
-        for (const { date, roster } of result.dates) {
+        for (const { date, roster } of ergebnis.dates) {
           for (const r of roster) {
             const existing = byId.get(r.customer_id) ?? {
               customerId: r.customer_id,
               fullName: r.full_name || "Unbenannter Kunde",
               cells: {},
-              // Older occurrences don't carry birthdate data; only affects a
-              // customer who attended a past session but none of the recent
-              // ones — a Cake icon would only be missing on their row.
+              // Nachgeladene Termine bringen keine Geburtsdaten mit; betrifft
+              // nur jemanden, der in einer früheren Staffel da war und in der
+              // laufenden nicht — dann fehlt auf seiner Zeile das Törtchen.
               hasBirthdayToday: false,
             };
             byId.set(r.customer_id, {
               ...existing,
-              cells: { ...existing.cells, [date]: { status: r.status, source: r.source, selfCheckedIn: r.self_checked_in } },
+              cells: {
+                ...existing.cells,
+                [date]: { status: r.status, source: r.source, selfCheckedIn: r.self_checked_in },
+              },
             });
           }
         }
         return Array.from(byId.values());
       });
+
+      if (richtung === "frueher") setVonStaffel(index);
+      else setBisStaffel(index);
     } finally {
-      setLoadingMore(false);
+      setLoadingMore(null);
     }
   }
 
@@ -203,9 +232,27 @@ export function AttendanceMatrix({
         </Alert>
       )}
 
-      <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
-        {loadingMore ? "Lädt…" : "Mehr laden (4 weitere)"}
-      </Button>
+      {/* PROJ-72: Gezeigt wird die laufende Staffel. Was davor und danach liegt,
+          holt der Lehrer auf Klick — in beide Richtungen, solange der
+          Staffelplan noch etwas hergibt. */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void ladeNach("frueher")}
+          disabled={loadingMore !== null || vonStaffel <= 0}
+        >
+          {loadingMore === "frueher" ? "Lädt…" : "← Frühere Termine"}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void ladeNach("spaeter")}
+          disabled={loadingMore !== null || bisStaffel >= plan.length - 1}
+        >
+          {loadingMore === "spaeter" ? "Lädt…" : "Spätere Termine →"}
+        </Button>
+      </div>
 
       {roleQueryEnabled && (
         <p className="text-sm text-muted-foreground">
