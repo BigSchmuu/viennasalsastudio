@@ -371,3 +371,6 @@ Angabe bleibt es beim Datum, neueste zuerst.
 
 Geprüft durch PROJ-29 AC11, nach demselben Muster wie AC10/AC11 hier: Ein zweiter Klick muss die
 Werte der Spalte genau umkehren. 11 Tests grün in Chromium und Mobile Safari.
+
+**Ausgeliefert:** 2026-10-06, Tag `v1.74.3-sortierung-kunde-datum` (Commit `482b1ae`), Vercel
+`…bh7njm3u0` Ready und als Produktion aliasiert. Keine Migration.
