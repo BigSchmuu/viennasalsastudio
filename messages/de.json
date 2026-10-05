@@ -345,7 +345,9 @@
     "planFlatrate": "Flatrate (alle Kurse)",
     "pastBookings": "Frühere Buchungen",
     "pastBookingsHint": "{count, plural, one {Ein erledigter Eintrag} other {# erledigte Einträge}} — abgelehnt, storniert oder beendet.",
-    "noCurrentBookings": "Derzeit keine offenen Buchungen."
+    "noCurrentBookings": "Derzeit keine offenen Buchungen.",
+    "sectionPassword": "Passwort ändern",
+    "sectionPasswordHint": "Neues Passwort für die Anmeldung festlegen"
   },
   "notifications": {
     "event": "Ereignis",
@@ -446,7 +448,14 @@
     "linkButtonInvite": "Einladung annehmen",
     "linkButtonLogin": "Anmelden",
     "linkWorking": "Einen Moment…",
-    "linkWhy": "Warum dieser Zwischenschritt? Manche Mailprogramme öffnen Links vorab, um sie zu prüfen. Ohne diesen Knopf wäre dein Link danach schon verbraucht."
+    "linkWhy": "Warum dieser Zwischenschritt? Manche Mailprogramme öffnen Links vorab, um sie zu prüfen. Ohne diesen Knopf wäre dein Link danach schon verbraucht.",
+    "currentPassword": "Aktuelles Passwort",
+    "passwordChanged": "Dein Passwort ist geändert. Andere Geräte wurden abgemeldet und müssen sich neu anmelden.",
+    "errCurrentPasswordWrong": "Das aktuelle Passwort stimmt nicht.",
+    "errSamePassword": "Das neue Passwort muss sich vom alten unterscheiden.",
+    "errSessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich neu an und versuche es noch einmal.",
+    "errPasswordChangeFailed": "Das Passwort konnte nicht geändert werden. Bitte versuche es noch einmal.",
+    "errReauthNeeded": "Für diese Änderung verlangt der Anmeldedienst eine zusätzliche Bestätigung. Bitte wende dich an das Studio."
   },
   "legal": {
     "termsTitle": "Allgemeine Geschäftsbedingungen",

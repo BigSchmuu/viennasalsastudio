@@ -1,11 +1,13 @@
 "use server";
 
 import { headers } from "next/headers";
+import { redirect as pfadRedirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { linkTyp } from "@/lib/auth/einmal-link";
 import { safeRedirectPath } from "@/lib/auth/safe-redirect";
+import { zweiteStufeUmweg } from "@/lib/auth/zweite-stufe-weiche";
 
 /**
  * Löst einen Link aus einer Supabase-Mail ein — erst hier, wenn der Kunde auf
@@ -26,7 +28,7 @@ export async function linkEinloesen(formData: FormData): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.auth.verifyOtp({ type: typ, token_hash: tokenHash });
     if (!error) {
-      return redirect({ href: ziel, locale });
+      return await weiter(ziel, locale);
     }
 
     // Warum Supabase abgelehnt hat, sagt der Code: abgelaufen, schon eingelöst
@@ -45,7 +47,7 @@ export async function linkEinloesen(formData: FormData): Promise<void> {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
-      return redirect({ href: ziel, locale });
+      return await weiter(ziel, locale);
     }
   } else {
     console.error("auth/bestaetigen: Link unvollständig", {
@@ -55,4 +57,24 @@ export async function linkEinloesen(formData: FormData): Promise<void> {
   }
 
   return redirect({ href: "/login?error=confirm_failed", locale });
+}
+
+/**
+ * Zum Ziel — bei einem Verwaltungskonto aber erst über die zweite Stufe.
+ *
+ * PROJ-73: Vorher ging es direkt zum Ziel, und das Layout des Kundenbereichs
+ * schickte ein Verwaltungskonto von dort auf die Code-Seite. Die kannte das
+ * Ziel nicht und landete im Dashboard — der Admin sah das Passwortformular
+ * nie, der Einmal-Link war verbraucht. Jetzt nimmt der Umweg das Ziel mit.
+ *
+ * Der Umweg wird ohne Sprachebene angesteuert (`next/navigation`): /sicherheit
+ * liegt neben dem Kundenbereich und ist einsprachig deutsch.
+ */
+async function weiter(ziel: string, locale: string): Promise<never> {
+  const umweg = await zweiteStufeUmweg(ziel);
+  // Ausdrücklich mit `return`, obwohl `redirect` eine Ausnahme wirft: Sonst
+  // hängt der Ablauf an einer Eigenschaft, die nirgends hier steht — und ein
+  // Test, der sie nachbaut, läuft ins Leere.
+  if (umweg) return pfadRedirect(umweg);
+  return redirect({ href: ziel, locale });
 }

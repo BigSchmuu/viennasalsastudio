@@ -64,6 +64,27 @@ export const resetPasswordSchema = z
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
+/**
+ * Passwort im angemeldeten Zustand ändern (PROJ-73).
+ *
+ * Das aktuelle Passwort hat hier **keine** Mindestanforderung: Es gilt die
+ * Regel von damals, als es gesetzt wurde. Geprüft wird es ohnehin von Supabase
+ * — eine Längenprüfung im Formular würde nur Bestandskunden mit kürzerem
+ * Passwort aussperren, bevor überhaupt jemand nachsieht.
+ */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "valPasswordRequired"),
+    password: neuesPasswort,
+    confirmPassword: z.string().min(1, "valConfirmRequired"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "valPasswordsDiffer",
+    path: ["confirmPassword"],
+  });
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
 const genderValues = ["weiblich", "maennlich", "divers", "keine_angabe"] as const;
 export const genderOptions: { value: (typeof genderValues)[number]; label: string }[] = [
   { value: "weiblich", label: "Weiblich" },

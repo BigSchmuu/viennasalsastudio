@@ -345,7 +345,9 @@
     "planFlatrate": "Flat rate (all classes)",
     "pastBookings": "Past bookings",
     "pastBookingsHint": "{count, plural, one {One finished entry} other {# finished entries}} — declined, cancelled or ended.",
-    "noCurrentBookings": "No open bookings at the moment."
+    "noCurrentBookings": "No open bookings at the moment.",
+    "sectionPassword": "Change password",
+    "sectionPasswordHint": "Set a new password for signing in"
   },
   "notifications": {
     "event": "Event",
@@ -446,7 +448,14 @@
     "linkButtonInvite": "Accept invitation",
     "linkButtonLogin": "Log in",
     "linkWorking": "One moment…",
-    "linkWhy": "Why this extra step? Some email apps open links in advance to check them. Without this button, your link would already be used up."
+    "linkWhy": "Why this extra step? Some email apps open links in advance to check them. Without this button, your link would already be used up.",
+    "currentPassword": "Current password",
+    "passwordChanged": "Your password has been changed. Other devices were signed out and need to sign in again.",
+    "errCurrentPasswordWrong": "That's not your current password.",
+    "errSamePassword": "The new password has to differ from the old one.",
+    "errSessionExpired": "Your session has expired. Please sign in again and retry.",
+    "errPasswordChangeFailed": "The password could not be changed. Please try again.",
+    "errReauthNeeded": "The sign-in service requires an extra confirmation for this change. Please contact the studio."
   },
   "legal": {
     "termsTitle": "Terms and Conditions",

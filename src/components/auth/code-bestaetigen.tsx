@@ -14,6 +14,7 @@ import {
   nurZiffern,
   uhrzeitHinweisZeigen,
   WEG_EINRICHTEN,
+  wegMitZiel,
 } from "@/lib/auth/zweite-stufe";
 
 /**
@@ -44,8 +45,9 @@ export function CodeBestaetigen({ weiterNach }: { weiterNach: string }) {
       if (!bestaetigt) {
         // Kein bestätigter Eintrag mehr — typischerweise hat ihn gerade jemand
         // zurückgesetzt. Dann gehört der Weg zur Einrichtung, nicht zum Ziel
-        // nach bestandener Prüfung.
-        window.location.href = WEG_EINRICHTEN;
+        // nach bestandener Prüfung. Das Ziel geht trotzdem mit (PROJ-73): Es
+        // gilt auch hinter der Einrichtung.
+        window.location.href = wegMitZiel(WEG_EINRICHTEN, weiterNach);
         return;
       }
 
@@ -57,7 +59,9 @@ export function CodeBestaetigen({ weiterNach }: { weiterNach: string }) {
     return () => {
       verworfen = true;
     };
-  }, []);
+    // `weiterNach` steht beim ersten Rendern fest (es kommt aus der Adresse)
+    // und soll den Faktor nicht erneut suchen lassen.
+  }, [weiterNach]);
 
   async function bestaetigen(e: React.FormEvent) {
     e.preventDefault();

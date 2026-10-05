@@ -14,6 +14,30 @@ export const WEG_EINRICHTEN = "/sicherheit/einrichten";
 export const WEG_CODE = "/sicherheit/code";
 
 /**
+ * Woher die beiden Seiten wissen, wohin es danach weitergeht (PROJ-73).
+ *
+ * Vorher führte jeder Weg ins Dashboard. Für einen Admin, der über den
+ * „Passwort vergessen"-Link kam, war das das Ende der Fahnenstange: Er
+ * bestätigte seinen Code, landete im Dashboard — und hatte dabei den
+ * Einmal-Link verbraucht, ohne das Formular je gesehen zu haben.
+ */
+export const WEITER_PARAM = "weiter";
+
+/**
+ * Einen der beiden Wege mit dem Ziel versehen, das danach aufgerufen werden
+ * soll. Ohne Ziel bleibt der Weg, wie er ist — dann gilt auf der Seite selbst
+ * der Rückfall aufs Dashboard.
+ *
+ * Geprüft wird das Ziel hier **nicht**. Das tut die Seite, die es wieder
+ * ausliest, mit `safeRedirectPath` — an genau einer Stelle, wie bei Login und
+ * Mail-Link.
+ */
+export function wegMitZiel(weg: string, ziel?: string | null): string {
+  if (!ziel) return weg;
+  return `${weg}?${WEITER_PARAM}=${encodeURIComponent(ziel)}`;
+}
+
+/**
  * Merker im Browser: „Dieses Gerät hat die zweite Stufe bestätigt."
  *
  * Er trägt die Kontokennung und sonst nichts. Ein Geheimnis ist das nicht — die

@@ -4,6 +4,7 @@ import {
   registrierungsfehler,
   bestaetigungsfehler,
   zuruecksetzfehler,
+  passwortaenderungsfehler,
   fehlertext,
 } from "./fehler";
 import de from "../../../messages/de.json";
@@ -40,6 +41,15 @@ describe("Auth-Fehler", () => {
     expect(zuruecksetzfehler("irgendwas")).toBe("errLinkExpired");
   });
 
+  it("benennt beim Ändern im Profil die eigenen Fälle", () => {
+    // „Link abgelaufen" wäre hier Unsinn: Es war kein Link im Spiel.
+    expect(passwortaenderungsfehler("same_password")).toBe("errSamePassword");
+    expect(passwortaenderungsfehler("weak_password")).toBe("weakPassword");
+    expect(passwortaenderungsfehler("reauthentication_needed")).toBe("errReauthNeeded");
+    expect(passwortaenderungsfehler("over_request_rate_limit")).toBe("errRequestRateLimit");
+    expect(passwortaenderungsfehler("irgendwas")).toBe("errPasswordChangeFailed");
+  });
+
   it("hat für jeden Schlüssel einen deutschen und einen englischen Text", () => {
     const schluessel = [
       "errInvalidCredentials",
@@ -56,6 +66,14 @@ describe("Auth-Fehler", () => {
       "valConfirmRequired",
       "valPasswordsDiffer",
       "passwordHint",
+      // PROJ-73
+      "errCurrentPasswordWrong",
+      "errSamePassword",
+      "errSessionExpired",
+      "errPasswordChangeFailed",
+      "errReauthNeeded",
+      "currentPassword",
+      "passwordChanged",
     ];
     for (const [sprache, texte] of [["de", de.auth], ["en", en.auth]] as const) {
       const fehlend = schluessel.filter((k) => !(k in texte));

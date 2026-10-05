@@ -6,6 +6,8 @@ import {
   nurZiffern,
   schluesselLesbar,
   uhrzeitHinweisZeigen,
+  wegMitZiel,
+  WEG_CODE,
 } from "./zweite-stufe";
 
 describe("nurZiffern", () => {
@@ -77,5 +79,26 @@ describe("codeFehlertext", () => {
 
   it("kommt ohne Fehlerobjekt zurecht", () => {
     expect(codeFehlertext(null)).toBeTruthy();
+  });
+});
+
+describe("wegMitZiel (PROJ-73)", () => {
+  it("hängt das Ziel an, damit es die zweite Stufe übersteht", () => {
+    expect(wegMitZiel(WEG_CODE, "/passwort-zuruecksetzen")).toBe(
+      "/sicherheit/code?weiter=%2Fpasswort-zuruecksetzen"
+    );
+  });
+
+  it("lässt den Weg unverändert, wenn es kein Ziel gibt", () => {
+    // Dann gilt auf der Seite selbst der Rückfall aufs Dashboard.
+    expect(wegMitZiel(WEG_CODE, null)).toBe(WEG_CODE);
+    expect(wegMitZiel(WEG_CODE, "")).toBe(WEG_CODE);
+    expect(wegMitZiel(WEG_CODE, undefined)).toBe(WEG_CODE);
+  });
+
+  it("kodiert ein Ziel mit Abfrageteil, statt es zu verlieren", () => {
+    expect(wegMitZiel(WEG_CODE, "/profil?tab=rechnungen")).toBe(
+      "/sicherheit/code?weiter=%2Fprofil%3Ftab%3Drechnungen"
+    );
   });
 });

@@ -24,6 +24,12 @@ export type AuthFehler =
   | "errRequestRateLimit"
   | "errInvalidInput"
   | "weakPassword"
+  /** PROJ-73: beim Ändern im angemeldeten Zustand. */
+  | "errCurrentPasswordWrong"
+  | "errSamePassword"
+  | "errSessionExpired"
+  | "errPasswordChangeFailed"
+  | "errReauthNeeded"
   /** Bleibt ein Code: Das Anmeldeformular zeigt dafür einen eigenen Block. */
   | "email_not_confirmed";
 
@@ -55,6 +61,23 @@ export function registrierungsfehler(code: string | undefined): AuthFehler {
 
 export function bestaetigungsfehler(code: string | undefined): AuthFehler {
   return gemeinsameGrenzen(code) ?? "errResendFailed";
+}
+
+/**
+ * Passwort ändern im angemeldeten Zustand (PROJ-73).
+ *
+ * Hier gibt es keinen Grund, zurückhaltend zu sein: Wer das Formular sieht, ist
+ * angemeldet und kennt sein Konto. „Das aktuelle Passwort stimmt nicht" verrät
+ * ihm nichts, was er nicht selbst eingegeben hat — und ohne diesen Satz sucht
+ * er den Fehler bei den neuen Feldern.
+ */
+export function passwortaenderungsfehler(code: string | undefined): AuthFehler {
+  if (code === "weak_password") return "weakPassword";
+  // Supabase nennt es `same_password`; älteren Fassungen entfährt stattdessen
+  // eine Meldung mit „should be different".
+  if (code === "same_password") return "errSamePassword";
+  if (code === "reauthentication_needed") return "errReauthNeeded";
+  return gemeinsameGrenzen(code) ?? "errPasswordChangeFailed";
 }
 
 export function zuruecksetzfehler(code: string | undefined): AuthFehler {

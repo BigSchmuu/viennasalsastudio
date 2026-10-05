@@ -4,6 +4,7 @@ import {
   registerSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
   profileSchema,
 } from "./auth";
 import de from "../../../messages/de.json";
@@ -102,6 +103,48 @@ describe("resetPasswordSchema", () => {
       confirmPassword: "654321",
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("changePasswordSchema (PROJ-73)", () => {
+  const gueltig = {
+    currentPassword: "Altes2026",
+    password: "Neues2026",
+    confirmPassword: "Neues2026",
+  };
+
+  it("accepts a current password plus a matching new one", () => {
+    expect(changePasswordSchema.safeParse(gueltig).success).toBe(true);
+  });
+
+  it("rejects a mismatched repetition", () => {
+    const result = changePasswordSchema.safeParse({ ...gueltig, confirmPassword: "Neues2027" });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("valPasswordsDiffer");
+  });
+
+  it("holds the new password to the same rule as a reset", () => {
+    const result = changePasswordSchema.safeParse({
+      ...gueltig,
+      password: "kleinbuchstaben",
+      confirmPassword: "kleinbuchstaben",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("passwordHint");
+  });
+
+  it("rejects an empty current password", () => {
+    const result = changePasswordSchema.safeParse({ ...gueltig, currentPassword: "" });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("valPasswordRequired");
+  });
+
+  // Bestandskunden haben teils kürzere Passwörter als die heutige Regel
+  // verlangt. Das *aktuelle* Feld darf sie deshalb nicht prüfen — sonst käme
+  // niemand von ihnen je zu einem neuen Passwort.
+  it("does not hold the current password to the new rule", () => {
+    const result = changePasswordSchema.safeParse({ ...gueltig, currentPassword: "kurz" });
+    expect(result.success).toBe(true);
   });
 });
 

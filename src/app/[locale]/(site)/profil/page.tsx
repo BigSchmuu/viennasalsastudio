@@ -25,6 +25,7 @@ import type { ProfileInput } from "@/lib/validations/auth";
 import { getTranslations } from "next-intl/server";
 import { getViewerContext } from "@/lib/auth/viewer";
 import { Anmeldesicherheit } from "@/components/profile/anmeldesicherheit";
+import { PasswortAendern } from "@/components/profile/passwort-aendern";
 import { GasttaenzerAbschnitt } from "@/components/profile/gasttaenzer-abschnitt";
 import { ladeGasttaenzerAnsicht } from "@/lib/gasttaenzer/laden";
 
@@ -420,7 +421,6 @@ export default async function ProfilePage() {
             wert="benachrichtigungen"
             titel={t("sectionNotifications")}
             hinweis={t("sectionNotificationsHint")}
-            letzter={!isAdmin}
           >
             <NotificationSettingsSection preferences={notificationPreferences} />
           </ProfilAbschnitt>
@@ -431,6 +431,16 @@ export default async function ProfilePage() {
             hinweis={tg("hint")}
           >
             <GasttaenzerAbschnitt ansicht={gasttaenzer} />
+          </ProfilAbschnitt>
+          {/* PROJ-73: Für jedes Konto. Kunden kommen so ohne den Umweg über die
+              Mail aus, Verwaltungskonten überhaupt erst zu einem neuen Passwort. */}
+          <ProfilAbschnitt
+            wert="passwort"
+            titel={t("sectionPassword")}
+            hinweis={t("sectionPasswordHint")}
+            letzter={!isAdmin}
+          >
+            <PasswortAendern />
           </ProfilAbschnitt>
           {/* PROJ-58: Nur für Verwaltungskonten — und bewusst deutsch, wie die
               ganze Verwaltung. */}

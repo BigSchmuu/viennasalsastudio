@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { getViewerContext } from "@/lib/auth/viewer";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
+import { WEITER_PARAM } from "@/lib/auth/zweite-stufe";
 import { Card, CardContent } from "@/components/ui/card";
 import { ZweiteStufeEinrichten } from "@/components/auth/zweite-stufe-einrichten";
 
@@ -12,7 +14,11 @@ import { ZweiteStufeEinrichten } from "@/components/auth/zweite-stufe-einrichten
  */
 export const metadata = { title: "Verwaltung absichern" };
 
-export default async function VerwaltungAbsichernPage() {
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function VerwaltungAbsichernPage({ searchParams }: Props) {
   const { user, isAdmin } = await getViewerContext();
 
   if (!user) {
@@ -21,6 +27,15 @@ export default async function VerwaltungAbsichernPage() {
   if (!isAdmin) {
     redirect("/");
   }
+
+  // PROJ-73: Das Ziel kommt aus der Adresse und ist damit beeinflussbar —
+  // dieselbe Prüfung wie bei Login und Mail-Link lässt nur Pfade auf dieser
+  // Seite durch. Ohne Ziel bleibt es beim Dashboard.
+  const weiterParam = (await searchParams)[WEITER_PARAM];
+  const weiterNach = safeRedirectPath(
+    typeof weiterParam === "string" ? weiterParam : null,
+    "/admin"
+  );
 
   return (
     <div className="mx-auto max-w-md px-4 py-8">
@@ -36,7 +51,7 @@ export default async function VerwaltungAbsichernPage() {
       </div>
       <Card className="rounded-card shadow-soft">
         <CardContent className="pt-6">
-          <ZweiteStufeEinrichten weiterNach="/admin" />
+          <ZweiteStufeEinrichten weiterNach={weiterNach} />
         </CardContent>
       </Card>
     </div>
