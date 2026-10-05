@@ -224,6 +224,10 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
           isAdmin={isAdmin}
           roleQueryEnabled={course.role_query_enabled}
           roleByCustomer={roleByCustomer}
+          // PROJ-74: Der Wiener Kalendertag vom Server. Die Uhr des Browsers
+          // steht anderswo auf einer anderen Zeitzone, und davon hängt ab,
+          // welcher Termin vorausgewählt ist.
+          heute={heuteInWien()}
         />
       )}
     </div>

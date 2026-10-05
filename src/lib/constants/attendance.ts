@@ -9,6 +9,11 @@ export function attendanceStatusLabel(status: string | null): string {
 
 export const attendanceSourceLabel: Record<string, string> = {
   abo: "Abo",
+  // PROJ-74: Probestunde und Drop-In getrennt — fuer die Lehrkraft am
+  // Kursabend der entscheidende Unterschied. `buchung` bleibt stehen, weil die
+  // Datenbank diesen Wert bis zum Einspielen der Migration noch liefert.
+  probestunde: "Probestunde",
+  dropin: "Drop-In",
   buchung: "Buchung",
   manuell: "Manuell",
   // PROJ-60: Damit die Lehrkraft weiss, warum jemand da ist, den sie nicht

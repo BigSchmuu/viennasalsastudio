@@ -24,12 +24,27 @@ import { join } from "node:path";
 
 const BLOCKELEMENTE = ["<div", "<ul", "<ol", "<table", "<section", "<Badge", "<Alert", "<Card"];
 
-/** Elemente, in die kein Blockelement gehört, mit dem Muster für ihren Inhalt. */
+/**
+ * Elemente, in die kein Blockelement gehört, mit dem Muster für ihren Inhalt.
+ *
+ * `(?<!\/)` schließt selbstschließende Tags aus. Ohne das galt ein
+ * `<span … />` als geöffnet, und der angebliche Inhalt reichte bis zum nächsten
+ * `</span>` irgendwo weiter unten — mitsamt allem, was dazwischen stand. Ein
+ * solcher Fehlalarm kam am 2026-10-05 (PROJ-74), und er ist der unangenehmere
+ * Fall: Wer ihn abstellt, indem er die Suche abschwächt, hat danach einen Test,
+ * der nichts mehr findet.
+ */
 const NUR_TEXT = [
-  { tag: "p", regex: /<p\b[^>]*>((?:(?!<\/p>)[\s\S])*?)<\/p>/g },
-  { tag: "span", regex: /<span\b[^>]*>((?:(?!<\/span>)[\s\S])*?)<\/span>/g },
-  { tag: "label", regex: /<label\b[^>]*>((?:(?!<\/label>)[\s\S])*?)<\/label>/g },
+  { tag: "p", regex: /<p\b[^>]*(?<!\/)>((?:(?!<\/p>)[\s\S])*?)<\/p>/g },
+  { tag: "span", regex: /<span\b[^>]*(?<!\/)>((?:(?!<\/span>)[\s\S])*?)<\/span>/g },
+  { tag: "label", regex: /<label\b[^>]*(?<!\/)>((?:(?!<\/label>)[\s\S])*?)<\/label>/g },
 ];
+
+/** Was die Suche finden muss — und was sie nicht melden darf. */
+const PROBESTUECKE = {
+  schlecht: '<p className="x">Text <div>nein</div></p>',
+  selbstschliessend: '<span\n  className="punkt"\n  title="t"\n/>\n<Badge>Art</Badge>\n<span>Text</span>',
+};
 
 function alleDateien(ordner: string, endung = ".tsx"): string[] {
   const gefunden: string[] = [];
@@ -41,7 +56,28 @@ function alleDateien(ordner: string, endung = ".tsx"): string[] {
   return gefunden;
 }
 
+function fundstellenIn(inhalt: string): string[] {
+  const gefunden: string[] = [];
+  for (const { tag, regex } of NUR_TEXT) {
+    for (const treffer of inhalt.matchAll(regex)) {
+      const drin = BLOCKELEMENTE.filter((b) => treffer[1].includes(b));
+      if (drin.length > 0) gefunden.push(`${tag}: ${drin.join(", ")}`);
+    }
+  }
+  return gefunden;
+}
+
 describe("Markup: kein Blockelement in einem Absatz", () => {
+  // Ohne diese beiden Proben wäre nicht zu unterscheiden, ob das Projekt sauber
+  // ist oder die Suche nichts mehr findet.
+  it("findet das Muster, um das es geht", () => {
+    expect(fundstellenIn(PROBESTUECKE.schlecht)).toHaveLength(1);
+  });
+
+  it("meldet ein selbstschließendes Element nicht als geöffnet", () => {
+    expect(fundstellenIn(PROBESTUECKE.selbstschliessend)).toEqual([]);
+  });
+
   it("findet im ganzen Projekt keine solche Verschachtelung", () => {
     const fundstellen: string[] = [];
 

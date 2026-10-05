@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, X, FileText, Cake } from "lucide-react";
 import { markAttendance } from "@/lib/actions/teacher/attendance";
@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { SessionNoteEditor } from "@/components/teacher/session-note-editor";
+import { EinmalGaesteListe } from "@/components/teacher/einmal-gaeste-liste";
+import { einmalGaesteAm, gueltigerTermin, teileZeilen } from "@/lib/teacher/einmal-gaeste";
 
 export type MatrixCell = {
   status: "present" | "absent" | null;
@@ -62,6 +64,7 @@ export function AttendanceMatrix({
   isAdmin,
   roleQueryEnabled,
   roleByCustomer,
+  heute,
 }: {
   courseId: string;
   /**
@@ -78,6 +81,11 @@ export function AttendanceMatrix({
   isAdmin: boolean;
   roleQueryEnabled: boolean;
   roleByCustomer: Record<string, DanceRole>;
+  /**
+   * Der heutige Tag in Wien — vom Server, nicht aus der Uhr des Browsers
+   * (PROJ-74). Danach entscheidet sich, welcher Termin vorausgewählt ist.
+   */
+  heute: string;
 }) {
   const [columns, setColumns] = useState(initialColumns);
   const [rows, setRows] = useState(initialRows);
@@ -94,6 +102,10 @@ export function AttendanceMatrix({
   // damit ein zweiter Klick die nächste holt und nicht dieselbe.
   const [vonStaffel, setVonStaffel] = useState(staffelIndex);
   const [bisStaffel, setBisStaffel] = useState(staffelIndex);
+  // PROJ-74: Für welchen Termin die Liste der Einmal-Gäste gilt.
+  const [gewaehlterTermin, setGewaehlterTermin] = useState<string | null>(() =>
+    gueltigerTermin(null, initialColumns.map((c) => c.date), heute)
+  );
 
   async function handleMark(customerId: string, date: string, status: "present" | "absent") {
     const key = `${customerId}:${date}`;
@@ -204,11 +216,33 @@ export function AttendanceMatrix({
 
   const listedIds = new Set(rows.map((r) => r.customerId));
   const addableCustomers = eligibleCustomers.filter((c) => !listedIds.has(c.id));
-  const sortedRows = [...rows].sort((a, b) => a.fullName.localeCompare(b.fullName, "de"));
+  // PROJ-74: Probestunden, Drop-Ins und Gäste stehen in ihrer eigenen Liste —
+  // die Matrix zeigt nur, wer wiederkommt. Die Regel dazu steht in
+  // lib/teacher/einmal-gaeste.ts.
+  const { kursteilnehmer } = teileZeilen(rows);
+  const sortedRows = [...kursteilnehmer].sort((a, b) => a.fullName.localeCompare(b.fullName, "de"));
   const activeColumn = columns.find((c) => c.date === noteDate) ?? null;
+  const einmalGaeste = gewaehlterTermin ? einmalGaesteAm(rows, gewaehlterTermin) : [];
 
+  // Nach dem Blättern kann der gewählte Termin aus der Tabelle verschwunden
+  // sein. Eine Liste, die dann auf ihm stehen bleibt, behauptet etwas über
+  // einen Abend, den niemand sieht.
+  // `columns` ist Zustand, nicht bei jedem Rendern neu — der Effekt läuft also
+  // beim Blättern und sonst nicht.
+  useEffect(() => {
+    setGewaehlterTermin((bisher) =>
+      gueltigerTermin(
+        bisher,
+        columns.map((c) => c.date),
+        heute
+      )
+    );
+  }, [columns, heute]);
+
+  // Die Übersicht beschreibt den Kurs, nicht den einzelnen Abend — deshalb über
+  // die Kursteilnehmer, nicht über die Gäste von heute.
   const roleSummary = { leader: 0, follower: 0, both: 0, none: 0 };
-  for (const row of rows) {
+  for (const row of kursteilnehmer) {
     const role = roleByCustomer[row.customerId];
     if (role === "leader") roleSummary.leader += 1;
     else if (role === "follower") roleSummary.follower += 1;
@@ -269,10 +303,30 @@ export function AttendanceMatrix({
               {columns.map((col) => (
                 <TableHead
                   key={col.date}
-                  className={cn("text-center min-w-[84px]", col.isToday && "bg-primary/5")}
+                  className={cn(
+                    "text-center min-w-[84px]",
+                    col.isToday && "bg-primary/5",
+                    // PROJ-74: Der gewählte Termin ist der, für den die Liste
+                    // darunter gilt — das muss man sehen.
+                    col.date === gewaehlterTermin && "bg-primary/10 ring-1 ring-inset ring-primary/40"
+                  )}
                 >
                   <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs font-semibold whitespace-nowrap">{formatColumnDate(col.date)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setGewaehlterTermin(col.date)}
+                      aria-pressed={col.date === gewaehlterTermin}
+                      className="rounded px-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      title="Probestunden und Drop-Ins dieses Termins zeigen"
+                    >
+                      {/* Die Beschriftung bleibt im Span: Daran hängt die
+                          Reihenfolgeprüfung von PROJ-13 — und ein Knopf, der
+                          sein Datum unmittelbar enthält, wäre für sie
+                          unsichtbar geworden. */}
+                      <span className="text-xs font-semibold whitespace-nowrap">
+                        {formatColumnDate(col.date)}
+                      </span>
+                    </button>
                     {col.isToday && (
                       <Badge variant="default" className="text-[10px] px-1.5 py-0">
                         Heute
@@ -361,6 +415,18 @@ export function AttendanceMatrix({
           </TableBody>
         </Table>
       </div>
+
+      {gewaehlterTermin && (
+        <EinmalGaesteListe
+          datum={gewaehlterTermin}
+          gaeste={einmalGaeste}
+          isAdmin={isAdmin}
+          roleQueryEnabled={roleQueryEnabled}
+          roleByCustomer={roleByCustomer}
+          savingKey={savingKey}
+          onMark={(customerId, status) => void handleMark(customerId, gewaehlterTermin, status)}
+        />
+      )}
 
       <Button variant="outline" onClick={() => setAddOpen(true)}>
         Kunde hinzufügen
