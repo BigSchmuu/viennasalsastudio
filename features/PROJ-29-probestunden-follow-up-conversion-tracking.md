@@ -307,3 +307,6 @@ Neue Admin-Seite `/admin/probestunden` (Nav-Eintrag „Probestunden" zwischen �
 **Geprüft:** AC3 angepasst (die Notiz liegt hinter dem Knopf), neu AC9 (Knopf ohne Notiz, Feld mit
 Notiz, Zuklappen beim Leerräumen) und AC10 (Notiz ist die letzte Spalte). 10 Tests grün in Chromium
 und Mobile Safari.
+
+**Ausgeliefert:** 2026-10-05, Tag `v1.74.1`/`v1.74.2-notizspalte` (Commit `812cf39`), Vercel
+`…9z7jglklg` Ready und als Produktion aliasiert. Keine Migration.
