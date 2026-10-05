@@ -350,3 +350,15 @@ fällt AC10 sofort.
 
 Dazu in der Probestundenliste (PROJ-29, AC7/AC8): Reihenfolge auf- und absteigend, und dass
 Sortierung und Statusfilter einander nicht abwerfen.
+
+### Auslieferung
+
+**Produktion:** https://app.viennasalsastudio.at — 2026-10-05
+**Tag:** `v1.74.1-sortierung` (Commit `d37ce4f`)
+**Vercel:** `…aw1isgx05`, Ready, als Produktion aliasiert. Keine Migration.
+
+Geprüft: PROJ-29 (8) und PROJ-33 (12) vollständig grün in Chromium **und** Mobile Safari (20 Läufe
+je Browser-Projekt), 1091 Unit- und Datenbankprüfungen grün. Von außen antworten
+`/admin/probestunden`, `/admin/buchungen` und `/admin/rechnungen` mit `?sort=…&dir=desc` wie erwartet
+mit einer Umleitung auf den Login; die Listen selbst liegen dahinter und sind durch die E2E-Tests
+belegt.
