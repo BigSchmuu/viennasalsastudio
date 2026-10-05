@@ -198,6 +198,9 @@ test.describe("PROJ-29: Probestunden-Follow-up & Conversion-Tracking", () => {
     const row = page.locator("tr", { hasText: "E2E29 Kunde kontaktiert" });
     await row.getByRole("checkbox").click();
     await page.waitForTimeout(500);
+    // Seit 2026-10-05 steht die Notiz in ihrer eigenen Spalte und ist
+    // zusammengeklappt, solange nichts drinsteht.
+    await row.getByRole("button", { name: /Notiz für .* hinzufügen/ }).click();
     await row.getByPlaceholder("Notiz…").fill("Anruf hinterlassen, wartet auf Rückmeldung.");
     await row.getByPlaceholder("Notiz…").blur();
     await page.waitForTimeout(600);
@@ -306,5 +309,42 @@ test.describe("PROJ-29: Probestunden-Follow-up & Conversion-Tracking", () => {
     await page.getByRole("button", { name: /Kurs/ }).click();
     await expect(page).toHaveURL(/status=offen/);
     await expect(page).toHaveURL(/dir=desc/);
+  });
+  // 2026-10-05: Die Notiz hat eine eigene Spalte und nimmt nur Platz ein, wenn
+  // sie gebraucht wird.
+  test("AC9: Ohne Notiz steht nur ein schmaler Knopf, mit Notiz das Feld", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/probestunden");
+    const zeile = page.locator("tr", { hasText: "E2E29 Kunde offen" });
+
+    // Ohne Notiz: kein Textfeld in der Zeile, nur der Knopf.
+    await expect(zeile.getByRole("button", { name: /Notiz für .* hinzufügen/ })).toBeVisible();
+    await expect(zeile.getByPlaceholder("Notiz…")).toHaveCount(0);
+
+    await zeile.getByRole("button", { name: /Notiz für .* hinzufügen/ }).click();
+    await zeile.getByPlaceholder("Notiz…").fill("Kommt nächste Woche wieder.");
+    await zeile.getByPlaceholder("Notiz…").blur();
+    await page.waitForTimeout(800);
+
+    // Nach dem Neuladen steht das Feld offen da — eine vorhandene Notiz soll man
+    // sehen, ohne zu klicken.
+    await page.reload();
+    await page.waitForTimeout(1000);
+    const zeileDanach = page.locator("tr", { hasText: "E2E29 Kunde offen" });
+    await expect(zeileDanach.getByPlaceholder("Notiz…")).toHaveValue("Kommt nächste Woche wieder.");
+
+    // Und leer geräumt klappt es wieder zu, sonst bliebe genau das Feld stehen,
+    // das weg sollte.
+    await zeileDanach.getByPlaceholder("Notiz…").fill("");
+    await zeileDanach.getByPlaceholder("Notiz…").blur();
+    await expect(zeileDanach.getByRole("button", { name: /Notiz für .* hinzufügen/ })).toBeVisible();
+  });
+
+  test("AC10: Die Notiz steht in der letzten Spalte", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/probestunden");
+    const koepfe = (await page.locator("table thead th").allInnerTexts()).map((k) => k.trim());
+    expect(koepfe[koepfe.length - 1]).toBe("Notiz");
+    expect(koepfe[koepfe.length - 2]).toBe("Nachverfolgung");
   });
 });

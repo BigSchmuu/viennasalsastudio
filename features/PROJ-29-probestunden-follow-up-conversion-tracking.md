@@ -285,3 +285,25 @@ Neue Admin-Seite `/admin/probestunden` (Nav-Eintrag „Probestunden" zwischen �
 - **Post-deployment verification:** `/admin/probestunden` live gegen die Produktions-DB geprüft — Seite lädt, Conversion-Rate-Kachel, Status-Filter und Nav-Eintrag sichtbar, keine Browser-Konsolenfehler. Der Live-Cron selbst wurde bewusst **nicht** manuell ausgelöst, um keine echten Benachrichtigungen an echte Kunden zu verschicken — er läuft eigenständig nach dem bereits konfigurierten Zeitplan (06:00 und 18:00 UTC).
 - **Migration:** `proj29_trial_followups` bereits während `/backend` live auf die Produktionsdatenbank angewendet (kein separater Deploy-Schritt nötig, Supabase ist eine gemeinsame Umgebung für Dev und Prod in diesem Projekt).
 - **Offener Verifikationspunkt (nicht automatisiert prüfbar):** ob der tatsächliche Vercel-Plan zwei tägliche Cron-Läufe unterstützt — die lokale Vercel-CLI ist nicht eingeloggt, daher konnte dies nicht programmatisch bestätigt werden. Bitte im Vercel-Dashboard unter „Cron Jobs" (Projekteinstellungen) verifizieren, dass beide Einträge (`06:00`- und `18:00`-Lauf) aktiv sind und nicht durch ein Plan-Limit stillschweigend auf einen reduziert wurden. Falls nur ein Lauf unterstützt wird: Rückfall auf den Morgen-Lauf (Abend-Erinnerung käme dann erst am nächsten Morgen statt am selben Abend) — bereits als Fallback im Decision Log dokumentiert.
+
+---
+
+## Nachtrag 2026-10-05: Die Notiz bekommt ihre eigene Spalte
+
+**Wunsch des Betreibers:** Notizfeld hintendran, und kleiner, wenn keine Notiz drinsteht.
+
+- Die Spalte **Notiz** steht jetzt ganz rechts, hinter **Nachverfolgung**. Der Haken „Kontaktiert"
+  bleibt in seiner Spalte.
+- Ohne Notiz steht dort nur ein schmaler Knopf „+ Notiz". Ein Klick öffnet das Feld, und wer es leer
+  räumt, bekommt den Knopf zurück — sonst bliebe genau das Feld stehen, das wegsollte.
+- Steht schon eine Notiz drin, ist das Feld offen. Eine vorhandene Notiz muss man sehen, ohne zu
+  klicken.
+- Haken und Notiz liegen weiterhin in **einem** Zustand: Beide gehen in einem Zug zur Datenbank
+  (`setTrialContacted` schreibt beides). Zwei getrennte Komponenten wären der sichere Weg zu „Notiz
+  gespeichert, Haken wieder weg".
+- Nebenbei behoben: Bei einer **konvertierten** Probestunde verschwand eine früher geschriebene
+  Notiz mitsamt der Nachverfolgung. Sie steht jetzt lesbar da.
+
+**Geprüft:** AC3 angepasst (die Notiz liegt hinter dem Knopf), neu AC9 (Knopf ohne Notiz, Feld mit
+Notiz, Zuklappen beim Leerräumen) und AC10 (Notiz ist die letzte Spalte). 10 Tests grün in Chromium
+und Mobile Safari.
