@@ -26,10 +26,15 @@ export default async function BuchungenPage({
       "id, customer_id, type, status, chosen_date, desired_plan, note, price, wants_student_price, terms_accepted_at, terms_version, courses(name, price), profiles(full_name), coupons(code, discount_type, discount_amount, max_redemptions, redemption_count, expires_at, active)"
     );
 
+  // PostgREST sortiert über eine eingebettete Tabelle nur mit der Schreibweise
+  // `order("tabelle(spalte)")`. Die ältere Form `{ foreignTable }` wird
+  // stillschweigend ignoriert — die Liste kam unsortiert zurück, in beide
+  // Richtungen gleich. Gefunden am 2026-10-05, als der erste Test tatsächlich
+  // die Reihenfolge prüfte statt nur die Adresse.
   if (sortKey === "customer_name") {
-    query = query.order("full_name", { foreignTable: "profiles", ascending });
+    query = query.order("profiles(full_name)", { ascending });
   } else if (sortKey === "course_name") {
-    query = query.order("name", { foreignTable: "courses", ascending });
+    query = query.order("courses(name)", { ascending });
   } else {
     query = query.order("chosen_date", { ascending });
   }

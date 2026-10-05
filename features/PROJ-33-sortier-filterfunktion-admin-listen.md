@@ -309,3 +309,44 @@ Alle drei Bugs wurden per `/frontend` behoben (siehe Implementation Notes oben) 
 - **Commit:** `198e78a`
 - **Deployment method:** Push to `main` → Vercel auto-deploy (already deployed automatically as each PROJ-33 commit was pushed during `/frontend`/`/qa`; this step confirmed the final build with all 3 bugfixes is live)
 - **Post-deployment verification:** Confirmed live in production via Playwright against the shared production database — Kundenliste (Suche-Placeholder + Status-Filter), Kursliste (eindeutige „Level filtern"/„Tanzstil filtern"-Labels + sortierbare Name-Spalte), Buchungsliste (Art-Filter) and Lastschriftlauf-Liste (Status-Filter) all render correctly; no browser console errors on `/admin/buchungen`. No new environment variables or database migrations required for this feature.
+
+---
+
+## Nachtrag 2026-10-05: Probestundenliste sortierbar — und ein stiller Fehler in drei Listen
+
+**Wunsch des Betreibers:** „Bei den Probestunden würde ich gerne Sortierung nach Kurs ermöglichen."
+
+Die Probestundenliste (`/admin/probestunden`) ist damit die sechste Liste mit sortierbarer Spalte.
+Sortierbar ist **Kurs**; ohne Angabe bleibt es beim Datum, neueste zuerst. Kunde und Datum sind
+bewusst nicht mitsortierbar gemacht worden — nicht gewünscht, zwei Zeilen Nacharbeit, wenn doch.
+
+### Der Fehler, der dabei auffiel
+
+Beim Schreiben des Tests, der die **Reihenfolge** prüft statt nur die Adresse, kam heraus: PostgREST
+sortiert über eine eingebettete Spalte nur mit der Schreibweise `order("tabelle(spalte)")`. Die
+ältere Form `order("spalte", { foreignTable: "tabelle" })` wird **stillschweigend ignoriert** — die
+Liste kommt unsortiert zurück, in beide Richtungen gleich.
+
+Betroffen waren drei Stellen, zwei davon seit der ursprünglichen Umsetzung dieser Spec im August:
+
+| Liste | Spalten | Zustand |
+|---|---|---|
+| `/admin/buchungen` | Kunde, Kurs | seit 2026-08 wirkungslos |
+| `/admin/rechnungen` | Kunde | seit 2026-08 wirkungslos |
+| `/admin/probestunden` | Kurs | im Entstehen behoben |
+
+Nicht betroffen sind Spalten der Tabelle selbst (Datum, Betrag, Termin) — die haben immer sortiert.
+
+**Warum es niemand gemerkt hat:** Die Tests dieser Spec prüften, dass sich `sort=` in der Adresse
+ändert und der Filter erhalten bleibt. Beides tat es. Dass die Liste danach genauso aussah wie
+vorher, prüfte niemand.
+
+### Was dagegen jetzt im Weg steht
+
+Zwei neue Tests (AC10, AC11) prüfen die Reihenfolge selbst — und zwar ohne die Sortierreihenfolge der
+Datenbank nachzubauen: Ein zweiter Klick muss die Werte der Spalte **genau umkehren**. Passiert
+nichts, sind beide Listen gleich und der Test fällt. Gegenprobe gemacht: Mit der alten Schreibweise
+fällt AC10 sofort.
+
+Dazu in der Probestundenliste (PROJ-29, AC7/AC8): Reihenfolge auf- und absteigend, und dass
+Sortierung und Statusfilter einander nicht abwerfen.

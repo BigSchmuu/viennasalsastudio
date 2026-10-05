@@ -29,9 +29,14 @@ const CUSTOMERS = {
   kontaktiert: "e2e29-kontaktiert@viennasalsastudio.test",
   konvertiert: "e2e29-konvertiert@viennasalsastudio.test",
   ueberfaellig: "e2e29-ueberfaellig@viennasalsastudio.test",
+  // Für die Sortierung nach Kurs braucht es einen zweiten Kurs — und einen
+  // eigenen Kunden dafür, weil jedem Kunden nur eine Probestunde zusteht
+  // (PROJ-52).
+  zweitkurs: "e2e29-zweitkurs@viennasalsastudio.test",
 };
 
 let courseId: string;
+let zweitKursId: string;
 const customerIds: Record<string, string> = {};
 
 async function login(page: Page) {
@@ -86,6 +91,26 @@ test.beforeAll(async () => {
     courseId = course.id;
   }
 
+  // Zweiter Kurs, dessen Name hinter dem ersten liegt („Probestunden" < „Zweit"):
+  // damit ist die Reihenfolge beim Sortieren eindeutig prüfbar.
+  const { data: vorhandenerZweiter } = await service
+    .from("courses")
+    .select("id")
+    .eq("name", "E2E29 Zweitkurs")
+    .maybeSingle();
+  if (vorhandenerZweiter) {
+    zweitKursId = vorhandenerZweiter.id;
+  } else {
+    const { data: room } = await service.from("rooms").select("id").limit(1).single();
+    const { data: zweiter, error: zweiterFehler } = await service
+      .from("courses")
+      .insert({ name: "E2E29 Zweitkurs", room_id: room!.id, role_query_enabled: false })
+      .select("id")
+      .single();
+    if (zweiterFehler || !zweiter) throw new Error(`Could not create second fixture course: ${zweiterFehler?.message}`);
+    zweitKursId = zweiter.id;
+  }
+
   for (const [key, email] of Object.entries(CUSTOMERS)) {
     const id = await ensureCustomer(email);
     customerIds[key] = id;
@@ -94,6 +119,7 @@ test.beforeAll(async () => {
 
   // Reset any leftover bookings/followups from a previous (possibly crashed) run.
   await service.from("course_bookings").delete().eq("course_id", courseId);
+  await service.from("course_bookings").delete().eq("course_id", zweitKursId);
   await service.from("trial_followups").delete().in(
     "booking_id",
     (await service.from("course_bookings").select("id").eq("course_id", courseId)).data?.map((b) => b.id) ?? []
@@ -110,6 +136,16 @@ test.beforeAll(async () => {
     .select("id, customer_id");
   if (trialsError || !trials) throw new Error(`Could not create fixture trials: ${trialsError?.message}`);
 
+  // Eine Probestunde im zweiten Kurs — die Gegenprobe für die Sortierung.
+  const { error: zweiteProbeFehler } = await service.from("course_bookings").insert({
+    customer_id: customerIds.zweitkurs,
+    course_id: zweitKursId,
+    type: "trial",
+    chosen_date: daysAgo(4),
+    status: "confirmed",
+  });
+  if (zweiteProbeFehler) throw new Error(`Could not create second-course trial: ${zweiteProbeFehler.message}`);
+
   // The "konvertiert" customer gets a CONFIRMED regular booking after their trial.
   await service.from("course_bookings").insert({
     customer_id: customerIds.konvertiert,
@@ -121,6 +157,13 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  if (zweitKursId) {
+    const { data: zweite } = await service.from("course_bookings").select("id").eq("course_id", zweitKursId);
+    if (zweite?.length) {
+      await service.from("trial_followups").delete().in("booking_id", zweite.map((b) => b.id));
+    }
+    await service.from("course_bookings").delete().eq("course_id", zweitKursId);
+  }
   if (courseId) {
     const { data: bookings } = await service.from("course_bookings").select("id").eq("course_id", courseId);
     if (bookings?.length) {
@@ -178,10 +221,15 @@ test.describe("PROJ-29: Probestunden-Follow-up & Conversion-Tracking", () => {
     // docs/troubleshooting-tests.md. Geprüft wird jetzt das Verhalten der
     // Kachel: Nenner gleich der Zahl der Probestunden im Fenster, eigene
     // konvertierte Probestunde mitgezählt, Prozentwert stimmig gerundet.
+    // `status = confirmed`, wie die Seite selbst: Eine stornierte Probestunde
+    // im Fenster zählte sonst im Test mit, aber nicht in der Kachel — und der
+    // Test wäre an etwas gescheitert, das richtig ist. Genau das passierte am
+    // 2026-10-05, als eine stornierte Probestunde in diesem Fenster lag.
     const { count: imFenster } = await service
       .from("course_bookings")
       .select("id", { count: "exact", head: true })
       .eq("type", "trial")
+      .eq("status", "confirmed")
       .gte("chosen_date", from)
       .lte("chosen_date", to);
 
@@ -211,5 +259,52 @@ test.describe("PROJ-29: Probestunden-Follow-up & Conversion-Tracking", () => {
     await expect(page).toHaveURL(/status=offen/);
     await expect(page.locator("tr", { hasText: "E2E29 Kunde offen" })).toBeVisible();
     await expect(page.locator("tr", { hasText: "E2E29 Kunde konvertiert" })).toHaveCount(0);
+  });
+  // PROJ-33, Nachtrag 2026-10-05: Sortierung nach Kurs.
+  test("AC7: Ein Klick auf „Kurs“ sortiert nach Kursname, ein zweiter kehrt um", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/probestunden");
+    await page.waitForTimeout(800);
+
+    // Geprüft wird die Reihenfolge der beiden Fixture-Kurse zueinander, nicht
+    // die ganze Spalte: In der Testdatenbank stehen auch Probestunden anderer
+    // Suiten in der Liste, und deren Namen gehören nicht zu diesem Test.
+    async function reihenfolgeDerFixtureKurse(): Promise<string[]> {
+      const namen = await page.locator("table tbody tr td:nth-child(2)").allInnerTexts();
+      return namen.map((n) => n.trim()).filter((n) => n.startsWith("E2E29"));
+    }
+
+    // Auf die Reihenfolge warten, nicht auf eine Frist: Die Adresse ändert sich
+    // sofort, die neu geladene Liste kommt erst danach. Eine feste Wartezeit
+    // hätte einen echten Fehler als Zufall erscheinen lassen — oder umgekehrt.
+    await page.getByRole("button", { name: /Kurs/ }).click();
+    await expect(page).toHaveURL(/sort=course_name/);
+    await expect(page).toHaveURL(/dir=asc/);
+    await expect
+      .poll(async () => (await reihenfolgeDerFixtureKurse()).join(" | "), { timeout: 15000 })
+      .toMatch(/^E2E29 Probestunden Kurs.*E2E29 Zweitkurs$/);
+
+    await page.getByRole("button", { name: /Kurs/ }).click();
+    await expect(page).toHaveURL(/dir=desc/);
+    await expect
+      .poll(async () => (await reihenfolgeDerFixtureKurse()).join(" | "), { timeout: 15000 })
+      .toMatch(/^E2E29 Zweitkurs.*E2E29 Probestunden Kurs$/);
+  });
+
+  test("AC8: Die Sortierung bleibt beim Statusfilter erhalten — und umgekehrt", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/probestunden?sort=course_name&dir=asc");
+    await page.waitForTimeout(800);
+
+    await page.getByLabel("Status").click();
+    await page.getByRole("option", { name: "Offen", exact: true }).click();
+    await expect(page).toHaveURL(/status=offen/);
+    await expect(page).toHaveURL(/sort=course_name/);
+
+    // Und der Weg zurück: Ein Klick auf die Spalte darf den Filter nicht
+    // abwerfen. Genau dieser Fall war in PROJ-33 der Grund für die Prüfung.
+    await page.getByRole("button", { name: /Kurs/ }).click();
+    await expect(page).toHaveURL(/status=offen/);
+    await expect(page).toHaveURL(/dir=desc/);
   });
 });

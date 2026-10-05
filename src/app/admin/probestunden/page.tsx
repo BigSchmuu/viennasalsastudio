@@ -11,22 +11,43 @@ import {
 
 const OVERDUE_AFTER_DAYS = 14;
 
+/**
+ * Sortierbare Spalten dieser Liste (PROJ-33, Nachtrag 2026-10-05).
+ *
+ * Der Betreiber sortiert nach Kurs, um die Probestunden eines Kurses am Stück
+ * nachzufassen. Ohne Angabe bleibt es beim Datum, neueste zuerst — das ist die
+ * Arbeit, die wartet.
+ */
+const SORTABLE_COLUMNS = ["course_name", "chosen_date"] as const;
+
 export default async function ProbestundenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; status?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; status?: string; sort?: string; dir?: string }>;
 }) {
   const params = await searchParams;
   const { period } = resolvePeriod(params);
   const supabase = await createClient();
 
+  const sortKey = SORTABLE_COLUMNS.includes(params.sort as (typeof SORTABLE_COLUMNS)[number])
+    ? (params.sort as (typeof SORTABLE_COLUMNS)[number])
+    : "chosen_date";
+  // Ohne Sortierangabe: neueste Probestunde zuerst. Mit Angabe gilt `dir`,
+  // aufsteigend als Vorgabe — dasselbe Muster wie in der Buchungsliste.
+  const ascending = params.sort ? params.dir !== "desc" : false;
+
+  const basis = supabase
+    .from("course_bookings")
+    .select("id, customer_id, course_id, chosen_date, profiles(full_name), courses(name)")
+    .eq("type", "trial")
+    .eq("status", "confirmed");
+
   const [bookingsRes, followupsRes] = await Promise.all([
-    supabase
-      .from("course_bookings")
-      .select("id, customer_id, course_id, chosen_date, profiles(full_name), courses(name)")
-      .eq("type", "trial")
-      .eq("status", "confirmed")
-      .order("chosen_date", { ascending: false }),
+    // Schreibweise `courses(name)`: siehe den Hinweis in
+    // src/app/admin/buchungen/page.tsx — die ältere Form wirkt nicht.
+    sortKey === "course_name"
+      ? basis.order("courses(name)", { ascending })
+      : basis.order("chosen_date", { ascending }),
     supabase.from("trial_followups").select("booking_id, contacted, note"),
   ]);
 

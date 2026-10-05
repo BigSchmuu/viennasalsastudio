@@ -34,7 +34,9 @@ export default async function RechnungenPage({
 
   query =
     sortKey === "customer_name"
-      ? query.order("full_name", { foreignTable: "profiles", ascending })
+      // Schreibweise `profiles(full_name)`: siehe den Hinweis in
+      // src/app/admin/buchungen/page.tsx — die ältere Form wirkt nicht.
+      ? query.order("profiles(full_name)", { ascending })
       : query.order(sortKey, { ascending });
 
   if (params.from) query = query.gte("invoice_date", params.from);

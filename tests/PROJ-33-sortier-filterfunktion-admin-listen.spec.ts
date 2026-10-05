@@ -26,6 +26,20 @@ async function login(page: Page, creds: { email: string; password: string }) {
   if (page.url().endsWith("/mein-bereich")) await page.goto("/profil").catch(() => {});
 }
 
+/**
+ * Die Werte einer Spalte, gefunden über ihre Überschrift.
+ *
+ * Über die Überschrift und nicht über eine Spaltennummer: Kommt eine Spalte
+ * dazu, zählt ein Test mit fester Nummer stillschweigend die falsche.
+ */
+async function spaltenwerte(page: Page, ueberschrift: string): Promise<string[]> {
+  const koepfe = await page.locator("table thead th").allInnerTexts();
+  const nummer = koepfe.findIndex((k) => k.trim().startsWith(ueberschrift));
+  expect(nummer, `Spalte ${ueberschrift} nicht gefunden`).toBeGreaterThanOrEqual(0);
+  const werte = await page.locator(`table tbody tr td:nth-child(${nummer + 1})`).allInnerTexts();
+  return werte.map((w) => w.trim());
+}
+
 test.describe("PROJ-33: Sortier- und Filterfunktion für Admin-Listen", () => {
   test("AC1: Kundenliste — Klick auf Spaltenüberschrift sortiert, erneuter Klick kehrt um", async ({ page }) => {
     await login(page, ADMIN);
@@ -179,5 +193,47 @@ test.describe("PROJ-33: Sortier- und Filterfunktion für Admin-Listen", () => {
     await expect(page).toHaveURL(/status=active/);
     await expect(page).toHaveURL(/q=zzz-nonexistent-combo-zzz/);
     await expect(page.getByText("Keine Kunden gefunden.")).toBeVisible();
+  });
+  // Nachtrag 2026-10-05: Bis hierher prüften die Sortiertests nur, dass sich die
+  // Adresse ändert. Das tat sie auch, während die Liste unsortiert zurückkam —
+  // PostgREST ignoriert die ältere Schreibweise für eingebettete Spalten
+  // stillschweigend. Diese beiden Tests prüfen deshalb die Reihenfolge selbst,
+  // und zwar so, dass keine Sortierreihenfolge der Datenbank nachgebaut werden
+  // muss: Ein zweiter Klick muss die Werte genau umkehren. Passiert nichts,
+  // sind beide Listen gleich — und der Test fällt.
+  test("AC10: Buchungsliste — die Spalte Kurs sortiert wirklich, nicht nur die Adresse", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.goto("/admin/buchungen?status=alle");
+    // Exakt „Kurs": Der aufklappbare Preisblock darüber trägt „Kursabo" in
+    // seiner Beschriftung und würde sonst mitgetroffen.
+    const kursSpalte = page.getByRole("button", { name: "Kurs", exact: true });
+    await kursSpalte.click();
+    await expect(page).toHaveURL(/sort=course_name/);
+    await page.waitForTimeout(1200);
+    const aufsteigend = await spaltenwerte(page, "Kurs");
+    expect(new Set(aufsteigend).size, "zu wenig verschiedene Kurse für eine Aussage").toBeGreaterThan(1);
+
+    await kursSpalte.click();
+    await expect(page).toHaveURL(/dir=desc/);
+    await expect
+      .poll(async () => (await spaltenwerte(page, "Kurs")).join(" | "), { timeout: 15000 })
+      .toBe([...aufsteigend].reverse().join(" | "));
+  });
+
+  test("AC11: Rechnungsliste — die Spalte Kunde sortiert wirklich", async ({ page }) => {
+    await login(page, ADMIN);
+    await page.goto("/admin/rechnungen");
+    const kundenSpalte = page.getByRole("button", { name: "Kunde", exact: true });
+    await kundenSpalte.click();
+    await expect(page).toHaveURL(/sort=customer_name/);
+    await page.waitForTimeout(1200);
+    const aufsteigend = await spaltenwerte(page, "Kunde");
+    expect(new Set(aufsteigend).size, "zu wenig verschiedene Kunden für eine Aussage").toBeGreaterThan(1);
+
+    await kundenSpalte.click();
+    await expect(page).toHaveURL(/dir=desc/);
+    await expect
+      .poll(async () => (await spaltenwerte(page, "Kunde")).join(" | "), { timeout: 15000 })
+      .toBe([...aufsteigend].reverse().join(" | "));
   });
 });

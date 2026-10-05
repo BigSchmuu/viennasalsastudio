@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { SortableHeader } from "@/components/admin/sortable-header";
 
 export type TrialFollowupStatus = "offen" | "kontaktiert" | "konvertiert";
 
@@ -148,7 +149,10 @@ export function TrialFollowupList({ rows, initialStatus }: { rows: TrialFollowup
             <TableHeader>
               <TableRow>
                 <TableHead>Kunde</TableHead>
-                <TableHead>Kurs</TableHead>
+                {/* PROJ-33, Nachtrag 2026-10-05: nach Kurs sortierbar, damit
+                    die Probestunden eines Kurses am Stück nachgefasst werden
+                    können. */}
+                <SortableHeader label="Kurs" sortKey="course_name" />
                 <TableHead>Datum</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Nachverfolgung</TableHead>
