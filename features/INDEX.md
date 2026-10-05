@@ -119,7 +119,7 @@
 
 | PROJ-73 | Passwort selbst ändern | Deployed | [PROJ-73](../features/PROJ-73-passwort-selbst-aendern.md) | 2026-10-05 |
 
-| PROJ-74 | Eigene Liste für Probestunden, Drop-Ins und Gäste | Approved | [PROJ-74](../features/PROJ-74-liste-probestunden-dropins.md) | 2026-10-05 |
+| PROJ-74 | Eigene Liste für Probestunden, Drop-Ins und Gäste | Deployed | [PROJ-74](../features/PROJ-74-liste-probestunden-dropins.md) | 2026-10-05 |
 
 <!-- Add features above this line -->
 

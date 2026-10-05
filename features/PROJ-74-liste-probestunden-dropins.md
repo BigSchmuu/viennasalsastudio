@@ -1,6 +1,6 @@
 # PROJ-74: Eigene Liste für Probestunden, Drop-Ins und Gäste
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-05
 **Last Updated:** 2026-10-05
 
@@ -170,8 +170,8 @@ mit dem gröberen Vermerk „Buchung".
 
 ## QA Test Results (2026-10-05)
 
-**Empfehlung: bereit für die Produktion.** Eine Migration, in der Testdatenbank eingespielt und
-geprüft; die Produktion fehlt noch.
+**Empfehlung: bereit für die Produktion.** Eine Migration, in Test und Produktion eingespielt; in
+der Testdatenbank nachgewiesen.
 
 | | |
 |---|---|
@@ -214,9 +214,31 @@ nicht zu unterscheiden, ob das Projekt sauber ist oder die Suche nichts mehr fin
 
 ### Was offen bleibt
 
-- Die **Migration in der Produktion**.
 - Die **Tagesübersicht für den Empfang** (Out of Scope, bewusst zurückgestellt).
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at — ausgeliefert am 2026-10-05
+**Tag:** `v1.74.0-PROJ-74` (Commit `dad4844`)
+**Vercel:** `…lfwq6km8k`, Zustand Ready, als Produktion aliasiert
+
+**Migration:** `20261005200000_proj74_quelle_probestunde_dropin.sql` — vom Betreiber in Test *und*
+Produktion eingespielt (2026-10-05), in der Testdatenbank durch `tests/PROJ-74-quelle-db.test.ts`
+nachgewiesen.
+
+### Nachprüfung von außen
+
+| Adresse | Erwartet | Ergebnis |
+|---|---|---|
+| `/lehrer` | 307 auf den Login | ✔ |
+| `/admin` | 307 auf den Login | ✔ |
+| `/` | 200 | ✔ |
+
+Die Liste selbst steht hinter der Anmeldung und ist von außen nicht prüfbar — belegt ist sie durch
+die fünf E2E-Tests in beiden Browsern, die über „Meine Kurse" dorthin gehen.
+
+### Was der Betreiber noch tun kann
+
+Die Reihenfolge der Auslieferung war unkritisch, weil die Oberfläche die alte Quelle `buchung`
+weiterhin kennt. Dieser Rückfall darf bleiben; er kostet nichts und schützt beim nächsten Mal wieder.
