@@ -1,6 +1,6 @@
 # PROJ-73: Passwort selbst ändern
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-05
 **Last Updated:** 2026-10-05
 
@@ -256,4 +256,29 @@ darüber. Jetzt steht `return` da, mit einer Zeile Begründung.
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at — ausgeliefert am 2026-10-05
+**Tag:** `v1.73.0-PROJ-73` (Commit `78e7069`)
+**Vercel:** `dpl_…cx6se6a3o`, Zustand Ready, als Produktion aliasiert
+
+**Keine Migration.** Weder Test- noch Produktionsdatenbank mussten angefasst werden — Passwörter und
+Sitzungen liegen ausschließlich bei Supabase.
+
+### Nachprüfung von außen
+
+| Adresse | Erwartet | Ergebnis |
+|---|---|---|
+| `/profil` | 307 auf den Login | ✔ `?redirect=%2Fprofil` |
+| `/en/profil` | 307 auf den englischen Login | ✔ `/en/login?redirect=%2Fen%2Fprofil` |
+| `/passwort-vergessen` | 200 | ✔ |
+| `/sicherheit/code` | 307 auf den Login | ✔ |
+
+Der Abschnitt selbst steht hinter der Anmeldung und ist von außen nicht prüfbar — belegt ist er
+durch die sechs E2E-Tests in beiden Browsern, die genau diesen Weg gehen.
+
+### Für den Betrieb
+
+Im Supabase-Dashboard sollte unter Authentication die Option „Secure password change"
+(Reauthentication) **aus** bleiben. Steht sie an, verlangt Supabase zusätzlich einen per Mail
+verschickten Code; die App zeigt dann einen verständlichen Hinweis, geändert werden kann das
+Passwort aber nicht.
