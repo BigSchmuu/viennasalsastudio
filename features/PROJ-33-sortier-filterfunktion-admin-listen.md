@@ -362,3 +362,12 @@ je Browser-Projekt), 1091 Unit- und Datenbankprüfungen grün. Von außen antwor
 `/admin/probestunden`, `/admin/buchungen` und `/admin/rechnungen` mit `?sort=…&dir=desc` wie erwartet
 mit einer Umleitung auf den Login; die Listen selbst liegen dahinter und sind durch die E2E-Tests
 belegt.
+
+### Zweiter Nachtrag, gleicher Tag: auch Kunde und Datum
+
+Auf Wunsch nachgezogen. In der Probestundenliste sind damit **Kunde, Kurs und Datum** sortierbar —
+eine Liste, in der nur eine von drei Überschriften klickbar ist, sieht nach einem Fehler aus. Ohne
+Angabe bleibt es beim Datum, neueste zuerst.
+
+Geprüft durch PROJ-29 AC11, nach demselben Muster wie AC10/AC11 hier: Ein zweiter Klick muss die
+Werte der Spalte genau umkehren. 11 Tests grün in Chromium und Mobile Safari.

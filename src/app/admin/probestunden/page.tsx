@@ -15,10 +15,10 @@ const OVERDUE_AFTER_DAYS = 14;
  * Sortierbare Spalten dieser Liste (PROJ-33, Nachtrag 2026-10-05).
  *
  * Der Betreiber sortiert nach Kurs, um die Probestunden eines Kurses am Stück
- * nachzufassen. Ohne Angabe bleibt es beim Datum, neueste zuerst — das ist die
- * Arbeit, die wartet.
+ * nachzufassen; Kunde und Datum kamen am selben Tag dazu. Ohne Angabe bleibt es
+ * beim Datum, neueste zuerst — das ist die Arbeit, die wartet.
  */
-const SORTABLE_COLUMNS = ["course_name", "chosen_date"] as const;
+const SORTABLE_COLUMNS = ["customer_name", "course_name", "chosen_date"] as const;
 
 export default async function ProbestundenPage({
   searchParams,
@@ -43,11 +43,13 @@ export default async function ProbestundenPage({
     .eq("status", "confirmed");
 
   const [bookingsRes, followupsRes] = await Promise.all([
-    // Schreibweise `courses(name)`: siehe den Hinweis in
+    // Schreibweise `courses(name)` / `profiles(full_name)`: siehe den Hinweis in
     // src/app/admin/buchungen/page.tsx — die ältere Form wirkt nicht.
     sortKey === "course_name"
       ? basis.order("courses(name)", { ascending })
-      : basis.order("chosen_date", { ascending }),
+      : sortKey === "customer_name"
+        ? basis.order("profiles(full_name)", { ascending })
+        : basis.order("chosen_date", { ascending }),
     supabase.from("trial_followups").select("booking_id, contacted, note"),
   ]);
 

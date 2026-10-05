@@ -75,6 +75,19 @@ async function ensureCustomer(email: string): Promise<string> {
   return created.user.id;
 }
 
+/**
+ * Die Werte einer Spalte, gefunden über ihre Überschrift (nicht über eine
+ * Spaltennummer: Kommt eine Spalte dazu, zählt eine feste Nummer stillschweigend
+ * die falsche — und genau das ist heute passiert, als die Notiz dazukam).
+ */
+async function spaltenwerte(page: Page, ueberschrift: string): Promise<string[]> {
+  const koepfe = await page.locator("table thead th").allInnerTexts();
+  const nummer = koepfe.findIndex((k) => k.trim().startsWith(ueberschrift));
+  expect(nummer, `Spalte ${ueberschrift} nicht gefunden`).toBeGreaterThanOrEqual(0);
+  const werte = await page.locator(`table tbody tr td:nth-child(${nummer + 1})`).allInnerTexts();
+  return werte.map((w) => w.trim());
+}
+
 test.beforeAll(async () => {
   // Course (idempotent: reuse if a previous run left it behind).
   const { data: existingCourse } = await service.from("courses").select("id").eq("name", "E2E29 Probestunden Kurs").maybeSingle();
@@ -346,5 +359,37 @@ test.describe("PROJ-29: Probestunden-Follow-up & Conversion-Tracking", () => {
     const koepfe = (await page.locator("table thead th").allInnerTexts()).map((k) => k.trim());
     expect(koepfe[koepfe.length - 1]).toBe("Notiz");
     expect(koepfe[koepfe.length - 2]).toBe("Nachverfolgung");
+  });
+  // 2026-10-05, zweiter Nachtrag: Kunde und Datum sind ebenfalls sortierbar.
+  test("AC11: Auch Kunde und Datum sortieren wirklich", async ({ page }) => {
+    await login(page);
+
+    // Dieselbe Prüfung wie bei Kurs, und aus demselben Grund: Ein zweiter Klick
+    // muss die Werte genau umkehren. Wirkt die Sortierung nicht, sind beide
+    // Listen gleich — und ein Test, der nur die Adresse liest, merkt davon
+    // nichts (siehe Nachtrag in PROJ-33).
+    for (const [ueberschrift, erwarteterSchluessel] of [
+      ["Kunde", "customer_name"],
+      ["Datum", "chosen_date"],
+    ] as const) {
+      await page.goto("/admin/probestunden");
+      await page.waitForTimeout(800);
+      const spalte = page.getByRole("button", { name: ueberschrift, exact: true });
+
+      await spalte.click();
+      await expect(page).toHaveURL(new RegExp(`sort=${erwarteterSchluessel}`));
+      await page.waitForTimeout(1200);
+      const aufsteigend = await spaltenwerte(page, ueberschrift);
+      expect(
+        new Set(aufsteigend).size,
+        `zu wenig verschiedene Werte in der Spalte ${ueberschrift}`
+      ).toBeGreaterThan(1);
+
+      await spalte.click();
+      await expect(page).toHaveURL(/dir=desc/);
+      await expect
+        .poll(async () => (await spaltenwerte(page, ueberschrift)).join(" | "), { timeout: 15000 })
+        .toBe([...aufsteigend].reverse().join(" | "));
+    }
   });
 });

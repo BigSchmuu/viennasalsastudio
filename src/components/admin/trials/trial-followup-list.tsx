@@ -188,12 +188,13 @@ export function TrialFollowupList({ rows, initialStatus }: { rows: TrialFollowup
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Kunde</TableHead>
-                {/* PROJ-33, Nachtrag 2026-10-05: nach Kurs sortierbar, damit
-                    die Probestunden eines Kurses am Stück nachgefasst werden
-                    können. */}
+                {/* PROJ-33, Nachtrag 2026-10-05: Kurs zuerst gewünscht, Kunde
+                    und Datum am selben Tag nachgezogen — eine Liste, in der nur
+                    eine von drei Überschriften klickbar ist, sieht nach einem
+                    Fehler aus. */}
+                <SortableHeader label="Kunde" sortKey="customer_name" />
                 <SortableHeader label="Kurs" sortKey="course_name" />
-                <TableHead>Datum</TableHead>
+                <SortableHeader label="Datum" sortKey="chosen_date" />
                 <TableHead>Status</TableHead>
                 <TableHead>Nachverfolgung</TableHead>
                 <TableHead>Notiz</TableHead>
