@@ -31,6 +31,18 @@ type NavGroup = { title: string; links: NavLink[] };
 
 const groups: NavGroup[] = [
   { title: "Übersicht", links: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }] },
+  // Gleich hinter dem Dashboard: Hier arbeitet der Betreiber täglich, alles
+  // andere seltener (Wunsch des Betreibers, 2026-10-05).
+  {
+    title: "Buchungen",
+    links: [
+      { href: "/admin/buchungen", label: "Buchungen", icon: ClipboardList },
+      { href: "/admin/probestunden", label: "Probestunden", icon: UserCheck },
+      // PROJ-60: bei den Buchungen, nicht bei den Kunden — es geht um Plätze an
+      // einem Abend, nicht um Stammdaten.
+      { href: "/admin/gasttaenzer", label: "Gasttänzer", icon: HeartHandshake },
+    ],
+  },
   {
     title: "Programm",
     links: [
@@ -51,16 +63,6 @@ const groups: NavGroup[] = [
     links: [
       { href: "/admin/kunden", label: "Kunden", icon: Users },
       { href: "/admin/lehrer", label: "Lehrer", icon: UserCog },
-    ],
-  },
-  {
-    title: "Buchungen",
-    links: [
-      { href: "/admin/buchungen", label: "Buchungen", icon: ClipboardList },
-      { href: "/admin/probestunden", label: "Probestunden", icon: UserCheck },
-      // PROJ-60: bei den Buchungen, nicht bei den Kunden — es geht um Plätze an
-      // einem Abend, nicht um Stammdaten.
-      { href: "/admin/gasttaenzer", label: "Gasttänzer", icon: HeartHandshake },
     ],
   },
   {

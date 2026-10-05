@@ -52,3 +52,14 @@ describe("AdminNav open-bookings counter (PROJ-39)", () => {
     expect(screen.getByLabelText("2 offene Buchungen")).toBeInTheDocument();
   });
 });
+
+describe("AdminNav order", () => {
+  // The operator opens Buchungen and Probestunden every day; everything else
+  // is occasional. A later refactor that re-sorts the groups alphabetically or
+  // by topic would quietly undo that, so the order is pinned here.
+  it("lists Buchungen and Probestunden directly after the Dashboard", () => {
+    render(<AdminNav />);
+    const labels = screen.getAllByRole("link").map((link) => link.textContent?.trim());
+    expect(labels.slice(0, 3)).toEqual(["Dashboard", "Buchungen", "Probestunden"]);
+  });
+});
