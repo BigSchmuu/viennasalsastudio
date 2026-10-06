@@ -452,9 +452,24 @@ test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
       .is("course_id", null)
       .eq("status", "active")
       .single();
-    await service
-      .from("course_memberships")
-      .insert({ customer_id: kundeId, course_id: kursId, subscription_id: abo!.id });
+    // `started_on` in der Vergangenheit, nicht die Vorgabe „heute": Der Kurs
+    // liegt donnerstags, und die Anwesenheitsliste zeigt die laufende Staffel
+    // (PROJ-72) — an einem Dienstag sind das vier vergangene Donnerstage. Für
+    // die galt ein heute beginnender Platz zu Recht noch nicht (PROJ-69), und
+    // der Kunde stünde nirgends. Geprüft wird hier die Lesestelle, nicht der
+    // Starttermin.
+    //
+    // Mit Fehlerprüfung, weil ein stumm gescheitertes Einfügen am Ende aussieht
+    // wie „der Kunde steht nicht in der Liste" — und man die Ursache dann in
+    // der Anwendung sucht statt in der Fixture.
+    const vorEinemMonat = new Date(Date.now() - 30 * 24 * 3_600_000).toISOString().slice(0, 10);
+    const { error: platzFehler } = await service.from("course_memberships").insert({
+      customer_id: kundeId,
+      course_id: kursId,
+      subscription_id: abo!.id,
+      started_on: vorEinemMonat,
+    });
+    expect(platzFehler, `Kursplatz anlegen fehlgeschlagen: ${platzFehler?.message}`).toBeNull();
 
     const { data: lehrer } = await service
       .from("profiles")

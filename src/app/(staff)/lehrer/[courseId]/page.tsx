@@ -132,6 +132,12 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
             supabase.rpc("get_course_attendance_roster", { p_course_id: courseId, p_occurrence_date: date }),
             supabase.rpc("get_course_session_note", { p_course_id: courseId, p_occurrence_date: date }),
           ]);
+          // Ein Fehler darf nicht als „keine Kursteilnehmer erfasst" enden —
+          // dieselbe Lehre wie in ladeStaffel (PROJ-72). Geloggt wird er hier,
+          // bis die Seite ihn auch anzeigt.
+          if (rosterRes.error) {
+            console.error("Anwesenheitsliste nicht lesbar", date, rosterRes.error);
+          }
           return { date, roster: (rosterRes.data ?? []) as RosterRow[], note: noteRes.data ?? "" };
         })
       ),
