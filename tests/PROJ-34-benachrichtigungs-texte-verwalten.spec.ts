@@ -261,20 +261,31 @@ test.describe("PROJ-16: Nicht zugestellte Benachrichtigungen", () => {
     await expect(zeile.getByText("E-Mail")).toBeVisible();
   });
 
-  test("Ohne Fehlschläge steht dort, dass alles zugestellt ist", async ({ page }) => {
-    // Ein leerer Bereich ließe offen, ob nichts fehlgeschlagen ist oder die
-    // Liste gar nicht geladen wurde.
-    await service.from("notification_queue").delete().eq("dedupe_key", SENDUNG_SCHLUESSEL);
-    const { count } = await service
-      .from("notification_queue")
-      .select("id", { count: "exact", head: true })
-      .or("email_status.eq.failed,push_status.eq.failed");
-    test.skip((count ?? 0) > 0, "In der Testdatenbank liegen echte Fehlschläge");
-
+  // Vorher stand hier „Ohne Fehlschläge steht dort, dass alles zugestellt ist".
+  // Der Test übersprang sich, sobald irgendwo in der Testdatenbank ein
+  // Fehlschlag lag — und dort liegen Tausende, weil ohne Mailserver jede
+  // Sendung scheitert. Er war damit dauerhaft übersprungen und bewachte nichts
+  // (Volllauf vom 2026-10-06). Ein leerer Zustand über die *ganze* Datenbank
+  // ist nicht prüfbar, solange es keine eigene Bühne gibt; er steckt jetzt in
+  // components/admin/notifications/failed-deliveries.test.tsx.
+  //
+  // Hier bleibt, was nur im Browser zu haben ist: dass die Liste den Bestand
+  // wiedergibt — eine neue Zeile erscheint, eine entfernte verschwindet.
+  test("Die Liste gibt den Bestand wieder: entfernte Sendung verschwindet", async ({ page }) => {
+    await legeFehlschlagAn();
     await login(page, ADMIN);
     await page.goto("/admin/benachrichtigungen");
     await page.waitForTimeout(1500);
-    await expect(page.getByText("Alles zugestellt.")).toBeVisible();
+    await expect(page.locator("tr", { hasText: SENDUNG_FEHLER })).toBeVisible();
+
+    await service.from("notification_queue").delete().eq("dedupe_key", SENDUNG_SCHLUESSEL);
+    await page.reload();
+    await page.waitForTimeout(1500);
+
+    // Der Abschnitt steht weiterhin da — nur ohne diese Zeile. Eine Prüfung auf
+    // „Liste leer" wäre eine Behauptung über fremde Daten.
+    await expect(page.getByText("Nicht zugestellt")).toBeVisible();
+    await expect(page.locator("tr", { hasText: SENDUNG_FEHLER })).toHaveCount(0);
   });
 
   test("Sicherheit: Ein Kunde ruft die Funktion auf und bekommt nichts", async () => {
