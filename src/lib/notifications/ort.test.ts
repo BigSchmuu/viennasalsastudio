@@ -50,10 +50,36 @@ describe("wegbeschreibung (PROJ-77)", () => {
     );
   });
 
-  it("sagt denselben Satz auf Englisch", () => {
+  it("nimmt für englische Empfänger die englische Fassung", () => {
+    const zweisprachig = {
+      ...nord,
+      beschreibungEn: "Entrance through the courtyard, second floor.",
+    };
+    expect(wegbeschreibung(zweisprachig, "en")).toBe(
+      "Here is how to find us: Entrance through the courtyard, second floor."
+    );
+  });
+
+  // PROJ-78, Entscheidung des Betreibers: Eine Wegbeschreibung hilft auch in der
+  // falschen Sprache noch zur Tür.
+  it("fällt ohne englische Fassung auf die deutsche zurück", () => {
     expect(wegbeschreibung(nord, "en")).toBe(
       "Here is how to find us: Eingang über den Hof, zweiter Stock."
     );
+    expect(wegbeschreibung({ ...nord, beschreibungEn: "   " }, "en")).toBe(
+      "Here is how to find us: Eingang über den Hof, zweiter Stock."
+    );
+  });
+
+  it("lässt die englische Fassung für deutsche Empfänger unbeachtet", () => {
+    const zweisprachig = { ...nord, beschreibungEn: "Entrance through the courtyard." };
+    expect(wegbeschreibung(zweisprachig)).toBe(
+      "So findest du uns: Eingang über den Hof, zweiter Stock."
+    );
+  });
+
+  it("bleibt leer, wenn beide Fassungen fehlen — auch auf Englisch", () => {
+    expect(wegbeschreibung({ name: "Studio Süd", adresse: null }, "en")).toBe("");
   });
 
   // Der Fall, um den es geht: Ohne Beschreibung darf *nichts* entstehen, sonst

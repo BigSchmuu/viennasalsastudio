@@ -16,6 +16,10 @@ export const locationSchema = z.object({
   name: z.string().trim().min(1, "Name ist erforderlich").max(200),
   address: z.string().trim().max(300).optional().or(z.literal("")),
   description: z.string().trim().max(1000).optional().or(z.literal("")),
+  // PROJ-78: Leer heißt „die deutsche Fassung gilt auch für englische
+  // Empfänger" — kein Pflichtfeld, sonst müsste der Betreiber jeden Standort
+  // zweimal beschreiben, bevor er ihn speichern kann.
+  description_en: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 export type LocationInput = z.infer<typeof locationSchema>;
 

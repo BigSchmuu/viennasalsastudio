@@ -142,8 +142,29 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
     await page.waitForTimeout(500);
     await page.getByLabel("Name", { exact: true }).fill(STANDORT_NAME);
     await page.getByLabel("Adresse").fill("Teststraße 1, Wien");
+    // PROJ-77/78: Die Wegbeschreibung, deutsch und englisch. Sie geht in die
+    // Kursstart-Erinnerung; bleibt das englische Feld leer, gilt die deutsche
+    // Fassung auch für englischsprachige Kunden.
+    await page.getByLabel("Beschreibung", { exact: true }).fill("Eingang über den Hof.");
+    await page.getByLabel("Beschreibung (englisch)").fill("Entrance through the courtyard.");
     await page.getByRole("button", { name: "Speichern" }).click();
     await expect(page.getByText(STANDORT_NAME)).toBeVisible();
+
+    // Beide Fassungen müssen auch nach dem Neuladen im Formular stehen — sonst
+    // sieht ein Speichern erfolgreich aus, das nichts hinterlassen hat.
+    await page.reload();
+    await page.waitForTimeout(800);
+    await page
+      .getByRole("row", { name: new RegExp(STANDORT_NAME) })
+      .getByRole("button", { name: "Bearbeiten" })
+      .click();
+    await page.waitForTimeout(500);
+    await expect(page.getByLabel("Beschreibung", { exact: true })).toHaveValue("Eingang über den Hof.");
+    await expect(page.getByLabel("Beschreibung (englisch)")).toHaveValue(
+      "Entrance through the courtyard."
+    );
+    await page.getByRole("button", { name: "Abbrechen" }).click();
+    await page.waitForTimeout(400);
 
     // Standort ohne Raum darf gelöscht werden können (Vorbedingung nicht verletzt) —
     // wir löschen NICHT, sondern navigieren stattdessen zur Raumverwaltung.

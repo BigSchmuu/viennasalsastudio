@@ -20,6 +20,8 @@ const STANDORT = `${KENNUNG} Standort`;
 const ANSCHRIFT = "Musterstraße 1, 1020 Wien";
 /** PROJ-77: die Beschreibung des Standorts — wie man hinfindet. */
 const WEGBESCHREIBUNG = "Eingang über den Hof, zweiter Stock.";
+/** PROJ-78: ihre englische Fassung. */
+const WEGBESCHREIBUNG_EN = "Entrance through the courtyard, second floor.";
 
 let service: SupabaseClient;
 let kundeId = "";
@@ -43,7 +45,12 @@ beforeAll(async () => {
 
   const { data: standort, error: standortFehler } = await service
     .from("locations")
-    .insert({ name: STANDORT, address: ANSCHRIFT, description: WEGBESCHREIBUNG })
+    .insert({
+      name: STANDORT,
+      address: ANSCHRIFT,
+      description: WEGBESCHREIBUNG,
+      description_en: WEGBESCHREIBUNG_EN,
+    })
     .select("id")
     .single();
   if (standortFehler) throw new Error(`Standort: ${standortFehler.message}`);
@@ -133,6 +140,46 @@ describe("PROJ-67: Der Standort in der Kursstart-Erinnerung", () => {
       expect(inhalt!.emailHtml).toContain(STANDORT);
     } finally {
       await service.from("locations").update({ description: WEGBESCHREIBUNG }).eq("id", standortId);
+    }
+  });
+
+  // PROJ-78: Der Empfänger dieser Suite ist deutschsprachig; für die englische
+  // Fassung wird seine Sprache für die Dauer der Prüfung umgestellt.
+  it("nennt einem englischsprachigen Kunden die englische Wegbeschreibung", async () => {
+    await service.from("profiles").update({ language: "en" }).eq("id", kundeId);
+    try {
+      const inhalt = await resolveContent(service, {
+        id: "probe",
+        customer_id: kundeId,
+        event_type: "kursstart_erinnerung",
+        payload: { booking_id: buchungId },
+      });
+
+      expect(inhalt!.emailHtml).toContain("Here is how to find us");
+      expect(inhalt!.emailHtml).toContain("courtyard");
+      expect(inhalt!.emailHtml).not.toContain("Eingang über den Hof");
+    } finally {
+      await service.from("profiles").update({ language: "de" }).eq("id", kundeId);
+    }
+  });
+
+  it("gibt einem englischsprachigen Kunden die deutsche Fassung, wenn die englische fehlt", async () => {
+    await service.from("profiles").update({ language: "en" }).eq("id", kundeId);
+    await service.from("locations").update({ description_en: null }).eq("id", standortId);
+    try {
+      const inhalt = await resolveContent(service, {
+        id: "probe",
+        customer_id: kundeId,
+        event_type: "kursstart_erinnerung",
+        payload: { booking_id: buchungId },
+      });
+
+      // Entscheidung des Betreibers: lieber holprig als gar nicht.
+      expect(inhalt!.emailHtml).toContain("Here is how to find us");
+      expect(inhalt!.emailHtml).toContain("Eingang über den Hof");
+    } finally {
+      await service.from("locations").update({ description_en: WEGBESCHREIBUNG_EN }).eq("id", standortId);
+      await service.from("profiles").update({ language: "de" }).eq("id", kundeId);
     }
   });
 

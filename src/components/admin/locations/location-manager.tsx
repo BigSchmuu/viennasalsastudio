@@ -31,6 +31,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -42,6 +43,8 @@ export type LocationRow = {
   name: string;
   address: string | null;
   description: string | null;
+  /** PROJ-78: englische Fassung der Wegbeschreibung; leer = die deutsche gilt. */
+  descriptionEn: string | null;
   roomCount: number;
 };
 
@@ -169,6 +172,7 @@ function LocationFormDialog({
       name: location?.name ?? "",
       address: location?.address ?? "",
       description: location?.description ?? "",
+      description_en: location?.descriptionEn ?? "",
     },
   });
 
@@ -180,6 +184,7 @@ function LocationFormDialog({
       formData.set("name", values.name);
       formData.set("address", values.address ?? "");
       formData.set("description", values.description ?? "");
+      formData.set("description_en", values.description_en ?? "");
 
       const result = location
         ? await updateLocation(location.id, formData)
@@ -247,6 +252,30 @@ function LocationFormDialog({
                   <FormControl>
                     <Textarea {...field} />
                   </FormControl>
+                  <FormDescription>
+                    Wie man hierher findet. Steht so in der Kursstart-Erinnerung.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* PROJ-78: Die Einleitung des Satzes ist zweisprachig, der Text war
+                es nicht — ein englischsprachiger Kunde las eine englische
+                Einleitung und danach Deutsch. */}
+            <FormField
+              control={form.control}
+              name="description_en"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Beschreibung (englisch)</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Für englischsprachige Kunden. Bleibt das Feld leer, bekommen sie die deutsche
+                    Fassung.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

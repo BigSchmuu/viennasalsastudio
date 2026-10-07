@@ -18,6 +18,8 @@ export type Ortsangabe = {
   adresse: string | null;
   /** PROJ-77: die Beschreibung des Standorts — wie man hinfindet. */
   beschreibung?: string | null;
+  /** PROJ-78: ihre englische Fassung; leer heißt „die deutsche gilt auch hier". */
+  beschreibungEn?: string | null;
 };
 
 /** „Studio Nord, Musterstraße 1" — oder nur der Name, wenn keine Anschrift hinterlegt ist. */
@@ -34,6 +36,16 @@ export function nurAdresse(ort: Ortsangabe | null | undefined): string {
 }
 
 /**
+ * Zeilenumbrüche zu Leerzeichen, Rand abschneiden.
+ *
+ * Der E-Mail-Text wird als ein Absatz gerendert: Ein Umbruch wäre dort
+ * unsichtbar, und zwei aufeinanderfolgende ergäben eine Lücke mitten im Satz.
+ */
+function gesaeubert(wert: string | null | undefined): string {
+  return (wert ?? "").replace(/\s+/g, " ").trim();
+}
+
+/**
  * „So findest du uns: Eingang über den Hof, zweiter Stock" — oder nichts
  * (PROJ-77).
  *
@@ -43,13 +55,17 @@ export function nurAdresse(ort: Ortsangabe | null | undefined): string {
  *
  * Die Einleitung gibt es in zwei Sprachen, weil der Satz im Code entsteht und
  * die Vorlage ihn nicht mehr übersetzen kann.
- *
- * Zeilenumbrüche aus dem Feld werden zu Leerzeichen: Der E-Mail-Text wird als
- * ein Absatz gerendert, ein Umbruch wäre dort unsichtbar — und zwei
- * aufeinanderfolgende ergäben eine Lücke mitten im Satz.
  */
 export function wegbeschreibung(ort: Ortsangabe | null | undefined, locale = "de"): string {
-  const text = (ort?.beschreibung ?? "").replace(/\s+/g, " ").trim();
+  // PROJ-78: Für englische Empfänger die englische Fassung — und fehlt sie, die
+  // deutsche. Entscheidung des Betreibers: Eine Wegbeschreibung hilft auch in
+  // der falschen Sprache noch zur Tür, dieselbe Abwägung wie bei den Vorlagen.
+  //
+  // Erst säubern, dann wählen: Ein Feld, in dem nur Leerzeichen stehen, ist
+  // „vorhanden" im Sinne von JavaScript und hätte die deutsche Fassung
+  // verdrängt — der englische Kunde hätte dann gar nichts bekommen.
+  const deutsch = gesaeubert(ort?.beschreibung);
+  const text = locale === "en" ? gesaeubert(ort?.beschreibungEn) || deutsch : deutsch;
   if (!text) return "";
   const einleitung = locale === "en" ? "Here is how to find us:" : "So findest du uns:";
   return `${einleitung} ${text}`;

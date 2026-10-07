@@ -1577,6 +1577,7 @@ export type Database = {
           address: string | null
           created_at: string
           description: string | null
+          description_en: string | null
           id: string
           name: string
         }
@@ -1584,6 +1585,7 @@ export type Database = {
           address?: string | null
           created_at?: string
           description?: string | null
+          description_en?: string | null
           id?: string
           name: string
         }
@@ -1591,6 +1593,7 @@ export type Database = {
           address?: string | null
           created_at?: string
           description?: string | null
+          description_en?: string | null
           id?: string
           name?: string
         }

@@ -10,6 +10,7 @@ export async function createLocation(formData: FormData): Promise<ActionResult> 
     name: formData.get("name"),
     address: formData.get("address"),
     description: formData.get("description"),
+    description_en: formData.get("description_en"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
@@ -20,6 +21,7 @@ export async function createLocation(formData: FormData): Promise<ActionResult> 
     name: parsed.data.name,
     address: parsed.data.address || null,
     description: parsed.data.description || null,
+    description_en: parsed.data.description_en || null,
   });
 
   if (error) {
@@ -35,6 +37,7 @@ export async function updateLocation(id: string, formData: FormData): Promise<Ac
     name: formData.get("name"),
     address: formData.get("address"),
     description: formData.get("description"),
+    description_en: formData.get("description_en"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
@@ -47,6 +50,7 @@ export async function updateLocation(id: string, formData: FormData): Promise<Ac
       name: parsed.data.name,
       address: parsed.data.address || null,
       description: parsed.data.description || null,
+      description_en: parsed.data.description_en || null,
     })
     .eq("id", id);
 

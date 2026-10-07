@@ -127,7 +127,9 @@
 
 | PROJ-77 | Wegbeschreibung in der Kursstart-Erinnerung | Deployed | [PROJ-77](../features/PROJ-77-wegbeschreibung-in-der-erinnerung.md) | 2026-10-07 |
 
+| PROJ-78 | Wegbeschreibung auch auf Englisch | Architected | [PROJ-78](../features/PROJ-78-wegbeschreibung-zweisprachig.md) | 2026-10-07 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-78
+## Next Available ID: PROJ-79

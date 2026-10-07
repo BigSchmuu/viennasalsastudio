@@ -136,14 +136,19 @@ export async function resolveContent(service: ServiceClient, row: QueueRow): Pro
       // am falschen gestanden.
       const { data } = await service
         .from("course_bookings")
-        .select("type, chosen_date, courses(name, rooms(name, locations(name, address, description)))")
+        .select("type, chosen_date, courses(name, rooms(name, locations(name, address, description, description_en)))")
         .eq("id", payload.booking_id as string)
         .maybeSingle();
       if (!data) return null;
       const raum = data.courses?.rooms ?? null;
       const standort = raum?.locations ?? null;
       const ortsangabe = standort
-        ? { name: standort.name, adresse: standort.address, beschreibung: standort.description }
+        ? {
+            name: standort.name,
+            adresse: standort.address,
+            beschreibung: standort.description,
+            beschreibungEn: standort.description_en,
+          }
         : null;
       // Fällt der Standort einmal weg, ist der Raumname immer noch besser als
       // ein Satz, der mit einem Doppelpunkt ins Leere läuft.
