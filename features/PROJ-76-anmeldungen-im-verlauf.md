@@ -1,6 +1,6 @@
 # PROJ-76: Anmeldungen im Verlaufsgraphen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-07
 **Last Updated:** 2026-10-07
 
@@ -131,4 +131,16 @@ Studio bei Tageslicht kaum zu erkennen. Er ist jetzt dunkler (`#c47f00`, 3,0:1) 
 nur sichtbar.
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at — ausgeliefert am 2026-10-07
+**Tag:** `v1.76.0-PROJ-76` (Commit `2a2be40`)
+**Vercel:** `…gchk6t5h1`, Ready, als Produktion aliasiert. **Keine Migration.**
+
+`/admin` antwortet mit der Login-Umleitung; der Graph liegt dahinter. Belegt ist er durch den
+erweiterten PROJ-17-Test, der Titel **und** beide Legendeneinträge prüft — die Legende erscheint nur,
+wenn die zweite Reihe wirklich angelegt ist.
+
+### Für den Betrieb
+
+Der Graph zeigt ohne eigenen Zeitraum die letzten zwölf Monate. Ein Monat ohne Balken heißt: in
+diesem Monat wurde kein Abo abgeschlossen **und** keines gekündigt — nicht, dass die Zahlen fehlen.
