@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  UserMinus,
   LayoutDashboard,
   MapPin,
   Music2,
@@ -62,6 +63,9 @@ const groups: NavGroup[] = [
     title: "Personen",
     links: [
       { href: "/admin/kunden", label: "Kunden", icon: Users },
+      // PROJ-79: bei den Personen, nicht bei den Finanzen — es geht um
+      // Kundenbeziehungen, und der Weg führt von hier ins Kundenprofil.
+      { href: "/admin/kuendigungen", label: "Kündigungen", icon: UserMinus },
       { href: "/admin/lehrer", label: "Lehrer", icon: UserCog },
     ],
   },
