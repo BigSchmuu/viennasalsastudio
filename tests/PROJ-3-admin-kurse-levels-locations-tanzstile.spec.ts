@@ -29,6 +29,13 @@ test.beforeAll(async () => {
   // This course is never booked (course_bookings/subscriptions would RESTRICT
   // the delete), so a plain delete is safe.
   await service.from("courses").delete().ilike("name", "E2E Salsa Kurs%");
+
+  // Dieselbe Falle beim Standort: Bricht der Lauf zwischen Anlegen und Löschen
+  // ab — bei mir am 2026-10-07 zweimal —, bleibt "E2E Studio Neu" stehen, und
+  // beim nächsten Lauf trifft die Prüfung zwei Zeilen mit demselben Namen.
+  // Erst der Raum, dann der Standort: Der Raum hängt am Standort.
+  await service.from("rooms").delete().ilike("name", "E2E Saal Neu%");
+  await service.from("locations").delete().ilike("name", "E2E Studio Neu%");
 });
 
 async function loginAsAdmin(page: Page) {
@@ -163,7 +170,8 @@ test.describe("PROJ-3: Admin — Kurse, Levels, Locations & Tanzstile", () => {
     await expect(page.getByLabel("Beschreibung (englisch)")).toHaveValue(
       "Entrance through the courtyard."
     );
-    await page.getByRole("button", { name: "Abbrechen" }).click();
+    // Der Dialog hat nur „Speichern" und das Kreuz — kein „Abbrechen".
+    await page.keyboard.press("Escape");
     await page.waitForTimeout(400);
 
     // Standort ohne Raum darf gelöscht werden können (Vorbedingung nicht verletzt) —

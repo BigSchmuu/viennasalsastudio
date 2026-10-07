@@ -1,6 +1,6 @@
 # PROJ-78: Die Wegbeschreibung auch auf Englisch
 
-## Status: Architected
+## Status: Approved
 **Created:** 2026-10-07
 **Last Updated:** 2026-10-07
 
@@ -108,8 +108,46 @@ Eine Spalte, ein Feld im Formular, eine Zeile Sprachwahl im Baustein aus PROJ-77
 **Muss vor der Auslieferung eingespielt werden:** Die Standortverwaltung schreibt die Spalte und der
 Versand liest sie; fehlt sie, scheitert beides (die Erinnerung läuft dann als „nicht zugestellt" auf).
 
-## QA Test Results
-_To be added by /qa_
+## QA Test Results (2026-10-07)
+
+**Empfehlung: bereit für die Produktion.** Migration vom Betreiber in Test *und* Produktion
+eingespielt.
+
+| | |
+|---|---|
+| Regeln (Unit) | 13 für den Satzbaustein, davon 5 neu: englische Fassung, Rückfall, nur Leerzeichen, deutsche Empfänger, beide leer |
+| Datenbank | 8 in der PROJ-67-Suite, davon 2 neu: englische Wegbeschreibung und Rückfall auf Deutsch, je über die echte Versandkette |
+| Browser (E2E) | PROJ-3 erweitert: beide Felder ausfüllen, speichern, neu laden, beide Werte stehen noch da |
+| Rückblick | PROJ-3 und PROJ-34 in Chromium und Mobile Safari: 7 + 20 Prüfungen grün |
+| Gesamt | 1145 Unit- und Datenbankprüfungen grün |
+| Produktfehler gefunden | 1 in der eigenen ersten Fassung, vor der Auslieferung behoben |
+
+### Was geprüft ist
+
+**Die Sprachwahl** in allen vier Kombinationen: englischer Empfänger mit englischer Fassung,
+englischer Empfänger ohne sie (deutsche Fassung, englische Einleitung), deutscher Empfänger mit
+hinterlegter englischer Fassung (bleibt deutsch), und beide Fassungen leer (kein Satz).
+
+**Über die echte Versandkette**, nicht nur am Baustein: Die Datenbankprüfungen stellen die Sprache des
+Testkunden um, lassen `resolveContent` den fertigen Inhalt bauen und lesen im HTML nach.
+
+**Im Browser**: beide Felder ausfüllen, speichern, Seite neu laden, Dialog erneut öffnen — beide Werte
+stehen noch da. Ohne das Neuladen hätte ein Speichern erfolgreich ausgesehen, das nichts hinterlässt.
+
+### Der Fehler in der ersten Fassung
+
+Die Sprachwahl prüfte, **ob** das englische Feld vorhanden ist, statt ob etwas darin steht. Ein Feld
+mit einem einzelnen Leerzeichen hätte damit die deutsche Fassung verdrängt — der englische Kunde hätte
+gar keine Wegbeschreibung bekommen, also das Gegenteil der Entscheidung. Jetzt wird erst gesäubert,
+dann gewählt; der Test dazu stand vorher da und hat es sofort gemeldet.
+
+### Zwei Reste meiner eigenen Fehlläufe
+
+Die erweiterte PROJ-3-Prüfung schloss den Dialog über einen Knopf „Abbrechen", den es dort nicht gibt
+— er schließt über Escape. Und die abgebrochenen Läufe ließen jeweils einen Standort „E2E Studio Neu"
+stehen; beim nächsten Lauf traf die Prüfung zwei Zeilen mit demselben Namen. Die Fixture räumt solche
+Reste jetzt selbst weg, mit derselben Begründung, die in dieser Datei schon für die Kurse steht.
+
 
 ## Deployment
 _To be added by /deploy_
