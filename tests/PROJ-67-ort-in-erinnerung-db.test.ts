@@ -18,6 +18,8 @@ const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const KENNUNG = `E2E67-${Date.now()}`;
 const STANDORT = `${KENNUNG} Standort`;
 const ANSCHRIFT = "Musterstraße 1, 1020 Wien";
+/** PROJ-77: die Beschreibung des Standorts — wie man hinfindet. */
+const WEGBESCHREIBUNG = "Eingang über den Hof, zweiter Stock.";
 
 let service: SupabaseClient;
 let kundeId = "";
@@ -41,7 +43,7 @@ beforeAll(async () => {
 
   const { data: standort, error: standortFehler } = await service
     .from("locations")
-    .insert({ name: STANDORT, address: ANSCHRIFT })
+    .insert({ name: STANDORT, address: ANSCHRIFT, description: WEGBESCHREIBUNG })
     .select("id")
     .single();
   if (standortFehler) throw new Error(`Standort: ${standortFehler.message}`);
@@ -97,6 +99,41 @@ describe("PROJ-67: Der Standort in der Kursstart-Erinnerung", () => {
     expect(inhalt, "Kein Inhalt erzeugt").toBeTruthy();
     expect(inhalt!.emailHtml).toContain(STANDORT);
     expect(inhalt!.emailHtml).toContain(ANSCHRIFT);
+  });
+
+  // PROJ-77: Die Beschreibung des Standorts steht in der E-Mail — und *nicht*
+  // in der Push-Nachricht, dort wäre eine Wegbeschreibung zu lang.
+  it("nennt die Wegbeschreibung in der E-Mail, nicht am Handy", async () => {
+    const inhalt = await resolveContent(service, {
+      id: "probe",
+      customer_id: kundeId,
+      event_type: "kursstart_erinnerung",
+      payload: { booking_id: buchungId },
+    });
+
+    expect(inhalt!.emailHtml).toContain("So findest du uns");
+    expect(inhalt!.emailHtml).toContain("Eingang über den Hof");
+    expect(inhalt!.pushBody).not.toContain("Eingang über den Hof");
+  });
+
+  it("lässt die Wegbeschreibung weg, wenn der Standort keine hat", async () => {
+    await service.from("locations").update({ description: null }).eq("id", standortId);
+    try {
+      const inhalt = await resolveContent(service, {
+        id: "probe",
+        customer_id: kundeId,
+        event_type: "kursstart_erinnerung",
+        payload: { booking_id: buchungId },
+      });
+
+      // Kein Satzanfang ohne Fortsetzung: Die Einleitung entsteht im Code und
+      // bleibt damit ganz weg.
+      expect(inhalt!.emailHtml).not.toContain("So findest du uns");
+      // Der Standort selbst steht weiterhin da.
+      expect(inhalt!.emailHtml).toContain(STANDORT);
+    } finally {
+      await service.from("locations").update({ description: WEGBESCHREIBUNG }).eq("id", standortId);
+    }
   });
 
   it("nennt ihn auch in der Mitteilung aufs Handy", async () => {

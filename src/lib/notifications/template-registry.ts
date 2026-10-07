@@ -161,7 +161,12 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
     // Musterstraße 1"), `{adresse}` nur die Anschrift — für alle, die ihren
     // Text selbst zusammensetzen wollen. Zwei Standorte, und es stand bisher
     // in keiner Erinnerung, welcher gemeint ist.
-    placeholders: ["kurs", "datum", "typ", "ort", "adresse"],
+    // PROJ-77: `{wegbeschreibung}` trägt den fertigen Satz aus der Beschreibung
+    // des Standorts („So findest du uns: …") — oder nichts, wenn dort keine
+    // hinterlegt ist. Deshalb steht das Leerzeichen *vor* dem Platzhalter im
+    // Text und nicht im Wert: Bleibt er leer, verschwindet es in der E-Mail
+    // mit. Nicht in der Push-Nachricht — eine Wegbeschreibung ist dort zu lang.
+    placeholders: ["kurs", "datum", "typ", "ort", "adresse", "wegbeschreibung"],
     boldPlaceholder: "kurs",
     samples: {
       kurs: "Salsa Beginner 1",
@@ -169,17 +174,19 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
       typ: "Probestunde",
       ort: "Studio Nord, Musterstraße 1, 1020 Wien",
       adresse: "Musterstraße 1, 1020 Wien",
+      wegbeschreibung: "So findest du uns: Eingang über den Hof, zweiter Stock, Klingel „Studio“.",
     },
     defaults: {
       emailSubject: "Erinnerung: {typ} morgen in {kurs}",
-      emailBody: "Denk dran: Morgen, {datum}, hast du deine {typ} in {kurs}. Wir sehen uns hier: {ort}.",
+      emailBody:
+        "Denk dran: Morgen, {datum}, hast du deine {typ} in {kurs}. Wir sehen uns hier: {ort}. {wegbeschreibung}",
       pushTitle: "Erinnerung: {typ} morgen in {kurs}",
       pushBody: "Morgen: {typ} in {kurs} · {ort}.",
     },
     defaultsEn: {
       emailSubject: "Reminder: {typ} tomorrow in {kurs}",
       emailBody:
-        "A quick reminder: tomorrow, {datum}, you have your {typ} in {kurs}. Here is where to find us: {ort}.",
+        "A quick reminder: tomorrow, {datum}, you have your {typ} in {kurs}. Here is where to find us: {ort}. {wegbeschreibung}",
       pushTitle: "Reminder: {typ} tomorrow in {kurs}",
       pushBody: "Tomorrow: {typ} in {kurs} · {ort}.",
     },

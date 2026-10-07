@@ -125,7 +125,9 @@
 
 | PROJ-76 | Anmeldungen im Verlaufsgraphen | Deployed | [PROJ-76](../features/PROJ-76-anmeldungen-im-verlauf.md) | 2026-10-07 |
 
+| PROJ-77 | Wegbeschreibung in der Kursstart-Erinnerung | Approved | [PROJ-77](../features/PROJ-77-wegbeschreibung-in-der-erinnerung.md) | 2026-10-07 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-77
+## Next Available ID: PROJ-78

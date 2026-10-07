@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nurAdresse, ortMitAdresse } from "./ort";
+import { nurAdresse, ortMitAdresse, wegbeschreibung } from "./ort";
 
 describe("PROJ-67: Der Standort in der Erinnerung", () => {
   it("setzt Name und Anschrift zusammen", () => {
@@ -34,5 +34,48 @@ describe("PROJ-67: Der Standort in der Erinnerung", () => {
     expect(nurAdresse({ name: "Studio Nord", adresse: "Musterstraße 1" })).toBe("Musterstraße 1");
     expect(nurAdresse({ name: "Studio Nord", adresse: null })).toBe("");
     expect(nurAdresse(null)).toBe("");
+  });
+});
+
+describe("wegbeschreibung (PROJ-77)", () => {
+  const nord = {
+    name: "Studio Nord",
+    adresse: "Musterstraße 1",
+    beschreibung: "Eingang über den Hof, zweiter Stock.",
+  };
+
+  it("macht aus der Beschreibung einen fertigen Satz", () => {
+    expect(wegbeschreibung(nord)).toBe(
+      "So findest du uns: Eingang über den Hof, zweiter Stock."
+    );
+  });
+
+  it("sagt denselben Satz auf Englisch", () => {
+    expect(wegbeschreibung(nord, "en")).toBe(
+      "Here is how to find us: Eingang über den Hof, zweiter Stock."
+    );
+  });
+
+  // Der Fall, um den es geht: Ohne Beschreibung darf *nichts* entstehen, sonst
+  // bliebe im Vorlagentext eine Einleitung ohne Fortsetzung stehen.
+  it("bleibt leer, wenn keine Beschreibung hinterlegt ist", () => {
+    expect(wegbeschreibung({ name: "Studio Süd", adresse: "Beispielweg 4" })).toBe("");
+    expect(wegbeschreibung({ name: "Studio Süd", adresse: null, beschreibung: null })).toBe("");
+    expect(wegbeschreibung({ name: null, adresse: null, beschreibung: "   " })).toBe("");
+    expect(wegbeschreibung(null)).toBe("");
+    expect(wegbeschreibung(undefined)).toBe("");
+  });
+
+  // Der E-Mail-Text ist ein Absatz; ein Umbruch wäre dort unsichtbar und zwei
+  // ergäben eine Lücke mitten im Satz.
+  it("macht aus Umbrüchen und Leerzeilen einzelne Leerzeichen", () => {
+    const mehrzeilig = {
+      name: "Studio Nord",
+      adresse: null,
+      beschreibung: "Eingang über den Hof.\n\n  Zweiter Stock,\nKlingel „Studio“.",
+    };
+    expect(wegbeschreibung(mehrzeilig)).toBe(
+      "So findest du uns: Eingang über den Hof. Zweiter Stock, Klingel „Studio“."
+    );
   });
 });

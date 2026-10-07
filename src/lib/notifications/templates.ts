@@ -161,6 +161,8 @@ export type KursstartErinnerungDetails = {
   ort?: string;
   /** PROJ-67: nur die Anschrift. */
   adresse?: string;
+  /** PROJ-77: der fertige Satz aus der Beschreibung des Standorts — oder leer. */
+  wegbeschreibung?: string;
 };
 export type SepaAnkuendigungDetails = {
   amount: number;
@@ -557,6 +559,7 @@ export function buildNotificationContent(
             typ: label,
             ort: d.ort ?? "",
             adresse: d.adresse ?? "",
+            wegbeschreibung: d.wegbeschreibung ?? "",
           },
           override,
           "",
@@ -784,6 +787,10 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
           // Platzhalter sei kaputt.
           ort: "Studio Nord, Musterstraße 1, 1020 Wien",
           adresse: "Musterstraße 1, 1020 Wien",
+          // PROJ-77: Der fertige Satz, wie ihn der Versand baut — nicht der
+          // rohe Feldinhalt. Die Vorschau soll zeigen, was ankommt.
+          wegbeschreibung:
+            "So findest du uns: Eingang über den Hof, zweiter Stock, Klingel „Studio“.",
         },
         fields
       );

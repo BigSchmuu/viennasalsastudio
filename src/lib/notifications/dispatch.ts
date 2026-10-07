@@ -11,7 +11,7 @@ import {
   type NotificationContent,
 } from "@/lib/notifications/templates";
 import type { TemplateFields } from "@/lib/notifications/template-registry";
-import { nurAdresse, ortMitAdresse } from "@/lib/notifications/ort";
+import { nurAdresse, ortMitAdresse, wegbeschreibung } from "@/lib/notifications/ort";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { hasConvertedSince } from "@/lib/trials/conversion";
@@ -136,13 +136,15 @@ export async function resolveContent(service: ServiceClient, row: QueueRow): Pro
       // am falschen gestanden.
       const { data } = await service
         .from("course_bookings")
-        .select("type, chosen_date, courses(name, rooms(name, locations(name, address)))")
+        .select("type, chosen_date, courses(name, rooms(name, locations(name, address, description)))")
         .eq("id", payload.booking_id as string)
         .maybeSingle();
       if (!data) return null;
       const raum = data.courses?.rooms ?? null;
       const standort = raum?.locations ?? null;
-      const ortsangabe = standort ? { name: standort.name, adresse: standort.address } : null;
+      const ortsangabe = standort
+        ? { name: standort.name, adresse: standort.address, beschreibung: standort.description }
+        : null;
       // Fällt der Standort einmal weg, ist der Raumname immer noch besser als
       // ein Satz, der mit einem Doppelpunkt ins Leere läuft.
       const ort = ortMitAdresse(ortsangabe) || (raum?.name ?? "");
@@ -152,6 +154,9 @@ export async function resolveContent(service: ServiceClient, row: QueueRow): Pro
         type: data.type as "trial" | "dropin",
         ort,
         adresse: nurAdresse(ortsangabe),
+        // PROJ-77: Die Beschreibung des Standorts sagt, wie man hinfindet. Der
+        // Satz braucht die Sprache des Empfängers, weil er im Code entsteht.
+        wegbeschreibung: wegbeschreibung(ortsangabe, locale),
       };
       const key = resolveTemplateKey("kursstart_erinnerung", details);
       return buildNotificationContent(

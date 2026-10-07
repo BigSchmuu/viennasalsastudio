@@ -13,7 +13,12 @@
  * dem nichts mehr kommt.
  */
 
-export type Ortsangabe = { name: string | null; adresse: string | null };
+export type Ortsangabe = {
+  name: string | null;
+  adresse: string | null;
+  /** PROJ-77: die Beschreibung des Standorts — wie man hinfindet. */
+  beschreibung?: string | null;
+};
 
 /** „Studio Nord, Musterstraße 1" — oder nur der Name, wenn keine Anschrift hinterlegt ist. */
 export function ortMitAdresse(ort: Ortsangabe | null | undefined): string {
@@ -26,4 +31,26 @@ export function ortMitAdresse(ort: Ortsangabe | null | undefined): string {
 /** Nur die Anschrift, ohne Namen — leer, wenn keine hinterlegt ist. */
 export function nurAdresse(ort: Ortsangabe | null | undefined): string {
   return ort?.adresse?.trim() ?? "";
+}
+
+/**
+ * „So findest du uns: Eingang über den Hof, zweiter Stock" — oder nichts
+ * (PROJ-77).
+ *
+ * Der Satz entsteht hier und nicht in der Vorlage, aus demselben Grund wie bei
+ * `{ort}`: Stünde die Einleitung im Vorlagentext, bliebe sie bei einem Standort
+ * ohne Beschreibung als Satzanfang ohne Fortsetzung stehen.
+ *
+ * Die Einleitung gibt es in zwei Sprachen, weil der Satz im Code entsteht und
+ * die Vorlage ihn nicht mehr übersetzen kann.
+ *
+ * Zeilenumbrüche aus dem Feld werden zu Leerzeichen: Der E-Mail-Text wird als
+ * ein Absatz gerendert, ein Umbruch wäre dort unsichtbar — und zwei
+ * aufeinanderfolgende ergäben eine Lücke mitten im Satz.
+ */
+export function wegbeschreibung(ort: Ortsangabe | null | undefined, locale = "de"): string {
+  const text = (ort?.beschreibung ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const einleitung = locale === "en" ? "Here is how to find us:" : "So findest du uns:";
+  return `${einleitung} ${text}`;
 }
