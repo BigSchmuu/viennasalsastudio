@@ -131,7 +131,9 @@
 
 | PROJ-79 | Überblick der Kündigungen | Deployed | [PROJ-79](../features/PROJ-79-kuendigungen-ueberblick.md) | 2026-10-07 |
 
+| PROJ-80 | Kündigungsgrund | Approved | [PROJ-80](../features/PROJ-80-kuendigungsgrund.md) | 2026-10-07 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-80
+## Next Available ID: PROJ-81
