@@ -123,7 +123,9 @@
 
 | PROJ-75 | Heutige Kurse im Admin-Dashboard | Deployed | [PROJ-75](../features/PROJ-75-heutige-kurse-im-dashboard.md) | 2026-10-07 |
 
+| PROJ-76 | Anmeldungen im Verlaufsgraphen | Approved | [PROJ-76](../features/PROJ-76-anmeldungen-im-verlauf.md) | 2026-10-07 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-76
+## Next Available ID: PROJ-77

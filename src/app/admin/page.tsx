@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolvePeriod, trailing12MonthsPeriod, trendGranularity, buildBuckets } from "@/lib/analytics/period";
+import { zaehleJeZeitraum } from "@/lib/analytics/verlauf";
 import { daysUntilNextBirthday, formatNextBirthdayMonthDay } from "@/lib/birthdays";
 import { PeriodFilter } from "@/components/admin/analytics/period-filter";
 import { MetricTile } from "@/components/admin/analytics/metric-tile";
@@ -27,7 +28,8 @@ export default async function AdminDashboardPage({
 
   const supabase = await createClient();
 
-  const [invoicesRes, subscriptionsRes, occupancyRes, coursesRes, activeSubsRes, birthdatesRes] = await Promise.all([
+  const [invoicesRes, subscriptionsRes, occupancyRes, coursesRes, activeSubsRes, birthdatesRes, anmeldungenRes] =
+    await Promise.all([
     supabase
       .from("invoices")
       .select("gross_amount, invoice_date, cancels_invoice_id")
@@ -46,6 +48,14 @@ export default async function AdminDashboardPage({
     // active/paused today via the cron job is always reflected immediately.
     supabase.from("subscriptions").select("customer_id").eq("status", "active"),
     supabase.from("profiles").select("id, full_name, birthdate").eq("role", "customer").not("birthdate", "is", null),
+    // PROJ-76: der Gegenspieler zur Kündigung — jedes Abo am Tag seines
+    // Abschlusses. `created_at` ist ein Zeitstempel, nicht ein Datum; die
+    // Zuordnung zum Monat macht deshalb zaehleJeZeitraum().
+    supabase
+      .from("subscriptions")
+      .select("created_at")
+      .gte("created_at", `${trendWindow.from}T00:00:00Z`)
+      .lte("created_at", `${trendWindow.to}T23:59:59Z`),
   ]);
 
   // PROJ-75: Die Arbeit des Tages. Scheitert das Laden, bleibt das Dashboard
@@ -103,10 +113,22 @@ export default async function AdminDashboardPage({
       .reduce((sum, i) => sum + i.gross_amount, 0),
   }));
 
-  const cancellationBuckets: TrendPoint[] = buckets.map((bucket) => ({
+  // PROJ-76: Anmeldungen und Kündigungen in einem Graphen — die erste Reihe ist
+  // der Zugang, die zweite der Abgang. Gezählt wird über denselben Weg, damit
+  // nicht zwei Zeilen zwei Wahrheiten über eine Monatsgrenze ergeben.
+  const anmeldungenJeZeitraum = zaehleJeZeitraum(
+    buckets,
+    (anmeldungenRes.data ?? []).map((s) => s.created_at)
+  );
+  const kuendigungenJeZeitraum = zaehleJeZeitraum(
+    buckets,
+    cancellations.map((s) => s.cancelled_at)
+  );
+  const verlaufBuckets: TrendPoint[] = buckets.map((bucket, i) => ({
     key: bucket.key,
     label: bucket.label,
-    value: cancellations.filter((s) => s.cancelled_at! >= bucket.from && s.cancelled_at! <= bucket.to).length,
+    value: anmeldungenJeZeitraum[i],
+    secondValue: kuendigungenJeZeitraum[i],
   }));
 
   const occupancyByCourseId = new Map((occupancyRes.data ?? []).map((o) => [o.course_id, o.occupied_count]));
@@ -175,10 +197,16 @@ export default async function AdminDashboardPage({
           valueFormat="currency"
         />
         <TrendChart
-          title="Kündigungs-Verlauf"
-          data={cancellationBuckets}
-          color="#ffb000"
-          valueLabel="Kündigungen"
+          title="Anmeldungen & Kündigungen"
+          data={verlaufBuckets}
+          /* Die Farben sind geprüft, nicht gewählt: Das Teal der Kursstufen und
+             ein dunkleres Mango bestehen die Prüfung auf Farbfehlsichtigkeit
+             (ΔE 13 bei Protanopie) und auf Kontrast zur Kartenfläche. Das
+             bisherige #ffb000 lag bei 1,78:1 — zu blass, um einen Balken
+             verlässlich zu erkennen. */
+          color="#2a9d8f"
+          valueLabel="Anmeldungen"
+          secondSeries={{ label: "Kündigungen", color: "#c47f00" }}
         />
       </div>
 

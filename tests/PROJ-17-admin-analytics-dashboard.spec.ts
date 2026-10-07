@@ -61,7 +61,16 @@ test.describe("PROJ-17: Admin-Analytics-Dashboard", () => {
     const cancelTile = page.getByText("Kündigungen im Zeitraum").locator("xpath=following-sibling::*").first();
     await expect(cancelTile).not.toHaveText("0");
     expect(Number(await cancelTile.textContent())).toBeGreaterThanOrEqual(1);
-    await expect(page.getByText("Kündigungs-Verlauf")).toBeVisible();
+    // PROJ-76: Der Graph heißt jetzt „Anmeldungen & Kündigungen" und zeigt
+    // beide Reihen. Geprüft wird die Legende: Sie erscheint nur, wenn die
+    // zweite Reihe wirklich angelegt ist — und ohne sie wäre nicht
+    // unterscheidbar, welcher Balken welcher ist.
+    // Der benannte Bereich, nicht irgendein div um den Titel: Ein `div`-Filter
+    // mit `.last()` trifft den Kartentitel, und der enthält die Legende nicht.
+    const graph = page.getByRole("region", { name: "Anmeldungen & Kündigungen" });
+    await expect(graph).toBeVisible();
+    await expect(graph.getByText("Anmeldungen", { exact: true })).toBeVisible();
+    await expect(graph.getByText("Kündigungen", { exact: true })).toBeVisible();
   });
 
   test("AC5: Auslastungs-Liste zeigt nur Kurse mit maximaler Teilnehmerzahl", async ({ page }) => {
