@@ -10,6 +10,8 @@ function kuendigung(felder: Partial<Kuendigung> = {}): Kuendigung {
     beginn: "2026-01-15",
     wirksamAb: "2026-10-31",
     angekuendigt: false,
+    grund: null,
+    notiz: null,
     ...felder,
   };
 }

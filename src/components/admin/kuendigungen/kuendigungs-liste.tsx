@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { laufzeit, type Kuendigung } from "@/lib/admin/kuendigungen";
+import { grundLabel, zaehleGruende } from "@/lib/subscriptions/kuendigungsgrund";
 
 function datum(wert: string | null): string {
   if (!wert) return "—";
@@ -62,6 +63,7 @@ function Abschnitt({
                   <TableHead>Abo</TableHead>
                   <TableHead>{zeigeGekuendigtAm ? "Beendet am" : "Endet am"}</TableHead>
                   <TableHead>Laufzeit</TableHead>
+                  <TableHead>Grund</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -81,6 +83,13 @@ function Abschnitt({
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {laufzeit(k.beginn, k.wirksamAb)}
                     </TableCell>
+                    {/* PROJ-80: Der Grund ist freiwillig — „Keine Angabe" ist
+                        deshalb keine Lücke, sondern die Wahrheit. Die Notiz
+                        steht darunter, wenn es eine gibt. */}
+                    <TableCell className="max-w-[260px] text-sm text-muted-foreground">
+                      {grundLabel(k.grund)}
+                      {k.notiz ? <span className="block text-xs italic">{k.notiz}</span> : null}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -89,6 +98,24 @@ function Abschnitt({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function GruendeZaehlung({ kuendigungen }: { kuendigungen: Kuendigung[] }) {
+  const zaehlung = zaehleGruende(kuendigungen.map((k) => k.grund));
+  if (zaehlung.gesamt === 0) return null;
+
+  const ohneAngabe = zaehlung.gesamt - zaehlung.mitGrund;
+  return (
+    <p className="text-sm text-muted-foreground">
+      <span className="font-medium text-foreground">
+        Gründe im Zeitraum ({zaehlung.gesamt} Kündigungen, {zaehlung.mitGrund} mit Grund):
+      </span>{" "}
+      {zaehlung.gruende.length === 0
+        ? "keine Angaben"
+        : zaehlung.gruende.map((g) => `${g.label} ${g.anzahl}`).join(" · ")}
+      {ohneAngabe > 0 ? ` · ohne Angabe ${ohneAngabe}` : ""}
+    </p>
   );
 }
 
@@ -111,6 +138,12 @@ export function KuendigungsListe({
         kuendigungen={angekuendigt}
         zeigeGekuendigtAm={false}
       />
+      {/* PROJ-80: Erst die Zählung macht aus einzelnen Gründen eine Auskunft —
+          Zeile für Zeile liest sie niemand zusammen. „Ohne Angabe" steht
+          daneben, nicht darunter: Es ist kein Grund, sondern die Antwort auf
+          „wie belastbar ist das hier?". */}
+      <GruendeZaehlung kuendigungen={beendet} />
+
       <Abschnitt
         titel="Beendet"
         hinweis={zeitraumText}

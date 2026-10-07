@@ -108,6 +108,9 @@ test.beforeAll(async () => {
       price: 50,
       cycle_anchor_date: "2024-09-01",
       cancelled_at: monatsErster(),
+      // PROJ-80: mit Grund und Notiz — beides freiwillig, hier gesetzt.
+      cancellation_reason: "zu_teuer",
+      cancellation_note: "Studium beendet, Gehalt noch nicht da.",
     })
     .select("id")
     .single();
@@ -201,5 +204,33 @@ test.describe("PROJ-79: Überblick der Kündigungen", () => {
 
     await angekuendigt(page).getByRole("link", { name: NAMEN.offen }).click();
     await page.waitForURL(new RegExp(`/admin/kunden/${konten.offen}`), { timeout: 20000 });
+  });
+  // PROJ-80: Der Grund steht in der Zeile, und über der Liste wird gezählt.
+  test("Der Kündigungsgrund steht in der Zeile und in der Zählung", async ({ page }) => {
+    await login(page);
+    await gehZu(page, "/admin/kuendigungen");
+    await page.waitForTimeout(1200);
+
+    const zeile = beendet(page).getByRole("row", { name: new RegExp(NAMEN.beendet) });
+    await expect(zeile).toContainText("Zu teuer");
+    await expect(zeile).toContainText("Studium beendet");
+
+    // Die Zählung nennt den Grund mit Anzahl — und wie viele überhaupt einen
+    // genannt haben. Ohne diese zweite Zahl wäre nicht zu sehen, wie belastbar
+    // die erste ist.
+    await expect(page.getByText(/Gründe im Zeitraum/)).toBeVisible();
+    await expect(page.getByText(/Zu teuer \d+/)).toBeVisible();
+    await expect(page.getByText(/mit Grund/)).toBeVisible();
+  });
+
+  test("Eine Kündigung ohne Grund sagt „Keine Angabe“", async ({ page }) => {
+    await login(page);
+    await gehZu(page, "/admin/kuendigungen");
+    await page.waitForTimeout(1200);
+
+    // Die angekündigte Kündigung der Fixture hat keinen Grund — freiwillig heißt
+    // freiwillig, und die Lücke wird benannt statt leer gelassen.
+    const zeile = angekuendigt(page).getByRole("row", { name: new RegExp(NAMEN.offen) });
+    await expect(zeile).toContainText("Keine Angabe");
   });
 });

@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { subscriptionSchema } from "@/lib/validations/admin";
 import { heuteInWien } from "@/lib/constants/zeitzone";
 import { isForeignKeyRestrictError, type ActionResult } from "@/lib/actions/types";
+import { istKuendigungsgrund } from "@/lib/subscriptions/kuendigungsgrund";
 
 function parseSubscriptionFormData(formData: FormData) {
   const priceRaw = formData.get("price");
@@ -14,6 +15,8 @@ function parseSubscriptionFormData(formData: FormData) {
     status: formData.get("status"),
     course_id: formData.get("course_id") ?? "",
     cycle_anchor_date: formData.get("cycle_anchor_date"),
+    cancellation_reason: formData.get("cancellation_reason") ?? "",
+    cancellation_note: formData.get("cancellation_note") ?? "",
   });
 }
 
@@ -55,11 +58,33 @@ export async function updateSubscription(
 
   const { data: before } = await supabase
     .from("subscriptions")
-    .select("status, course_id")
+    .select("status, course_id, cancelled_at")
     .eq("id", id)
     .single();
 
   const newCourseId = parsed.data.course_id || null;
+  const wirdGekuendigt = parsed.data.status === "cancelled";
+
+  // PROJ-80: `cancelled_at` wurde hier nie gesetzt. Eine Kündigung, die die
+  // Verwaltung aufnahm — weil jemand angerufen oder geschrieben hat —, blieb
+  // damit in jeder Auswertung unsichtbar: in der Kachel auf dem Dashboard, im
+  // Verlauf und in der Übersicht (PROJ-79). Dieselbe stille Untererfassung, die
+  // PROJ-9 für den Versandlauf längst behoben hatte.
+  //
+  // Ein bereits gesetztes Datum bleibt stehen: Sonst wanderte die Kündigung bei
+  // jedem Speichern in den heutigen Monat.
+  const kuendigungsFelder = wirdGekuendigt
+    ? {
+        cancelled_at: before?.cancelled_at ?? heuteInWien(),
+        cancellation_reason: istKuendigungsgrund(parsed.data.cancellation_reason)
+          ? parsed.data.cancellation_reason
+          : null,
+        cancellation_note: parsed.data.cancellation_note || null,
+      }
+    : // Zurück auf aktiv oder pausiert: Die Kündigung gilt nicht mehr, und ein
+      // Grund, der nichts mehr erklärt, bleibt nicht stehen.
+      { cancelled_at: null, cancellation_reason: null, cancellation_note: null };
+
   const { error } = await supabase
     .from("subscriptions")
     .update({
@@ -68,6 +93,7 @@ export async function updateSubscription(
       status: parsed.data.status,
       course_id: newCourseId,
       cycle_anchor_date: parsed.data.cycle_anchor_date,
+      ...kuendigungsFelder,
     })
     .eq("id", id);
 

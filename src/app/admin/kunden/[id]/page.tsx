@@ -53,7 +53,7 @@ export default async function CustomerDetailPage({
     supabase
       .from("subscriptions")
       .select(
-        "id, name, price, status, course_id, cycle_anchor_date, pending_status, pending_effective_date, courses(runs_until)"
+        "id, name, price, status, course_id, cycle_anchor_date, pending_status, pending_effective_date, cancellation_reason, cancellation_note, courses(runs_until)"
       )
       .eq("customer_id", id)
       .order("created_at", { ascending: true }),
@@ -124,6 +124,8 @@ export default async function CustomerDetailPage({
     cycleAnchorDate: s.cycle_anchor_date,
     pendingStatus: s.pending_status,
     pendingEffectiveDate: s.pending_effective_date,
+    cancellationReason: s.cancellation_reason,
+    cancellationNote: s.cancellation_note,
   }));
 
   const courses = coursesRes.data ?? [];

@@ -152,6 +152,10 @@ export const subscriptionSchema = z.object({
   status: z.enum(subscriptionStatusValues, { message: "Bitte einen Status wählen" }),
   course_id: z.string().uuid("Ungültiger Kurs").optional().or(z.literal("")),
   cycle_anchor_date: z.string().trim().min(1, "Ankerdatum ist erforderlich"),
+  // PROJ-80: Beides freiwillig — auch wenn die Verwaltung die Kündigung
+  // aufnimmt, weil jemand angerufen hat.
+  cancellation_reason: z.string().trim().optional().or(z.literal("")),
+  cancellation_note: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 export type SubscriptionInput = z.infer<typeof subscriptionSchema>;
 

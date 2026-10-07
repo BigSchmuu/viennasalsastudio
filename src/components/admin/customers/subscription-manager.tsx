@@ -16,6 +16,8 @@ import {
   subscriptionStatusColor,
 } from "@/lib/constants/subscription-status";
 import { heuteInWien } from "@/lib/constants/zeitzone";
+import { Textarea } from "@/components/ui/textarea";
+import { KUENDIGUNGSGRUENDE } from "@/lib/subscriptions/kuendigungsgrund";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +50,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -68,6 +71,9 @@ export type SubscriptionRow = {
   kursBeendet: boolean;
   cycleAnchorDate: string;
   pendingStatus: string | null;
+  /** PROJ-80: freiwilliger Kündigungsgrund und Notiz. */
+  cancellationReason: string | null;
+  cancellationNote: string | null;
   pendingEffectiveDate: string | null;
 };
 
@@ -286,6 +292,8 @@ function SubscriptionFormDialog({
       status: (subscription?.status as SubscriptionInput["status"]) ?? "active",
       course_id: subscription?.courseId ?? "",
       cycle_anchor_date: subscription?.cycleAnchorDate ?? heuteInWien(),
+      cancellation_reason: subscription?.cancellationReason ?? "",
+      cancellation_note: subscription?.cancellationNote ?? "",
     },
   });
 
@@ -299,6 +307,8 @@ function SubscriptionFormDialog({
       formData.set("status", values.status);
       formData.set("course_id", values.course_id ?? "");
       formData.set("cycle_anchor_date", values.cycle_anchor_date);
+      formData.set("cancellation_reason", values.cancellation_reason ?? "");
+      formData.set("cancellation_note", values.cancellation_note ?? "");
 
       const result = subscription
         ? await updateSubscription(subscription.id, customerId, formData)
@@ -433,6 +443,55 @@ function SubscriptionFormDialog({
                 </FormItem>
               )}
             />
+
+            {/* PROJ-80: Nur bei „Gekündigt" — bei einem laufenden Abo wäre ein
+                Kündigungsgrund eine Frage ohne Anlass. Wird der Status wieder
+                auf aktiv gestellt, leert die Aktion beide Felder. */}
+            {form.watch("status") === "cancelled" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="cancellation_reason"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kündigungsgrund (optional)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Keine Angabe" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {KUENDIGUNGSGRUENDE.map((g) => (
+                            <SelectItem key={g.wert} value={g.wert}>
+                              {g.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Für eine Kündigung, die telefonisch oder per Mail kam.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="cancellation_note"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notiz zur Kündigung (optional)</FormLabel>
+                      <FormControl>
+                        <Textarea rows={2} {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 
             <DialogFooter>
               <Button type="submit" disabled={loading}>

@@ -12,7 +12,7 @@ import { subscriptionStatusLabel, subscriptionStatusColor } from "@/lib/constant
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { KUENDIGUNGSGRUENDE, grundLabel } from "@/lib/subscriptions/kuendigungsgrund";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,10 +81,14 @@ export function MySubscriptionsSection({
   courses: SubscriptionCourseOption[];
 }) {
   const t = useTranslations("profile");
+  const locale = useLocale();
   const tb = useTranslations("booking");
   // PROJ-9: Kündigen ohne Rückfrage stand direkt neben „Pausieren" — ein
   // Fehlgriff war einen Klick entfernt und die Folge nicht offensichtlich.
   const [kuendigungsZiel, setKuendigungsZiel] = useState<MySubscriptionRow | null>(null);
+  // PROJ-80: Beides freiwillig. Leer heißt „keine Angabe" und nicht „Fehler".
+  const [grund, setGrund] = useState<string>("");
+  const [notiz, setNotiz] = useState<string>("");
   const [subscriptions, setSubscriptions] = useState(initialSubscriptions);
   const [error, setError] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -113,8 +121,8 @@ export function MySubscriptionsSection({
     );
   }
 
-  async function handleCancel(id: string) {
-    const result = await run(id, () => cancelSubscription(id));
+  async function handleCancel(id: string, grundWert: string, notizText: string) {
+    const result = await run(id, () => cancelSubscription(id, grundWert || null, notizText || null));
     if (!result) return;
     setSubscriptions((prev) =>
       prev.map((s) => (s.id === id ? { ...s, pendingStatus: "cancelled", pendingEffectiveDate: result.pendingEffectiveDate } : s))
@@ -272,13 +280,41 @@ export function MySubscriptionsSection({
           beides: was jetzt geschieht — und dass es umkehrbar ist. */}
       <AlertDialog
         open={kuendigungsZiel !== null}
-        onOpenChange={(offen) => !offen && setKuendigungsZiel(null)}
+        onOpenChange={(offen) => {
+          if (offen) return;
+          setKuendigungsZiel(null);
+          setGrund("");
+          setNotiz("");
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("cancelSubConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>{t("cancelSubConfirmBody")}</AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/* PROJ-80: Freiwillig, und das steht auch so da. Ein Pflichtfeld
+              würde das Kündigen schwerer machen als das Abschließen. */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium">{t("cancelReasonQuestion")}</p>
+            <RadioGroup value={grund} onValueChange={setGrund} className="gap-2">
+              {KUENDIGUNGSGRUENDE.map((g) => (
+                <div key={g.wert} className="flex items-center gap-2">
+                  <RadioGroupItem value={g.wert} id={`grund-${g.wert}`} />
+                  <Label htmlFor={`grund-${g.wert}`} className="text-sm font-normal">
+                    {grundLabel(g.wert, locale)}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+            <Textarea
+              value={notiz}
+              onChange={(e) => setNotiz(e.target.value)}
+              placeholder={t("cancelReasonNote")}
+              rows={2}
+              className="text-sm"
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={loadingId === kuendigungsZiel?.id}>
               {t("keep")}
@@ -287,8 +323,12 @@ export function MySubscriptionsSection({
               disabled={loadingId === kuendigungsZiel?.id}
               onClick={() => {
                 const ziel = kuendigungsZiel;
+                const gewaehlt = grund;
+                const text = notiz;
                 setKuendigungsZiel(null);
-                if (ziel) handleCancel(ziel.id);
+                setGrund("");
+                setNotiz("");
+                if (ziel) handleCancel(ziel.id, gewaehlt, text);
               }}
             >
               {t("cancelSubConfirmAction")}

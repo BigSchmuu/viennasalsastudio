@@ -125,7 +125,15 @@ test.beforeAll(async () => {
   const multiKursB = await kurs("E2E9 Kursbezug Beta");
   const pausiertKurs = await kurs("E2E9 Kursbezug Gamma");
 
-  const clean = { pending_status: null, pending_effective_date: null, cancelled_at: null };
+  const clean = {
+    pending_status: null,
+    pending_effective_date: null,
+    cancelled_at: null,
+    // PROJ-80: Auch der Grund gehört zum Ausgangszustand. Ohne das startet der
+    // nächste Lauf mit dem Grund, den dieser hier geschrieben hat.
+    cancellation_reason: null,
+    cancellation_note: null,
+  };
 
   const resets: { name: string; patch: Record<string, unknown> }[] = [
     // AC6 moves this one to Pachanga and back; restoring the course guards
@@ -212,10 +220,31 @@ test.describe("PROJ-9: Abo-Verwaltung (Self-Service Pause/Kündigung)", () => {
     await card.getByRole("button", { name: "Kündigen" }).click();
     // Seit 2026-09-10 fragt die App nach — der Knopf lag direkt neben
     // „Pausieren", und ein Fehlgriff war einen Klick entfernt.
-    await page.getByRole("alertdialog").getByRole("button", { name: "Ja, kündigen" }).click();
-    await page.waitForTimeout(800);
+    const dialog = page.getByRole("alertdialog");
+    // PROJ-80: Der Grund ist freiwillig. Hier wird einer gewählt und ein Satz
+    // dazu geschrieben; der Fall ohne Angabe steht im Datenbanktest.
+    await expect(dialog.getByText(/Warum kündigst du/)).toBeVisible();
+    await dialog.getByRole("radio", { name: "Keine Zeit mehr" }).click();
+    await dialog.getByRole("textbox").fill("Schichtdienst ab November.");
+    await dialog.getByRole("button", { name: "Ja, kündigen" }).click();
+    await page.waitForTimeout(1200);
     await expect(card.getByText("Aktiv")).toBeVisible();
     await expect(card.getByText(/Wird gekündigt ab \d{2}\.\d{2}\.\d{4}/)).toBeVisible();
+
+    // Und der Grund ist wirklich angekommen — die Oberfläche allein belegt das
+    // nicht.
+    const dienst = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    const { data } = await dienst
+      .from("subscriptions")
+      .select("cancellation_reason, cancellation_note")
+      .eq("name", "E2E9 Testabo")
+      .single();
+    expect(data?.cancellation_reason).toBe("keine_zeit");
+    expect(data?.cancellation_note).toBe("Schichtdienst ab November.");
   });
 
   test("Kündigen fragt nach; wer abbricht, behält sein Abo unverändert", async ({ page }) => {

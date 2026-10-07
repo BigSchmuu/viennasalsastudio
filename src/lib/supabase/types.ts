@@ -2056,6 +2056,8 @@ export type Database = {
       subscriptions: {
         Row: {
           cancelled_at: string | null
+          cancellation_note: string | null
+          cancellation_reason: string | null
           course_id: string | null
           created_at: string
           customer_id: string
@@ -2069,6 +2071,8 @@ export type Database = {
         }
         Insert: {
           cancelled_at?: string | null
+          cancellation_note?: string | null
+          cancellation_reason?: string | null
           course_id?: string | null
           created_at?: string
           customer_id: string
@@ -2082,6 +2086,8 @@ export type Database = {
         }
         Update: {
           cancelled_at?: string | null
+          cancellation_note?: string | null
+          cancellation_reason?: string | null
           course_id?: string | null
           created_at?: string
           customer_id?: string

@@ -347,7 +347,9 @@
     "pastBookingsHint": "{count, plural, one {One finished entry} other {# finished entries}} — declined, cancelled or ended.",
     "noCurrentBookings": "No open bookings at the moment.",
     "sectionPassword": "Change password",
-    "sectionPasswordHint": "Set a new password for signing in"
+    "sectionPasswordHint": "Set a new password for signing in",
+    "cancelReasonQuestion": "Why are you cancelling? (optional)",
+    "cancelReasonNote": "Anything you would like to add?"
   },
   "notifications": {
     "event": "Event",

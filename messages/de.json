@@ -347,7 +347,9 @@
     "pastBookingsHint": "{count, plural, one {Ein erledigter Eintrag} other {# erledigte Einträge}} — abgelehnt, storniert oder beendet.",
     "noCurrentBookings": "Derzeit keine offenen Buchungen.",
     "sectionPassword": "Passwort ändern",
-    "sectionPasswordHint": "Neues Passwort für die Anmeldung festlegen"
+    "sectionPasswordHint": "Neues Passwort für die Anmeldung festlegen",
+    "cancelReasonQuestion": "Warum kündigst du? (freiwillig)",
+    "cancelReasonNote": "Magst du uns mehr sagen?"
   },
   "notifications": {
     "event": "Ereignis",

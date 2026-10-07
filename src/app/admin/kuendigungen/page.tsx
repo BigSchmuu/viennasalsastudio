@@ -16,7 +16,7 @@ import { teileKuendigungen, type Kuendigung } from "@/lib/admin/kuendigungen";
  * interessiert als Zahl und als Muster.
  */
 const AUSWAHL =
-  "id, customer_id, name, cycle_anchor_date, cancelled_at, pending_effective_date, courses(name), profiles(full_name)";
+  "id, customer_id, name, cycle_anchor_date, cancelled_at, pending_effective_date, cancellation_reason, cancellation_note, courses(name), profiles(full_name)";
 
 export default async function KuendigungenPage({
   searchParams,
@@ -61,6 +61,8 @@ export default async function KuendigungenPage({
     beginn: s.cycle_anchor_date,
     wirksamAb: angekuendigt ? s.pending_effective_date : s.cancelled_at,
     angekuendigt,
+    grund: s.cancellation_reason,
+    notiz: s.cancellation_note,
   });
 
   const { angekuendigt, beendet } = teileKuendigungen([

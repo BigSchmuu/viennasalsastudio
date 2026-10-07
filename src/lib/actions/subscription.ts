@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/actions/types";
+import { istKuendigungsgrund } from "@/lib/subscriptions/kuendigungsgrund";
+
+/** Länge der freiwilligen Notiz. Abgeschnitten, nicht abgewiesen — eine
+ *  Kündigung scheitert nicht an einem zu langen Text. */
+const NOTIZ_MAX = 1000;
 
 async function requireUser() {
   const supabase = await createClient();
@@ -30,13 +35,30 @@ export async function pauseSubscription(subscriptionId: string): Promise<Schedul
   return { success: true, pendingEffectiveDate: data.pending_effective_date };
 }
 
-export async function cancelSubscription(subscriptionId: string): Promise<ScheduleChangeResult> {
+/**
+ * Kündigen, mit freiwilliger Angabe eines Grundes (PROJ-80).
+ *
+ * Ein unbekannter Grund wird zu „keine Angabe" statt zu einem Fehler: Die
+ * Kündigung selbst darf an der Auswertung nicht hängen. Die Datenbank würde ihn
+ * ohnehin abweisen (CHECK) — und dann stünde der Kunde vor einem Formular, das
+ * seine Kündigung nicht annimmt.
+ */
+export async function cancelSubscription(
+  subscriptionId: string,
+  grund?: string | null,
+  notiz?: string | null
+): Promise<ScheduleChangeResult> {
   const { supabase, user } = await requireUser();
   if (!user) return { error: "Nicht eingeloggt" };
+
+  const sauberGrund = istKuendigungsgrund(grund) ? grund : null;
+  const sauberNotiz = (notiz ?? "").trim().slice(0, NOTIZ_MAX) || null;
 
   const { data, error } = await supabase.rpc("self_schedule_subscription_change", {
     p_subscription_id: subscriptionId,
     p_new_pending_status: "cancelled",
+    p_cancellation_reason: sauberGrund,
+    p_cancellation_note: sauberNotiz,
   });
   if (error || !data || !data.pending_effective_date) {
     return { error: "Kündigung konnte nicht geplant werden." };

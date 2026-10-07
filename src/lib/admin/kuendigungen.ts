@@ -21,6 +21,9 @@ export type Kuendigung = {
   wirksamAb: string | null;
   /** Nur bei angekündigten: Die Kündigung ist noch nicht vollzogen. */
   angekuendigt: boolean;
+  /** PROJ-80: freiwilliger Grund und Notiz — beide meist leer. */
+  grund: string | null;
+  notiz: string | null;
 };
 
 /** Kalendertage zwischen zwei Datumsangaben — negativ, wenn `bis` davor liegt. */
