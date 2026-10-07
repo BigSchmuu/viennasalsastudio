@@ -1,6 +1,6 @@
 # PROJ-77: Die Wegbeschreibung in der Kursstart-Erinnerung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-07
 **Last Updated:** 2026-10-07
 
@@ -133,4 +133,20 @@ fiel beim neuen sofort — genau wofür er gebaut wurde. Die Vorschau zeigt jetz
 Versand baut, nicht den rohen Feldinhalt.
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at — ausgeliefert am 2026-10-07
+**Tag:** `v1.77.0-PROJ-77` (Commit `1fea412`)
+**Vercel:** `…lp45nxnl7`, Ready, als Produktion aliasiert. **Keine Migration.**
+
+`/admin/benachrichtigungen` antwortet mit der Login-Umleitung; Vorlage und Vorschau liegen dahinter.
+Belegt sind sie durch die Prüfungen gegen die echte Versandkette (`resolveContent`) und den
+Vorschau-Test über alle Platzhalter aller Vorlagen.
+
+### Für den Betrieb — zwei Punkte
+
+1. **Eigene Fassung des Textes.** Ist der Text der Erinnerung in der Verwaltung schon einmal geändert
+   worden, liegt dort eine eigene Fassung, und der geänderte Standardtext wirkt nicht. Dann gehört
+   `{wegbeschreibung}` unter Verwaltung → Benachrichtigungen → Kursstart-Erinnerung an die
+   gewünschte Stelle — mit einem Leerzeichen davor, nicht dahinter.
+2. **Die Beschreibung am Standort** ist die Quelle. Steht dort nichts, fehlt der Satz vollständig —
+   das ist gewollt und keine Störung. Zeilenumbrüche darin werden in der E-Mail zu Leerzeichen.
