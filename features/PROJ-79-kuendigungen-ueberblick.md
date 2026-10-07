@@ -1,6 +1,6 @@
 # PROJ-79: Überblick der Kündigungen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-07
 **Last Updated:** 2026-10-07
 
@@ -145,4 +145,18 @@ ab null zählt. Mein Kommentar behauptete, der Versatz hebe sich auf beiden Seit
 14.03." (27 Tage). Der Test, der die 30 erwartete, hat es sofort gemeldet.
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at/admin/kuendigungen — ausgeliefert am 2026-10-07
+**Tag:** `v1.79.0-PROJ-79` (Commit `de1e3de`)
+**Vercel:** `…o4t8siga8`, Ready, als Produktion aliasiert. **Keine Migration.**
+
+`/admin/kuendigungen` antwortet mit der Login-Umleitung (307) — die Seite liegt hinter der Anmeldung
+samt zweiter Stufe. Belegt ist sie durch die fünf E2E-Tests in beiden Browsern, die über den
+Menüpunkt gehen und vom Namen ins Kundenprofil.
+
+### Für den Betrieb
+
+Die Liste „Angekündigt" ist die wichtigere: Dort stehen Abos, die noch laufen. Sie leert sich von
+selbst, sobald der Versandlauf den Stichtag vollzieht. Steht dort etwas mit einem Stichtag in der
+**Vergangenheit**, ist der Vollzug liegengeblieben — dann lohnt ein Blick in die Benachrichtigungen,
+ob der Lauf durchgeht.

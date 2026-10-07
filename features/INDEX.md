@@ -129,7 +129,7 @@
 
 | PROJ-78 | Wegbeschreibung auch auf Englisch | Deployed | [PROJ-78](../features/PROJ-78-wegbeschreibung-zweisprachig.md) | 2026-10-07 |
 
-| PROJ-79 | Überblick der Kündigungen | Approved | [PROJ-79](../features/PROJ-79-kuendigungen-ueberblick.md) | 2026-10-07 |
+| PROJ-79 | Überblick der Kündigungen | Deployed | [PROJ-79](../features/PROJ-79-kuendigungen-ueberblick.md) | 2026-10-07 |
 
 <!-- Add features above this line -->
 
