@@ -121,7 +121,9 @@
 
 | PROJ-74 | Eigene Liste für Probestunden, Drop-Ins und Gäste | Deployed | [PROJ-74](../features/PROJ-74-liste-probestunden-dropins.md) | 2026-10-05 |
 
+| PROJ-75 | Heutige Kurse im Admin-Dashboard | Approved | [PROJ-75](../features/PROJ-75-heutige-kurse-im-dashboard.md) | 2026-10-07 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-75
+## Next Available ID: PROJ-76

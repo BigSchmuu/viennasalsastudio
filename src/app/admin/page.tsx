@@ -6,6 +6,8 @@ import { MetricTile } from "@/components/admin/analytics/metric-tile";
 import { TrendChart, type TrendPoint } from "@/components/admin/analytics/trend-chart";
 import { OccupancyList, type OccupancyRow } from "@/components/admin/analytics/occupancy-list";
 import { BirthdayList, type BirthdayRow } from "@/components/admin/analytics/birthday-list";
+import { HeutigeKurseListe } from "@/components/admin/analytics/heutige-kurse-liste";
+import { ladeHeutigeKurse, type HeutigerKursEintrag } from "@/lib/dashboard/heutige-kurse-laden";
 import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 
 const BIRTHDAY_WINDOW_DAYS = 7;
@@ -45,6 +47,16 @@ export default async function AdminDashboardPage({
     supabase.from("subscriptions").select("customer_id").eq("status", "active"),
     supabase.from("profiles").select("id, full_name, birthdate").eq("role", "customer").not("birthdate", "is", null),
   ]);
+
+  // PROJ-75: Die Arbeit des Tages. Scheitert das Laden, bleibt das Dashboard
+  // trotzdem benutzbar — aber der Abschnitt behauptet dann nicht „kein Kurs
+  // heute", sondern bleibt weg und der Fehler steht im Log.
+  let heutigeEintraege: HeutigerKursEintrag[] | null = null;
+  try {
+    heutigeEintraege = await ladeHeutigeKurse(supabase);
+  } catch (fehler) {
+    console.error("Dashboard: heutige Kurse", fehler);
+  }
 
   const { count: pausedCount } = await supabase
     .from("subscriptions")
@@ -132,6 +144,10 @@ export default async function AdminDashboardPage({
         <h2 className="font-heading text-xl font-bold">Dashboard</h2>
         <p className="text-sm text-muted-foreground">Geschäftsüberblick über Umsatz, Auslastung und Kündigungen</p>
       </div>
+
+      {/* PROJ-75: Vor den Kennzahlen. Umsatz und Trends schaut der Betreiber
+          seltener an als die Kurse, die heute laufen. */}
+      {heutigeEintraege !== null && <HeutigeKurseListe eintraege={heutigeEintraege} />}
 
       <PeriodFilter from={period.from} to={period.to} isCustom={isCustom} />
 
