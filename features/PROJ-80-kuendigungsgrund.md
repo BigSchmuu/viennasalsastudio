@@ -1,6 +1,6 @@
 # PROJ-80: Der Kündigungsgrund
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-07
 **Last Updated:** 2026-10-07
 
@@ -155,4 +155,24 @@ Monat wandert. Und wird ein Abo wieder aktiv gesetzt, fällt es mitsamt Grund un
 - Ein neuer Grund in der Liste braucht **beides**: Eintrag im Code und Migration für den CHECK.
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at — ausgeliefert am 2026-10-08, 00:14
+**Tag:** `v1.80.0-PROJ-80` (Commit `2949a4b`)
+**Vercel:** `…o17mt5dv9`, Ready, als Produktion aliasiert
+
+**Migration:** `20261007170000_proj80_kuendigungsgrund.sql` — vom Betreiber in Test *und* Produktion
+eingespielt, **vor** der Auslieferung. Diese Reihenfolge war nötig: Die Anwendung ruft die
+Kündigungsfunktion mit den neuen Parametern auf.
+
+`/admin/kuendigungen` und `/profil` antworten mit der Login-Umleitung; beide Oberflächen liegen
+dahinter und sind durch die E2E-Tests belegt — der Dialog samt Gegenprobe in der Datenbank.
+
+### Für den Betrieb
+
+Der erste Grund kommt erst mit der nächsten Kündigung — bestehende Kündigungen haben keinen, und die
+Zählung weist sie als „ohne Angabe" aus. Das ist richtig so: Nachträglich einen Grund zu erfinden wäre
+schlechter als die Lücke.
+
+Ein **neuer** Grund in der Liste braucht künftig zwei Dinge: den Eintrag in
+`lib/subscriptions/kuendigungsgrund.ts` **und** eine Migration für die CHECK-Liste. Ohne die Migration
+scheitert das Speichern — und zwar erst beim Kunden im Formular.
