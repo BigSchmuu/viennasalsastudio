@@ -1,6 +1,6 @@
 # PROJ-75: Heutige Kurse im Admin-Dashboard
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-07
 **Last Updated:** 2026-10-07
 
@@ -195,4 +195,20 @@ auf eine Frist.
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at — ausgeliefert am 2026-10-07
+**Tag:** `v1.75.0-PROJ-75` (Commit `30112aa`)
+**Vercel:** `…pkznaij85`, Ready, als Produktion aliasiert. **Keine Migration.**
+
+### Nachprüfung von außen
+
+`/admin` und `/lehrer` antworten mit der Login-Umleitung (307) — beides liegt hinter der Anmeldung
+samt zweiter Stufe. Der Abschnitt selbst ist von außen nicht prüfbar; belegt ist er durch die fünf
+E2E-Tests in beiden Browsern, die den Weg des Betreibers gehen: Dashboard öffnen, Zeile anklicken,
+Anwesenheitsliste mit dem erwarteten Teilnehmer vorfinden.
+
+### Für den Betrieb
+
+Der Abschnitt steht und fällt mit dem **Wochentermin** am Kurs: Ein Kurs ohne hinterlegten
+`course_schedule`-Eintrag findet an keinem Tag statt und erscheint nie. Fehlt ein Kurs dort, lohnt der
+Blick auf seinen Wochentag, seine Pausen und — seit PROJ-51 — auf „Läuft von / Läuft bis".
