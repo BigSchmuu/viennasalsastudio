@@ -1,6 +1,6 @@
 # PROJ-78: Die Wegbeschreibung auch auf Englisch
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-07
 **Last Updated:** 2026-10-07
 
@@ -150,4 +150,24 @@ Reste jetzt selbst weg, mit derselben Begründung, die in dieser Datei schon fü
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at — ausgeliefert am 2026-10-07
+**Tag:** `v1.78.0-PROJ-78` (Commit `7006912`)
+**Vercel:** `…o71z369r7`, Ready, als Produktion aliasiert
+
+**Migration:** `20261007150000_proj78_standort_beschreibung_englisch.sql` — vom Betreiber in Test
+*und* Produktion eingespielt (2026-10-07), **vor** der Auslieferung. Diese Reihenfolge war nötig: Die
+Standortverwaltung schreibt die Spalte und der Versand liest sie.
+
+`/admin/standorte` antwortet mit der Login-Umleitung; das Feld liegt dahinter und ist durch den
+erweiterten PROJ-3-Test belegt (ausfüllen, speichern, neu laden, beide Werte stehen noch da).
+
+### Für den Betrieb
+
+Bei beiden Standorten gehört jetzt eine englische Wegbeschreibung ins Feld „Beschreibung (englisch)".
+Bleibt es leer, bekommen englischsprachige Kunden die deutsche Fassung mit englischer Einleitung — das
+ist gewollt, aber die eigene Fassung liest sich besser.
+
+Die übrigen Pflegetexte aus der Liste von PROJ-43 (Kursnamen, Kursbeschreibungen, Tanzstile,
+Raumnamen, Event-Texte, Vorkenntnis-Hinweise) stehen auf der englischen Seite weiterhin deutsch da.
+Jeder davon ist derselbe Handgriff wie dieser.
