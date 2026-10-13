@@ -83,8 +83,22 @@ async function navContainer(page: Page) {
   return page.getByRole("banner");
 }
 
+/**
+ * Die Anwesenheitsmatrix — und nicht die ganze Seite.
+ *
+ * Auf der Kursseite stehen inzwischen drei Tabellen: die Matrix, die
+ * Einmal-Gäste (PROJ-74) und die Barzahler (PROJ-81). Ein Name kann in zweien
+ * davon stehen, und eine seitenweite Suche trifft dann beide — zum dritten Mal
+ * dieselbe Falle, deshalb steht die Eingrenzung ab hier an einer Stelle.
+ */
+function matrix(page: Page) {
+  return page
+    .locator("table")
+    .filter({ has: page.getByRole("columnheader", { name: "Kursteilnehmer" }) });
+}
+
 function rowFor(page: Page, name: string) {
-  return page.locator("tr", { hasText: name });
+  return matrix(page).locator("tr", { hasText: name });
 }
 
 async function openCell(page: Page, row: ReturnType<typeof rowFor>, cellIndex: number) {
@@ -215,7 +229,7 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     await page.goto(`/lehrer/${COURSE_ID}`);
     await page.waitForTimeout(1000);
 
-    const headerRow = page.locator("thead tr");
+    const headerRow = matrix(page).locator("thead tr");
     const dateHeaders = headerRow.locator("th").filter({ hasNotText: "Kursteilnehmer" });
     const count = await dateHeaders.count();
     expect(count).toBeGreaterThan(0);
@@ -231,7 +245,7 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     await page.goto(`/lehrer/${COURSE_ID}`);
     await page.waitForTimeout(1000);
 
-    const headerRow = page.locator("thead tr");
+    const headerRow = matrix(page).locator("thead tr");
     const dateHeaders = headerRow.locator("th").filter({ hasNotText: "Kursteilnehmer" });
     const countBefore = await dateHeaders.count();
 
@@ -271,8 +285,8 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     await page.goto(`/lehrer/${COURSE_ID}`);
     await page.waitForTimeout(1000);
 
-    await expect(page.getByText("E2E13 Abo Kunde")).toBeVisible();
-    await expect(page.getByText("E2E13 Dropin Kunde")).toBeVisible();
+    await expect(matrix(page).getByText("E2E13 Abo Kunde")).toBeVisible();
+    await expect(matrix(page).getByText("E2E13 Dropin Kunde")).toBeVisible();
 
     // E2E13 Kombi Kunde has both an active abo AND a confirmed dropin booking
     // on 2026-08-13 — must appear as exactly one row (BUG-1 regression check).
@@ -388,11 +402,11 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     await page.waitForURL(`**/lehrer/${COURSE_ID}`, { timeout: 10000 });
     await page.waitForTimeout(1000);
 
-    await expect(page.getByText("E2E13 Abo Kunde")).toBeVisible();
+    await expect(matrix(page).getByText("E2E13 Abo Kunde")).toBeVisible();
     // "Heute" only appears when today happens to match the fixture's
     // weekday (see the re-priming comment near COURSE_ID above) — assert on
     // the always-true invariant (matrix renders with data) instead.
-    await expect(page.locator("thead th").filter({ hasNotText: "Kursteilnehmer" }).first()).toBeVisible();
+    await expect(matrix(page).locator("thead th").filter({ hasNotText: "Kursteilnehmer" }).first()).toBeVisible();
   });
 
   test("Mobile (375px): Matrix scrollt horizontal, Kundennamen-Spalte bleibt sichtbar", async ({ page }) => {
@@ -401,13 +415,14 @@ test.describe("PROJ-13: Lehrer-Ansicht (Stundenplan, Anwesenheit, Notizen)", () 
     await page.goto(`/lehrer/${COURSE_ID}`);
     await page.waitForTimeout(1000);
 
-    await expect(page.getByText("Kursteilnehmer")).toBeVisible();
+    const kopf = matrix(page).getByRole("columnheader", { name: "Kursteilnehmer" });
+    await expect(kopf).toBeVisible();
     const scrollContainer = page.locator(".relative.w-full.overflow-auto").first();
     await scrollContainer.evaluate((el) => {
       el.scrollLeft = 500;
     });
     await page.waitForTimeout(300);
-    await expect(page.getByText("Kursteilnehmer")).toBeVisible();
-    await expect(page.getByText("E2E13 Abo Kunde")).toBeVisible();
+    await expect(kopf).toBeVisible();
+    await expect(matrix(page).getByText("E2E13 Abo Kunde")).toBeVisible();
   });
 });

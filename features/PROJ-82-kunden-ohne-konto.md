@@ -1,6 +1,6 @@
 # PROJ-82: Barzahler von Hand eintragen — Kunden ohne eigenes Konto
 
-## Status: Architected
+## Status: Approved
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-13
 
@@ -120,8 +120,40 @@ Kein neues Datenmodell: Die Person ist ein Kunde wie jeder andere, nur ohne erre
 sie von einem registrierten Kunden unterscheidet, steht ausschließlich in dieser Adresse — und
 verschwindet, sobald eine echte eingetragen wird.
 
-## QA Test Results
-_To be added by /qa_
+## QA Test Results (2026-10-14)
+
+**Empfehlung: bereit für die Produktion.** Keine Migration.
+
+| | |
+|---|---|
+| Regeln (Unit) | 10 für Platzhalter-Adresse, Name und Betrag; 10 für die Absagen der Aktion |
+| Browser (E2E) | 2 neu, in Chromium und Mobile Safari grün |
+| Gesamt | 1218 Unit- und Datenbankprüfungen grün |
+| Produktfehler gefunden | 0 |
+
+### Was geprüft ist
+
+**Die Absagen** — meine eigenen Regeln, deshalb zuerst: Name unter zwei Zeichen, Betrag, der keiner
+ist, eine Lehrkraft für einen fremden Kurs, ein voller Kurs (mit Zahlen in der Meldung). In allen
+Fällen wird **nichts** angelegt, und das wird ausdrücklich geprüft. Dazu die beiden Abbrüche auf
+halbem Weg: Scheitert der Name oder der Kursplatz, wird das Konto wieder gelöscht — ein Konto ohne
+Namen ist eine Zeile, die niemand zuordnet.
+
+**Der Weg im Browser**, in beiden Browsern: Die Lehrkraft trägt „Herbert" mit „49,50" ein (mit
+Komma — auf einem Handy tippt niemand einen Punkt). Danach steht er in der Barzahler-Liste **und in
+der Anwesenheitsliste** — genau das war der Grund, einen echten Kunden anzulegen. Und sein Konto
+trägt eine Adresse auf `.invalid`, nachgesehen in der Datenbank.
+
+**Ein unsinniger Betrag** führt zu einer Meldung — und zu keinem Kunden; auch das in der Datenbank
+nachgezählt.
+
+### Was offen bleibt
+
+- Trägt die Verwaltung später eine echte Adresse ein, wird der Kunde ein gewöhnlicher. Die
+  **Einladung** dazu (Passwort setzen) ist eine eigene Sache und nicht gebaut.
+- Registriert sich dieselbe Person später selbst, gibt es zwei Kunden. Bewusst nicht automatisch
+  zusammengelegt.
+
 
 ## Deployment
 _To be added by /deploy_

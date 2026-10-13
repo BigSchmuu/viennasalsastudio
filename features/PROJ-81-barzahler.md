@@ -1,6 +1,6 @@
 # PROJ-81: Barzahler — Liste für die Lehrkraft, Überblick für die Verwaltung
 
-## Status: Architected
+## Status: Approved
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-13
 
@@ -145,8 +145,43 @@ Zahlung erfasst. Eine dritte nimmt sie zurück — für die Lehrkraft nur am sel
 Eine Tabelle samt RLS (nur Verwaltung liest direkt), drei Funktionen, Rechte. Muss vor der
 Auslieferung eingespielt werden.
 
-## QA Test Results
-_To be added by /qa_
+## QA Test Results (2026-10-14)
+
+**Empfehlung: bereit für die Produktion.** Migration vom Betreiber in Test und Produktion eingespielt.
+
+| | |
+|---|---|
+| Regeln (Unit) | 13 für „wer muss jetzt zahlen": erster Beitrag, laufender Zyklus, vier Wochen, Ferien, Einzug statt Barzahlung, Reihenfolge, Summe, fehlender Preis |
+| Datenbank | 9 für die drei Funktionen |
+| Browser (E2E) | 3 für diesen Teil, in Chromium und Mobile Safari grün |
+| Rückblick | PROJ-13, PROJ-74, PROJ-49, PROJ-16: 38 Prüfungen grün (PROJ-13 angepasst, siehe unten) |
+| Gesamt | 1218 Unit- und Datenbankprüfungen grün |
+| Produktfehler gefunden | 0 |
+
+### Was geprüft ist
+
+**Die Regel** an jedem Rand: Der erste Beitrag wartet auf nichts; zehn Tage nach einer Zahlung ist
+nichts fällig; nach vier Wochen schon; eine Ferienwoche dazwischen verschiebt es nach hinten; und ein
+**Einzug** deckt den Zyklus genauso ab wie eine Barzahlung — der Fall „Mandat gerade widerrufen".
+
+**Die Funktionen** gegen die echte Datenbank: Der Barzahler steht mit Betrag in der Liste, der Kunde
+mit Mandat nicht — und sobald das Mandat widerrufen ist, erscheint er. Erfasst wird mit dem Betrag
+**aus dem Abo**, nicht mit einem übergebenen. Ein zweiter Druck im selben Zyklus wird abgewiesen. Die
+Lehrkraft kann die heutige Zahlung zurücknehmen, eine 40 Tage alte nicht — die Verwaltung schon. Ohne
+Anmeldung geht nichts, und ein Abo ohne Preis lässt sich nicht abhaken.
+
+**Im Browser**: Die Lehrkraft hakt ab, und danach wird **in der Datenbank** nachgesehen — Betrag,
+Tag und die Kennung der Lehrkraft. Dann das Zurücknehmen, ebenfalls mit Gegenprobe. Und die
+Verwaltungsseite: eingesammelt steht unter „Eingesammelt", nicht mehr unter „Offen".
+
+### Was angepasst werden musste
+
+**PROJ-13** suchte Namen und Spaltenköpfe seitenweit. Auf der Kursseite stehen jetzt drei Tabellen
+(Matrix, Einmal-Gäste, Barzahler), und ein Barzahler steht in zwei davon — vier Prüfungen trafen
+deshalb zwei Elemente oder zählten acht Spalten statt vier. Die Eingrenzung auf die Matrix steht
+jetzt an **einer** Stelle in der Datei, als Helfer: Dieselbe Falle hatte vorher schon PROJ-72 und
+PROJ-74 erwischt.
+
 
 ## Deployment
 _To be added by /deploy_
