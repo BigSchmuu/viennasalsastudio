@@ -133,9 +133,9 @@
 
 | PROJ-80 | Kündigungsgrund | Deployed | [PROJ-80](../features/PROJ-80-kuendigungsgrund.md) | 2026-10-07 |
 
-| PROJ-81 | Barzahler-Liste für die Lehrkraft | Approved | [PROJ-81](../features/PROJ-81-barzahler.md) | 2026-10-13 |
+| PROJ-81 | Barzahler-Liste für die Lehrkraft | Deployed | [PROJ-81](../features/PROJ-81-barzahler.md) | 2026-10-13 |
 
-| PROJ-82 | Barzahler von Hand eintragen (Kunden ohne Konto) | Approved | [PROJ-82](../features/PROJ-82-kunden-ohne-konto.md) | 2026-10-13 |
+| PROJ-82 | Barzahler von Hand eintragen (Kunden ohne Konto) | Deployed | [PROJ-82](../features/PROJ-82-kunden-ohne-konto.md) | 2026-10-13 |
 
 <!-- Add features above this line -->
 

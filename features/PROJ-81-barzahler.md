@@ -1,6 +1,6 @@
 # PROJ-81: Barzahler — Liste für die Lehrkraft, Überblick für die Verwaltung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-13
 
@@ -184,4 +184,23 @@ PROJ-74 erwischt.
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at — ausgeliefert am 2026-10-14, 01:37
+**Tag:** `v1.81.0-PROJ-81-82` (Commit `ac1956d`)
+**Vercel:** `…e7qeeztj5`, Ready, als Produktion aliasiert
+
+**Migration:** `20261013100000_proj81_barzahlungen.sql` — vom Betreiber in Test *und* Produktion
+eingespielt, **vor** der Auslieferung.
+
+### Für den Betrieb
+
+Die Papierliste kann weg, sobald du geprüft hast, dass alle Barzahler auch in der App ein Abo mit
+**Preis** haben: Ohne Preis steht die Person in der Liste, aber „Kein Preis am Abo" — abhaken lässt
+sich nichts, was keinen Betrag hat. Das ist der einzige Handgriff, der nötig sein könnte.
+
+Und ein Hinweis zur Flatrate: Sie gilt für alle Kurse. Die Zeile erscheint deshalb in jedem Kurs des
+Kunden, mit dem Kennzeichen „Flatrate" — hakt eine Lehrkraft ab, sehen alle anderen sie als bezahlt.
+
+`/lehrer` und `/admin/barzahlungen` antworten mit der Login-Umleitung; beide Oberflächen liegen
+dahinter und sind durch die Browsertests belegt, die den Weg der Lehrkraft gehen und jedes Ergebnis
+in der Datenbank nachprüfen.

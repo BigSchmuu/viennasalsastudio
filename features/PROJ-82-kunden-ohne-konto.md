@@ -1,6 +1,6 @@
 # PROJ-82: Barzahler von Hand eintragen — Kunden ohne eigenes Konto
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-13
 
@@ -156,4 +156,20 @@ nachgezählt.
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Produktion:** https://app.viennasalsastudio.at — ausgeliefert am 2026-10-14, 01:37
+**Tag:** `v1.81.0-PROJ-81-82` (Commit `ac1956d`)
+**Vercel:** `…e7qeeztj5`, Ready, als Produktion aliasiert
+
+**Keine Migration.**
+
+### Für den Betrieb
+
+Ein von Hand eingetragener Kunde hat eine Platzhalter-Adresse und bekommt **keine**
+Benachrichtigungen — auch keine Kurserinnerung. Wenn er sie bekommen soll, trage im Kundenprofil die
+echte Adresse ein; ab dann ist er ein gewöhnlicher Kunde. Eine Einladung zum Setzen eines Passworts
+gibt es noch nicht.
+
+`/lehrer` und `/admin/barzahlungen` antworten mit der Login-Umleitung; beide Oberflächen liegen
+dahinter und sind durch die Browsertests belegt, die den Weg der Lehrkraft gehen und jedes Ergebnis
+in der Datenbank nachprüfen.
