@@ -15,6 +15,8 @@ import {
 import type { RosterRow } from "@/lib/actions/teacher/staffel-laden";
 import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 import { Lehrmaterial, type Lektion } from "@/components/teacher/lehrmaterial";
+import { BarzahlerListe, type BarzahlerAnsicht } from "@/components/teacher/barzahler-liste";
+import { ladeBarzahler } from "@/lib/barzahlungen/laden";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 
 /**
@@ -197,6 +199,16 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
     }));
   }
 
+  // PROJ-81: Die Barzahler des Kurses. Scheitert das Laden, bleibt die Seite
+  // benutzbar — aber der Abschnitt behauptet dann nicht „niemand zahlt bar",
+  // sondern bleibt weg und der Fehler steht im Log.
+  let barzahler: BarzahlerAnsicht[] | null = null;
+  try {
+    barzahler = await ladeBarzahler(supabase, courseId);
+  } catch (fehler) {
+    console.error("Lehrerseite: Barzahler", fehler);
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
       <Button variant="link" className="px-0" asChild>
@@ -236,6 +248,10 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
           heute={heuteInWien()}
         />
       )}
+
+      {/* PROJ-81: Hinter der Anwesenheitsliste — erst wird eingecheckt, dann
+          kassiert. */}
+      {barzahler !== null && <BarzahlerListe courseId={course.id} zeilen={barzahler} />}
     </div>
   );
 }

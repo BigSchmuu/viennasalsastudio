@@ -180,6 +180,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_payments: {
+        Row: {
+          amount: number
+          collected_by: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          paid_on: string
+          subscription_id: string
+        }
+        Insert: {
+          amount: number
+          collected_by?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          paid_on?: string
+          subscription_id: string
+        }
+        Update: {
+          amount?: number
+          collected_by?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          paid_on?: string
+          subscription_id?: string
+        }
+        Relationships: []
+      }
       course_attendance: {
         Row: {
           course_id: string
@@ -2774,6 +2804,20 @@ export type Database = {
           status: string
         }[]
       }
+      get_course_cash_payers: {
+        Args: { p_course_id: string }
+        Returns: {
+          amount: number | null
+          barzahlungen: string[] | null
+          customer_id: string
+          einzuege: string[] | null
+          full_name: string
+          heutige_zahlung_id: string | null
+          ist_flatrate: boolean
+          subscription_id: string
+          subscription_name: string | null
+        }[]
+      }
       get_course_dance_roles: {
         Args: { p_course_ids: string[] }
         Returns: {
@@ -3182,6 +3226,22 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      record_cash_payment: {
+        Args: { p_subscription_id: string }
+        Returns: {
+          amount: number
+          collected_by: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          paid_on: string
+          subscription_id: string
+        }
+      }
+      undo_cash_payment: {
+        Args: { p_payment_id: string }
+        Returns: boolean
       }
       upsert_session_note: {
         Args: { p_course_id: string; p_note: string; p_occurrence_date: string }

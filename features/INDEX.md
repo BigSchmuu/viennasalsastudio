@@ -133,7 +133,9 @@
 
 | PROJ-80 | Kündigungsgrund | Deployed | [PROJ-80](../features/PROJ-80-kuendigungsgrund.md) | 2026-10-07 |
 
+| PROJ-81 | Barzahler-Liste für die Lehrkraft | Architected | [PROJ-81](../features/PROJ-81-barzahler.md) | 2026-10-13 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-81
+## Next Available ID: PROJ-82

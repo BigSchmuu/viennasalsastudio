@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Banknote,
   UserMinus,
   LayoutDashboard,
   MapPin,
@@ -78,6 +79,10 @@ const groups: NavGroup[] = [
       { href: "/admin/lastschriften", label: "Lastschriften", icon: CreditCard },
       { href: "/admin/rechnungen", label: "Rechnungen", icon: FileText },
       { href: "/admin/offene-posten", label: "Offene Posten", icon: ReceiptEuro },
+      // PROJ-81: neben den offenen Posten — dort stehen die zurückgebuchten
+      // Lastschriften, hier das Bargeld, das noch fehlt. Dieselbe Frage, anderer
+      // Weg.
+      { href: "/admin/barzahlungen", label: "Barzahlungen", icon: Banknote },
     ],
   },
 ];
