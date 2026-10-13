@@ -12,6 +12,7 @@ import {
 } from "@/lib/notifications/templates";
 import type { TemplateFields } from "@/lib/notifications/template-registry";
 import { nurAdresse, ortMitAdresse, wegbeschreibung } from "@/lib/notifications/ort";
+import { istOfflineAdresse } from "@/lib/kunden/offline";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { hasConvertedSince } from "@/lib/trials/conversion";
@@ -403,6 +404,15 @@ async function trySendEmail(service: ServiceClient, customerId: string, content:
     const { data } = await service.auth.admin.getUserById(customerId);
     const email = data.user?.email;
     if (!email) return { status: "failed" as const, error: "Keine E-Mail-Adresse gefunden" };
+
+    // PROJ-82: Ein Kunde, den die Verwaltung oder eine Lehrkraft von Hand
+    // angelegt hat, trägt eine Platzhalter-Adresse auf `.invalid`. Dort kann
+    // niemals Post ankommen — ein Versuch wäre nicht „fehlgeschlagen", sondern
+    // sinnlos, und jede Kurserinnerung landete in „Nicht zugestellt", bis
+    // niemand mehr hinsieht.
+    if (istOfflineAdresse(email)) {
+      return { status: "skipped" as const, error: null };
+    }
 
     await sendNotificationEmail(email, content.subject, content.emailHtml);
     return { status: "sent" as const, error: null };

@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Banknote, Undo2 } from "lucide-react";
+import { Banknote, Plus, Undo2 } from "lucide-react";
 import { erfasseBarzahlung, nimmBarzahlungZurueck } from "@/lib/actions/teacher/barzahlung";
+import { legeBarzahlerAn } from "@/lib/actions/teacher/barzahler-anlegen";
 import { offeneSumme, zustandText, type BarzahlerZeile } from "@/lib/barzahlungen/offen";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 
@@ -36,6 +39,11 @@ export function BarzahlerListe({
   const [zeilen, setZeilen] = useState(anfangsZeilen);
   const [fehler, setFehler] = useState<string | null>(null);
   const [laufendeId, setLaufendeId] = useState<string | null>(null);
+  // PROJ-82: Wer vor der Lehrkraft steht und sich nie registriert hat.
+  const [formOffen, setFormOffen] = useState(false);
+  const [neuerName, setNeuerName] = useState("");
+  const [neuerBetrag, setNeuerBetrag] = useState("");
+  const [legtAn, setLegtAn] = useState(false);
 
   async function abhaken(zeile: BarzahlerAnsicht) {
     setLaufendeId(zeile.aboId);
@@ -79,6 +87,27 @@ export function BarzahlerListe({
       );
     } finally {
       setLaufendeId(null);
+    }
+  }
+
+  async function eintragen() {
+    setLegtAn(true);
+    setFehler(null);
+    try {
+      const ergebnis = await legeBarzahlerAn(courseId, neuerName, neuerBetrag);
+      if ("error" in ergebnis) {
+        setFehler(ergebnis.error);
+        return;
+      }
+      // Die Seite lädt sich neu: Der neue Kunde gehört in die Anwesenheitsliste
+      // und in die Kursgrenze, nicht nur in diese Tabelle. Alles andere hier
+      // nachzuziehen hieße, dieselbe Rechnung zweimal zu führen.
+      setFormOffen(false);
+      setNeuerName("");
+      setNeuerBetrag("");
+      window.location.reload();
+    } finally {
+      setLegtAn(false);
     }
   }
 
@@ -181,6 +210,61 @@ export function BarzahlerListe({
               </Table>
             </div>
           </>
+        )}
+
+        {/* PROJ-82: Ein Gast, der bar zahlt und sich nie registriert hat, wird
+            hier ein echter Kunde — mit Kursplatz und Preis. Er zählt damit
+            überall mit: Anwesenheit, Kursgrenze, Auswertung. */}
+        {formOffen ? (
+          <div className="space-y-3 rounded-md border p-3">
+            <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+              <div className="space-y-1">
+                <Label htmlFor="barzahler-name">Name</Label>
+                <Input
+                  id="barzahler-name"
+                  value={neuerName}
+                  onChange={(e) => setNeuerName(e.target.value)}
+                  placeholder="Vor- und Nachname"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="barzahler-betrag">Betrag</Label>
+                <Input
+                  id="barzahler-betrag"
+                  value={neuerBetrag}
+                  onChange={(e) => setNeuerBetrag(e.target.value)}
+                  placeholder="50"
+                  inputMode="decimal"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Wird ein Teilnehmer dieses Kurses mit diesem Beitrag je Zyklus — ohne Konto, ohne
+              E-Mail. Die Verwaltung kann später eine Adresse nachtragen.
+            </p>
+            <div className="flex gap-2">
+              <Button size="sm" disabled={legtAn} onClick={() => void eintragen()}>
+                {legtAn ? "Wird angelegt…" : "Eintragen"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={legtAn}
+                onClick={() => {
+                  setFormOffen(false);
+                  setFehler(null);
+                }}
+              >
+                Abbrechen
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="outline" size="sm" onClick={() => setFormOffen(true)}>
+            <Plus className="mr-1 h-4 w-4" />
+            Barzahler eintragen
+          </Button>
         )}
       </CardContent>
     </Card>

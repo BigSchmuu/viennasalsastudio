@@ -135,7 +135,9 @@
 
 | PROJ-81 | Barzahler-Liste für die Lehrkraft | Architected | [PROJ-81](../features/PROJ-81-barzahler.md) | 2026-10-13 |
 
+| PROJ-82 | Barzahler von Hand eintragen (Kunden ohne Konto) | Architected | [PROJ-82](../features/PROJ-82-kunden-ohne-konto.md) | 2026-10-13 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-82
+## Next Available ID: PROJ-83
