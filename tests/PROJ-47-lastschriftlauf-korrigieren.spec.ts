@@ -396,11 +396,33 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
       ADMIN.password
     );
 
+    // Erst nachsehen, dass dieser Client der Datenbank überhaupt als Admin
+    // gilt. Sonst filtert die Regel die Zeile weg, die Änderung trifft null
+    // Zeilen, PostgREST meldet keinen Fehler — und der Test hält die fehlende
+    // Berechtigung für die Sperre, die er prüfen soll.
+    const { data: rolle } = await alsAdmin.rpc("current_role");
+    expect(rolle, "Der Testclient gilt der Datenbank nicht als Admin").toBe("admin");
+
+    const { data: vorher } = await svc
+      .from("sepa_collection_items")
+      .select("amount")
+      .eq("id", position!.id)
+      .single();
+
     const { error: betrag } = await alsAdmin
       .from("sepa_collection_items")
       .update({ amount: 1 })
       .eq("id", position!.id);
     expect(betrag, "Der Betrag ließ sich nach der Freigabe ändern").toBeTruthy();
+
+    // Und der Betrag selbst — das ist die eigentliche Zusicherung. Ein Fehler
+    // ist nur ihr Anzeichen; unverändertes Geld ist die Sache.
+    const { data: nachher } = await svc
+      .from("sepa_collection_items")
+      .select("amount")
+      .eq("id", position!.id)
+      .single();
+    expect(nachher!.amount, "Der Betrag steht nach der Freigabe anders da").toBe(vorher!.amount);
 
     const { error: nochmal } = await alsAdmin.rpc("release_collection_run", { p_run_id: id });
     expect(nochmal, "Der Lauf ließ sich zweimal freigeben").toBeTruthy();

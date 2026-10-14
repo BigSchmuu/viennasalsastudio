@@ -111,6 +111,14 @@ test.beforeEach(async () => {
   await service.from("course_memberships").delete().eq("customer_id", kundeId);
 });
 
+/** Die Zeile dieses Kunden in der Anwesenheitsmatrix (siehe PROJ-13, PROJ-25). */
+function matrixZeile(page: Page, name: string) {
+  return page
+    .locator("table")
+    .filter({ has: page.getByRole("columnheader", { name: "Kursteilnehmer" }) })
+    .locator("tr", { hasText: name });
+}
+
 test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
   test("AC1: Mit Flatrate heißt die Aktion „Zu meiner Flatrate hinzufügen“", async ({ page }) => {
     await anmelden(page, FLATRATE_KUNDE);
@@ -485,7 +493,11 @@ test.describe("PROJ-50: Flatrate für mehrere Kurse", () => {
       await anmelden(page, { email: "e2e13-lehrer-a@viennasalsastudio.test", passwort: "CorrectPassword123!" });
       await gehZu(page, `/lehrer/${kursId}`);
       await page.waitForTimeout(2500);
-      await expect(page.getByText("E2E11 Flatrate Kunde")).toBeVisible();
+      // In der Matrix, nicht irgendwo auf der Seite: Seit PROJ-81 steht der
+      // Name auch in der Barzahler-Tabelle, und die seitenweite Suche traf
+      // beide. Eingegrenzt prüft die Zusicherung außerdem das Richtige — die
+      // Anwesenheitsliste, nicht die Kasse.
+      await expect(matrixZeile(page, "E2E11 Flatrate Kunde")).toBeVisible();
     } finally {
       await service
         .from("course_teachers")

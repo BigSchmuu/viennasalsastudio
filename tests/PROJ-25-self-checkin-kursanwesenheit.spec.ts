@@ -179,6 +179,22 @@ function courseCard(page: Page, name: string): Locator {
   return page.locator(".rounded-lg.border").filter({ hasText: name });
 }
 
+/**
+ * Die Zeile dieses Kunden in der Anwesenheitsmatrix — nicht irgendeine Zeile
+ * mit seinem Namen.
+ *
+ * Auf der Kursseite stehen inzwischen drei Tabellen: die Matrix, die
+ * Einmal-Gäste (PROJ-74) und die Barzahler (PROJ-81). Eine seitenweite Suche
+ * nach dem Namen traf nach PROJ-81 zwei davon und brach mit „strict mode
+ * violation" ab. Dieselbe Eingrenzung steht in PROJ-13 und PROJ-50.
+ */
+function matrixZeile(page: Page, name: string): Locator {
+  return page
+    .locator("table")
+    .filter({ has: page.getByRole("columnheader", { name: "Kursteilnehmer" }) })
+    .locator("tr", { hasText: name });
+}
+
 test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => {
   test(`AC1: Mehr als ${SELF_CHECKIN_VORLAUF_STUNDEN} Stunden vor Kursbeginn ist kein Self-Check-In-Button sichtbar`, async ({
     page,
@@ -294,7 +310,7 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
     await login(page, ADMIN);
     await page.goto(`/lehrer/${COURSE_IM_FENSTER_ID}`);
     await page.waitForTimeout(1000);
-    const row = page.locator("tr", { hasText: "E2E25 Kunde Mit Abo" });
+    const row = matrixZeile(page, "E2E25 Kunde Mit Abo");
     await expect(row).toBeVisible();
     const cells = row.locator("td");
     const cellCount = await cells.count();
@@ -323,7 +339,7 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
     await login(page, ADMIN);
     await page.goto(`/lehrer/${COURSE_IM_FENSTER_ID}`);
     await page.waitForTimeout(1000);
-    const rowAfter = page.locator("tr", { hasText: "E2E25 Kunde Mit Abo" });
+    const rowAfter = matrixZeile(page, "E2E25 Kunde Mit Abo");
     const cellsAfter = rowAfter.locator("td");
     const countAfter = await cellsAfter.count();
     const todayCellAfter = cellsAfter.nth(countAfter - 1);

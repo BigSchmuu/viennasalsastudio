@@ -47,7 +47,23 @@ export function angemeldetAls(url: string, anonKey: string, mail: string, passwo
  * ausdrücklich so gewollt — deshalb der Umweg.
  */
 async function zweiteStufeFallsNoetig(client: SupabaseClient, url: string, kennung: string): Promise<void> {
-  const { data: profil } = await client.from("profiles").select("role").eq("id", kennung).maybeSingle();
+  const { data: profil, error: rollenFehler } = await client
+    .from("profiles")
+    .select("role")
+    .eq("id", kennung)
+    .maybeSingle();
+
+  // Ein Lesefehler darf hier nicht als „kein Admin“ durchgehen. Vorher stand
+  // nur `data` da: Schlug die Abfrage fehl — im Volllauf unter Last durchaus
+  // möglich —, war `profil` null, die Funktion kehrte still zurück, und der
+  // Client blieb auf der ersten Stufe. Jede Admin-Änderung danach traf
+  // lautlos null Zeilen, und PostgREST meldet das nicht als Fehler. Genau so
+  // ist PROJ-47 „ein freigegebener Lauf lässt sich nicht ändern“ in zwei
+  // Vollläufen rot geworden: Der Test hielt ein ausbleibendes Verbot für eine
+  // fehlende Sperre.
+  if (rollenFehler) {
+    throw new Error(`tests: Rolle von ${kennung} nicht lesbar (${rollenFehler.message})`);
+  }
   if (profil?.role !== "admin") return;
 
   const { data: nutzer } = await client.auth.getUser();
@@ -66,7 +82,10 @@ async function zweiteStufeFallsNoetig(client: SupabaseClient, url: string, kennu
         factorId: bestaetigt.id,
         code: totpCode(bekannt),
       });
-      if (!error) return;
+      if (!error) {
+        await pruefeZweiteStufe(client, mail);
+        return;
+      }
       // Passt der Schlüssel nicht mehr, wird unten frisch eingerichtet.
     }
   }
@@ -95,4 +114,27 @@ async function zweiteStufeFallsNoetig(client: SupabaseClient, url: string, kennu
 
   // Merken, damit die andere Testwelt denselben Schlüssel benutzt.
   if (mail) merkeSchluessel(mail, neu.totp.secret);
+
+  await pruefeZweiteStufe(client, mail);
+}
+
+/**
+ * Nachsehen, dass die Sitzung wirklich auf der zweiten Stufe steht.
+ *
+ * Ohne diese Kontrolle ist der Unterschied zwischen „Admin“ und „angemeldet“
+ * unsichtbar: Die Datenbank antwortet einem Client auf der ersten Stufe nicht
+ * mit einem Fehler, sondern mit null betroffenen Zeilen. Ein Test, der ein
+ * Verbot prüfen soll, sieht dann Erfolg, wo er Scheitern messen wollte.
+ */
+async function pruefeZweiteStufe(client: SupabaseClient, mail: string): Promise<void> {
+  const { data, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error) {
+    throw new Error(`tests: Stufe von ${mail} nicht feststellbar (${error.message})`);
+  }
+  if (data?.currentLevel !== "aal2") {
+    throw new Error(
+      `tests: ${mail} steht auf ${data?.currentLevel ?? "unbekannt"} statt aal2 — ` +
+        "als Admin gilt dieser Client der Datenbank nicht"
+    );
+  }
 }

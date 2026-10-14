@@ -108,6 +108,14 @@ async function login(page: Page) {
   await expect(page.getByRole("region", { name: "Heute" })).toBeVisible({ timeout: 30000 });
 }
 
+/** Die Zeile dieses Kunden in der Anwesenheitsmatrix (siehe PROJ-13, PROJ-25). */
+function matrixZeile(page: Page, name: string) {
+  return page
+    .locator("table")
+    .filter({ has: page.getByRole("columnheader", { name: "Kursteilnehmer" }) })
+    .locator("tr", { hasText: name });
+}
+
 function abschnitt(page: Page) {
   // Der benannte Bereich, nicht irgendein div um die Überschrift: `div`-Filter
   // plus `.last()` traf den Kartenkopf — der enthält die Überschrift, aber nicht
@@ -197,7 +205,9 @@ test.describe("PROJ-75: Heutige Kurse im Admin-Dashboard", () => {
     // Nicht nur die Adresse: Die Liste selbst muss da sein.
     await expect(page.getByRole("heading", { name: NAMEN.heute })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Kursteilnehmer" })).toBeVisible();
-    await expect(page.getByText("E2E75 Teilnehmer")).toBeVisible();
+    // Eingegrenzt auf die Matrix: Der Name steht seit PROJ-81 auch in der
+    // Barzahler-Tabelle derselben Seite.
+    await expect(matrixZeile(page, "E2E75 Teilnehmer")).toBeVisible();
   });
 
   test("Der laufende Kurs ist als laufend gekennzeichnet", async ({ page }) => {
