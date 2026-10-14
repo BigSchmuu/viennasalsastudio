@@ -1,6 +1,6 @@
 # PROJ-84: Barzahlungen — Einträge von Hand
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-14
 **Last Updated:** 2026-10-14
 
@@ -309,3 +309,31 @@ Beide Migrationen in Test **und** Produktion eingespielt. `npx tsc --noEmit`, `n
       abschreiben kann, bevor sie verschwinden?
 - [ ] Soll der Betreiber beim Eintragen aus einer Vorschlagsliste wählen können — etwa „alle
       Teilnehmer dieses Kurses ohne Mandat" —, um dreißig Einträge nicht einzeln anzulegen?
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-15
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commit:** `3115fcb`, Tag `v1.84.0-PROJ-84`
+- **Migrationen:** `20261014160000_proj84_barzahlungs_eintraege.sql` und der Nachtrag
+  `20261014180000_proj84_zyklus_abschliessen_fix.sql` — beide vor dem Deploy in Test und Produktion
+  eingespielt. Nötig in dieser Reihenfolge: Die erste nimmt PROJ-83 zurück und legt die Liste an,
+  die zweite macht „Zyklus abschließen“ überhaupt lauffähig.
+- **Nachgesehen:** Vercel-Deployment `Ready`; Startseite 200, `/admin/barzahlungen` und `/lehrer`
+  antworten mit 307 auf die Anmeldung — kein 500 auf den geänderten Seiten.
+
+### Für den Betrieb
+
+- **Die Liste ist leer und bleibt leer, bis du einträgst.** Das ist der Unterschied zu vorher: Es
+  erscheint niemand von selbst.
+- **Eintragen geht an zwei Stellen** und beide dürfen alles: in der Verwaltung unter Barzahlungen
+  (jedes aktive Abo) und am Kursabend auf der Kursseite (die Teilnehmer dieses Kurses).
+- **Zum neuen Zahlungszyklus** drückst du „Zyklus abschließen“. Die Bestätigung sagt vorher, wie
+  viele Einträge und wie viel offener Betrag verschwinden; die erfassten Zahlungen bleiben unter
+  „Eingesammelt“ stehen.
+- **Ein Rest wandert nicht mit.** Bleibt am Zyklusende etwas offen, rechnest du es beim nächsten
+  Eintragen in den Betrag hinein — von Hand und sichtbar.
+- **Eine Zahlung kann nicht höher sein als der offene Betrag.** Wer vorauszahlen will, bekommt einen
+  entsprechend höheren Betrag eingetragen.
+- **Jede Lehrkraft sieht alle Flatrate-Barzahler** samt Beträgen — anders ließe sich dort nicht
+  kassieren. Kursabo-Einträge fremder Kurse bleiben verborgen.

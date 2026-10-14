@@ -139,7 +139,7 @@
 
 | PROJ-83 | Barzahlungen in Teilbeträgen (abgelöst von PROJ-84) | Deployed | [PROJ-83](../features/PROJ-83-barzahlung-teilbetraege.md) | 2026-10-14 |
 
-| PROJ-84 | Barzahlungen — Einträge von Hand (ersetzt PROJ-81/83) | Approved | [PROJ-84](../features/PROJ-84-barzahlungen-eintraege.md) | 2026-10-14 |
+| PROJ-84 | Barzahlungen — Einträge von Hand (ersetzt PROJ-81/83) | Deployed | [PROJ-84](../features/PROJ-84-barzahlungen-eintraege.md) | 2026-10-14 |
 
 <!-- Add features above this line -->
 
