@@ -1,6 +1,6 @@
 # PROJ-86: Notiz am Barzahler-Eintrag
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15
 
@@ -119,3 +119,23 @@ stehen muss, und heute landet sie wieder auf einem Zettel.
 
 - [ ] Soll die Notiz beim „Zyklus abschließen" irgendwo erhalten bleiben — etwa in der Zahlung, die
       stehen bleibt? Vorerst nein: Die Notiz gehört zur Absicht, und die endet mit dem Zyklus.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-15
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commit:** `4a8969a`, Tag `v1.86.0-PROJ-86`
+- **Migration:** `20261015120000_proj86_notiz_am_eintrag.sql` — vor dem Deploy in Test und
+  Produktion eingespielt. Nötig in dieser Reihenfolge: `add_cash_entry` bekommt einen dritten
+  Parameter, und die Anwendung ruft danach die neue Signatur auf.
+- **Nachgesehen:** Vercel-Deployment `Ready`; Startseite 200, `/admin/barzahlungen` und `/lehrer`
+  antworten mit 307 auf die Anmeldung.
+
+### Für den Betrieb
+
+- Die Notizspalte steht in **beiden** Listen — Kursseite und Verwaltung. Anklicken, tippen, OK.
+- Beim Eintragen gibt es ein eigenes Feld; dort gehört hin, woraus der Betrag besteht.
+- Höchstens 300 Zeichen. Die Notiz ist eine **interne** Randbemerkung — angezeigt wird sie dem
+  Kunden nirgends, aber er kann seine eigene Eintragszeile lesen; es gehört also nichts hinein, was
+  er nicht lesen dürfte.
+- Beim „Zyklus abschließen“ verschwindet sie mit dem Eintrag.

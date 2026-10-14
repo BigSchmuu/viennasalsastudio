@@ -143,7 +143,7 @@
 
 | PROJ-85 | Einen Gast ohne Konto auch als Flatrate anlegen | Deployed | [PROJ-85](../features/PROJ-85-gast-als-flatrate.md) | 2026-10-15 |
 
-| PROJ-86 | Notiz am Barzahler-Eintrag | Approved | [PROJ-86](../features/PROJ-86-notiz-am-barzahler-eintrag.md) | 2026-10-15 |
+| PROJ-86 | Notiz am Barzahler-Eintrag | Deployed | [PROJ-86](../features/PROJ-86-notiz-am-barzahler-eintrag.md) | 2026-10-15 |
 
 <!-- Add features above this line -->
 
