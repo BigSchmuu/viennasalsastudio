@@ -140,10 +140,19 @@ test.beforeAll(async () => {
   await service.from("profiles").update({ full_name: "E2E75 Teilnehmer" }).eq("id", kundeId);
 
   await kursAnlegen("heute", { weekday: wienerWochentag(0), start: "08:00:00", ende: "09:00:00" });
+  // Am Tagesrand gekuerzt statt verschoben: Eine halbe Stunde vor und nach
+  // Mitternacht reicht die Spanne sonst ueber den Tageswechsel, das Ende liegt
+  // dann vor dem Anfang, und die Pruefregel der Tabelle weist die Zeile ab --
+  // womit der ganze Aufbau scheitert, nicht nur ein Fall.
+  //
+  // Zwei Uhrzeiten zu vergleichen genuegt dafuer nicht: "23:52" ist als Text
+  // groesser als "00:00", und eine Klemmung ueber den Vergleich liess die
+  // Spanne verdreht. Also ausdruecklich nach der Tageszeit entschieden.
+  const jetzt = wienerZeit(0);
   await kursAnlegen("laufend", {
     weekday: wienerWochentag(0),
-    start: wienerZeit(-30),
-    ende: wienerZeit(30),
+    start: jetzt < "00:30:00" ? "00:00:00" : wienerZeit(-30),
+    ende: jetzt > "23:29:59" ? "23:59:59" : wienerZeit(30),
   });
   await kursAnlegen("anderertag", { weekday: wienerWochentag(1), start: "18:00:00", ende: "19:00:00" });
   await kursAnlegen("pausiert", {
