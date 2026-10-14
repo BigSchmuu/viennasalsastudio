@@ -1,6 +1,6 @@
 # PROJ-85: Einen Gast ohne Konto auch als Flatrate anlegen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15
 
@@ -124,3 +124,21 @@ mit Geld in der Hand davorsteht.
 
 - [ ] Soll die Tanzrolle doch erfragt werden, wenn der Kurs sie führt? Dagegen spricht die Situation
       an der Tür; dafür spricht, dass die Rollenbalance des Kurses sonst eine Person nicht kennt.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-15
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commit:** `21eaa5c`, Tag `v1.85.0-PROJ-85`
+- **Migration:** keine — es werden nur Zeilen in bestehende Tabellen geschrieben.
+- **Nachgesehen:** Vercel-Deployment `Ready`; Startseite 200, `/lehrer` und `/admin/barzahlungen`
+  antworten mit 307 auf die Anmeldung.
+
+### Für den Betrieb
+
+- Die Auswahl steht im Gast-Formular auf der **Kursseite**, nicht in der Verwaltung — vorbelegt mit
+  „Nur dieser Kurs“.
+- Eine so angelegte Flatrate hat genau **einen** Kursplatz. Weitere Kurse trägst du unter
+  `/admin/kunden/<id>` im Flatrate-Block nach.
+- Die **Tanzrolle** bleibt leer. Der Kurs kennt diese Person in seiner Rollenbalance also nicht; wer
+  das braucht, setzt sie in der Verwaltung.

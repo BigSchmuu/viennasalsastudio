@@ -141,7 +141,7 @@
 
 | PROJ-84 | Barzahlungen — Einträge von Hand (ersetzt PROJ-81/83) | Deployed | [PROJ-84](../features/PROJ-84-barzahlungen-eintraege.md) | 2026-10-14 |
 
-| PROJ-85 | Einen Gast ohne Konto auch als Flatrate anlegen | Approved | [PROJ-85](../features/PROJ-85-gast-als-flatrate.md) | 2026-10-15 |
+| PROJ-85 | Einen Gast ohne Konto auch als Flatrate anlegen | Deployed | [PROJ-85](../features/PROJ-85-gast-als-flatrate.md) | 2026-10-15 |
 
 <!-- Add features above this line -->
 
