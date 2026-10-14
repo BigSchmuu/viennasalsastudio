@@ -1,6 +1,6 @@
 # PROJ-83: Barzahlungen in Teilbeträgen — und erfassen in der Verwaltung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-14
 **Last Updated:** 2026-10-14
 
@@ -281,3 +281,25 @@ Migration in Test **und** Produktion eingespielt. `npm run lint`, `npx tsc --noE
       einer Notiz, und eine Notiz gibt es noch nicht.
 - [ ] Braucht eine Zahlung ein Notizfeld („Rest kommt Freitag")? Nicht Teil dieser Spec; erst wenn
       der Betrieb zeigt, dass die Lehrkräfte etwas dazuschreiben wollen.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-14
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commit:** `e690958`, Tag `v1.83.0-PROJ-83`
+- **Migration:** `20261014120000_proj83_teilbetraege.sql` — vor dem Deploy in Test und Produktion
+  eingespielt, wie nötig: Die Anwendung ruft `record_cash_payment` mit zwei Parametern auf.
+- **Nachgesehen:** Vercel-Deployment `Ready`; Startseite 200, `/admin/barzahlungen` und `/lehrer`
+  antworten mit 307 auf die Anmeldung — kein 500 auf den geänderten Seiten.
+
+### Für den Betrieb
+
+- **Der Stichtag ist der 15.10.2026.** Bis zum ersten Fälligkeitstag danach steht bei jedem
+  Barzahler „Nichts fällig" — das ist richtig und kein Fehler. Die erste Soll-Zeile entsteht im
+  Morgenlauf (06:00 UTC) an dem Tag, an dem der Beitrag nach dem Zyklus des Kunden fällig wird.
+- **Einmal nachsehen**, sobald der erste Kunde nach dem Stichtag fällig wird: Steht der Betrag in der
+  Verwaltung unter „Offen"?
+- **Ein Abo ohne Preis** sammelt kein Soll an und lässt sich nicht abhaken — die Zeile sagt „Kein
+  Preis am Abo". Das betrifft weiterhin jeden Barzahler, dessen Abo keinen Beitrag trägt.
+- **Vorauszahlen** geht jetzt: Ein Betrag über dem Offenen steht als Guthaben und deckt den nächsten
+  Beitrag ab. Dieses Guthaben ist vom Empfehlungs-Guthaben (PROJ-44) getrennt.
