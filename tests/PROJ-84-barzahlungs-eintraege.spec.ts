@@ -336,6 +336,62 @@ test.describe("PROJ-84: Am Kursabend", () => {
   });
 });
 
+test.describe("PROJ-86: Notiz am Eintrag", () => {
+  test("Die Lehrkraft notiert an der Zeile, was verabredet ist", async ({ page }) => {
+    await leereListe();
+    const id = await eintragAnlegen(kursAboId, kursKundeId, BEITRAG);
+
+    await anmelden(page, LEHRER);
+    await gehZu(page, `/lehrer/${kursId}`);
+    await expect(barzahlerKarte(page)).toBeVisible({ timeout: 30000 });
+
+    const karte = barzahlerKarte(page);
+    await karte.getByRole("button", { name: `Notiz von ${IM_KURS} ändern` }).click();
+    await karte
+      .getByRole("textbox", { name: `Notiz von ${IM_KURS}`, exact: true })
+      .fill("Rest kommt Freitag");
+    await karte.getByRole("button", { name: `Notiz von ${IM_KURS} speichern` }).click();
+    await page.waitForTimeout(2500);
+
+    const { data: eintrag } = await service
+      .from("cash_entries")
+      .select("note")
+      .eq("id", id)
+      .single();
+    expect(eintrag!.note).toBe("Rest kommt Freitag");
+
+    // Und sie steht in der Zeile, ohne Klick.
+    const zeile = barzahlerKarte(page).getByRole("row", { name: new RegExp(IM_KURS) });
+    await expect(zeile).toContainText("Rest kommt Freitag");
+  });
+
+  test("Der Betreiber gibt die Notiz schon beim Eintragen mit", async ({ page }) => {
+    await leereListe();
+    await anmelden(page, ADMIN);
+    await gehZu(page, "/admin/barzahlungen");
+    await expect(listenKarte(page)).toBeVisible({ timeout: 30000 });
+
+    const karte = listenKarte(page);
+    await karte.getByRole("button", { name: /^Barzahler eintragen/ }).click();
+    await karte.getByRole("combobox", { name: "Kunde und Abo auswählen" }).click();
+    await page.getByRole("option", { name: new RegExp(IM_KURS) }).click();
+    await page.locator("#barzahlung-betrag").fill("138");
+    await page.locator("#barzahlung-notiz").fill("Rest aus September");
+    await karte.getByRole("button", { name: "Eintragen", exact: true }).click();
+    await page.waitForTimeout(2500);
+
+    const { data: eintraege } = await service
+      .from("cash_entries")
+      .select("amount_due, note")
+      .eq("subscription_id", kursAboId);
+    expect(eintraege).toHaveLength(1);
+    expect(Number(eintraege![0].amount_due)).toBe(138);
+    expect(eintraege![0].note).toBe("Rest aus September");
+
+    await expect(listenKarte(page).getByText("Rest aus September")).toBeVisible();
+  });
+});
+
 test.describe("PROJ-84: In der Verwaltung", () => {
   test("Der Betreiber trägt ein Abo ein und kassiert", async ({ page }) => {
     await leereListe();

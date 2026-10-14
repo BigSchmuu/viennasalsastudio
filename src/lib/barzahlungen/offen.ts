@@ -28,6 +28,8 @@ export type Eintrag = {
   /** Was davon schon da ist. */
   bezahlt: number;
   letzteZahlung: string | null;
+  /** Interne Randbemerkung (PROJ-86); leer ist `null`, nicht "". */
+  notiz: string | null;
   /** Die jüngste Zahlung — nur sie lässt sich mit einem Druck zurücknehmen. */
   letzteZahlungId: string | null;
   /**

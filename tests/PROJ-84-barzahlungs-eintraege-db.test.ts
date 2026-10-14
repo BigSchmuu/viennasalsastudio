@@ -274,6 +274,75 @@ describe("PROJ-84: Einträge führen", () => {
   });
 });
 
+describe("PROJ-86: Notiz am Eintrag", () => {
+  it("nimmt die Notiz schon beim Eintragen", async () => {
+    await service.from("cash_entries").delete().eq("subscription_id", aboId);
+    const { data, error } = await alsLehrer.rpc("add_cash_entry", {
+      p_subscription_id: aboId,
+      p_amount: 138,
+      p_note: "Rest aus September",
+    });
+    expect(error, `Eintrag mit Notiz abgewiesen: ${error?.message}`).toBeNull();
+    expect((data as Record<string, unknown>).note).toBe("Rest aus September");
+  });
+
+  it("setzt und löscht die Notiz nachträglich", async () => {
+    const id = await eintragAnlegen(aboId, BEITRAG);
+    const { error } = await alsLehrer.rpc("set_cash_entry_note", {
+      p_entry_id: id,
+      p_note: "zahlt Freitag",
+    });
+    expect(error, `Notiz abgewiesen: ${error?.message}`).toBeNull();
+
+    const { data: mit } = await service.from("cash_entries").select("note").eq("id", id).single();
+    expect(mit!.note).toBe("zahlt Freitag");
+
+    // Leerer Text löscht — und zwar zu `null`, nicht zu "".
+    await alsLehrer.rpc("set_cash_entry_note", { p_entry_id: id, p_note: "   " });
+    const { data: ohne } = await service.from("cash_entries").select("note").eq("id", id).single();
+    expect(ohne!.note).toBeNull();
+  });
+
+  it("weist eine zu lange Notiz ab — in der Datenbank, nicht nur im Formular", async () => {
+    const id = await eintragAnlegen(aboId, BEITRAG);
+    const { error } = await alsLehrer.rpc("set_cash_entry_note", {
+      p_entry_id: id,
+      p_note: "x".repeat(301),
+    });
+    expect(error, "Eine 301 Zeichen lange Notiz wurde angenommen").not.toBeNull();
+  });
+
+  it("gibt die Notiz in der Kursliste mit heraus", async () => {
+    await service.from("cash_entries").delete().in("subscription_id", [flatrateId, fremdAboId]);
+    const id = await eintragAnlegen(aboId, BEITRAG);
+    await alsLehrer.rpc("set_cash_entry_note", { p_entry_id: id, p_note: "Rest Freitag" });
+
+    const zeilen = await liste(alsLehrer);
+    const zeile = zeilen.find((z) => z.entry_id === id);
+    expect(zeile!.note).toBe("Rest Freitag");
+  });
+
+  it("lässt eine fremde Lehrkraft die Notiz nicht setzen", async () => {
+    const id = await eintragAnlegen(fremdAboId, 75);
+    const { error } = await alsLehrer.rpc("set_cash_entry_note", {
+      p_entry_id: id,
+      p_note: "geht nicht",
+    });
+    expect(error, "Eine fremde Notiz ließ sich setzen").not.toBeNull();
+  });
+
+  it("verliert die Notiz mit dem Eintrag", async () => {
+    const id = await eintragAnlegen(aboId, BEITRAG);
+    await alsLehrer.rpc("set_cash_entry_note", { p_entry_id: id, p_note: "verschwindet" });
+    await alsLehrer.rpc("remove_cash_entry", { p_entry_id: id });
+    const { count } = await service
+      .from("cash_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("id", id);
+    expect(count).toBe(0);
+  });
+});
+
 describe("PROJ-84: Zahlungen", () => {
   it("addiert Teilbeträge und bleibt bis zum Rest offen", async () => {
     const id = await eintragAnlegen(aboId, BEITRAG);

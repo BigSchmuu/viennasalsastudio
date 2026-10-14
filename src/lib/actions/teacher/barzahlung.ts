@@ -31,7 +31,8 @@ export type EintragAngelegt = { error: string } | { success: true; eintragId: st
 export async function legeEintragAn(
   subscriptionId: string,
   betragEingabe: string,
-  courseId: string
+  courseId: string,
+  notiz?: string
 ): Promise<EintragAngelegt> {
   await requireAdminOrTeacher();
 
@@ -44,6 +45,7 @@ export async function legeEintragAn(
   const { data, error } = await supabase.rpc("add_cash_entry", {
     p_subscription_id: subscriptionId,
     p_amount: betrag,
+    p_note: notiz ?? null,
   });
 
   if (error) {
@@ -52,6 +54,9 @@ export async function legeEintragAn(
     }
     if (error.message.includes("not authorized")) {
       return { error: "Für dieses Abo darfst du keinen Eintrag anlegen." };
+    }
+    if (error.message.includes("note too long")) {
+      return { error: "Die Notiz ist zu lang — höchstens 300 Zeichen." };
     }
     console.error("Barzahler-Eintrag nicht angelegt", subscriptionId, error);
     return { error: "Der Eintrag konnte nicht angelegt werden." };
@@ -86,6 +91,42 @@ export async function aendereEintrag(
     }
     console.error("Barzahler-Eintrag nicht geändert", entryId, error);
     return { error: "Der Betrag konnte nicht geändert werden." };
+  }
+
+  aktualisiere(courseId);
+  return { success: true };
+}
+
+/**
+ * Die Notiz eines Eintrags setzen oder löschen (PROJ-86).
+ *
+ * Seit der Betrag von Hand gesetzt wird, ist der Grund dafür nirgends mehr
+ * ablesbar — die Notiz hält ihn fest. Leerer Text löscht sie; das übernimmt
+ * die Datenbank, damit es nicht zwei Arten von „keine Notiz“ gibt.
+ */
+export async function setzeNotiz(
+  entryId: string,
+  notiz: string,
+  courseId: string
+): Promise<ActionResult> {
+  await requireAdminOrTeacher();
+
+  if (notiz.length > 300) {
+    return { error: "Die Notiz ist zu lang — höchstens 300 Zeichen." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_cash_entry_note", {
+    p_entry_id: entryId,
+    p_note: notiz,
+  });
+
+  if (error) {
+    if (error.message.includes("note too long")) {
+      return { error: "Die Notiz ist zu lang — höchstens 300 Zeichen." };
+    }
+    console.error("Notiz nicht gesetzt", entryId, error);
+    return { error: "Die Notiz konnte nicht gespeichert werden." };
   }
 
   aktualisiere(courseId);

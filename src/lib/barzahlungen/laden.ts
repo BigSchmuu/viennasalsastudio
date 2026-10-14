@@ -47,6 +47,7 @@ export async function ladeBarzahler(supabase: Client, courseId: string): Promise
     betrag: Number(z.amount_due),
     bezahlt: Number(z.bezahlt ?? 0),
     letzteZahlung: z.letzte_zahlung,
+    notiz: z.note,
     letzteZahlungId: z.letzte_zahlung_id,
     eigenerKurs: z.eigener_kurs,
   }));

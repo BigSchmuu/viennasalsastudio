@@ -21,6 +21,7 @@ function eintrag(felder: Partial<Eintrag> = {}): Eintrag {
     bezahlt: 0,
     letzteZahlung: null,
     letzteZahlungId: null,
+    notiz: null,
     eigenerKurs: true,
     ...felder,
   };

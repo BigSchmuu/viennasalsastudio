@@ -25,6 +25,7 @@ import {
   legeEintragAn,
   nimmBarzahlungZurueck,
   schliesseZyklusAb,
+  setzeNotiz,
 } from "@/lib/actions/teacher/barzahlung";
 import { offeneSumme, zustandText, type EintragsZeile } from "@/lib/barzahlungen/offen";
 
@@ -87,10 +88,14 @@ export function BarzahlungsUebersicht({
   const [teilBetrag, setTeilBetrag] = useState("");
   const [aendereZeile, setAendereZeile] = useState<string | null>(null);
   const [neuerBetrag, setNeuerBetrag] = useState("");
+  // PROJ-86: Welche Zeile gerade ihre Notiz bearbeitet.
+  const [notizZeile, setNotizZeile] = useState<string | null>(null);
+  const [notizText, setNotizText] = useState("");
 
   const [formOffen, setFormOffen] = useState(false);
   const [gewaehltesAbo, setGewaehltesAbo] = useState("");
   const [eintragsBetrag, setEintragsBetrag] = useState("");
+  const [eintragsNotiz, setEintragsNotiz] = useState("");
   const [tutGerade, setTutGerade] = useState(false);
   const [fragtAb, setFragtAb] = useState(false);
 
@@ -124,7 +129,7 @@ export function BarzahlungsUebersicht({
     setTutGerade(true);
     setFehler(null);
     try {
-      const ergebnis = await legeEintragAn(gewaehlt.aboId, eintragsBetrag, "");
+      const ergebnis = await legeEintragAn(gewaehlt.aboId, eintragsBetrag, "", eintragsNotiz);
       if ("error" in ergebnis) {
         setFehler(ergebnis.error);
         return;
@@ -132,6 +137,7 @@ export function BarzahlungsUebersicht({
       setFormOffen(false);
       setGewaehltesAbo("");
       setEintragsBetrag("");
+      setEintragsNotiz("");
       router.refresh();
     } finally {
       setTutGerade(false);
@@ -272,6 +278,51 @@ export function BarzahlungsUebersicht({
                       <TableCell className="text-sm text-muted-foreground">
                         {zustandText(z)}
                       </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {notizZeile === z.eintragId ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              value={notizText}
+                              onChange={(e) => setNotizText(e.target.value)}
+                              maxLength={300}
+                              placeholder="z. B. Rest aus September"
+                              className="h-8 w-44"
+                              aria-label={`Notiz von ${z.kundeName}`}
+                              autoFocus
+                            />
+                            <Button
+                              size="sm"
+                              disabled={laufendeId === z.eintragId}
+                              onClick={() =>
+                                void tun(z.eintragId, () =>
+                                  setzeNotiz(z.eintragId, notizText, "")
+                                ).then((gut) => {
+                                  if (gut) {
+                                    setNotizZeile(null);
+                                    setNotizText("");
+                                  }
+                                })
+                              }
+                              aria-label={`Notiz von ${z.kundeName} speichern`}
+                            >
+                              OK
+                            </Button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="max-w-[220px] truncate text-left underline-offset-2 hover:underline"
+                            onClick={() => {
+                              setNotizZeile(z.eintragId);
+                              setNotizText(z.notiz ?? "");
+                              setFehler(null);
+                            }}
+                            aria-label={`Notiz von ${z.kundeName} ändern`}
+                          >
+                            {z.notiz ?? "—"}
+                          </button>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {z.istOffen &&
@@ -411,6 +462,17 @@ export function BarzahlungsUebersicht({
                   eingezogen.
                 </p>
               )}
+
+              <div className="space-y-1">
+                <Label htmlFor="barzahlung-notiz">Notiz (optional)</Label>
+                <Input
+                  id="barzahlung-notiz"
+                  value={eintragsNotiz}
+                  onChange={(e) => setEintragsNotiz(e.target.value)}
+                  maxLength={300}
+                  placeholder="z. B. Rest aus September"
+                />
+              </div>
 
               <div className="flex gap-2">
                 <Button size="sm" disabled={tutGerade} onClick={() => void eintragen()}>

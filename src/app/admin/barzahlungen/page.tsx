@@ -31,7 +31,7 @@ export default async function BarzahlungenPage({
   const [eintragRes, zahlungRes, aboRes, mandatRes, eingesammeltRes] = await Promise.all([
     supabase
       .from("cash_entries")
-      .select("id, customer_id, subscription_id, amount_due"),
+      .select("id, customer_id, subscription_id, amount_due, note"),
     supabase.from("cash_payments").select("id, entry_id, amount, paid_on, created_at"),
     supabase
       .from("subscriptions")
@@ -85,6 +85,7 @@ export default async function BarzahlungenPage({
       betrag: Number(e.amount_due),
       bezahlt: bezahltJeEintrag.get(e.id) ?? 0,
       letzteZahlung: letzte?.tag ?? null,
+      notiz: e.note,
       letzteZahlungId: letzte?.id ?? null,
       // In der Verwaltung gibt es keinen „eigenen Kurs" — die Liste ist eine.
       eigenerKurs: true,

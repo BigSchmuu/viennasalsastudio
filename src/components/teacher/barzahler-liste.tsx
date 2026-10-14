@@ -9,6 +9,7 @@ import {
   erfasseBarzahlung,
   legeEintragAn,
   nimmBarzahlungZurueck,
+  setzeNotiz,
 } from "@/lib/actions/teacher/barzahlung";
 import { legeBarzahlerAn, type GastArt } from "@/lib/actions/teacher/barzahler-anlegen";
 import {
@@ -66,11 +67,15 @@ export function BarzahlerListe({
   const [teilBetrag, setTeilBetrag] = useState("");
   const [aendereZeile, setAendereZeile] = useState<string | null>(null);
   const [neuerBetrag, setNeuerBetrag] = useState("");
+  // PROJ-86: Welche Zeile gerade ihre Notiz bearbeitet.
+  const [notizZeile, setNotizZeile] = useState<string | null>(null);
+  const [notizText, setNotizText] = useState("");
 
   // Eintragen: ein Teilnehmer dieses Kurses, der noch nicht auf der Liste steht.
   const [formOffen, setFormOffen] = useState(false);
   const [gewaehltesAbo, setGewaehltesAbo] = useState("");
   const [eintragsBetrag, setEintragsBetrag] = useState("");
+  const [eintragsNotiz, setEintragsNotiz] = useState("");
   const [tutGerade, setTutGerade] = useState(false);
 
   // PROJ-82: Wer vor der Lehrkraft steht und sich nie registriert hat.
@@ -151,7 +156,7 @@ export function BarzahlerListe({
     setTutGerade(true);
     setFehler(null);
     try {
-      const ergebnis = await legeEintragAn(kandidat.aboId, eintragsBetrag, courseId);
+      const ergebnis = await legeEintragAn(kandidat.aboId, eintragsBetrag, courseId, eintragsNotiz);
       if ("error" in ergebnis) {
         setFehler(ergebnis.error);
         return;
@@ -159,6 +164,7 @@ export function BarzahlerListe({
       setFormOffen(false);
       setGewaehltesAbo("");
       setEintragsBetrag("");
+      setEintragsNotiz("");
       router.refresh();
     } finally {
       setTutGerade(false);
@@ -176,6 +182,23 @@ export function BarzahlerListe({
       }
       setAendereZeile(null);
       setNeuerBetrag("");
+      router.refresh();
+    } finally {
+      setLaufendeId(null);
+    }
+  }
+
+  async function notizSpeichern(zeile: BarzahlerAnsicht) {
+    setLaufendeId(zeile.eintragId);
+    setFehler(null);
+    try {
+      const ergebnis = await setzeNotiz(zeile.eintragId, notizText, courseId);
+      if ("error" in ergebnis) {
+        setFehler(ergebnis.error);
+        return;
+      }
+      setNotizZeile(null);
+      setNotizText("");
       router.refresh();
     } finally {
       setLaufendeId(null);
@@ -228,6 +251,7 @@ export function BarzahlerListe({
               <TableHead>Betrag</TableHead>
               <TableHead>Offen</TableHead>
               <TableHead>Zustand</TableHead>
+              <TableHead className="min-w-[140px]">Notiz</TableHead>
               <TableHead className="text-right">Kassiert</TableHead>
             </TableRow>
           </TableHeader>
@@ -286,6 +310,47 @@ export function BarzahlerListe({
                   {zeile.istOffen ? EUR.format(zeile.offen) : "—"}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{zustandText(zeile)}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {notizZeile === zeile.eintragId ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={notizText}
+                        onChange={(e) => setNotizText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void notizSpeichern(zeile);
+                        }}
+                        maxLength={300}
+                        placeholder="z. B. Rest Freitag"
+                        className="h-8 w-40"
+                        aria-label={`Notiz von ${zeile.kundeName}`}
+                        autoFocus
+                      />
+                      <Button
+                        size="sm"
+                        disabled={laufendeId === zeile.eintragId}
+                        onClick={() => void notizSpeichern(zeile)}
+                        aria-label={`Notiz von ${zeile.kundeName} speichern`}
+                      >
+                        OK
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="max-w-[200px] truncate text-left underline-offset-2 hover:underline"
+                      onClick={() => {
+                        setNotizZeile(zeile.eintragId);
+                        setNotizText(zeile.notiz ?? "");
+                        setFehler(null);
+                      }}
+                      aria-label={`Notiz von ${zeile.kundeName} ändern`}
+                    >
+                      {/* Einzeilig abgeschnitten: Eine Zelle, die wächst,
+                          verschiebt die ganze Liste. */}
+                      {zeile.notiz ?? "—"}
+                    </button>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     {zeile.istOffen ? (
@@ -480,6 +545,16 @@ export function BarzahlerListe({
                   inputMode="decimal"
                 />
               </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="barzahler-eintrags-notiz">Notiz (optional)</Label>
+              <Input
+                id="barzahler-eintrags-notiz"
+                value={eintragsNotiz}
+                onChange={(e) => setEintragsNotiz(e.target.value)}
+                maxLength={300}
+                placeholder="z. B. Rest aus September"
+              />
             </div>
             <div className="flex gap-2">
               <Button size="sm" disabled={tutGerade} onClick={() => void eintragen()}>

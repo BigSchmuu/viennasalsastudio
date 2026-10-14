@@ -187,6 +187,7 @@ export type Database = {
           created_by: string | null
           customer_id: string
           id: string
+          note: string | null
           subscription_id: string
         }
         Insert: {
@@ -195,6 +196,7 @@ export type Database = {
           created_by?: string | null
           customer_id: string
           id?: string
+          note?: string | null
           subscription_id: string
         }
         Update: {
@@ -203,6 +205,7 @@ export type Database = {
           created_by?: string | null
           customer_id?: string
           id?: string
+          note?: string | null
           subscription_id?: string
         }
         Relationships: []
@@ -2846,6 +2849,7 @@ export type Database = {
           ist_flatrate: boolean
           letzte_zahlung: string | null
           letzte_zahlung_id: string | null
+          note: string | null
           subscription_id: string
           subscription_name: string | null
         }[]
@@ -2862,13 +2866,26 @@ export type Database = {
         }[]
       }
       add_cash_entry: {
-        Args: { p_subscription_id: string; p_amount: number }
+        Args: { p_subscription_id: string; p_amount: number; p_note?: string | null }
         Returns: {
           amount_due: number
           created_at: string
           created_by: string | null
           customer_id: string
           id: string
+          note: string | null
+          subscription_id: string
+        }
+      }
+      set_cash_entry_note: {
+        Args: { p_entry_id: string; p_note: string | null }
+        Returns: {
+          amount_due: number
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          id: string
+          note: string | null
           subscription_id: string
         }
       }
