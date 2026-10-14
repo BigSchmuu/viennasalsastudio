@@ -355,3 +355,7 @@ damit es nicht unbemerkt zurückkommt.
 Die Entscheidungen von PROJ-7 und PROJ-10, die „bar/SumUp" erwähnen, bleiben unverändert stehen: Sie
 halten fest, was damals galt. Geändert hat sich nicht, *wo* bezahlt wird (weiterhin außerhalb der
 App), sondern nur *womit*.
+
+**Ausgeliefert:** 2026-10-14, Tag `v1.81.1-barzahlung-vor-ort` (Commit `b7f9264`), Vercel
+`…oby0uxcx3` Ready und als Produktion aliasiert. Keine Migration. Nachgeprüft von außen: Auf
+`/kurse` und `/en/kurse` kommt „SumUp" nicht mehr vor.
