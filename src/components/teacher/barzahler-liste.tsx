@@ -39,30 +39,42 @@ export function BarzahlerListe({
   const [zeilen, setZeilen] = useState(anfangsZeilen);
   const [fehler, setFehler] = useState<string | null>(null);
   const [laufendeId, setLaufendeId] = useState<string | null>(null);
+  // PROJ-83: Welche Zeile gerade einen Teilbetrag eingibt, und wie viel.
+  const [teilZeile, setTeilZeile] = useState<string | null>(null);
+  const [teilBetrag, setTeilBetrag] = useState("");
   // PROJ-82: Wer vor der Lehrkraft steht und sich nie registriert hat.
   const [formOffen, setFormOffen] = useState(false);
   const [neuerName, setNeuerName] = useState("");
   const [neuerBetrag, setNeuerBetrag] = useState("");
   const [legtAn, setLegtAn] = useState(false);
 
-  async function abhaken(zeile: BarzahlerAnsicht) {
+  /**
+   * Erfassen -- ohne Betrag den gesamten offenen Rest, mit Betrag genau diesen.
+   *
+   * Der verbuchte Betrag kommt von der Datenbank zurueck und wird hier in die
+   * Zeile gerechnet. Selbst zu rechnen hiesse, die Rundung ein zweites Mal zu
+   * machen, und zwei Rundungen driften.
+   */
+  async function erfassen(zeile: BarzahlerAnsicht, eingabe?: string) {
     setLaufendeId(zeile.aboId);
     setFehler(null);
     try {
-      const ergebnis = await erfasseBarzahlung(zeile.aboId, courseId);
+      const ergebnis = await erfasseBarzahlung(zeile.aboId, courseId, eingabe);
       if ("error" in ergebnis) {
         setFehler(ergebnis.error);
         return;
       }
-      // Die Zeile wandert nicht: Sie bleibt stehen, nur als bezahlt. Ein
-      // Sprung mitten im Abhaken ließe die Lehrkraft die Zeile verlieren.
+      // Die Zeile wandert nicht: Sie bleibt stehen, nur mit neuem Stand. Ein
+      // Sprung mitten im Abhaken liesse die Lehrkraft die Zeile verlieren.
       setZeilen((bisher) =>
         bisher.map((z) =>
           z.aboId === zeile.aboId
-            ? { ...z, offen: false, letzteBarzahlung: heute(), heutigeZahlungId: ergebnis.zahlungId }
+            ? neuerStand(z, ergebnis.betrag, ergebnis.zahlungId)
             : z
         )
       );
+      setTeilZeile(null);
+      setTeilBetrag("");
     } finally {
       setLaufendeId(null);
     }
@@ -78,13 +90,11 @@ export function BarzahlerListe({
         setFehler(ergebnis.error);
         return;
       }
-      setZeilen((bisher) =>
-        bisher.map((z) =>
-          z.aboId === zeile.aboId
-            ? { ...z, offen: true, letzteBarzahlung: null, heutigeZahlungId: null }
-            : z
-        )
-      );
+      // Hier wird neu geladen und nicht nachgerechnet: Wie viel die
+      // zurueckgenommene Zahlung ausmachte, weiss diese Seite nach einem
+      // Neuaufbau nicht mehr -- sie kennt nur ihre Kennung. Ein Ruecknehmen ist
+      // die Ausnahme, ein falscher Saldo waere schlimmer als ein Neuladen.
+      window.location.reload();
     } finally {
       setLaufendeId(null);
     }
@@ -150,7 +160,8 @@ export function BarzahlerListe({
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[160px]">Name</TableHead>
-                    <TableHead>Betrag</TableHead>
+                    <TableHead>Beitrag</TableHead>
+                    <TableHead>Offen</TableHead>
                     <TableHead>Zustand</TableHead>
                     <TableHead className="text-right">Kassiert</TableHead>
                   </TableRow>
@@ -172,22 +183,82 @@ export function BarzahlerListe({
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="whitespace-nowrap tabular-nums">
+                        <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">
                           {ohnePreis ? "—" : EUR.format(zeile.betrag!)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap tabular-nums font-medium">
+                          {/* Der offene Betrag, nicht der Zyklusbeitrag: Bei
+                              einer Restschuld ist er höher, und eingesammelt
+                              wird dieser. */}
+                          {zeile.offen ? EUR.format(zeile.saldo) : "—"}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {zustandText(zeile)}
                         </TableCell>
                         <TableCell className="text-right">
                           {zeile.offen ? (
-                            <Button
-                              size="sm"
-                              disabled={ohnePreis || laufendeId === zeile.aboId}
-                              onClick={() => void abhaken(zeile)}
-                              aria-label={`Barzahlung von ${zeile.kundeName} erfassen`}
-                            >
-                              {laufendeId === zeile.aboId ? "…" : "Bezahlt"}
-                            </Button>
+                            teilZeile === zeile.aboId ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <Input
+                                  value={teilBetrag}
+                                  onChange={(e) => setTeilBetrag(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") void erfassen(zeile, teilBetrag);
+                                  }}
+                                  placeholder={String(zeile.saldo)}
+                                  inputMode="decimal"
+                                  className="h-8 w-20 text-right"
+                                  aria-label={`Teilbetrag von ${zeile.kundeName}`}
+                                  autoFocus
+                                />
+                                <Button
+                                  size="sm"
+                                  disabled={laufendeId === zeile.aboId}
+                                  onClick={() => void erfassen(zeile, teilBetrag)}
+                                  aria-label={`Teilbetrag von ${zeile.kundeName} erfassen`}
+                                >
+                                  {laufendeId === zeile.aboId ? "…" : "OK"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setTeilZeile(null);
+                                    setTeilBetrag("");
+                                    setFehler(null);
+                                  }}
+                                >
+                                  Abbrechen
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  size="sm"
+                                  disabled={ohnePreis || laufendeId === zeile.aboId}
+                                  onClick={() => void erfassen(zeile)}
+                                  aria-label={`Barzahlung von ${zeile.kundeName} erfassen`}
+                                >
+                                  {laufendeId === zeile.aboId
+                                    ? "…"
+                                    : `Bezahlt ${EUR.format(zeile.saldo)}`}
+                                </Button>
+                                {/* PROJ-83: Wer nicht alles dabei hat. */}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={ohnePreis || laufendeId === zeile.aboId}
+                                  onClick={() => {
+                                    setTeilZeile(zeile.aboId);
+                                    setTeilBetrag("");
+                                    setFehler(null);
+                                  }}
+                                  aria-label={`Teilbetrag für ${zeile.kundeName} eingeben`}
+                                >
+                                  Teilbetrag
+                                </Button>
+                              </div>
+                            )
                           ) : zeile.heutigeZahlungId ? (
                             <Button
                               size="sm"
@@ -271,7 +342,33 @@ export function BarzahlerListe({
   );
 }
 
-/** Der heutige Tag als „JJJJ-MM-TT" — nur für die Anzeige nach dem Abhaken. */
+/** Der heutige Tag als „JJJJ-MM-TT“ — nur für die Anzeige nach dem Abhaken. */
 function heute(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Vienna" }).format(new Date());
+}
+
+/**
+ * Die Zeile nach einer erfassten Zahlung.
+ *
+ * Gerechnet wird auf der Haben-Seite und der Rest daraus — dieselbe Rechnung
+ * wie in `barzahlerZeilen`, nur ohne einen Seitenaufbau abzuwarten. Bei einem
+ * Teilbetrag bleibt die Zeile offen, und genau das ist der Sinn.
+ */
+function neuerStand(
+  zeile: BarzahlerAnsicht,
+  betrag: number,
+  zahlungId: string
+): BarzahlerAnsicht {
+  const haben = Math.round((zeile.haben + betrag) * 100) / 100;
+  const saldo = Math.round((zeile.soll - haben) * 100) / 100;
+  return {
+    ...zeile,
+    haben,
+    saldo,
+    offen: saldo > 0.005,
+    teilweise: saldo > 0.005 && haben > 0.005,
+    guthaben: saldo < -0.005 ? Math.round(-saldo * 100) / 100 : 0,
+    letzteZahlung: heute(),
+    heutigeZahlungId: zahlungId,
+  };
 }

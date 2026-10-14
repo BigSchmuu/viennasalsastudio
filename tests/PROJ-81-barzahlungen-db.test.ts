@@ -10,7 +10,8 @@ import { angemeldetAls } from "./anmeldung";
  * Knopf kein zweites Mal Geld verbucht. Beträge und IBANs liegen hinter diesen
  * Funktionen; für eine Lehrkraft sind die Tabellen gesperrt.
  *
- * Braucht die Migration 20261013100000_proj81_barzahlungen.sql.
+ * Braucht die Migrationen 20261013100000_proj81_barzahlungen.sql und
+ * 20261014120000_proj83_teilbetraege.sql.
  */
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -48,6 +49,14 @@ async function kontoAnlegen(mail: string, name: string): Promise<string> {
   if (error || !data.user) throw new Error(`PROJ-81 Konto ${mail}: ${error?.message}`);
   await service.from("profiles").update({ full_name: name }).eq("id", data.user.id);
   return data.user.id;
+}
+
+/** Einen faellig gewordenen Beitrag anlegen — die Soll-Seite aus PROJ-83. */
+async function sollAnlegen(aboId: string, kundeId: string, betrag: number, tag: string) {
+  const { error } = await service
+    .from("cash_dues")
+    .insert({ subscription_id: aboId, customer_id: kundeId, amount: betrag, due_on: tag });
+  if (error) throw new Error(`PROJ-81 Soll: ${error.message}`);
 }
 
 async function barzahler(client: SupabaseClient) {
@@ -116,7 +125,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (kursId) {
-    await service.from("cash_payments").delete().in("subscription_id", [barAboId, mandatAboId].filter(Boolean));
+    const abos = [barAboId, mandatAboId].filter(Boolean);
+    await service.from("cash_payments").delete().in("subscription_id", abos);
+    await service.from("cash_dues").delete().in("subscription_id", abos);
     await service.from("subscriptions").delete().eq("course_id", kursId);
     await service.from("course_teachers").delete().eq("course_id", kursId);
     await service.from("courses").delete().eq("id", kursId);
@@ -134,7 +145,9 @@ describe("PROJ-81: Barzahlungen in der Datenbank", () => {
 
     const bar = zeilen.find((z) => z.subscription_id === barAboId);
     expect(bar, "Der Barzahler fehlt in der Liste").toBeTruthy();
-    expect(Number(bar!.amount)).toBe(50);
+    // Seit PROJ-83 heisst die Spalte `price` — der Zyklusbeitrag, waehrend
+    // `soll`/`haben` den Saldo tragen.
+    expect(Number(bar!.price)).toBe(50);
   });
 
   // Die Unterscheidung, um die es geht.
@@ -159,8 +172,13 @@ describe("PROJ-81: Barzahlungen in der Datenbank", () => {
     }
   });
 
-  it("erfasst eine Zahlung mit dem Betrag aus dem Abo", async () => {
+  it("erfasst eine Zahlung ueber den offenen Betrag", async () => {
+    // Seit PROJ-83 kommt der Betrag aus dem Saldo und nicht mehr aus dem Abo:
+    // Ohne faellig gewordenen Beitrag ist nichts offen und nichts zu erfassen.
     await service.from("cash_payments").delete().eq("subscription_id", barAboId);
+    await service.from("cash_dues").delete().eq("subscription_id", barAboId);
+    await sollAnlegen(barAboId, barKundeId, 50, wienerDatum(-1));
+
     const { data, error } = await alsLehrer.rpc("record_cash_payment", {
       p_subscription_id: barAboId,
     });
@@ -169,12 +187,18 @@ describe("PROJ-81: Barzahlungen in der Datenbank", () => {
     expect((data as Record<string, unknown>).paid_on).toBe(wienerDatum(0));
   });
 
-  // Das Netz gegen den Fehlgriff.
+  // Das Netz gegen den Fehlgriff. Die Zusicherung ist dieselbe wie in PROJ-81,
+  // der Mechanismus seit PROJ-83 ein anderer: Nicht mehr eine Sperre ueber 28
+  // Tage, sondern ein Saldo, der nach der ersten Zahlung bei null steht. Den
+  // Schutz gegen zwei gleiche Betraege im selben Augenblick prueft PROJ-83.
   it("verbucht einen zweiten Druck nicht zweimal", async () => {
     await service.from("cash_payments").delete().eq("subscription_id", barAboId);
+    await service.from("cash_dues").delete().eq("subscription_id", barAboId);
+    await sollAnlegen(barAboId, barKundeId, 50, wienerDatum(-1));
+
     await alsLehrer.rpc("record_cash_payment", { p_subscription_id: barAboId });
     const { error } = await alsLehrer.rpc("record_cash_payment", { p_subscription_id: barAboId });
-    expect(error, "Eine zweite Zahlung im Zyklus wurde angenommen").not.toBeNull();
+    expect(error, "Eine zweite Zahlung ohne offenen Betrag wurde angenommen").not.toBeNull();
   });
 
   it("nimmt eine heute erfasste Zahlung zurück", async () => {

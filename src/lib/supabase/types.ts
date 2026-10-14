@@ -180,6 +180,33 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_dues: {
+        Row: {
+          amount: number
+          created_at: string
+          customer_id: string
+          due_on: string
+          id: string
+          subscription_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          customer_id: string
+          due_on: string
+          id?: string
+          subscription_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          customer_id?: string
+          due_on?: string
+          id?: string
+          subscription_id?: string
+        }
+        Relationships: []
+      }
       cash_payments: {
         Row: {
           amount: number
@@ -2441,6 +2468,16 @@ export type Database = {
       }
     }
     Views: {
+      cash_ledger: {
+        Row: {
+          customer_id: string | null
+          haben: number | null
+          saldo: number | null
+          soll: number | null
+          subscription_id: string | null
+        }
+        Relationships: []
+      }
       course_members: {
         Row: {
           course_id: string | null
@@ -2807,13 +2844,14 @@ export type Database = {
       get_course_cash_payers: {
         Args: { p_course_id: string }
         Returns: {
-          amount: number | null
-          barzahlungen: string[] | null
           customer_id: string
-          einzuege: string[] | null
           full_name: string
+          haben: number
           heutige_zahlung_id: string | null
           ist_flatrate: boolean
+          letzte_zahlung: string | null
+          price: number | null
+          soll: number
           subscription_id: string
           subscription_name: string | null
         }[]
@@ -3228,7 +3266,7 @@ export type Database = {
         }
       }
       record_cash_payment: {
-        Args: { p_subscription_id: string }
+        Args: { p_subscription_id: string; p_amount?: number | null }
         Returns: {
           amount: number
           collected_by: string | null

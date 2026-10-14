@@ -5,6 +5,7 @@ import { vollzieheFaelligeAenderungen } from "@/lib/subscriptions/faellige-aende
 import { vollzieheFaelligeUmwandlungen } from "@/lib/courses/umwandlungen";
 import { ergaenzeSerienTermine } from "@/lib/events/termine-nachlegen";
 import { raeumeVerwaisteBilder } from "@/lib/events/bilder-aufraeumen";
+import { traegeFaelligesSollNach } from "@/lib/barzahlungen/soll-nachtragen";
 import { fuehreSchrittAus, laufSammler } from "@/lib/cron/schritt";
 import { laufArt } from "@/lib/cron/laufart";
 
@@ -103,9 +104,24 @@ export async function GET(request: NextRequest) {
     ? { verwaist: 0 }
     : lauf.nimm(await fuehreSchrittAus("verwaiste-bilder", { verwaist: 0 }, () => raeumeVerwaisteBilder(service)));
 
+  // PROJ-83: Faellig gewordene Beitraege der Barzahler als Soll-Zeilen
+  // nachtragen. Ohne diesen Schritt bliebe jeder Saldo auf dem Stand des
+  // letzten Laufs stehen -- und eine Zeile ohne Soll sieht bezahlt aus.
+  //
+  // Nur im Morgenlauf, und wiederholbar: Die Eindeutigkeit ueber (Abo, Tag)
+  // laesst einen doppelten Lauf nichts Zweites schreiben, ein ausgefallener
+  // holt am Folgetag nach.
+  const barsoll = isEveningRun
+    ? { angelegt: 0, abos: 0 }
+    : lauf.nimm(
+        await fuehreSchrittAus("barzahlung-soll", { angelegt: 0, abos: 0 }, () =>
+          traegeFaelligesSollNach(service)
+        )
+      );
+
   const drained = lauf.nimm(await fuehreSchrittAus("warteschlange", { processed: 0 }, () => drainPendingQueue(service)));
 
-  const ergebnis = { ...checks, ...vollzug, ...umwandlung, ...serien, ...bilder, ...drained };
+  const ergebnis = { ...checks, ...vollzug, ...umwandlung, ...serien, ...bilder, ...barsoll, ...drained };
 
   // Ein halb gelungener Lauf darf nicht wie ein gelungener aussehen: Vercel
   // zeigt in der Cron-Uebersicht nur den Statuscode.

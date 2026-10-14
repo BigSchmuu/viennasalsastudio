@@ -1,18 +1,21 @@
-import { istFaellig } from "@/lib/sepa/faelligkeit";
-import type { Ferienzeitraum } from "@/lib/scheduling/dates";
-
 /**
- * Wer jetzt bar zahlen muss (PROJ-81).
+ * Wer wie viel bar schuldet (PROJ-81, Teilbeträge ab PROJ-83).
  *
- * Die Regel ist **dieselbe** wie beim Lastschriftlauf: vier Wochen Abstand,
- * Ferien verlängern (`lib/sepa/faelligkeit.ts`, PROJ-70). Hätte die Barzahlung
- * eine eigene Rechnung, bedeuteten „Zyklus" und „bezahlt" bei Bar und
- * Lastschrift unbemerkt Verschiedenes.
+ * Bis PROJ-83 war das eine **Datumsfrage**: Gibt es in diesem Zyklus eine
+ * Zahlung? Beträge spielten keine Rolle, und wer 40 von 89 Euro gab, galt als
+ * bezahlt. Jetzt gilt je Abo Soll minus Haben — das Soll entsteht an jedem
+ * Fälligkeitstag als Zeile (`soll-nachtragen.ts`), das Haben ist jede erfasste
+ * Zahlung. Gerechnet wird die Differenz in der Datenbank (`cash_ledger`);
+ * hier wird sie nur gedeutet.
  *
- * Einzüge und Barzahlungen zählen dabei **zusammen**: Wer im September
- * eingezogen wurde und im Oktober sein Mandat widerruft, hat den September
- * bezahlt — egal auf welchem Weg.
+ * Daraus folgt beides von selbst: Ein Rest bleibt stehen und addiert sich mit
+ * dem nächsten Beitrag, eine Überzahlung deckt den nächsten Beitrag ab.
  */
+
+const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
+
+/** Unter einem Cent ist bezahlt. Sonst entscheidet eine Rundung über „offen". */
+const CENT = 0.005;
 
 export type Barzahler = {
   kundeId: string;
@@ -22,44 +25,54 @@ export type Barzahler = {
   /** Der Beitrag je Zyklus; `null`, wenn am Abo kein Preis hinterlegt ist. */
   betrag: number | null;
   istFlatrate: boolean;
-  /** Fälligkeitstage bisheriger Einzüge. */
-  einzuege: string[];
-  /** Tage bisheriger Barzahlungen. */
-  barzahlungen: string[];
+  /** Summe der fällig gewordenen Beiträge seit dem Stichtag. */
+  soll: number;
+  /** Summe der erfassten Barzahlungen. */
+  haben: number;
+  /** Tag der jüngsten Barzahlung — für „bezahlt am …". */
+  letzteZahlung: string | null;
+  /** Nur gesetzt, wenn das Abo gekündigt ist und ein Rest offen bleibt. */
+  beendet?: boolean;
 };
 
 export type BarzahlerZeile = Barzahler & {
-  /** Muss jetzt gezahlt werden? */
+  /** Soll minus Haben. Positiv heißt offen, negativ ist Guthaben. */
+  saldo: number;
+  /** Muss jetzt Geld eingesammelt werden? */
   offen: boolean;
-  /** Die jüngste Barzahlung — für „bezahlt am …". */
-  letzteBarzahlung: string | null;
+  /** Es ist etwas offen, aber schon etwas bezahlt. */
+  teilweise: boolean;
+  /** Was über den offenen Betrag hinaus bezahlt wurde; sonst 0. */
+  guthaben: number;
 };
 
 /**
- * Für jeden Barzahler: offen oder bezahlt, und wann zuletzt.
+ * Für jeden Barzahler: offen oder bezahlt, und wie viel.
  *
- * `heute` ist der Tag, an dem gefragt wird — die Lehrkraft steht am Kursabend
- * davor. Ohne jede Zahlung ist immer offen: Der erste Beitrag wartet auf nichts.
+ * Braucht weder Datum noch Ferien mehr — beides steckt in den Soll-Zeilen, die
+ * der Morgenlauf erzeugt hat. Das ist der Punkt der Umstellung: Die Liste
+ * deutet eine Rechnung, statt sie jedes Mal neu anzustellen.
  */
-export function barzahlerZeilen(
-  zahler: Barzahler[],
-  heute: string,
-  ferien: Ferienzeitraum[]
-): BarzahlerZeile[] {
+export function barzahlerZeilen(zahler: Barzahler[]): BarzahlerZeile[] {
   return zahler
     .map((z) => {
-      const alle = [...z.einzuege, ...z.barzahlungen];
-      const sortierteBar = [...z.barzahlungen].sort();
+      const saldo = runde(z.soll - z.haben);
       return {
         ...z,
-        offen: istFaellig(heute, alle, ferien),
-        letzteBarzahlung: sortierteBar[sortierteBar.length - 1] ?? null,
+        saldo,
+        offen: saldo > CENT,
+        teilweise: saldo > CENT && z.haben > CENT,
+        guthaben: saldo < -CENT ? runde(-saldo) : 0,
       };
     })
     .sort(
       (a, b) =>
-        // Offene zuerst: Das ist die Arbeit des Abends.
-        Number(b.offen) - Number(a.offen) || a.kundeName.localeCompare(b.kundeName, "de")
+        // Offene zuerst: Das ist die Arbeit des Abends. Innerhalb davon der
+        // größere Betrag zuerst — wer am meisten schuldet, soll nicht unten
+        // stehen.
+        Number(b.offen) - Number(a.offen) ||
+        (b.offen ? b.saldo - a.saldo : 0) ||
+        a.kundeName.localeCompare(b.kundeName, "de")
     );
 }
 
@@ -71,11 +84,23 @@ export function barzahlerZeilen(
  */
 export function zustandText(zeile: BarzahlerZeile): string {
   if (zeile.betrag === null || zeile.betrag <= 0) return "Kein Preis am Abo";
-  if (zeile.offen) return "Offen";
-  if (zeile.letzteBarzahlung) return `Bezahlt am ${datumKurz(zeile.letzteBarzahlung)}`;
-  // Bezahlt, aber keine Barzahlung — dann deckt ein Einzug den Zyklus ab. Kommt
-  // vor, wenn das Mandat gerade widerrufen wurde.
-  return "Durch Einzug gedeckt";
+
+  if (zeile.offen) {
+    if (!zeile.teilweise) return "Offen";
+    // Der bezahlte Teil gehört dazu: Sonst sieht die Lehrkraft nur den Rest und
+    // fragt nach dem vollen Beitrag.
+    return `Teilweise bezahlt — ${EUR.format(zeile.haben)} von ${EUR.format(zeile.soll)}`;
+  }
+
+  if (zeile.guthaben > 0) return `Guthaben ${EUR.format(zeile.guthaben)}`;
+  if (zeile.letzteZahlung) return `Bezahlt am ${datumKurz(zeile.letzteZahlung)}`;
+  // Kein Soll und keine Zahlung: Das Abo ist noch vor seinem ersten
+  // Fälligkeitstag — oder es wurde bis zum Stichtag eingezogen.
+  return "Nichts fällig";
+}
+
+function runde(wert: number): number {
+  return Math.round(wert * 100) / 100;
 }
 
 function datumKurz(datum: string): string {
@@ -85,5 +110,5 @@ function datumKurz(datum: string): string {
 
 /** Die Summe, die an diesem Abend noch einzusammeln ist. */
 export function offeneSumme(zeilen: BarzahlerZeile[]): number {
-  return zeilen.filter((z) => z.offen).reduce((summe, z) => summe + (z.betrag ?? 0), 0);
+  return runde(zeilen.filter((z) => z.offen).reduce((summe, z) => summe + z.saldo, 0));
 }

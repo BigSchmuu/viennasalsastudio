@@ -137,7 +137,9 @@
 
 | PROJ-82 | Barzahler von Hand eintragen (Kunden ohne Konto) | Deployed | [PROJ-82](../features/PROJ-82-kunden-ohne-konto.md) | 2026-10-13 |
 
+| PROJ-83 | Barzahlungen in Teilbeträgen — und erfassen in der Verwaltung | Approved | [PROJ-83](../features/PROJ-83-barzahlung-teilbetraege.md) | 2026-10-14 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-83
+## Next Available ID: PROJ-84

@@ -122,6 +122,18 @@ test.beforeAll(async () => {
   if (barFehler) throw new Error(`PROJ-81 Barabo: ${barFehler.message}`);
   barAboId = barAbo!.id;
 
+  // Seit PROJ-83 entsteht „offen" aus einem fällig gewordenen Beitrag und
+  // nicht mehr aus dem Fehlen einer Zahlung. Ohne diese Soll-Zeile stünde die
+  // Zeile auf „Nichts fällig" — richtig gerechnet, aber nicht der Fall, den
+  // diese Tests prüfen wollen.
+  const { error: sollFehler } = await service.from("cash_dues").insert({
+    subscription_id: barAboId,
+    customer_id: barKundeId,
+    amount: 50,
+    due_on: wienerDatum(-1),
+  });
+  if (sollFehler) throw new Error(`PROJ-81 Soll: ${sollFehler.message}`);
+
   const { error: mandatAboFehler } = await service.from("subscriptions").insert({
     customer_id: mandatKundeId,
     course_id: kursId,
@@ -146,12 +158,14 @@ test.afterAll(async () => {
   const { data: hand } = await service.from("profiles").select("id").eq("full_name", HAND_NAME);
   for (const p of hand ?? []) {
     await service.from("cash_payments").delete().eq("customer_id", p.id);
+    await service.from("cash_dues").delete().eq("customer_id", p.id);
     await service.from("subscriptions").delete().eq("customer_id", p.id);
     await service.auth.admin.deleteUser(p.id).catch(() => {});
   }
 
   if (kursId) {
     await service.from("cash_payments").delete().in("customer_id", [barKundeId, mandatKundeId]);
+    await service.from("cash_dues").delete().in("customer_id", [barKundeId, mandatKundeId]);
     await service.from("course_attendance").delete().eq("course_id", kursId);
     await service.from("subscriptions").delete().eq("course_id", kursId);
     await service.from("course_teachers").delete().eq("course_id", kursId);
