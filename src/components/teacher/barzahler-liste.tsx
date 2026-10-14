@@ -10,7 +10,7 @@ import {
   legeEintragAn,
   nimmBarzahlungZurueck,
 } from "@/lib/actions/teacher/barzahlung";
-import { legeBarzahlerAn } from "@/lib/actions/teacher/barzahler-anlegen";
+import { legeBarzahlerAn, type GastArt } from "@/lib/actions/teacher/barzahler-anlegen";
 import {
   offeneSumme,
   teileNachKurs,
@@ -77,6 +77,9 @@ export function BarzahlerListe({
   const [gastOffen, setGastOffen] = useState(false);
   const [gastName, setGastName] = useState("");
   const [gastBetrag, setGastBetrag] = useState("");
+  // PROJ-85: Kursabo oder Flatrate. Vorbelegt der haeufigere und kleinere
+  // Fall — ein Kursabo betrifft einen Kurs, eine Flatrate alle.
+  const [gastArt, setGastArt] = useState<GastArt>("kurs");
 
   // Nach `router.refresh()` kommen neue Eigenschaften an, aber ein
   // `useState(anfangsZeilen)` behaelt seinen ersten Wert -- ein neu
@@ -198,7 +201,7 @@ export function BarzahlerListe({
     setTutGerade(true);
     setFehler(null);
     try {
-      const ergebnis = await legeBarzahlerAn(courseId, gastName, gastBetrag);
+      const ergebnis = await legeBarzahlerAn(courseId, gastName, gastBetrag, gastArt);
       if ("error" in ergebnis) {
         setFehler(ergebnis.error);
         return;
@@ -208,6 +211,7 @@ export function BarzahlerListe({
       setGastOffen(false);
       setGastName("");
       setGastBetrag("");
+      setGastArt("kurs");
       window.location.reload();
     } finally {
       setTutGerade(false);
@@ -529,10 +533,24 @@ export function BarzahlerListe({
                 />
               </div>
             </div>
+            <div className="space-y-1">
+              <Label htmlFor="barzahler-art">Abo</Label>
+              <Select value={gastArt} onValueChange={(wert) => setGastArt(wert as GastArt)}>
+                <SelectTrigger id="barzahler-art" aria-label="Abo-Art auswählen">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kurs">Nur dieser Kurs</SelectItem>
+                  <SelectItem value="flatrate">Flatrate</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Wird ein Teilnehmer dieses Kurses mit diesem Beitrag — ohne Konto, ohne E-Mail — und
-              steht danach auf der Barzahler-Liste. Die Verwaltung kann später eine Adresse
-              nachtragen.
+              {gastArt === "flatrate"
+                ? "Bekommt eine Flatrate mit diesem Beitrag und einen Platz in diesem Kurs. Weitere Kurse trägt die Verwaltung am Kunden nach."
+                : "Wird ein Teilnehmer dieses Kurses mit diesem Beitrag."}{" "}
+              Ohne Konto, ohne E-Mail — und steht danach auf der Barzahler-Liste. Die Verwaltung kann
+              später eine Adresse nachtragen.
             </p>
             <div className="flex gap-2">
               <Button size="sm" disabled={tutGerade} onClick={() => void gastEintragen()}>

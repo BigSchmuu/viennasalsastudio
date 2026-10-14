@@ -8,7 +8,7 @@ import { betragAusEingabe, nameGueltig, offlineAdresse } from "@/lib/kunden/offl
 import type { ActionResult } from "@/lib/actions/types";
 
 /**
- * Einen Barzahler von Hand eintragen (PROJ-82).
+ * Einen Barzahler von Hand eintragen (PROJ-82, Flatrate ab PROJ-85).
  *
  * Es entsteht ein **echter** Kunde — mit Profil, Kursplatz und Preis. Der
  * Betreiber wollte, dass diese Leute wie jeder andere Teilnehmer zählen:
@@ -19,14 +19,25 @@ import type { ActionResult } from "@/lib/actions/types";
  * lib/kunden/offline.ts): Anmelden kann sich damit niemand, und der Versand
  * überspringt sie, statt an jeder Erinnerung zu scheitern.
  *
+ * Zwei Arten: ein kursgebundenes Abo — der häufige Fall — oder eine Flatrate.
+ * Bei der Flatrate trägt das Abo keinen Kurs; der Kurs steht daneben als
+ * Kursplatz (PROJ-50), und weitere kann die Verwaltung nachtragen. Es sind
+ * dieselben Schritte mit einem Unterschied in einem davon, deshalb eine
+ * Aktion und nicht zwei — sonst stünde das Aufräumen nach einem Fehlschlag
+ * zweimal da.
+ *
  * Geschrieben wird mit dem Dienstschlüssel — eine Lehrkraft darf weder Konten
  * anlegen noch Abos schreiben. Die Rechteprüfung steht deshalb **hier** und
  * muss dicht sein: Lehrkraft genau dieses Kurses, oder Verwaltung.
  */
+/** Woran der Gast hängt: an diesem Kurs oder an einer Flatrate. */
+export type GastArt = "kurs" | "flatrate";
+
 export async function legeBarzahlerAn(
   courseId: string,
   name: string,
-  betragEingabe: string
+  betragEingabe: string,
+  art: GastArt = "kurs"
 ): Promise<ActionResult> {
   const { supabase, user, isAdmin } = await requireAdminOrTeacher();
 
@@ -100,13 +111,15 @@ export async function legeBarzahlerAn(
     return { error: "Der Kunde konnte nicht angelegt werden." };
   }
 
+  // Bei einer Flatrate trägt das Abo **keinen** Kurs — das ist der Unterschied.
+  const istFlatrate = art === "flatrate";
   const { data: abo, error: aboFehler } = await service
     .from("subscriptions")
     .insert({
       customer_id: kundeId,
-      course_id: courseId,
+      course_id: istFlatrate ? null : courseId,
       status: "active",
-      name: "Barzahler",
+      name: istFlatrate ? "Flatrate" : "Barzahler",
       price: betrag,
       cycle_anchor_date: heuteInWien(),
     })
@@ -116,6 +129,29 @@ export async function legeBarzahlerAn(
     await service.auth.admin.deleteUser(kundeId).catch(() => {});
     console.error("Barzahler: Abo nicht angelegt", aboFehler);
     return { error: "Der Kursplatz konnte nicht angelegt werden." };
+  }
+
+  // PROJ-85: Der Kurs steht bei einer Flatrate daneben, nicht am Abo.
+  //
+  // Direkt eingefügt und nicht über `add_course_to_flatrate`: Jene Funktion
+  // gehört dem Selbstbedienungsweg des Kunden — sie liest `auth.uid()` und
+  // verlangt eine Tanzrolle, wenn der Kurs danach fragt. Hier legt eine
+  // Lehrkraft für jemand anderen an, und nach der Rolle wird an der Tür
+  // bewusst nicht gefragt.
+  if (istFlatrate) {
+    const { error: platzFehler } = await service.from("course_memberships").insert({
+      customer_id: kundeId,
+      course_id: courseId,
+      subscription_id: abo.id,
+      // PROJ-69: Ein Kursplatz gilt ab seinem Starttermin. Wer heute an der
+      // Tür steht, tanzt heute mit.
+      started_on: heuteInWien(),
+    });
+    if (platzFehler) {
+      await service.auth.admin.deleteUser(kundeId).catch(() => {});
+      console.error("Barzahler: Kursplatz nicht angelegt", platzFehler);
+      return { error: "Der Kursplatz konnte nicht angelegt werden." };
+    }
   }
 
   // PROJ-84: Und auf die Liste. Ohne diesen Eintrag wäre der Gast angelegt,

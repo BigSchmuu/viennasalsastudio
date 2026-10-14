@@ -16,6 +16,7 @@ const deleteUser = vi.fn();
 const profilUpdate = vi.fn();
 const aboInsert = vi.fn();
 const eintragInsert = vi.fn();
+const platzInsert = vi.fn();
 let istAdmin = false;
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -47,6 +48,9 @@ vi.mock("@/lib/supabase/service", () => ({
       if (tabelle === "profiles") {
         return { update: (...a: unknown[]) => ({ eq: () => profilUpdate(...a) }) };
       }
+      if (tabelle === "course_memberships") {
+        return { insert: (...a: unknown[]) => platzInsert(...a) };
+      }
       if (tabelle === "cash_entries") {
         return { insert: (...a: unknown[]) => eintragInsert(...a) };
       }
@@ -61,9 +65,9 @@ vi.mock("@/lib/supabase/service", () => ({
   }),
 }));
 
-async function anlegen(name = "Herbert K.", betrag = "50") {
+async function anlegen(name = "Herbert K.", betrag = "50", art?: "kurs" | "flatrate") {
   const { legeBarzahlerAn } = await import("./barzahler-anlegen");
-  return legeBarzahlerAn("kurs-1", name, betrag);
+  return art ? legeBarzahlerAn("kurs-1", name, betrag, art) : legeBarzahlerAn("kurs-1", name, betrag);
 }
 
 describe("legeBarzahlerAn (PROJ-82)", () => {
@@ -77,6 +81,7 @@ describe("legeBarzahlerAn (PROJ-82)", () => {
     profilUpdate.mockReset().mockResolvedValue({ error: null });
     aboInsert.mockReset().mockResolvedValue({ data: { id: "abo-1" }, error: null });
     eintragInsert.mockReset().mockResolvedValue({ error: null });
+    platzInsert.mockReset().mockResolvedValue({ error: null });
   });
 
   it("legt Konto, Namen und Kursplatz an", async () => {
@@ -171,6 +176,39 @@ describe("legeBarzahlerAn (PROJ-82)", () => {
     eintragInsert.mockResolvedValue({ error: { message: "kaputt" } });
     const fehlerLog = vi.spyOn(console, "error").mockImplementation(() => {});
     const ergebnis = await anlegen();
+    expect(ergebnis).toHaveProperty("error");
+    expect(deleteUser).toHaveBeenCalled();
+    fehlerLog.mockRestore();
+  });
+
+  // PROJ-85: Dieselben Schritte, ein Unterschied in einem davon.
+  it("legt bei der Flatrate ein Abo ohne Kurs an — und den Kursplatz daneben", async () => {
+    await anlegen("Frida Flat", "120", "flatrate");
+    expect(aboInsert.mock.calls[0][0]).toMatchObject({
+      course_id: null,
+      name: "Flatrate",
+      price: 120,
+    });
+    expect(platzInsert.mock.calls[0][0]).toMatchObject({
+      course_id: "kurs-1",
+      subscription_id: "abo-1",
+    });
+    // PROJ-69: Der Platz gilt ab heute, nicht irgendwann.
+    expect(platzInsert.mock.calls[0][0]).toHaveProperty("started_on");
+  });
+
+  it("legt beim Kursabo keinen Kursplatz daneben", async () => {
+    // Sonst stünde derselbe Mensch zweimal im Kurs — über das Abo und über
+    // den Platz (PROJ-50).
+    await anlegen("Kurt Kurs", "50", "kurs");
+    expect(aboInsert.mock.calls[0][0]).toMatchObject({ course_id: "kurs-1", name: "Barzahler" });
+    expect(platzInsert).not.toHaveBeenCalled();
+  });
+
+  it("raeumt das Konto weg, wenn der Kursplatz der Flatrate nicht entsteht", async () => {
+    platzInsert.mockResolvedValue({ error: { message: "kaputt" } });
+    const fehlerLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ergebnis = await anlegen("Frida Flat", "120", "flatrate");
     expect(ergebnis).toHaveProperty("error");
     expect(deleteUser).toHaveBeenCalled();
     fehlerLog.mockRestore();

@@ -33,6 +33,7 @@ const NAMEN = {
 };
 const KURS = `E2E81 Kassenkurs ${stempel}`;
 const HAND_NAME = `E2E82 Herbert Hand ${stempel}`;
+const FLAT_NAME = `E2E85 Frida Flat ${stempel}`;
 
 let kursId = "";
 let barKundeId = "";
@@ -132,8 +133,12 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   // Von Hand eingetragene Kunden: über ihren Namen finden und mitsamt Konto weg.
-  const { data: hand } = await service.from("profiles").select("id").eq("full_name", HAND_NAME);
+  const { data: hand } = await service
+    .from("profiles")
+    .select("id")
+    .in("full_name", [HAND_NAME, FLAT_NAME]);
   for (const p of hand ?? []) {
+    await service.from("course_memberships").delete().eq("customer_id", p.id);
     await service.from("cash_payments").delete().eq("customer_id", p.id);
     await service.from("cash_entries").delete().eq("customer_id", p.id);
     await service.from("subscriptions").delete().eq("customer_id", p.id);
@@ -183,6 +188,60 @@ test.describe("PROJ-82: Barzahler von Hand eintragen", () => {
       .single();
     const { data: konto } = await service.auth.admin.getUserById(profil!.id);
     expect(konto.user?.email).toMatch(/@viennasalsastudio\.invalid$/);
+  });
+
+  // PROJ-85: Derselbe Knopf, eine Auswahl mehr.
+  test("Als Flatrate angelegt: Abo ohne Kurs, Kursplatz daneben, auf der Liste", async ({
+    page,
+  }) => {
+    await anmelden(page, LEHRER);
+    await zurKursseite(page);
+
+    const karte = barzahlerKarte(page);
+    await karte.getByRole("button", { name: /Gast ohne Konto eintragen/ }).click();
+    await karte.getByLabel("Name").fill(FLAT_NAME);
+    await page.locator("#barzahler-betrag").fill("120");
+    await karte.getByRole("combobox", { name: "Abo-Art auswählen" }).click();
+    await page.getByRole("option", { name: "Flatrate" }).click();
+    await karte.getByRole("button", { name: "Gast anlegen" }).click();
+
+    // Die Seite laedt sich neu — danach steht er in beiden Listen.
+    await expect(barzahlerKarte(page).getByText(FLAT_NAME)).toBeVisible({ timeout: 30000 });
+
+    const { data: profil } = await service
+      .from("profiles")
+      .select("id")
+      .eq("full_name", FLAT_NAME)
+      .single();
+
+    // Das Abo traegt keinen Kurs — das ist der Unterschied.
+    const { data: abos } = await service
+      .from("subscriptions")
+      .select("id, course_id, price, name")
+      .eq("customer_id", profil!.id);
+    expect(abos).toHaveLength(1);
+    expect(abos![0].course_id).toBeNull();
+    expect(Number(abos![0].price)).toBe(120);
+
+    // Der Kurs steht daneben, ab heute.
+    const { data: plaetze } = await service
+      .from("course_memberships")
+      .select("course_id, started_on, ended_on")
+      .eq("customer_id", profil!.id);
+    expect(plaetze).toHaveLength(1);
+    expect(plaetze![0].course_id).toBe(kursId);
+    expect(plaetze![0].ended_on).toBeNull();
+
+    // Und auf der Barzahler-Liste, mit Abzeichen.
+    const zeile = barzahlerKarte(page).getByRole("row", { name: new RegExp(FLAT_NAME) });
+    await expect(zeile).toContainText("120,00");
+    await expect(zeile).toContainText("Flatrate");
+
+    // Genau das war der Grund fuer einen echten Kunden: Er zaehlt ueberall mit.
+    const matrix = page
+      .locator("table")
+      .filter({ has: page.getByRole("columnheader", { name: "Kursteilnehmer" }) });
+    await expect(matrix.getByText(FLAT_NAME)).toBeVisible();
   });
 
   test("Ein unsinniger Betrag wird abgewiesen, ohne etwas anzulegen", async ({ page }) => {
