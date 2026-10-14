@@ -255,6 +255,11 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await expect(bookingItems(page, "Probestunde").getByText("Bestätigt")).toBeVisible();
   });
 
+  // Setzt voraus, dass der Test „Erste Buchung erzwingt Akquisitionskanal"
+  // davor gelaufen ist — er beantwortet die Frage für dieses Konto, und die
+  // Fixture setzt sie oben bewusst zurück. Allein mit `--grep` gefahren,
+  // scheitert diese Prüfung am gesperrten Absende-Knopf; das ist kein Fehler
+  // der Anwendung (2026-10-14 selbst hineingelaufen).
   test("Drop-in zeigt Studierendenpreis live und erstellt offene Anfrage", async ({ page }) => {
     await login(page, CUSTOMER);
     await openBookingDialog(page, "E2E8 Kurs");
@@ -266,6 +271,11 @@ test.describe("PROJ-8: Kursbuchung", () => {
     await page.getByLabel("Ich bin Student(in)").check();
     await page.waitForTimeout(200);
     await expect(page.getByText("15,00")).toBeVisible();
+    // 2026-10-14: Vor Ort wird nur noch bar gezahlt — SumUp stand bis dahin im
+    // Satz daneben und ist keine Option mehr. Geprüft, damit es nicht
+    // unbemerkt zurückkommt.
+    await expect(page.getByRole("dialog").getByText(/Barzahlung vor Ort/)).toBeVisible();
+    await expect(page.getByRole("dialog").getByText(/SumUp/)).toHaveCount(0);
     // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
     await page.locator("#terms-accepted-booking").check();
     await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();

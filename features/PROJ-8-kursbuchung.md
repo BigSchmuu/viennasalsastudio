@@ -337,3 +337,21 @@ In der Produktion verifiziert, auf beiden Wegen:
 - **Über die Live-Oberfläche**: Hinweis „bereits angemeldet" sichtbar, Absenden-Knopf gesperrt
 
 Testdaten anschließend entfernt.
+
+---
+
+## Nachtrag 2026-10-14: Vor Ort wird nur noch bar gezahlt
+
+**Wunsch des Betreibers:** SumUp als Option herausnehmen, für Drop-ins nur Barzahlung.
+
+SumUp war nie eine Anbindung, sondern **ein Satz**: Im Buchungsdialog stand am Drop-in „{Preis} —
+bar/SumUp vor Ort". Es gab dazu keinen Wert in der Datenbank, keine Einstellung und keinen Code — nur
+diese Auskunft an den Kunden. Sie heißt jetzt „{Preis} — Barzahlung vor Ort" (englisch „cash on
+site").
+
+Geprüft wird beides: dass der neue Satz dasteht und dass „SumUp" im Dialog **nicht** mehr vorkommt —
+damit es nicht unbemerkt zurückkommt.
+
+Die Entscheidungen von PROJ-7 und PROJ-10, die „bar/SumUp" erwähnen, bleiben unverändert stehen: Sie
+halten fest, was damals galt. Geändert hat sich nicht, *wo* bezahlt wird (weiterhin außerhalb der
+App), sondern nur *womit*.
