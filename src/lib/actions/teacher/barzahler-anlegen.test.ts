@@ -15,6 +15,7 @@ const createUser = vi.fn();
 const deleteUser = vi.fn();
 const profilUpdate = vi.fn();
 const aboInsert = vi.fn();
+const eintragInsert = vi.fn();
 let istAdmin = false;
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -46,7 +47,16 @@ vi.mock("@/lib/supabase/service", () => ({
       if (tabelle === "profiles") {
         return { update: (...a: unknown[]) => ({ eq: () => profilUpdate(...a) }) };
       }
-      return { insert: (...a: unknown[]) => aboInsert(...a) };
+      if (tabelle === "cash_entries") {
+        return { insert: (...a: unknown[]) => eintragInsert(...a) };
+      }
+      // subscriptions: Seit PROJ-84 wird die Kennung des Abos gebraucht, um
+      // daran den Listeneintrag zu haengen.
+      return {
+        insert: (...a: unknown[]) => ({
+          select: () => ({ single: () => aboInsert(...a) }),
+        }),
+      };
     },
   }),
 }));
@@ -65,7 +75,8 @@ describe("legeBarzahlerAn (PROJ-82)", () => {
     createUser.mockReset().mockResolvedValue({ data: { user: { id: "neu-1" } }, error: null });
     deleteUser.mockReset().mockResolvedValue({ error: null });
     profilUpdate.mockReset().mockResolvedValue({ error: null });
-    aboInsert.mockReset().mockResolvedValue({ error: null });
+    aboInsert.mockReset().mockResolvedValue({ data: { id: "abo-1" }, error: null });
+    eintragInsert.mockReset().mockResolvedValue({ error: null });
   });
 
   it("legt Konto, Namen und Kursplatz an", async () => {
@@ -139,10 +150,29 @@ describe("legeBarzahlerAn (PROJ-82)", () => {
   });
 
   it("räumt das Konto weg, wenn der Kursplatz nicht angelegt werden kann", async () => {
-    aboInsert.mockResolvedValue({ error: { message: "kaputt" } });
+    aboInsert.mockResolvedValue({ data: null, error: { message: "kaputt" } });
     const fehlerLog = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await anlegen()).toMatchObject({ error: expect.stringContaining("Kursplatz") });
     expect(deleteUser).toHaveBeenCalledWith("neu-1");
+    fehlerLog.mockRestore();
+  });
+
+  // PROJ-84: Ohne diesen Eintrag waere der Gast angelegt, stuende aber auf
+  // keiner Liste — und genau dafuer hat ihn die Lehrkraft eingetragen.
+  it("setzt den Gast auch auf die Barzahler-Liste", async () => {
+    await anlegen("Herbert K.", "49,50");
+    expect(eintragInsert.mock.calls[0][0]).toMatchObject({
+      subscription_id: "abo-1",
+      amount_due: 49.5,
+    });
+  });
+
+  it("räumt das Konto weg, wenn der Listeneintrag nicht angelegt werden kann", async () => {
+    eintragInsert.mockResolvedValue({ error: { message: "kaputt" } });
+    const fehlerLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ergebnis = await anlegen();
+    expect(ergebnis).toHaveProperty("error");
+    expect(deleteUser).toHaveBeenCalled();
     fehlerLog.mockRestore();
   });
 

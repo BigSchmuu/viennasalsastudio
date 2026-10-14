@@ -1,137 +1,136 @@
 import { describe, it, expect } from "vitest";
-import { barzahlerZeilen, offeneSumme, zustandText, type Barzahler } from "./offen";
+import {
+  eintragsZeilen,
+  offeneSumme,
+  teileNachKurs,
+  zustandText,
+  type Eintrag,
+} from "./offen";
 
 const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
 
-function zahler(felder: Partial<Barzahler> = {}): Barzahler {
+function eintrag(felder: Partial<Eintrag> = {}): Eintrag {
   return {
+    eintragId: "eintrag-1",
     kundeId: "kunde-1",
     kundeName: "Anna Beispiel",
     aboId: "abo-1",
-    aboName: "Kursabo",
-    betrag: 89,
+    aboName: "Salsa Mittwoch",
     istFlatrate: false,
-    soll: 0,
-    haben: 0,
+    betrag: 89,
+    bezahlt: 0,
     letzteZahlung: null,
+    letzteZahlungId: null,
+    eigenerKurs: true,
     ...felder,
   };
 }
 
-describe("barzahlerZeilen", () => {
-  it("meldet einen fällig gewordenen Beitrag als offen", () => {
-    const [zeile] = barzahlerZeilen([zahler({ soll: 89 })]);
-    expect(zeile.offen).toBe(true);
-    expect(zeile.saldo).toBe(89);
+describe("eintragsZeilen", () => {
+  it("meldet einen frischen Eintrag als offen über den ganzen Betrag", () => {
+    const [zeile] = eintragsZeilen([eintrag()]);
+    expect(zeile.istOffen).toBe(true);
+    expect(zeile.offen).toBe(89);
     expect(zeile.teilweise).toBe(false);
   });
 
-  it("gilt als bezahlt, wenn Soll und Haben sich decken", () => {
-    const [zeile] = barzahlerZeilen([zahler({ soll: 89, haben: 89, letzteZahlung: "2026-10-14" })]);
-    expect(zeile.offen).toBe(false);
-    expect(zeile.saldo).toBe(0);
-  });
-
   it("bleibt nach einem Teilbetrag offen — über den Rest", () => {
-    const [zeile] = barzahlerZeilen([zahler({ soll: 89, haben: 40, letzteZahlung: "2026-10-14" })]);
-    expect(zeile.offen).toBe(true);
+    const [zeile] = eintragsZeilen([eintrag({ bezahlt: 40 })]);
+    expect(zeile.offen).toBe(49);
     expect(zeile.teilweise).toBe(true);
-    expect(zeile.saldo).toBe(49);
   });
 
-  it("addiert den Rest zum nächsten Beitrag — das ist der Kern der Umstellung", () => {
-    // Zwei Zyklen fällig (178), bezahlt sind 40.
-    const [zeile] = barzahlerZeilen([zahler({ soll: 178, haben: 40 })]);
-    expect(zeile.saldo).toBe(138);
-    expect(zeile.offen).toBe(true);
-  });
-
-  it("macht aus einer Überzahlung ein Guthaben und nicht eine offene Zeile", () => {
-    const [zeile] = barzahlerZeilen([zahler({ soll: 89, haben: 178 })]);
-    expect(zeile.offen).toBe(false);
-    expect(zeile.saldo).toBe(-89);
-    expect(zeile.guthaben).toBe(89);
-  });
-
-  it("verrechnet ein Guthaben mit dem nächsten Beitrag", () => {
-    // Vorausgezahlt, dann wird der nächste Beitrag fällig: wieder bei null.
-    const [zeile] = barzahlerZeilen([zahler({ soll: 178, haben: 178 })]);
-    expect(zeile.offen).toBe(false);
-    expect(zeile.guthaben).toBe(0);
+  it("gilt als bezahlt, wenn der Betrag voll da ist", () => {
+    const [zeile] = eintragsZeilen([eintrag({ bezahlt: 89, letzteZahlung: "2026-10-14" })]);
+    expect(zeile.istOffen).toBe(false);
+    expect(zeile.offen).toBe(0);
   });
 
   it("hält einen Rest von einem Cent nicht für offen", () => {
     // 89 in drei Teilen ist nicht glatt teilbar. Ohne Toleranz stünde die Zeile
     // ewig auf „offen" — über 0,004 Euro.
-    const [zeile] = barzahlerZeilen([zahler({ soll: 89, haben: 29.67 * 3 })]);
-    expect(zeile.offen).toBe(false);
+    const [zeile] = eintragsZeilen([eintrag({ bezahlt: 29.67 * 3 })]);
+    expect(zeile.istOffen).toBe(false);
   });
 
   it("stellt offene nach vorn, den größten Betrag zuerst", () => {
-    const zeilen = barzahlerZeilen([
-      zahler({ aboId: "a", kundeName: "Bezahlt", soll: 89, haben: 89 }),
-      zahler({ aboId: "b", kundeName: "Wenig offen", soll: 89, haben: 60 }),
-      zahler({ aboId: "c", kundeName: "Viel offen", soll: 178, haben: 0 }),
+    const zeilen = eintragsZeilen([
+      eintrag({ eintragId: "a", kundeName: "Bezahlt", bezahlt: 89 }),
+      eintrag({ eintragId: "b", kundeName: "Wenig offen", bezahlt: 60 }),
+      eintrag({ eintragId: "c", kundeName: "Viel offen", betrag: 178 }),
     ]);
-    expect(zeilen.map((z) => z.aboId)).toEqual(["c", "b", "a"]);
+    expect(zeilen.map((z) => z.eintragId)).toEqual(["c", "b", "a"]);
   });
 
   it("sortiert bei gleichem Betrag nach Namen", () => {
-    const zeilen = barzahlerZeilen([
-      zahler({ aboId: "b", kundeName: "Zora", soll: 89 }),
-      zahler({ aboId: "a", kundeName: "Anton", soll: 89 }),
+    const zeilen = eintragsZeilen([
+      eintrag({ eintragId: "b", kundeName: "Zora" }),
+      eintrag({ eintragId: "a", kundeName: "Anton" }),
     ]);
     expect(zeilen.map((z) => z.kundeName)).toEqual(["Anton", "Zora"]);
   });
 });
 
 describe("zustandText", () => {
-  function text(felder: Partial<Barzahler>): string {
-    return zustandText(barzahlerZeilen([zahler(felder)])[0]);
+  function text(felder: Partial<Eintrag>): string {
+    return zustandText(eintragsZeilen([eintrag(felder)])[0]);
   }
 
-  it("sagt bei einem Abo ohne Preis, dass nichts abzuhaken ist", () => {
-    expect(text({ betrag: null, soll: 0 })).toBe("Kein Preis am Abo");
+  it("sagt „Offen“, solange nichts da ist", () => {
+    expect(text({})).toBe("Offen");
   });
 
   it("nennt beim Teilbetrag das Bezahlte und das Ganze", () => {
-    // Nur „noch 49 € offen" ließe die Lehrkraft den vollen Beitrag verlangen.
-    expect(text({ soll: 89, haben: 40 })).toContain("40,00");
-    expect(text({ soll: 89, haben: 40 })).toContain("89,00");
+    // Nur „noch 49 € offen" ließe die Lehrkraft den vollen Betrag verlangen.
+    const gesagt = text({ bezahlt: 40 });
+    expect(gesagt).toContain(EUR.format(40));
+    expect(gesagt).toContain(EUR.format(89));
   });
 
   it("nennt den Tag der letzten Zahlung", () => {
-    expect(text({ soll: 89, haben: 89, letzteZahlung: "2026-10-14" })).toBe("Bezahlt am 14.10.2026");
+    expect(text({ bezahlt: 89, letzteZahlung: "2026-10-14" })).toBe("Bezahlt am 14.10.2026");
   });
 
-  it("nennt ein Guthaben als solches", () => {
-    // Mit derselben Formatierung verglichen: de-AT setzt das Zeichen voran und
-    // trennt mit einem geschützten Leerzeichen, nicht mit einem gewöhnlichen.
-    expect(text({ soll: 89, haben: 150 })).toBe(`Guthaben ${EUR.format(61)}`);
+  it("sagt auch ohne Tag, dass bezahlt ist", () => {
+    // Kommt vor, wenn die Zahlung über den Dienstschlüssel angelegt wurde.
+    expect(text({ bezahlt: 89 })).toBe("Bezahlt");
+  });
+});
+
+describe("teileNachKurs", () => {
+  it("trennt die Teilnehmer dieses Kurses von den übrigen Flatratern", () => {
+    const zeilen = eintragsZeilen([
+      eintrag({ eintragId: "eigen", eigenerKurs: true }),
+      eintrag({ eintragId: "fremd", eigenerKurs: false, istFlatrate: true }),
+    ]);
+    const { eigene, fremde } = teileNachKurs(zeilen);
+    expect(eigene.map((z) => z.eintragId)).toEqual(["eigen"]);
+    expect(fremde.map((z) => z.eintragId)).toEqual(["fremd"]);
   });
 
-  it("unterscheidet „nichts fällig“ von „bezahlt“", () => {
-    // Vor dem ersten Fälligkeitstag ist nichts offen — aber auch nichts bezahlt.
-    expect(text({ soll: 0, haben: 0 })).toBe("Nichts fällig");
+  it("zählt einen Flatrater dieses Kurses zu den eigenen — nicht doppelt", () => {
+    // Sonst stünde er oben **und** im eingeklappten Teil.
+    const zeilen = eintragsZeilen([
+      eintrag({ eintragId: "flat", istFlatrate: true, eigenerKurs: true }),
+    ]);
+    const { eigene, fremde } = teileNachKurs(zeilen);
+    expect(eigene).toHaveLength(1);
+    expect(fremde).toHaveLength(0);
   });
 });
 
 describe("offeneSumme", () => {
   it("zählt nur offene Zeilen und nur deren Rest", () => {
-    const zeilen = barzahlerZeilen([
-      zahler({ aboId: "a", soll: 89, haben: 40 }),
-      zahler({ aboId: "b", soll: 89, haben: 89 }),
-      zahler({ aboId: "c", soll: 89, haben: 0 }),
+    const zeilen = eintragsZeilen([
+      eintrag({ eintragId: "a", bezahlt: 40 }),
+      eintrag({ eintragId: "b", bezahlt: 89 }),
+      eintrag({ eintragId: "c" }),
     ]);
     expect(offeneSumme(zeilen)).toBe(138);
   });
 
-  it("lässt ein Guthaben die Summe nicht schmälern", () => {
-    // Sonst sammelte die Lehrkraft weniger ein, als die offenen Zeilen ausmachen.
-    const zeilen = barzahlerZeilen([
-      zahler({ aboId: "a", soll: 89, haben: 0 }),
-      zahler({ aboId: "b", soll: 0, haben: 50 }),
-    ]);
-    expect(offeneSumme(zeilen)).toBe(89);
+  it("ist null, wenn alles bezahlt ist", () => {
+    const zeilen = eintragsZeilen([eintrag({ bezahlt: 89 })]);
+    expect(offeneSumme(zeilen)).toBe(0);
   });
 });

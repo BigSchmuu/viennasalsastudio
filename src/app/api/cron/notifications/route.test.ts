@@ -9,7 +9,6 @@ const vollzieheFaelligeAenderungen = vi.fn();
 const vollzieheFaelligeUmwandlungen = vi.fn();
 const ergaenzeSerienTermine = vi.fn();
 const raeumeVerwaisteBilder = vi.fn();
-const traegeFaelligesSollNach = vi.fn();
 
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: vi.fn(() => ({})),
@@ -25,9 +24,6 @@ vi.mock("@/lib/events/termine-nachlegen", () => ({
 }));
 vi.mock("@/lib/events/bilder-aufraeumen", () => ({
   raeumeVerwaisteBilder: (...args: unknown[]) => raeumeVerwaisteBilder(...args),
-}));
-vi.mock("@/lib/barzahlungen/soll-nachtragen", () => ({
-  traegeFaelligesSollNach: (...args: unknown[]) => traegeFaelligesSollNach(...args),
 }));
 vi.mock("@/lib/notifications/dispatch", () => ({
   runDailyChecks: (...args: unknown[]) => runDailyChecks(...args),
@@ -49,7 +45,6 @@ describe("GET /api/cron/notifications", () => {
     vollzieheFaelligeUmwandlungen.mockReset().mockResolvedValue({ angekuendigt: 1, umgewandelt: 1 });
     ergaenzeSerienTermine.mockReset().mockResolvedValue({ serien: 2, termine: 3 });
     raeumeVerwaisteBilder.mockReset().mockResolvedValue({ verwaist: 1 });
-    traegeFaelligesSollNach.mockReset().mockResolvedValue({ angelegt: 2, abos: 1 });
     process.env.CRON_SECRET = "test-secret";
   });
 
@@ -91,8 +86,6 @@ describe("GET /api/cron/notifications", () => {
     expect(ergaenzeSerienTermine).toHaveBeenCalledTimes(1);
     // PROJ-55: Der Morgenlauf raeumt Bilddateien ohne Eintrag weg.
     expect(raeumeVerwaisteBilder).toHaveBeenCalledTimes(1);
-    // PROJ-83: Und er traegt faellig gewordene Barzahler-Beitraege nach.
-    expect(traegeFaelligesSollNach).toHaveBeenCalledTimes(1);
     expect(body).toEqual({
       reminders: 2,
       effective: 1,
@@ -105,8 +98,6 @@ describe("GET /api/cron/notifications", () => {
       serien: 2,
       termine: 3,
       verwaist: 1,
-      angelegt: 2,
-      abos: 1,
       processed: 3,
     });
   });
@@ -173,8 +164,6 @@ describe("GET /api/cron/notifications", () => {
     // zweimal taeglich nachlegen braucht es dafuer nicht.
     expect(ergaenzeSerienTermine).not.toHaveBeenCalled();
     expect(raeumeVerwaisteBilder).not.toHaveBeenCalled();
-    // Ein Beitrag wird am Tagesanfang faellig, nicht am Abend.
-    expect(traegeFaelligesSollNach).not.toHaveBeenCalled();
     expect(body).toEqual({
       evening: 4,
       vollzogen: 0,
@@ -184,8 +173,6 @@ describe("GET /api/cron/notifications", () => {
       serien: 0,
       termine: 0,
       verwaist: 0,
-      angelegt: 0,
-      abos: 0,
       processed: 3,
     });
   });

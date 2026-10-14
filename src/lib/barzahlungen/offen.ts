@@ -1,15 +1,14 @@
 /**
- * Wer wie viel bar schuldet (PROJ-81, Teilbeträge ab PROJ-83).
+ * Die Barzahler-Liste (PROJ-84).
  *
- * Bis PROJ-83 war das eine **Datumsfrage**: Gibt es in diesem Zyklus eine
- * Zahlung? Beträge spielten keine Rolle, und wer 40 von 89 Euro gab, galt als
- * bezahlt. Jetzt gilt je Abo Soll minus Haben — das Soll entsteht an jedem
- * Fälligkeitstag als Zeile (`soll-nachtragen.ts`), das Haben ist jede erfasste
- * Zahlung. Gerechnet wird die Differenz in der Datenbank (`cash_ledger`);
- * hier wird sie nur gedeutet.
+ * Ein Eintrag ist eine Zeile auf einer Liste, die von Hand geführt wird:
+ * Kunde, Abo, Betrag. Daran hängen die Zahlungen. Offen ist, was fehlt.
  *
- * Daraus folgt beides von selbst: Ein Rest bleibt stehen und addiert sich mit
- * dem nächsten Beitrag, eine Überzahlung deckt den nächsten Beitrag ab.
+ * Vorher (PROJ-81/83) wurde beides abgeleitet — wer bar zahlt aus dem fehlenden
+ * Mandat, was er schuldet aus Zyklus, Preis und Ferien. Das entschied Dinge,
+ * die der Betreiber selbst entscheiden will, und brauchte dafür eine
+ * Soll-Tabelle, eine Sicht, einen Stichtag und einen täglichen Lauf. Hier
+ * rechnet nichts mehr: Betrag minus Gezahltes, zwei Zahlen.
  */
 
 const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
@@ -17,86 +16,87 @@ const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" 
 /** Unter einem Cent ist bezahlt. Sonst entscheidet eine Rundung über „offen". */
 const CENT = 0.005;
 
-export type Barzahler = {
+export type Eintrag = {
+  eintragId: string;
   kundeId: string;
   kundeName: string;
   aboId: string;
   aboName: string | null;
-  /** Der Beitrag je Zyklus; `null`, wenn am Abo kein Preis hinterlegt ist. */
-  betrag: number | null;
   istFlatrate: boolean;
-  /** Summe der fällig gewordenen Beiträge seit dem Stichtag. */
-  soll: number;
-  /** Summe der erfassten Barzahlungen. */
-  haben: number;
-  /** Tag der jüngsten Barzahlung — für „bezahlt am …". */
+  /** Was dieser Mensch in diesem Zyklus zahlen soll. */
+  betrag: number;
+  /** Was davon schon da ist. */
+  bezahlt: number;
   letzteZahlung: string | null;
-  /** Nur gesetzt, wenn das Abo gekündigt ist und ein Rest offen bleibt. */
-  beendet?: boolean;
+  /** Die jüngste Zahlung — nur sie lässt sich mit einem Druck zurücknehmen. */
+  letzteZahlungId: string | null;
+  /**
+   * Gehört dieser Eintrag zu einem Teilnehmer dieses Kurses?
+   *
+   * Flatrate-Einträge stehen in **jedem** Kurs, weil ein Flatrater überall
+   * auftauchen kann — die aus anderen Kursen aber eingeklappt.
+   */
+  eigenerKurs: boolean;
 };
 
-export type BarzahlerZeile = Barzahler & {
-  /** Soll minus Haben. Positiv heißt offen, negativ ist Guthaben. */
-  saldo: number;
-  /** Muss jetzt Geld eingesammelt werden? */
-  offen: boolean;
-  /** Es ist etwas offen, aber schon etwas bezahlt. */
+export type EintragsZeile = Eintrag & {
+  offen: number;
+  istOffen: boolean;
   teilweise: boolean;
-  /** Was über den offenen Betrag hinaus bezahlt wurde; sonst 0. */
-  guthaben: number;
 };
 
-/**
- * Für jeden Barzahler: offen oder bezahlt, und wie viel.
- *
- * Braucht weder Datum noch Ferien mehr — beides steckt in den Soll-Zeilen, die
- * der Morgenlauf erzeugt hat. Das ist der Punkt der Umstellung: Die Liste
- * deutet eine Rechnung, statt sie jedes Mal neu anzustellen.
- */
-export function barzahlerZeilen(zahler: Barzahler[]): BarzahlerZeile[] {
-  return zahler
-    .map((z) => {
-      const saldo = runde(z.soll - z.haben);
+/** Für jeden Eintrag: wie viel noch fehlt. Offene zuerst, der größte oben. */
+export function eintragsZeilen(eintraege: Eintrag[]): EintragsZeile[] {
+  return eintraege
+    .map((e) => {
+      const offen = runde(e.betrag - e.bezahlt);
       return {
-        ...z,
-        saldo,
-        offen: saldo > CENT,
-        teilweise: saldo > CENT && z.haben > CENT,
-        guthaben: saldo < -CENT ? runde(-saldo) : 0,
+        ...e,
+        offen,
+        istOffen: offen > CENT,
+        teilweise: offen > CENT && e.bezahlt > CENT,
       };
     })
     .sort(
       (a, b) =>
-        // Offene zuerst: Das ist die Arbeit des Abends. Innerhalb davon der
-        // größere Betrag zuerst — wer am meisten schuldet, soll nicht unten
-        // stehen.
-        Number(b.offen) - Number(a.offen) ||
-        (b.offen ? b.saldo - a.saldo : 0) ||
+        Number(b.istOffen) - Number(a.istOffen) ||
+        (b.istOffen ? b.offen - a.offen : 0) ||
         a.kundeName.localeCompare(b.kundeName, "de")
     );
 }
 
-/**
- * Was am Eintrag über den Zustand steht.
- *
- * Ein Abo ohne Preis lässt sich nicht abhaken — und das wird gesagt, statt
- * einen Knopf anzubieten, der nichts bewirken kann.
- */
-export function zustandText(zeile: BarzahlerZeile): string {
-  if (zeile.betrag === null || zeile.betrag <= 0) return "Kein Preis am Abo";
-
-  if (zeile.offen) {
-    if (!zeile.teilweise) return "Offen";
-    // Der bezahlte Teil gehört dazu: Sonst sieht die Lehrkraft nur den Rest und
-    // fragt nach dem vollen Beitrag.
-    return `Teilweise bezahlt — ${EUR.format(zeile.haben)} von ${EUR.format(zeile.soll)}`;
+/** Was am Eintrag über den Zustand steht. */
+export function zustandText(zeile: EintragsZeile): string {
+  if (!zeile.istOffen) {
+    return zeile.letzteZahlung ? `Bezahlt am ${datumKurz(zeile.letzteZahlung)}` : "Bezahlt";
   }
+  if (!zeile.teilweise) return "Offen";
+  // Der bezahlte Teil gehört dazu: Sonst sieht die Lehrkraft nur den Rest und
+  // fragt nach dem vollen Betrag.
+  return `Teilweise bezahlt — ${EUR.format(zeile.bezahlt)} von ${EUR.format(zeile.betrag)}`;
+}
 
-  if (zeile.guthaben > 0) return `Guthaben ${EUR.format(zeile.guthaben)}`;
-  if (zeile.letzteZahlung) return `Bezahlt am ${datumKurz(zeile.letzteZahlung)}`;
-  // Kein Soll und keine Zahlung: Das Abo ist noch vor seinem ersten
-  // Fälligkeitstag — oder es wurde bis zum Stichtag eingezogen.
-  return "Nichts fällig";
+/** Die Summe, die noch einzusammeln ist. */
+export function offeneSumme(zeilen: EintragsZeile[]): number {
+  return runde(zeilen.filter((z) => z.istOffen).reduce((summe, z) => summe + z.offen, 0));
+}
+
+/**
+ * Die beiden Gruppen einer Kursseite.
+ *
+ * `eigene` sind die Teilnehmer dieses Kurses — die Arbeit des Abends. `fremde`
+ * sind Flatrate-Einträge von Leuten, die hier nicht angemeldet sind; sie stehen
+ * eingeklappt da, weil ein Flatrater jederzeit vorbeikommen kann, die Liste
+ * aber nicht in jedem Kurs um Unbeteiligte wachsen soll.
+ */
+export function teileNachKurs(zeilen: EintragsZeile[]): {
+  eigene: EintragsZeile[];
+  fremde: EintragsZeile[];
+} {
+  return {
+    eigene: zeilen.filter((z) => z.eigenerKurs),
+    fremde: zeilen.filter((z) => !z.eigenerKurs),
+  };
 }
 
 function runde(wert: number): number {
@@ -106,9 +106,4 @@ function runde(wert: number): number {
 function datumKurz(datum: string): string {
   const [jahr, monat, tag] = datum.split("-");
   return `${tag}.${monat}.${jahr}`;
-}
-
-/** Die Summe, die an diesem Abend noch einzusammeln ist. */
-export function offeneSumme(zeilen: BarzahlerZeile[]): number {
-  return runde(zeilen.filter((z) => z.offen).reduce((summe, z) => summe + z.saldo, 0));
 }

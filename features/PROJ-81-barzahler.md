@@ -1,5 +1,9 @@
 # PROJ-81: Barzahler — Liste für die Lehrkraft, Überblick für die Verwaltung
 
+> **Abgelöst von PROJ-84** (2026-10-14): Die abgeleitete Liste — kein Mandat heißt Barzahler, der
+> Betrag kommt aus dem Abo — ist durch Einträge von Hand ersetzt. Der Anlass und die Entscheidungen
+> hier bleiben lesenswert; die Mechanik gilt nicht mehr.
+
 ## Status: Deployed
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-13

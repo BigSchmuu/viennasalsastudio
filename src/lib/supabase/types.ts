@@ -180,28 +180,28 @@ export type Database = {
         }
         Relationships: []
       }
-      cash_dues: {
+      cash_entries: {
         Row: {
-          amount: number
+          amount_due: number
           created_at: string
+          created_by: string | null
           customer_id: string
-          due_on: string
           id: string
           subscription_id: string
         }
         Insert: {
-          amount: number
+          amount_due: number
           created_at?: string
+          created_by?: string | null
           customer_id: string
-          due_on: string
           id?: string
           subscription_id: string
         }
         Update: {
-          amount?: number
+          amount_due?: number
           created_at?: string
+          created_by?: string | null
           customer_id?: string
-          due_on?: string
           id?: string
           subscription_id?: string
         }
@@ -213,6 +213,7 @@ export type Database = {
           collected_by: string | null
           created_at: string
           customer_id: string
+          entry_id: string | null
           id: string
           paid_on: string
           subscription_id: string
@@ -222,6 +223,7 @@ export type Database = {
           collected_by?: string | null
           created_at?: string
           customer_id: string
+          entry_id?: string | null
           id?: string
           paid_on?: string
           subscription_id: string
@@ -231,6 +233,7 @@ export type Database = {
           collected_by?: string | null
           created_at?: string
           customer_id?: string
+          entry_id?: string | null
           id?: string
           paid_on?: string
           subscription_id?: string
@@ -2468,16 +2471,6 @@ export type Database = {
       }
     }
     Views: {
-      cash_ledger: {
-        Row: {
-          customer_id: string | null
-          haben: number | null
-          saldo: number | null
-          soll: number | null
-          subscription_id: string | null
-        }
-        Relationships: []
-      }
       course_members: {
         Row: {
           course_id: string | null
@@ -2844,17 +2837,59 @@ export type Database = {
       get_course_cash_payers: {
         Args: { p_course_id: string }
         Returns: {
+          amount_due: number
+          bezahlt: number
           customer_id: string
+          eigener_kurs: boolean
+          entry_id: string
           full_name: string
-          haben: number
-          heutige_zahlung_id: string | null
           ist_flatrate: boolean
           letzte_zahlung: string | null
-          price: number | null
-          soll: number
+          letzte_zahlung_id: string | null
           subscription_id: string
           subscription_name: string | null
         }[]
+      }
+      get_course_cash_candidates: {
+        Args: { p_course_id: string }
+        Returns: {
+          customer_id: string
+          full_name: string
+          ist_flatrate: boolean
+          price: number | null
+          subscription_id: string
+          subscription_name: string | null
+        }[]
+      }
+      add_cash_entry: {
+        Args: { p_subscription_id: string; p_amount: number }
+        Returns: {
+          amount_due: number
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          id: string
+          subscription_id: string
+        }
+      }
+      update_cash_entry: {
+        Args: { p_entry_id: string; p_amount: number }
+        Returns: {
+          amount_due: number
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          id: string
+          subscription_id: string
+        }
+      }
+      remove_cash_entry: {
+        Args: { p_entry_id: string }
+        Returns: boolean
+      }
+      close_cash_cycle: {
+        Args: Record<string, never>
+        Returns: number
       }
       get_course_dance_roles: {
         Args: { p_course_ids: string[] }
@@ -3266,7 +3301,7 @@ export type Database = {
         }
       }
       record_cash_payment: {
-        Args: { p_subscription_id: string; p_amount?: number | null }
+        Args: { p_entry_id: string; p_amount?: number | null }
         Returns: {
           amount: number
           collected_by: string | null

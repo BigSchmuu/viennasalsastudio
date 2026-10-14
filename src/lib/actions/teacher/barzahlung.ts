@@ -7,25 +7,143 @@ import { betragAusEingabe } from "@/lib/kunden/offline";
 import type { ActionResult } from "@/lib/actions/types";
 
 /**
- * Eine Barzahlung erfassen (PROJ-81, Teilbeträge ab PROJ-83).
+ * Die Barzahler-Liste führen (PROJ-84).
  *
- * Ohne Betrag nimmt die Datenbank den **gesamten** offenen Saldo — der häufige
- * Fall bleibt ein Druck. Mit Betrag wird genau dieser verbucht; die Grenzen
- * (positiv, höchstens 10.000) stehen in `betragAusEingabe` und ein zweites Mal
- * in der Datenbank, denn eine Oberfläche ist keine Zusicherung.
+ * Alle fünf Vorgänge laufen über `security definer`-Funktionen: Für eine
+ * Lehrkraft sind `subscriptions` und `sepa_mandates` gesperrt, und die Prüfung
+ * „darf diese Person an diesem Abo etwas tun" ist in einer Regel nicht zu
+ * haben. Sie unterscheidet zwei Fälle — bei einem Kursabo die Lehrkraft dieses
+ * Kurses, bei einer Flatrate jede Lehrkraft, weil ein Flatrater in jedem Kurs
+ * auftauchen kann.
  *
- * Wer erfassen darf, entscheidet die Datenbankfunktion: Lehrkraft eines Kurses
- * mit diesem Abo — oder Verwaltung.
+ * Die Grenzen für den Betrag stehen hier **und** in der Datenbank: Eine
+ * Oberfläche ist keine Zusicherung.
  */
+
+function aktualisiere(courseId: string) {
+  if (courseId) revalidatePath(`/lehrer/${courseId}`);
+  revalidatePath("/admin/barzahlungen");
+}
+
+export type EintragAngelegt = { error: string } | { success: true; eintragId: string };
+
+/** Einen Kunden auf die Liste setzen — Abo gewählt, Betrag von Hand. */
+export async function legeEintragAn(
+  subscriptionId: string,
+  betragEingabe: string,
+  courseId: string
+): Promise<EintragAngelegt> {
+  await requireAdminOrTeacher();
+
+  const betrag = betragAusEingabe(betragEingabe);
+  if (betrag === null) {
+    return { error: "Bitte einen Betrag zwischen 0,01 und 10.000 € eingeben." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("add_cash_entry", {
+    p_subscription_id: subscriptionId,
+    p_amount: betrag,
+  });
+
+  if (error) {
+    if (error.message.includes("entry already exists")) {
+      return { error: "Für dieses Abo steht schon ein Eintrag auf der Liste." };
+    }
+    if (error.message.includes("not authorized")) {
+      return { error: "Für dieses Abo darfst du keinen Eintrag anlegen." };
+    }
+    console.error("Barzahler-Eintrag nicht angelegt", subscriptionId, error);
+    return { error: "Der Eintrag konnte nicht angelegt werden." };
+  }
+
+  aktualisiere(courseId);
+  return { success: true, eintragId: data.id };
+}
+
+/** Den Betrag eines Eintrags ändern — etwa um einen Rest aufzuschlagen. */
+export async function aendereEintrag(
+  entryId: string,
+  betragEingabe: string,
+  courseId: string
+): Promise<ActionResult> {
+  await requireAdminOrTeacher();
+
+  const betrag = betragAusEingabe(betragEingabe);
+  if (betrag === null) {
+    return { error: "Bitte einen Betrag zwischen 0,01 und 10.000 € eingeben." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_cash_entry", {
+    p_entry_id: entryId,
+    p_amount: betrag,
+  });
+
+  if (error) {
+    if (error.message.includes("below payments")) {
+      return { error: "Der Betrag kann nicht unter dem liegen, was schon bezahlt ist." };
+    }
+    console.error("Barzahler-Eintrag nicht geändert", entryId, error);
+    return { error: "Der Betrag konnte nicht geändert werden." };
+  }
+
+  aktualisiere(courseId);
+  return { success: true };
+}
+
+/** Einen Eintrag von der Liste nehmen. Die Zahlungen dazu bleiben. */
+export async function entferneEintrag(entryId: string, courseId: string): Promise<ActionResult> {
+  await requireAdminOrTeacher();
+  const supabase = await createClient();
+
+  const { error } = await supabase.rpc("remove_cash_entry", { p_entry_id: entryId });
+
+  if (error) {
+    console.error("Barzahler-Eintrag nicht entfernt", entryId, error);
+    return { error: "Der Eintrag konnte nicht entfernt werden." };
+  }
+
+  aktualisiere(courseId);
+  return { success: true };
+}
+
+export type ZyklusAbgeschlossen = { error: string } | { success: true; entfernt: number };
+
+/**
+ * Die ganze Liste leeren — der neue Zahlungszyklus beginnt.
+ *
+ * Nur die Verwaltung: Eine Lehrkraft, die ihren eigenen Eintrag entfernen darf,
+ * soll nicht versehentlich die Liste aller Kurse leeren.
+ */
+export async function schliesseZyklusAb(): Promise<ZyklusAbgeschlossen> {
+  await requireAdminOrTeacher();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("close_cash_cycle");
+
+  if (error) {
+    if (error.message.includes("not authorized")) {
+      return { error: "Nur die Verwaltung kann den Zyklus abschließen." };
+    }
+    console.error("Zyklus nicht abgeschlossen", error);
+    return { error: "Der Zyklus konnte nicht abgeschlossen werden." };
+  }
+
+  revalidatePath("/admin/barzahlungen");
+  return { success: true, entfernt: Number(data ?? 0) };
+}
+
 export type BarzahlungErfasst =
   | { error: string }
   // Der verbuchte Betrag kommt mit zurück: Ohne Eingabe hat ihn die Datenbank
-  // aus dem Saldo bestimmt, und die Liste soll ihn anzeigen, ohne ihn zu
-  // erraten.
+  // aus dem offenen Rest bestimmt, und die Liste soll ihn anzeigen, ohne ihn
+  // zu erraten.
   | { success: true; zahlungId: string; betrag: number };
 
+/** Eine Zahlung erfassen — ohne Betrag den gesamten offenen Rest. */
 export async function erfasseBarzahlung(
-  subscriptionId: string,
+  entryId: string,
   courseId: string,
   betragEingabe?: string
 ): Promise<BarzahlungErfasst> {
@@ -40,44 +158,39 @@ export async function erfasseBarzahlung(
   }
 
   const supabase = await createClient();
-
   const { data, error } = await supabase.rpc("record_cash_payment", {
-    p_subscription_id: subscriptionId,
+    p_entry_id: entryId,
     p_amount: betrag,
   });
 
   if (error) {
     // Die Fälle, die am Kursabend vorkommen, bekommen einen eigenen Satz —
     // „Fehler beim Speichern" hilft niemandem, der Geld in der Hand hält.
+    if (error.message.includes("amount above open")) {
+      return { error: "Mehr als offen ist. Bitte höchstens den offenen Betrag erfassen." };
+    }
+    if (error.message.includes("nothing open")) {
+      return { error: "Für diesen Eintrag ist nichts offen." };
+    }
+    if (error.message.includes("entry not found")) {
+      return { error: "Dieser Eintrag steht nicht mehr auf der Liste." };
+    }
     if (error.message.includes("just recorded")) {
       return { error: "Diese Zahlung ist gerade schon erfasst worden." };
     }
-    if (error.message.includes("nothing open")) {
-      return { error: "Für dieses Abo ist nichts offen." };
-    }
-    if (error.message.includes("no price")) {
-      return { error: "Am Abo steht kein Preis — bitte in der Verwaltung ergänzen." };
-    }
-    if (error.message.includes("amount too high")) {
-      return { error: "Der Betrag ist zu hoch — höchstens 10.000 €." };
-    }
-    console.error("Barzahlung nicht erfasst", subscriptionId, error);
+    console.error("Barzahlung nicht erfasst", entryId, error);
     return { error: "Die Barzahlung konnte nicht erfasst werden." };
   }
 
-  if (courseId) revalidatePath(`/lehrer/${courseId}`);
-  revalidatePath("/admin/barzahlungen");
-  // Die Kennung geht zurück an die Oberfläche: Damit lässt sich ein Fehlgriff
-  // sofort zurücknehmen, ohne die Seite neu zu laden.
+  aktualisiere(courseId);
   return { success: true, zahlungId: data.id, betrag: Number(data.amount) };
 }
 
 /**
- * Eine Barzahlung zurücknehmen.
+ * Eine Zahlung zurücknehmen.
  *
- * Für die Lehrkraft nur am selben Tag — das prüft die Datenbank. Ein Fehlgriff
- * fällt sofort auf; was älter ist, gehört in die Verwaltung, sonst verschwindet
- * Geld aus der Aufzeichnung, das längst eingesammelt wurde.
+ * Ohne Tagesgrenze: Der Betreiber hat entschieden, dass Lehrkraft und
+ * Verwaltung dasselbe dürfen (anders als in PROJ-81).
  */
 export async function nimmBarzahlungZurueck(
   paymentId: string,
@@ -89,14 +202,10 @@ export async function nimmBarzahlungZurueck(
   const { error } = await supabase.rpc("undo_cash_payment", { p_payment_id: paymentId });
 
   if (error) {
-    if (error.message.includes("only todays payment")) {
-      return { error: "Nur eine heute erfasste Zahlung lässt sich hier zurücknehmen." };
-    }
     console.error("Barzahlung nicht zurückgenommen", paymentId, error);
     return { error: "Die Barzahlung konnte nicht zurückgenommen werden." };
   }
 
-  if (courseId) revalidatePath(`/lehrer/${courseId}`);
-  revalidatePath("/admin/barzahlungen");
+  aktualisiere(courseId);
   return { success: true };
 }

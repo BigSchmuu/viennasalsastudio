@@ -100,18 +100,40 @@ export async function legeBarzahlerAn(
     return { error: "Der Kunde konnte nicht angelegt werden." };
   }
 
-  const { error: aboFehler } = await service.from("subscriptions").insert({
-    customer_id: kundeId,
-    course_id: courseId,
-    status: "active",
-    name: "Barzahler",
-    price: betrag,
-    cycle_anchor_date: heuteInWien(),
-  });
-  if (aboFehler) {
+  const { data: abo, error: aboFehler } = await service
+    .from("subscriptions")
+    .insert({
+      customer_id: kundeId,
+      course_id: courseId,
+      status: "active",
+      name: "Barzahler",
+      price: betrag,
+      cycle_anchor_date: heuteInWien(),
+    })
+    .select("id")
+    .single();
+  if (aboFehler || !abo) {
     await service.auth.admin.deleteUser(kundeId).catch(() => {});
     console.error("Barzahler: Abo nicht angelegt", aboFehler);
     return { error: "Der Kursplatz konnte nicht angelegt werden." };
+  }
+
+  // PROJ-84: Und auf die Liste. Ohne diesen Eintrag wäre der Gast angelegt,
+  // stünde aber nirgends — die Lehrkraft hat ihn ja gerade eingetragen, um
+  // Geld von ihm einzusammeln.
+  //
+  // Über den Dienstschlüssel, wie alles davor in dieser Funktion: Die Tabelle
+  // hat bewusst keine Schreibregel.
+  const { error: eintragFehler } = await service.from("cash_entries").insert({
+    customer_id: kundeId,
+    subscription_id: abo.id,
+    amount_due: betrag,
+    created_by: user.id,
+  });
+  if (eintragFehler) {
+    await service.auth.admin.deleteUser(kundeId).catch(() => {});
+    console.error("Barzahler: Eintrag nicht angelegt", eintragFehler);
+    return { error: "Der Barzahler-Eintrag konnte nicht angelegt werden." };
   }
 
   revalidatePath(`/lehrer/${courseId}`);

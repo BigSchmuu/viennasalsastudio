@@ -1,5 +1,8 @@
 # PROJ-83: Barzahlungen in Teilbeträgen — und erfassen in der Verwaltung
 
+> **Abgelöst von PROJ-84** (2026-10-14): Soll-Zeilen, Saldo, Stichtag und der Morgenlauf-Schritt
+> sind zurückgebaut. Teilbeträge gibt es weiterhin — aber an einem Eintrag, der von Hand entsteht.
+
 ## Status: Deployed
 **Created:** 2026-10-14
 **Last Updated:** 2026-10-14
