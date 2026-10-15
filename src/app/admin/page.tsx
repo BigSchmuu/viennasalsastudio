@@ -9,6 +9,8 @@ import { OccupancyList, type OccupancyRow } from "@/components/admin/analytics/o
 import { BirthdayList, type BirthdayRow } from "@/components/admin/analytics/birthday-list";
 import { HeutigeKurseListe } from "@/components/admin/analytics/heutige-kurse-liste";
 import { ladeHeutigeKurse, type HeutigerKursEintrag } from "@/lib/dashboard/heutige-kurse-laden";
+import { UpgradeAnfragen, type UpgradeAnfrage } from "@/components/admin/analytics/upgrade-anfragen";
+import { readStudioPricing } from "@/lib/pricing";
 import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 
 const BIRTHDAY_WINDOW_DAYS = 7;
@@ -67,6 +69,30 @@ export default async function AdminDashboardPage({
   } catch (fehler) {
     console.error("Dashboard: heutige Kurse", fehler);
   }
+
+  // PROJ-87: Offene Upgrade-Anfragen. Ein Lesefehler darf nicht als „keine
+  // Anfragen" durchgehen — eine Anfrage, die niemand sieht, wartet ewig.
+  const [anfrageRes, preisRes] = await Promise.all([
+    supabase
+      .from("subscriptions")
+      .select("id, customer_id, price, upgrade_requested_at, courses(name), profiles(full_name)")
+      .not("upgrade_requested_at", "is", null)
+      .eq("status", "active")
+      .order("upgrade_requested_at", { ascending: true }),
+    supabase.from("dropin_pricing").select("*").limit(1).single(),
+  ]);
+  if (anfrageRes.error) {
+    console.error("Dashboard: Upgrade-Anfragen", anfrageRes.error);
+  }
+  const upgradeAnfragen: UpgradeAnfrage[] = (anfrageRes.data ?? []).map((a) => ({
+    aboId: a.id,
+    kundeId: a.customer_id,
+    kundeName: a.profiles?.full_name || "Unbenannter Kunde",
+    kursName: a.courses?.name ?? null,
+    bisher: a.price,
+    angefragtAm: a.upgrade_requested_at as string,
+  }));
+  const flatratePreise = readStudioPricing(preisRes.data).flatrate;
 
   const { count: pausedCount } = await supabase
     .from("subscriptions")
@@ -170,6 +196,14 @@ export default async function AdminDashboardPage({
       {/* PROJ-75: Vor den Kennzahlen. Umsatz und Trends schaut der Betreiber
           seltener an als die Kurse, die heute laufen. */}
       {heutigeEintraege !== null && <HeutigeKurseListe eintraege={heutigeEintraege} />}
+
+      {/* PROJ-87: Vor den Kennzahlen, weil hier etwas zu entscheiden ist —
+          und weil der Kunde wartet. Ohne offene Anfrage erscheint nichts. */}
+      <UpgradeAnfragen
+        anfragen={upgradeAnfragen}
+        flatrateNormal={flatratePreise.normal}
+        flatrateStudent={flatratePreise.student}
+      />
 
       <PeriodFilter from={period.from} to={period.to} isCustom={isCustom} />
 

@@ -349,7 +349,12 @@
     "sectionPassword": "Passwort ändern",
     "sectionPasswordHint": "Neues Passwort für die Anmeldung festlegen",
     "cancelReasonQuestion": "Warum kündigst du? (freiwillig)",
-    "cancelReasonNote": "Magst du uns mehr sagen?"
+    "cancelReasonNote": "Magst du uns mehr sagen?",
+    "upgradeTitle": "Auf Flatrate upgraden",
+    "upgradeBody": "{price} je Zyklus, alle Kurse statt einem. Dazu einmalig die Differenz von {diff} im nächsten Einzug. Studierendentarif prüfen wir bei der Bestätigung.",
+    "upgradeAsk": "Upgrade anfragen",
+    "upgradePending": "Upgrade angefragt — wir melden uns, sobald es bestätigt ist.",
+    "upgradeWithdraw": "Anfrage zurückziehen"
   },
   "notifications": {
     "event": "Ereignis",

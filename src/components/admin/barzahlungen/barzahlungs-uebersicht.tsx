@@ -40,6 +40,14 @@ export type EingesammeltZeile = {
   kassiertVon: string;
 };
 
+/** PROJ-87: Ein Aufschlag, den kein Lastschriftlauf abholt. */
+export type OffenerAufschlag = {
+  id: string;
+  kundeName: string;
+  betrag: number;
+  grund: string;
+};
+
 /** Ein Abo, das noch nicht auf der Liste steht. */
 export type AboWahl = {
   aboId: string;
@@ -72,11 +80,13 @@ function datum(wert: string): string {
 export function BarzahlungsUebersicht({
   zeilen,
   aboWahl,
+  aufschlaege,
   eingesammelt,
   zeitraumText,
 }: {
   zeilen: EintragsZeile[];
   aboWahl: AboWahl[];
+  aufschlaege: OffenerAufschlag[];
   eingesammelt: EingesammeltZeile[];
   zeitraumText: string;
 }) {
@@ -173,6 +183,31 @@ export function BarzahlungsUebersicht({
       {hinweis && (
         <Alert>
           <AlertDescription>{hinweis}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* PROJ-87: Ein Aufschlag reist im nächsten Lastschriftlauf mit — wer
+          kein Mandat hat, kommt aber in keinen Lauf. Hier steht er, damit der
+          Betrag nicht still liegen bleibt. */}
+      {aufschlaege.length > 0 && (
+        <Alert>
+          <AlertDescription className="space-y-1">
+            <p className="font-medium">
+              Offene Aufschläge ohne Lastschrift —{" "}
+              {EUR.format(aufschlaege.reduce((s, a) => s + a.betrag, 0))}
+            </p>
+            <ul className="text-sm">
+              {aufschlaege.map((a) => (
+                <li key={a.id}>
+                  {a.kundeName}: <span className="tabular-nums">{EUR.format(a.betrag)}</span> ({a.grund})
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-muted-foreground">
+              Diese Kunden haben kein SEPA-Mandat und kommen in keinen Lauf. Rechne den Betrag beim
+              nächsten Eintrag mit ein.
+            </p>
+          </AlertDescription>
         </Alert>
       )}
 

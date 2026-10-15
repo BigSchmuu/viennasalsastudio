@@ -2116,6 +2116,36 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_surcharges: {
+        Row: {
+          amount: number
+          collection_item_id: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          reason: string
+          subscription_id: string
+        }
+        Insert: {
+          amount: number
+          collection_item_id?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          reason: string
+          subscription_id: string
+        }
+        Update: {
+          amount?: number
+          collection_item_id?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          reason?: string
+          subscription_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancelled_at: string | null
@@ -2131,6 +2161,7 @@ export type Database = {
           pending_status: string | null
           price: number | null
           status: string
+          upgrade_requested_at: string | null
         }
         Insert: {
           cancelled_at?: string | null
@@ -2146,6 +2177,7 @@ export type Database = {
           pending_status?: string | null
           price?: number | null
           status?: string
+          upgrade_requested_at?: string | null
         }
         Update: {
           cancelled_at?: string | null
@@ -2161,6 +2193,7 @@ export type Database = {
           pending_status?: string | null
           price?: number | null
           status?: string
+          upgrade_requested_at?: string | null
         }
         Relationships: [
           {
@@ -3271,6 +3304,56 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      apply_surcharges_to_run: {
+        Args: { p_run_id: string }
+        Returns: number
+      }
+      flatrate_upgrade_moeglich: {
+        Args: { p_subscription_id: string }
+        Returns: boolean
+      }
+      request_flatrate_upgrade: {
+        Args: { p_subscription_id: string }
+        Returns: {
+          cancelled_at: string | null
+          course_id: string | null
+          created_at: string
+          customer_id: string
+          cycle_anchor_date: string
+          id: string
+          name: string | null
+          pending_effective_date: string | null
+          pending_status: string | null
+          price: number | null
+          status: string
+          upgrade_requested_at: string | null
+        }
+      }
+      withdraw_flatrate_upgrade: {
+        Args: { p_subscription_id: string }
+        Returns: boolean
+      }
+      confirm_flatrate_upgrade: {
+        Args: { p_subscription_id: string; p_student?: boolean }
+        Returns: {
+          cancelled_at: string | null
+          course_id: string | null
+          created_at: string
+          customer_id: string
+          cycle_anchor_date: string
+          id: string
+          name: string | null
+          pending_effective_date: string | null
+          pending_status: string | null
+          price: number | null
+          status: string
+          upgrade_requested_at: string | null
+        }
+      }
+      decline_flatrate_upgrade: {
+        Args: { p_subscription_id: string }
+        Returns: boolean
       }
       self_switch_subscription_course: {
         Args: { p_new_course_id: string; p_subscription_id: string }

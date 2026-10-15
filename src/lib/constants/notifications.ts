@@ -67,4 +67,5 @@ export const notificationEventTypeLabel: Record<string, string> = {
   zweite_stufe_zurueckgesetzt: "Zwei-Faktor zurückgesetzt",
   ticket_storniert: "Ticket storniert",
   gasttaenzer_einladung: "Gasttänzer-Einladung",
+  abo_upgrade: "Upgrade auf Flatrate",
 };

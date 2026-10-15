@@ -131,6 +131,25 @@ export async function resolveContent(service: ServiceClient, row: QueueRow): Pro
       const key = resolveTemplateKey("abo_kuendigung", details);
       return buildNotificationContent("abo_kuendigung", details, key ? await fetchOverride(service, key, locale) : undefined, locale);
     }
+    case "abo_upgrade": {
+      // PROJ-87: Alles, was der Text braucht, steht schon in der
+      // Warteschlangenzeile — die Funktion, die sie einreiht, weiss den Preis
+      // und die Differenz im selben Augenblick. Nichts nachzulesen heisst:
+      // nichts, was sich bis zum Versand ändern kann.
+      const details = {
+        entscheidung: payload.entscheidung as "bestaetigt" | "abgelehnt",
+        abo: (payload.abo as string) ?? "Dein Abo",
+        preis: payload.preis === undefined ? undefined : Number(payload.preis),
+        differenz: payload.differenz === undefined ? undefined : Number(payload.differenz),
+      };
+      const key = resolveTemplateKey("abo_upgrade", details);
+      return buildNotificationContent(
+        "abo_upgrade",
+        details,
+        key ? await fetchOverride(service, key, locale) : undefined,
+        locale
+      );
+    }
     case "kursstart_erinnerung": {
       // PROJ-67: Der Standort kommt über den Raum. Zwei Häuser, und in der
       // Erinnerung stand bisher nur der Kursname — wer beide kennt, ist schon

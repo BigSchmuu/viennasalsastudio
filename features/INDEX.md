@@ -145,7 +145,9 @@
 
 | PROJ-86 | Notiz am Barzahler-Eintrag | Deployed | [PROJ-86](../features/PROJ-86-notiz-am-barzahler-eintrag.md) | 2026-10-15 |
 
+| PROJ-87 | Upgrade auf die Flatrate (Selbstbedienung mit Bestätigung) | Approved | [PROJ-87](../features/PROJ-87-upgrade-auf-flatrate.md) | 2026-10-15 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-87
+## Next Available ID: PROJ-88

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import {
+  requestFlatrateUpgrade,
+  withdrawFlatrateUpgrade,
   pauseSubscription,
   cancelSubscription,
   undoPendingSubscriptionChange,
@@ -55,6 +57,10 @@ export type MySubscriptionRow = {
   status: string;
   pendingStatus: string | null;
   pendingEffectiveDate: string | null;
+  /** PROJ-87: Darf dieses Abo auf die Flatrate upgraden? */
+  upgradeMoeglich: boolean;
+  /** PROJ-87: Eine Anfrage läuft und wartet auf die Bestätigung. */
+  upgradeAngefragt: boolean;
 };
 
 export type SubscriptionCourseOption = { id: string; name: string; runs_until?: string | null };
@@ -76,9 +82,12 @@ function pendingHint(row: MySubscriptionRow): string | null {
 export function MySubscriptionsSection({
   subscriptions: initialSubscriptions,
   courses,
+  flatratePreis,
 }: {
   subscriptions: MySubscriptionRow[];
   courses: SubscriptionCourseOption[];
+  /** PROJ-87: Der Normalpreis aus der Preisliste; `null`, wenn ungepflegt. */
+  flatratePreis: number | null;
 }) {
   const t = useTranslations("profile");
   const locale = useLocale();
@@ -139,6 +148,22 @@ export function MySubscriptionsSection({
     const result = await run(id, () => reactivateSubscription(id));
     if (!result) return;
     setSubscriptions((prev) => prev.map((s) => (s.id === id ? { ...s, status: "active" } : s)));
+  }
+
+  async function handleUpgrade(row: MySubscriptionRow) {
+    const result = await run(row.id, () => requestFlatrateUpgrade(row.id));
+    if (!result) return;
+    setSubscriptions((prev) =>
+      prev.map((s) => (s.id === row.id ? { ...s, upgradeAngefragt: true } : s))
+    );
+  }
+
+  async function handleUpgradeWithdraw(row: MySubscriptionRow) {
+    const result = await run(row.id, () => withdrawFlatrateUpgrade(row.id));
+    if (!result) return;
+    setSubscriptions((prev) =>
+      prev.map((s) => (s.id === row.id ? { ...s, upgradeAngefragt: false } : s))
+    );
   }
 
   async function handleSwitch() {
@@ -241,6 +266,51 @@ export function MySubscriptionsSection({
                   </Button>
                 )}
               </div>
+
+              {/* PROJ-87: Nach oben geht es selbst, nach unten nicht — ein
+                  Downgrade ist eine Vertragsänderung und gehört in ein
+                  Gespräch. Der Preis steht hier, damit niemand anfragt, ohne
+                  zu wissen, worauf er sich einlässt. */}
+              {subscription.upgradeAngefragt ? (
+                <div className="rounded-md border border-dashed p-3 text-sm">
+                  <p className="font-medium">{t("upgradePending")}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 px-0"
+                    disabled={isLoading}
+                    onClick={() => handleUpgradeWithdraw(subscription)}
+                  >
+                    {t("upgradeWithdraw")}
+                  </Button>
+                </div>
+              ) : (
+                subscription.upgradeMoeglich &&
+                flatratePreis !== null && (
+                  <div className="rounded-md border border-dashed p-3 text-sm">
+                    <p className="font-medium">{t("upgradeTitle")}</p>
+                    <p className="text-muted-foreground">
+                      {t("upgradeBody", {
+                        price: formatPrice(flatratePreis),
+                        diff: formatPrice(
+                          Math.max(
+                            Math.round((flatratePreis - (subscription.price ?? 0)) * 100) / 100,
+                            0
+                          )
+                        ),
+                      })}
+                    </p>
+                    <Button
+                      size="sm"
+                      className="mt-2"
+                      disabled={isLoading}
+                      onClick={() => handleUpgrade(subscription)}
+                    >
+                      {t("upgradeAsk")}
+                    </Button>
+                  </div>
+                )
+              )}
             </li>
           );
         })}

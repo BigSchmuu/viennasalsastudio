@@ -4,6 +4,8 @@ export type TemplateKey =
   | "warteliste"
   | "abo_pausiert"
   | "abo_gekuendigt"
+  | "abo_upgrade_bestaetigt"
+  | "abo_upgrade_abgelehnt"
   | "kursstart_erinnerung"
   | "sepa_ankuendigung_abo"
   | "sepa_ankuendigung_ticket"
@@ -151,6 +153,50 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
         "Your cancellation of {abo} has been in effect since {datum}.",
       pushTitle: "Cancellation in effect: {abo}",
       pushBody: "{abo} has been cancelled.",
+    },
+  },
+  {
+    key: "abo_upgrade_bestaetigt",
+    eventGroupLabel: "Abo-Kündigung",
+    variantLabel: "Upgrade bestätigt",
+    placeholders: ["preis", "differenz"],
+    boldPlaceholder: "preis",
+    samples: { preis: "89,00 €", differenz: "14,00 €" },
+    defaults: {
+      emailSubject: "Deine Flatrate ist aktiv",
+      emailBody:
+        "Dein Upgrade ist bestätigt: Ab jetzt stehen dir alle Kurse offen, zum Beitrag von {preis} je Zyklus. Die Differenz von {differenz} für den laufenden Zyklus kommt einmalig beim nächsten Einzug dazu. Welche Kurse du besuchst, wählst du selbst in deinem Bereich.",
+      pushTitle: "Flatrate aktiv",
+      pushBody: "Alle Kurse stehen dir offen — {preis} je Zyklus.",
+    },
+    defaultsEn: {
+      emailSubject: "Your flat rate is active",
+      emailBody:
+        "Your upgrade is confirmed: every course is open to you from now on, at {preis} per cycle. The difference of {differenz} for the current cycle will be added once to your next collection. You choose which courses to attend in your own area.",
+      pushTitle: "Flat rate active",
+      pushBody: "Every course is open to you — {preis} per cycle.",
+    },
+  },
+  {
+    key: "abo_upgrade_abgelehnt",
+    eventGroupLabel: "Abo-Kündigung",
+    variantLabel: "Upgrade abgelehnt",
+    placeholders: ["abo"],
+    boldPlaceholder: "abo",
+    samples: { abo: "Salsa Mittwoch" },
+    defaults: {
+      emailSubject: "Zu deiner Upgrade-Anfrage",
+      emailBody:
+        "Wir konnten dein Upgrade auf die Flatrate nicht bestätigen. {abo} läuft unverändert weiter. Melde dich gerne bei uns — dann finden wir gemeinsam die passende Lösung.",
+      pushTitle: "Upgrade-Anfrage",
+      pushBody: "{abo} läuft unverändert weiter. Melde dich gerne bei uns.",
+    },
+    defaultsEn: {
+      emailSubject: "About your upgrade request",
+      emailBody:
+        "We were unable to confirm your upgrade to the flat rate. {abo} continues unchanged. Please get in touch — we will find the right arrangement together.",
+      pushTitle: "Upgrade request",
+      pushBody: "{abo} continues unchanged. Please get in touch.",
     },
   },
   {

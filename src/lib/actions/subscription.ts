@@ -116,3 +116,49 @@ export async function switchSubscriptionCourse(
   revalidatePath("/profil");
   return { success: true };
 }
+
+/**
+ * Ein Upgrade auf die Flatrate anfragen (PROJ-87).
+ *
+ * Das Abo bleibt dabei unberührt — die Anfrage ist eine Markierung daran. Ob
+ * sie überhaupt möglich ist, entscheidet die Datenbank an **einer** Stelle
+ * (`flatrate_upgrade_moeglich`): aktives Kursabo, keine ausstehende Änderung,
+ * genau ein Kursabo, keine laufende Flatrate, Flatrate-Preis gepflegt.
+ */
+export async function requestFlatrateUpgrade(subscriptionId: string): Promise<ActionResult> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Nicht eingeloggt" };
+
+  const { error } = await supabase.rpc("request_flatrate_upgrade", {
+    p_subscription_id: subscriptionId,
+  });
+  if (error) {
+    if (error.message.includes("upgrade not possible")) {
+      return { error: "Dieses Abo lässt sich gerade nicht upgraden. Bitte melde dich bei uns." };
+    }
+    console.error("Upgrade nicht angefragt", subscriptionId, error);
+    return { error: "Die Anfrage konnte nicht abgeschickt werden." };
+  }
+
+  revalidatePath("/profil");
+  revalidatePath("/mein-bereich");
+  return { success: true };
+}
+
+/** Die eigene Anfrage zurückziehen, solange sie offen ist. */
+export async function withdrawFlatrateUpgrade(subscriptionId: string): Promise<ActionResult> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Nicht eingeloggt" };
+
+  const { error } = await supabase.rpc("withdraw_flatrate_upgrade", {
+    p_subscription_id: subscriptionId,
+  });
+  if (error) {
+    console.error("Upgrade-Anfrage nicht zurückgezogen", subscriptionId, error);
+    return { error: "Die Anfrage konnte nicht zurückgezogen werden." };
+  }
+
+  revalidatePath("/profil");
+  revalidatePath("/mein-bereich");
+  return { success: true };
+}

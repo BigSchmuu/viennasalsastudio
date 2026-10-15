@@ -85,7 +85,7 @@ export default async function ProfilePage() {
     supabase
       .from("subscriptions")
       .select(
-        "id, name, price, status, pending_status, pending_effective_date, course_id, courses(name, runs_until)"
+        "id, name, price, status, pending_status, pending_effective_date, upgrade_requested_at, course_id, courses(name, runs_until)"
       )
       .eq("customer_id", user.id)
       .order("created_at", { ascending: true }),
@@ -187,6 +187,28 @@ export default async function ProfilePage() {
 
   const heute = heuteInWien();
 
+  // PROJ-87: Ob ein Upgrade möglich ist, entscheidet die Datenbank — dieselbe
+  // Funktion, die auch die Anfrage und die Bestätigung prüft. Eine zweite
+  // Rechnung hier würde früher oder später anders antworten.
+  //
+  // Nur für aktive, kursgebundene Abos gefragt: Bei allen anderen ist die
+  // Antwort ohnehin „nein", und das sind ein bis zwei Aufrufe, nicht zwanzig.
+  const upgradeMoeglichkeiten = new Map<string, boolean>();
+  for (const s of subscriptionRows ?? []) {
+    if (s.status !== "active" || !s.course_id) continue;
+    const { data: moeglich, error: moeglichFehler } = await supabase.rpc(
+      "flatrate_upgrade_moeglich",
+      { p_subscription_id: s.id }
+    );
+    if (moeglichFehler) {
+      // Kein Wurf: Ohne Antwort fehlt nur der Knopf, und die Seite bleibt
+      // benutzbar. Protokolliert wird es trotzdem.
+      console.error("Upgrade-Prüfung fehlgeschlagen", s.id, moeglichFehler);
+      continue;
+    }
+    upgradeMoeglichkeiten.set(s.id, Boolean(moeglich));
+  }
+
   const subscriptions: MySubscriptionRow[] = (subscriptionRows ?? []).map((s) => ({
     id: s.id,
     name: s.name ?? "",
@@ -207,6 +229,8 @@ export default async function ProfilePage() {
     status: s.status,
     pendingStatus: s.pending_status,
     pendingEffectiveDate: s.pending_effective_date,
+    upgradeMoeglich: upgradeMoeglichkeiten.get(s.id) ?? false,
+    upgradeAngefragt: s.upgrade_requested_at !== null,
   }));
 
   const alleKurse = courseRows ?? [];
@@ -378,7 +402,11 @@ export default async function ProfilePage() {
             bleiben unveraendert — nur ihre Anordnung aendert sich. */}
         <ProfilGruppe titel={t("groupCourses")} hinweis={t("groupCoursesHint")}>
           <ProfilAbschnitt wert="abo" titel={t("sectionSubscription")} hinweis={t("sectionSubscriptionHint")}>
-            <MySubscriptionsSection subscriptions={subscriptions} courses={courses} />
+            <MySubscriptionsSection
+              subscriptions={subscriptions}
+              courses={courses}
+              flatratePreis={studioPricing.flatrate.normal}
+            />
             {/* PROJ-50: Die Kurse gehören zum Abo — deshalb hier und nicht in
                 einem eigenen Abschnitt. */}
             {hatFlatrate && (

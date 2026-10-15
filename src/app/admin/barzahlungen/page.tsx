@@ -28,7 +28,8 @@ export default async function BarzahlungenPage({
   const { period, isCustom } = resolvePeriod(params);
   const supabase = await createClient();
 
-  const [eintragRes, zahlungRes, aboRes, mandatRes, eingesammeltRes] = await Promise.all([
+  const [eintragRes, zahlungRes, aboRes, mandatRes, aufschlagRes, eingesammeltRes] =
+    await Promise.all([
     supabase
       .from("cash_entries")
       .select("id, customer_id, subscription_id, amount_due, note"),
@@ -38,6 +39,13 @@ export default async function BarzahlungenPage({
       .select("id, customer_id, name, price, course_id, courses(name), profiles(full_name)")
       .eq("status", "active"),
     supabase.from("sepa_mandates").select("customer_id").is("revoked_at", null),
+    // PROJ-87: Offene Aufschläge. Sie reisen im nächsten Lastschriftlauf mit —
+    // wer kein Mandat hat, kommt aber in keinen Lauf, und der Betrag bliebe
+    // ewig liegen. Deshalb steht er hier, wo die Barzahler verwaltet werden.
+    supabase
+      .from("subscription_surcharges")
+      .select("id, customer_id, subscription_id, amount, reason")
+      .is("collection_item_id", null),
     // Ohne eingebettete Beziehung: Die Typdatei wird hier von Hand gepflegt
     // (wie bei PROJ-62), und eine Beziehung, die sie nicht kennt, wäre nur ein
     // Kampf mit dem Typprüfer. Die Namen kommen gleich darunter in einem Zug.
@@ -52,7 +60,12 @@ export default async function BarzahlungenPage({
   // Ein Lesefehler darf nicht als „niemand offen" durchgehen — dieselbe Lehre
   // wie bei „Nicht zugestellt" (PROJ-16).
   const fehler =
-    eintragRes.error ?? zahlungRes.error ?? aboRes.error ?? mandatRes.error ?? eingesammeltRes.error;
+    eintragRes.error ??
+    zahlungRes.error ??
+    aboRes.error ??
+    mandatRes.error ??
+    aufschlagRes.error ??
+    eingesammeltRes.error;
   if (fehler) {
     console.error("Barzahlungen nicht lesbar", fehler);
     throw new Error("Die Barzahlungen konnten nicht geladen werden");
@@ -140,6 +153,20 @@ export default async function BarzahlungenPage({
     kassiertVon: z.collected_by ? (namen.get(z.collected_by) ?? "Gelöschtes Konto") : "—",
   }));
 
+  // Nur die ohne gültiges Mandat: Bei allen anderen holt der nächste Lauf den
+  // Aufschlag von selbst.
+  const offeneAufschlaege = (aufschlagRes.data ?? [])
+    .filter((a) => !mitMandat.has(a.customer_id))
+    .map((a) => {
+      const abo = abos.get(a.subscription_id);
+      return {
+        id: a.id,
+        kundeName: abo?.profiles?.full_name || "Unbenannter Kunde",
+        betrag: Number(a.amount),
+        grund: a.reason,
+      };
+    });
+
   const spanne = (wert: string) => new Date(`${wert}T00:00:00`).toLocaleDateString("de-AT");
 
   return (
@@ -158,6 +185,7 @@ export default async function BarzahlungenPage({
       <BarzahlungsUebersicht
         zeilen={zeilen}
         aboWahl={aboWahl}
+        aufschlaege={offeneAufschlaege}
         eingesammelt={eingesammelt}
         zeitraumText={`Im Zeitraum ${spanne(period.from)} bis ${spanne(period.to)} eingesammelt.`}
       />

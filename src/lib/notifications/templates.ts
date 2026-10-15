@@ -185,6 +185,16 @@ export type KursumwandlungDetails = { courseName: string; newName: string; effec
 export type ZahlungserinnerungDetails = { invoiceNumber: string; grossAmount: number; bounceFee: number };
 /** Jemand hat versucht, sich mit einer bereits vergebenen Adresse zu registrieren. */
 export type KontoExistiertDetails = { attemptedAt: string };
+/** PROJ-87: Entscheidung über eine Upgrade-Anfrage. */
+export type AboUpgradeDetails = {
+  entscheidung: "bestaetigt" | "abgelehnt";
+  /** Name des Abos — beim abgelehnten Fall das, was unverändert weiterläuft. */
+  abo: string;
+  /** Nur bei Bestätigung gesetzt. */
+  preis?: number;
+  differenz?: number;
+};
+
 export type EventTicketDetails =
   | {
       subType: "purchased";
@@ -231,11 +241,13 @@ export function resolveTemplateKey(
     | "zahlungserinnerung"
     | "kursausfall"
     | "kursumwandlung"
-    | "konto_existiert",
+    | "konto_existiert"
+    | "abo_upgrade",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
     | AboKuendigungDetails
+    | AboUpgradeDetails
     | KursstartErinnerungDetails
     | SepaAnkuendigungDetails
     | ZahlungserinnerungDetails
@@ -256,6 +268,10 @@ export function resolveTemplateKey(
       return "warteliste";
     case "abo_kuendigung":
       return (details as AboKuendigungDetails).newStatus === "paused" ? "abo_pausiert" : "abo_gekuendigt";
+    case "abo_upgrade":
+      return (details as AboUpgradeDetails).entscheidung === "bestaetigt"
+        ? "abo_upgrade_bestaetigt"
+        : "abo_upgrade_abgelehnt";
     case "kursstart_erinnerung":
       return "kursstart_erinnerung";
     case "sepa_ankuendigung":
@@ -505,11 +521,13 @@ export function buildNotificationContent(
     | "zahlungserinnerung"
     | "kursausfall"
     | "kursumwandlung"
-    | "konto_existiert",
+    | "konto_existiert"
+    | "abo_upgrade",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
     | AboKuendigungDetails
+    | AboUpgradeDetails
     | KursstartErinnerungDetails
     | SepaAnkuendigungDetails
     | ZahlungserinnerungDetails
@@ -544,6 +562,27 @@ export function buildNotificationContent(
       const key: TemplateKey = d.newStatus === "paused" ? "abo_pausiert" : "abo_gekuendigt";
       return {
         ...renderTemplate(key, { abo: d.subscriptionName, datum: formatDate(d.effectiveDate) }, override, "", locale),
+        url: "/profil",
+      };
+    }
+    case "abo_upgrade": {
+      const d = details as AboUpgradeDetails;
+      if (d.entscheidung === "abgelehnt") {
+        return {
+          ...renderTemplate("abo_upgrade_abgelehnt", { abo: d.abo }, override, "", locale),
+          url: "/profil",
+        };
+      }
+      const geld = (wert: number | undefined) =>
+        (wert ?? 0).toLocaleString("de-AT", { style: "currency", currency: "EUR" });
+      return {
+        ...renderTemplate(
+          "abo_upgrade_bestaetigt",
+          { preis: geld(d.preis), differenz: geld(d.differenz) },
+          override,
+          "",
+          locale
+        ),
         url: "/profil",
       };
     }
@@ -772,6 +811,18 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
       return buildNotificationContent(
         "abo_kuendigung",
         { subscriptionName: "1x pro Woche", newStatus: "cancelled", effectiveDate: "2026-09-07" },
+        fields
+      );
+    case "abo_upgrade_bestaetigt":
+      return buildNotificationContent(
+        "abo_upgrade",
+        { entscheidung: "bestaetigt", abo: "Flatrate", preis: 89, differenz: 14 },
+        fields
+      );
+    case "abo_upgrade_abgelehnt":
+      return buildNotificationContent(
+        "abo_upgrade",
+        { entscheidung: "abgelehnt", abo: "Salsa Mittwoch" },
         fields
       );
     case "kursstart_erinnerung":

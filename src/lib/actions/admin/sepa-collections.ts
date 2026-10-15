@@ -157,13 +157,47 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     return { error: "Lastschriftlauf konnte nicht erstellt werden." };
   }
 
-  const { data: angelegtePositionen, error: itemsError } = await supabase
+  const { error: itemsError } = await supabase
     .from("sepa_collection_items")
-    .insert(items.map((item) => ({ ...item, run_id: run.id })))
-    .select("id, customer_id, subscription_id, event_ticket_id, amount");
+    .insert(items.map((item) => ({ ...item, run_id: run.id })));
 
   if (itemsError) {
     return { error: "Lastschriftpositionen konnten nicht gespeichert werden." };
+  }
+
+  // PROJ-87: Einmalige Aufschläge auf die Positionen legen — etwa die
+  // Differenz beim Upgrade auf die Flatrate.
+  //
+  // **Vor** der Guthabenverrechnung: Sonst mindert Guthaben nur den Abo-Preis,
+  // und die Differenz bliebe unberührt stehen — was niemand erklären könnte.
+  //
+  // In der Datenbank und nicht hier: Ein erster Entwurf hat Betrag und Stempel
+  // von hier aus geschrieben, und der Stempel traf null Zeilen, weil die
+  // Tabelle nur eine Leseregel hat. PostgREST meldet das nicht — der Aufschlag
+  // wäre offen geblieben und beim nächsten Lauf ein zweites Mal gekommen.
+  const { error: aufschlagFehler } = await supabase.rpc("apply_surcharges_to_run", {
+    p_run_id: run.id,
+  });
+  if (aufschlagFehler) {
+    console.error("Aufschläge nicht verbucht", aufschlagFehler);
+    return {
+      error:
+        "Die einmaligen Aufschläge konnten nicht verbucht werden. Der Lauf wurde angelegt — bitte den Entwurf verwerfen und neu anlegen.",
+    };
+  }
+
+  // Danach neu gelesen: Die Beträge können gewachsen sein, und das Guthaben
+  // soll gegen den **neuen** Betrag verrechnet werden.
+  const { data: positionen, error: leseFehler } = await supabase
+    .from("sepa_collection_items")
+    .select("id, customer_id, subscription_id, amount")
+    .eq("run_id", run.id);
+  if (leseFehler) {
+    console.error("Positionen nach dem Aufschlag nicht lesbar", leseFehler);
+    return {
+      error:
+        "Der Lauf wurde angelegt, konnte danach aber nicht gelesen werden — bitte den Entwurf verwerfen und neu anlegen.",
+    };
   }
 
   // PROJ-44: Empfehlungen, deren erste Lastschrift durchgegangen ist, werden
@@ -189,15 +223,16 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   //
   // Nur Abo-Positionen. Tickets werden nicht regelmäßig eingezogen; dort hätte
   // eine Verrechnung keinen natürlichen Zeitpunkt.
-  for (const position of angelegtePositionen ?? []) {
+  for (const position of positionen ?? []) {
     if (!position.subscription_id || position.amount <= 0) continue;
+    const betrag = position.amount;
     const { data: verrechnet } = await supabase.rpc("redeem_customer_credit", {
       p_customer_id: position.customer_id,
       p_collection_item_id: position.id,
-      p_max_amount: position.amount,
+      p_max_amount: betrag,
     });
     if (verrechnet && verrechnet > 0) {
-      const gemindert = position.amount - verrechnet;
+      const gemindert = betrag - verrechnet;
       const { error: senkFehler } = await supabase
         .from("sepa_collection_items")
         .update({ amount: gemindert })
