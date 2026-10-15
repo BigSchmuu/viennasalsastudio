@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { totpCode } from "./totp";
+import { totpCode, restDesFensters } from "./totp";
 import { schluessel, merkeSchluessel } from "./zweite-stufe-speicher";
 
 /**
@@ -12,6 +12,21 @@ import { schluessel, merkeSchluessel } from "./zweite-stufe-speicher";
  */
 const offen = new Map<string, Promise<SupabaseClient>>();
 
+/** Warten, ohne eine Testbibliothek dafür zu brauchen. */
+function warte(ms: number): Promise<void> {
+  return new Promise((fertig) => setTimeout(fertig, ms));
+}
+
+/**
+ * **Der Client ist geteilt.** Niemals `signOut()` darauf aufrufen.
+ *
+ * Playwright läuft hier mit einem einzigen Arbeiter, und der Modulzustand
+ * überlebt die Dateigrenze: Was eine Spec-Datei hier anmeldet, bekommt jede
+ * später laufende Datei zurück. Ein `signOut()` hinterlässt deshalb einen
+ * toten Client für alle anderen — und die Datenbank antwortet einem
+ * abgemeldeten Client nicht mit einem Fehler, sondern mit null betroffenen
+ * Zeilen. Ein Test, der ein Verbot prüft, meldet dann grün.
+ */
 export function angemeldetAls(url: string, anonKey: string, mail: string, passwort: string): Promise<SupabaseClient> {
   const schluessel = `${url}|${mail}`;
   const vorhanden = offen.get(schluessel);
@@ -78,15 +93,35 @@ async function zweiteStufeFallsNoetig(client: SupabaseClient, url: string, kennu
     const { data: vorhandene } = await client.auth.mfa.listFactors();
     const bestaetigt = (vorhandene?.totp ?? []).find((f) => f.status === "verified");
     if (bestaetigt) {
-      const { error } = await client.auth.mfa.challengeAndVerify({
-        factorId: bestaetigt.id,
-        code: totpCode(bekannt),
-      });
-      if (!error) {
-        await pruefeZweiteStufe(client, mail);
-        return;
+      // Bis zu drei Fenster versuchen, **bevor** der Faktor angetastet wird.
+      //
+      // Ein abgelehnter Code heißt fast nie „falscher Schlüssel", sondern
+      // „dieser Code war schon dran": Supabase nimmt denselben Code nicht
+      // zweimal, und in einem Volllauf melden mehrere Arbeiter innerhalb
+      // derselben dreißig Sekunden dasselbe Konto an. Der Ausweg ist das
+      // nächste Fenster, nicht ein neuer Faktor.
+      //
+      // Das Löschen darunter ist nämlich **destruktiv**: Es nimmt dem Konto
+      // alle Faktoren, und bestehende Sitzungen anderer Arbeiter fallen beim
+      // nächsten Auffrischen auf die erste Stufe zurück. Danach gilt der
+      // Client der Datenbank nicht mehr als Admin, jede Admin-Änderung trifft
+      // lautlos null Zeilen — genau so sind PROJ-47 und PROJ-58 im Volllauf
+      // rot geworden, dreimal in Folge.
+      for (let versuch = 0; versuch < 3; versuch++) {
+        if (versuch > 0) {
+          await warte(restDesFensters() + 500);
+        }
+        const { error } = await client.auth.mfa.challengeAndVerify({
+          factorId: bestaetigt.id,
+          code: totpCode(bekannt),
+        });
+        if (!error) {
+          await pruefeZweiteStufe(client, mail);
+          return;
+        }
       }
-      // Passt der Schlüssel nicht mehr, wird unten frisch eingerichtet.
+      // Drei Fenster abgelehnt: Dann passt der Schlüssel wirklich nicht mehr,
+      // und unten wird frisch eingerichtet.
     }
   }
 

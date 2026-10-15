@@ -158,6 +158,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const lauf of laeufe) {
+    const { data: posten } = await service
+      .from("sepa_collection_items")
+      .select("id")
+      .eq("run_id", lauf);
+    const ids = (posten ?? []).map((p) => p.id);
+    if (ids.length > 0) await service.from("invoices").delete().in("collection_item_id", ids);
     await service.from("sepa_collection_items").delete().eq("run_id", lauf);
     await service.from("sepa_collection_runs").delete().eq("id", lauf);
   }
@@ -549,6 +555,44 @@ describe("PROJ-87: Der Aufschlag im Lauf", () => {
         .update({ revoked_at: null })
         .eq("customer_id", kundeId);
     }
+  });
+
+  it("nennt die Differenz auf der Rechnung", async () => {
+    // Hier und nicht im Browser: Ein echter Lauf nimmt jedes fällige Abo der
+    // Testdatenbank mit, und die Freigabe schreibt für alle Rechnungen. Dieser
+    // Lauf enthält genau eine Position.
+    const differenz = await mitAufschlag();
+    const laufId = await lauf();
+    const { data: position } = await service
+      .from("sepa_collection_items")
+      .insert({
+        run_id: laufId,
+        customer_id: kundeId,
+        subscription_id: aboId,
+        amount: flatrateNormal,
+        iban: "AT611904300234573201",
+        account_holder_name: "E2E87 Upgrade-Kunde",
+        mandate_reference: "E2E87-rechnung",
+      })
+      .select("id")
+      .single();
+
+    await alsAdmin.rpc("apply_surcharges_to_run", { p_run_id: laufId });
+    const { error } = await alsAdmin.rpc("create_invoices_for_collection_run", {
+      p_run_id: laufId,
+    });
+    expect(error, `Rechnung scheiterte: ${error?.message}`).toBeNull();
+
+    const { data: rechnung } = await service
+      .from("invoices")
+      .select("description, gross_amount")
+      .eq("collection_item_id", position!.id)
+      .single();
+
+    // Derselbe Satzbau wie beim verrechneten Guthaben (PROJ-44): Rechnungen
+    // haben hier eine Beschreibung und einen Betrag, keine Positionen.
+    expect(rechnung!.description).toContain("Upgrade-Differenz");
+    expect(Number(rechnung!.gross_amount)).toBe(flatrateNormal + differenz);
   });
 
   it("weist einen Kunden ab, der selbst aufschlagen will", async () => {

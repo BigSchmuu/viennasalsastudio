@@ -18,6 +18,14 @@ export default defineConfig({
   // Authenticator-App an. Ohne das kaeme kein Test mehr nach /admin.
   globalSetup: './tests/global-setup.ts',
   testMatch: '**/*.spec.ts',
+  // Eine Minute je Prüfung statt der voreingestellten halben.
+  //
+  // Eine Anmeldung kann auf das nächste TOTP-Fenster warten müssen (siehe
+  // tests/zweite-stufe.ts) — bis zu dreißig Sekunden, die dann für die
+  // eigentliche Prüfung fehlten. Ein wirklich hängender Test scheitert
+  // weiterhin, nur dreißig Sekunden später; an der Laufzeit der Suite ändert
+  // das nichts, weil nur Fehlschläge länger warten.
+  timeout: 60_000,
   fullyParallel: true,
   // Tests share a single `npm run dev` server. Auth/session-heavy specs were
   // observed to flake under concurrent load against that one dev server

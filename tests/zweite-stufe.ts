@@ -96,6 +96,9 @@ export async function richteVerwaltungskontenEin(): Promise<void> {
  * Das Häkchen „Diesem Gerät 30 Tage vertrauen" bleibt leer — jeder Test soll
  * denselben Weg gehen wie eine frische Anmeldung.
  */
+/** Welcher Code für welches Konto zuletzt abgeschickt wurde (siehe unten). */
+const letzterCode = new Map<string, string>();
+
 export async function zweiteStufeErledigen(page: Page, mail: string): Promise<void> {
   const geheim = schluessel()[mail];
   if (!geheim) return;
@@ -116,7 +119,22 @@ export async function zweiteStufeErledigen(page: Page, mail: string): Promise<vo
     await page.waitForTimeout(restDesFensters() + 200);
   }
 
-  await page.getByRole("textbox").first().fill(totpCode(geheim));
+  // Und nie denselben Code zweimal: Supabase nimmt einen verbrauchten Code
+  // nicht noch einmal an, und neun Spec-Dateien teilen sich dasselbe
+  // Verwaltungskonto. Laufen zwei davon innerhalb derselben dreißig Sekunden
+  // an, bleibt die zweite auf der Code-Seite stehen — und scheitert dann an
+  // irgendetwas anderem, einem Häkchen oder einer Überschrift, die es dort
+  // nicht gibt. Genau so sind PROJ-25 und PROJ-58 im Volllauf rot geworden.
+  //
+  // Der Zwischenspeicher überlebt die Dateigrenze, weil Playwright hier mit
+  // einem einzigen Arbeiter läuft.
+  if (letzterCode.get(mail) === totpCode(geheim)) {
+    await page.waitForTimeout(restDesFensters() + 500);
+  }
+  const code = totpCode(geheim);
+  letzterCode.set(mail, code);
+
+  await page.getByRole("textbox").first().fill(code);
   await page.getByRole("button", { name: "Weiter" }).click();
   await expect(page).not.toHaveURL(/\/sicherheit\/code/, { timeout: 20000 });
 }

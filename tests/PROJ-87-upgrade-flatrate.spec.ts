@@ -236,7 +236,9 @@ test.describe("PROJ-87: Upgrade auf die Flatrate", () => {
     expect((await abo()).upgrade_requested_at).toBeNull();
   });
 
-  test("Der Betreiber bestätigt — und die Differenz landet im nächsten Lauf", async ({ page }) => {
+  test("Der Betreiber bestätigt — Abo umgestellt, Kursplatz da, Aufschlag festgehalten", async ({
+    page,
+  }) => {
     // Ausgangslage: angefragt, nichts bestätigt, Beitrag wieder fällig.
     await einzuegeWeg();
     await service.from("subscription_surcharges").delete().eq("customer_id", kundeId);
@@ -280,73 +282,23 @@ test.describe("PROJ-87: Upgrade auf die Flatrate", () => {
     expect(aufschlaege).toHaveLength(1);
     expect(Number(aufschlaege![0].amount)).toBe(flatrateNormal - KURSPREIS);
 
-    // Und jetzt der Teil, an dem Geld hängt: ein Lauf nimmt ihn mit.
-    const faellig = await freiesFaelligkeitsdatum();
-    await gehZu(page, "/admin/lastschriften");
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(600);
-    await page.locator("#due-date").fill(faellig);
-    await page.getByRole("button", { name: "Lauf erstellen" }).click();
-    await page.waitForURL(/\/admin\/lastschriften\/.+/, { timeout: 30000 });
-    await page.waitForTimeout(1500);
-
-    const { data: position } = await service
-      .from("sepa_collection_items")
-      .select("id, amount")
-      .eq("customer_id", kundeId)
-      .eq("subscription_id", aboId)
-      .maybeSingle();
-    expect(position, "Das Abo fehlt im Lauf").toBeTruthy();
-    expect(Number(position!.amount)).toBe(flatrateNormal + (flatrateNormal - KURSPREIS));
-
-    // Der Aufschlag ist vergeben und kommt nicht zweimal.
-    const { data: nachher } = await service
-      .from("subscription_surcharges")
-      .select("collection_item_id")
-      .eq("subscription_id", aboId)
-      .single();
-    expect(nachher!.collection_item_id).toBe(position!.id);
+    // Der Lauf selbst wird hier **nicht** angelegt. Ein echter Lauf nimmt
+    // jedes fällige Abo der Testdatenbank mit, und die Freigabe schreibt für
+    // alle Rechnungen — das hat im Volllauf PROJ-10, PROJ-33 und PROJ-70
+    // umgeworfen (achtzehn fremde Rechnungen, die dort niemand erwartet).
+    //
+    // Dass der Aufschlag in den Lauf kommt, auf der Position landet, gestempelt
+    // wird und auf der Rechnung steht, prüft der Datenbanktest an einem Lauf,
+    // der nur diese eine Position enthält.
   });
 
-  test("Die Rechnung sagt, woraus der höhere Betrag besteht", async ({ page }) => {
-    // Setzt den Lauf aus dem Test davor fort: freigeben und nachsehen.
-    // Der Lauf, in dem die Position dieses Kunden steckt — nicht einfach der
-    // jüngste: Eine andere Prüfung könnte inzwischen einen eigenen angelegt
-    // haben.
-    const { data: position } = await service
-      .from("sepa_collection_items")
-      .select("run_id")
-      .eq("customer_id", kundeId)
-      .maybeSingle();
-    expect(position, "Keine Position aus dem Test davor").toBeTruthy();
-    const { data: lauf } = await service
-      .from("sepa_collection_runs")
-      .select("id, released_at")
-      .eq("id", position!.run_id)
-      .single();
-
-    await anmelden(page, ADMIN);
-    await gehZu(page, `/admin/lastschriften/${lauf!.id}`);
+  test("Die Lehrkraft kommt auf die Verwaltungsseite nicht", async ({ page }) => {
+    await anmelden(page, {
+      email: "e2e13-lehrer-a@viennasalsastudio.test",
+      password: "CorrectPassword123!",
+    });
+    await gehZu(page, "/admin");
     await page.waitForTimeout(1500);
-
-    if (!lauf!.released_at) {
-      // Derselbe Weg wie in PROJ-47: zwei Schritte, weil die Freigabe
-      // Rechnungen erzeugt und Ankündigungen verschickt.
-      await page.getByRole("button", { name: "2. Bei der Bank hochgeladen" }).click();
-      await page.getByRole("button", { name: "Ja, hochgeladen" }).click();
-      await page.waitForTimeout(3500);
-    }
-
-    const { data: rechnung } = await service
-      .from("invoices")
-      .select("description, gross_amount")
-      .eq("customer_id", kundeId)
-      .order("invoice_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    expect(rechnung, "Keine Rechnung entstanden").toBeTruthy();
-    expect(rechnung!.description).toContain("Upgrade-Differenz");
-    expect(Number(rechnung!.gross_amount)).toBe(flatrateNormal + (flatrateNormal - KURSPREIS));
+    await expect(page.getByRole("region", { name: "Upgrade auf Flatrate" })).toHaveCount(0);
   });
 });

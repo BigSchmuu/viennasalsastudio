@@ -565,7 +565,12 @@ test.describe("PROJ-46: Rechnungen stornieren und gutschreiben", () => {
     expect(belege!.length).toBe(2);
     expect(belege!.reduce((s, b) => s + Number(b.gross_amount), 0)).toBe(-65);
 
-    await alsAdmin.auth.signOut();
+    // **Kein** `signOut()` auf diesem Client: Er kommt aus `angemeldetAls`
+    // und ist **geteilt** — ein Arbeiter führt alle Dateien hintereinander
+    // aus, und der Zwischenspeicher dort überlebt die Dateigrenze. Abgemeldet
+    // hielt jede später laufende Datei einen toten Client; PROJ-47 hat damit
+    // drei Vollläufe lang gemeldet, ein freigegebener Lauf lasse sich ändern,
+    // obwohl in Wahrheit nur die Anmeldung fehlte.
   });
 
   test("Sicherheit: auch der Admin kann einen Beleg nicht mehr ändern oder löschen", async () => {
@@ -632,6 +637,11 @@ test.describe("PROJ-46: Rechnungen stornieren und gutschreiben", () => {
       .eq("id", beleg!.id);
     expect(loeschen === null && count === 1, "Der Beleg wurde gelöscht").toBe(true);
 
-    await alsAdmin.auth.signOut();
+    // **Kein** `signOut()` auf diesem Client: Er kommt aus `angemeldetAls`
+    // und ist **geteilt** — ein Arbeiter führt alle Dateien hintereinander
+    // aus, und der Zwischenspeicher dort überlebt die Dateigrenze. Abgemeldet
+    // hielt jede später laufende Datei einen toten Client; PROJ-47 hat damit
+    // drei Vollläufe lang gemeldet, ein freigegebener Lauf lasse sich ändern,
+    // obwohl in Wahrheit nur die Anmeldung fehlte.
   });
 });
