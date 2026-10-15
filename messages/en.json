@@ -354,7 +354,12 @@
     "upgradeBody": "{price} per cycle, every course instead of one. Plus the difference of {diff} once, with your next collection. We check eligibility for the student rate when confirming.",
     "upgradeAsk": "Request upgrade",
     "upgradePending": "Upgrade requested — we will get back to you once it is confirmed.",
-    "upgradeWithdraw": "Withdraw request"
+    "upgradeWithdraw": "Withdraw request",
+    "upgradeBlocked": {
+      "flatrate": "You already have a flat rate — every course is open to you.",
+      "pending": "While a pause or cancellation is pending, upgrading is not possible. Withdraw it if you would rather switch to the flat rate.",
+      "preis": "Upgrading to the flat rate is currently unavailable. Get in touch — we will set it up."
+    }
   },
   "notifications": {
     "event": "Event",

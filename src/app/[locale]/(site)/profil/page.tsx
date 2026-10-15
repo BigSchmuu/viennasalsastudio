@@ -186,6 +186,9 @@ export default async function ProfilePage() {
   );
 
   const heute = heuteInWien();
+  // Früh gelesen, weil der Abo-Abschnitt den Flatrate-Preis braucht; weiter
+  // unten steht dieselbe Zeile noch einmal für die übrigen Abschnitte.
+  const studioPricingVorab = readStudioPricing(pricingRow);
 
   // PROJ-87: Ob ein Upgrade möglich ist, entscheidet die Datenbank — dieselbe
   // Funktion, die auch die Anfrage und die Bestätigung prüft. Eine zweite
@@ -209,6 +212,30 @@ export default async function ProfilePage() {
     upgradeMoeglichkeiten.set(s.id, Boolean(moeglich));
   }
 
+  // PROJ-88: Angerechnet wird, was im laufenden Zyklus tatsächlich bezahlt
+  // wurde — Einzüge ohne Rückbuchung und Barzahlungen. Aus derselben Funktion,
+  // die auch die Bestätigung rechnet; zwei Rechnungen würden driften.
+  let angerechnet = 0;
+  if ((subscriptionRows ?? []).some((s) => s.status === "active" && s.course_id)) {
+    const { data: summe, error: summeFehler } = await supabase.rpc(
+      "flatrate_upgrade_angerechnet",
+      { p_customer_id: user.id }
+    );
+    if (summeFehler) {
+      console.error("Anrechnung nicht lesbar", summeFehler);
+    } else {
+      angerechnet = Number(summe ?? 0);
+    }
+  }
+
+  // Warum der Kasten fehlt. Ohne diesen Satz sieht ein Kunde die Möglichkeit
+  // nirgends und erfährt auch nicht, warum — das Kriterium stand in PROJ-87
+  // und blieb unerfüllt.
+  const hatFlatrateAbo = (subscriptionRows ?? []).some(
+    (s) => s.status === "active" && !s.course_id
+  );
+  const flatratePreisFehlt = studioPricingVorab.flatrate.normal === null;
+
   const subscriptions: MySubscriptionRow[] = (subscriptionRows ?? []).map((s) => ({
     id: s.id,
     name: s.name ?? "",
@@ -231,6 +258,18 @@ export default async function ProfilePage() {
     pendingEffectiveDate: s.pending_effective_date,
     upgradeMoeglich: upgradeMoeglichkeiten.get(s.id) ?? false,
     upgradeAngefragt: s.upgrade_requested_at !== null,
+    // Nur für aktive Kursabos: Bei allen anderen ist die Frage gar nicht
+    // gestellt, und ein Grund wäre eine Antwort auf nichts.
+    upgradeGrund:
+      s.status !== "active" || !s.course_id || (upgradeMoeglichkeiten.get(s.id) ?? false)
+        ? null
+        : hatFlatrateAbo
+          ? "flatrate"
+          : s.pending_status
+            ? "pending"
+            : flatratePreisFehlt
+              ? "preis"
+              : null,
   }));
 
   const alleKurse = courseRows ?? [];
@@ -406,6 +445,7 @@ export default async function ProfilePage() {
               subscriptions={subscriptions}
               courses={courses}
               flatratePreis={studioPricing.flatrate.normal}
+              angerechnet={angerechnet}
             />
             {/* PROJ-50: Die Kurse gehören zum Abo — deshalb hier und nicht in
                 einem eigenen Abschnitt. */}

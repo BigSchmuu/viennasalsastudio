@@ -61,6 +61,12 @@ export type MySubscriptionRow = {
   upgradeMoeglich: boolean;
   /** PROJ-87: Eine Anfrage läuft und wartet auf die Bestätigung. */
   upgradeAngefragt: boolean;
+  /**
+   * PROJ-88: Warum kein Upgrade möglich ist — `null`, wenn es möglich ist oder
+   * die Frage sich nicht stellt. Ohne diesen Grund sähe der Kunde die
+   * Möglichkeit nirgends und erfuhr auch nicht, warum.
+   */
+  upgradeGrund: "flatrate" | "pending" | "preis" | null;
 };
 
 export type SubscriptionCourseOption = { id: string; name: string; runs_until?: string | null };
@@ -83,11 +89,18 @@ export function MySubscriptionsSection({
   subscriptions: initialSubscriptions,
   courses,
   flatratePreis,
+  angerechnet,
 }: {
   subscriptions: MySubscriptionRow[];
   courses: SubscriptionCourseOption[];
   /** PROJ-87: Der Normalpreis aus der Preisliste; `null`, wenn ungepflegt. */
   flatratePreis: number | null;
+  /**
+   * PROJ-88: Was im laufenden Zyklus tatsächlich bezahlt wurde — über **alle**
+   * Kursabos. Die Differenz rechnet dagegen, nicht gegen den Preis eines
+   * einzelnen Abos: Wer zwei Kurse einzeln zahlt, hat schon beides bezahlt.
+   */
+  angerechnet: number;
 }) {
   const t = useTranslations("profile");
   const locale = useLocale();
@@ -285,18 +298,19 @@ export function MySubscriptionsSection({
                   </Button>
                 </div>
               ) : (
-                subscription.upgradeMoeglich &&
-                flatratePreis !== null && (
+                subscription.upgradeGrund !== null ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t(`upgradeBlocked.${subscription.upgradeGrund}`)}
+                  </p>
+                ) : subscription.upgradeMoeglich &&
+                  flatratePreis !== null && (
                   <div className="rounded-md border border-dashed p-3 text-sm">
                     <p className="font-medium">{t("upgradeTitle")}</p>
                     <p className="text-muted-foreground">
                       {t("upgradeBody", {
                         price: formatPrice(flatratePreis),
                         diff: formatPrice(
-                          Math.max(
-                            Math.round((flatratePreis - (subscription.price ?? 0)) * 100) / 100,
-                            0
-                          )
+                          Math.max(Math.round((flatratePreis - angerechnet) * 100) / 100, 0)
                         ),
                       })}
                     </p>

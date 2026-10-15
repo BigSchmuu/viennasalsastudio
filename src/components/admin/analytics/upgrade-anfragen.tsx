@@ -15,6 +15,21 @@ import {
 
 const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
 
+function datum(wert: string): string {
+  return new Date(`${wert}T00:00:00`).toLocaleDateString("de-AT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+export type AnrechnungsZeile = {
+  bezeichnung: string;
+  betrag: number;
+  eingang: string;
+  art: "lastschrift" | "barzahlung";
+};
+
 export type UpgradeAnfrage = {
   aboId: string;
   kundeId: string;
@@ -22,6 +37,10 @@ export type UpgradeAnfrage = {
   kursName: string | null;
   bisher: number | null;
   angefragtAm: string;
+  /** PROJ-88: Was im laufenden Zyklus tatsächlich bezahlt wurde. */
+  anrechnung: AnrechnungsZeile[];
+  /** PROJ-88: Welche weiteren Kursabos mit der Bestätigung enden. */
+  endendeAbos: string[];
 };
 
 /**
@@ -64,9 +83,15 @@ export function UpgradeAnfragen({
     }
   }
 
-  function differenz(bisher: number | null, neu: number | null): string {
+  /**
+   * Die Differenz gegen das **tatsächlich Bezahlte**, nicht gegen den Preis
+   * eines einzelnen Abos (PROJ-88). Wer zwei Kurse einzeln zahlt, hat schon
+   * beides bezahlt; wer nichts bezahlt hat, zahlt die ganze Differenz.
+   */
+  function differenz(anfrage: UpgradeAnfrage, neu: number | null): string {
     if (neu === null) return "—";
-    const wert = Math.max(Math.round((neu - (bisher ?? 0)) * 100) / 100, 0);
+    const angerechnet = anfrage.anrechnung.reduce((s, z) => s + z.betrag, 0);
+    const wert = Math.max(Math.round((neu - angerechnet) * 100) / 100, 0);
     return EUR.format(wert);
   }
 
@@ -121,6 +146,35 @@ export function UpgradeAnfragen({
                   </p>
                 </div>
 
+                {/* PROJ-88: Die Rechnung offen hingeschrieben. Ferien können
+                    einen Zyklus verlängern (PROJ-70) — ein deshalb älterer
+                    Einzug fällt aus dem 28-Tage-Fenster und wird nicht
+                    angerechnet. Deshalb steht hier, was angerechnet wird und
+                    wann es einging: Sieht es falsch aus, lieber ablehnen und
+                    von Hand machen. */}
+                {a.anrechnung.length > 0 ? (
+                  <ul className="text-sm text-muted-foreground">
+                    {a.anrechnung.map((z, i) => (
+                      <li key={`${a.aboId}-${i}`}>
+                        angerechnet: <span className="tabular-nums">{EUR.format(z.betrag)}</span> —{" "}
+                        {z.bezeichnung}, {z.art === "barzahlung" ? "bar" : "Einzug"} vom{" "}
+                        {datum(z.eingang)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-amber-700 dark:text-amber-500">
+                    Im laufenden Zyklus ist nichts eingegangen — die ganze Differenz kommt dazu.
+                  </p>
+                )}
+
+                {a.endendeAbos.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Endet mit der Bestätigung: {a.endendeAbos.join(", ")} — die Kurse bleiben als
+                    Plätze an der Flatrate.
+                  </p>
+                )}
+
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
@@ -130,7 +184,7 @@ export function UpgradeAnfragen({
                   >
                     {laeuft
                       ? "…"
-                      : `Normal ${flatrateNormal === null ? "" : EUR.format(flatrateNormal)} (+${differenz(a.bisher, flatrateNormal)})`}
+                      : `Normal ${flatrateNormal === null ? "" : EUR.format(flatrateNormal)} (+${differenz(a, flatrateNormal)})`}
                   </Button>
                   <Button
                     size="sm"
@@ -141,7 +195,7 @@ export function UpgradeAnfragen({
                   >
                     {laeuft
                       ? "…"
-                      : `Studierende ${flatrateStudent === null ? "—" : EUR.format(flatrateStudent)} (+${differenz(a.bisher, flatrateStudent)})`}
+                      : `Studierende ${flatrateStudent === null ? "—" : EUR.format(flatrateStudent)} (+${differenz(a, flatrateStudent)})`}
                   </Button>
                   <Button
                     size="sm"

@@ -39,6 +39,9 @@ let kundeId = "";
 let aboId = "";
 let flatrateNormal = 0;
 let preisErgaenzt = false;
+/** Der Lauf, der den Einzug dieses Zyklus trägt — hinterher weg. */
+let laufId = "";
+let laufGehoertUns = false;
 
 function wienerDatum(versatzTage = 0): string {
   const ziel = new Date(Date.now() + versatzTage * 24 * 3_600_000);
@@ -62,36 +65,6 @@ async function zumAbo(page: Page) {
   await page.waitForTimeout(1200);
   await page.getByRole("button", { name: "Mein Abo" }).click();
   await page.waitForTimeout(600);
-}
-
-/**
- * Ein Fälligkeitsdatum, für das noch kein Lauf existiert.
- *
- * Zwei Läufe auf denselben Tag nimmt die Verwaltung nicht an, und ein Testlauf
- * von gestern blockiert sonst den von heute.
- */
-async function freiesFaelligkeitsdatum(): Promise<string> {
-  for (let versatz = 5; versatz < 40; versatz++) {
-    const tag = wienerDatum(versatz);
-    const { count } = await service
-      .from("sepa_collection_runs")
-      .select("id", { count: "exact", head: true })
-      .eq("due_date", tag);
-    if ((count ?? 0) === 0) return tag;
-  }
-  throw new Error("PROJ-87: kein freier Fälligkeitstag gefunden");
-}
-
-/**
- * Den Kunden so zurücksetzen, dass sein Beitrag wieder fällig ist.
- *
- * Ohne das wäre der Test einmal grün und danach nie wieder: Ein eingezogener
- * Beitrag ist im selben Zyklus nicht mehr fällig (PROJ-70), und der Lauf käme
- * ohne Position zurück.
- */
-async function einzuegeWeg() {
-  await service.from("invoices").delete().eq("customer_id", kundeId);
-  await service.from("sepa_collection_items").delete().eq("customer_id", kundeId);
 }
 
 async function abo() {
@@ -152,6 +125,42 @@ test.beforeAll(async () => {
   if (aboFehler) throw new Error(`PROJ-87 Abo: ${aboFehler.message}`);
   aboId = sub!.id;
 
+  // Ein Einzug im laufenden Zyklus: Seit PROJ-88 rechnet die Differenz gegen
+  // das, was tatsächlich bezahlt wurde. Ohne diesen Einzug wäre sie der volle
+  // Flatrate-Preis — richtig gerechnet, aber nicht der Fall, den diese Tests
+  // zeigen wollen.
+  //
+  // Der Lauf wird **nicht** freigegeben und trägt nur diese eine Position:
+  // Ein echter, freigegebener Lauf schreibt Rechnungen für jedes fällige Abo
+  // der Testdatenbank und hat PROJ-10, PROJ-33 und PROJ-70 umgeworfen.
+  const einzugsTag = wienerDatum(-10);
+  const { data: vorhandenerLauf } = await service
+    .from("sepa_collection_runs")
+    .select("id")
+    .eq("due_date", einzugsTag)
+    .maybeSingle();
+  laufId = vorhandenerLauf?.id ?? "";
+  if (!laufId) {
+    const { data: neuerLauf, error: laufFehler } = await service
+      .from("sepa_collection_runs")
+      .insert({ due_date: einzugsTag })
+      .select("id")
+      .single();
+    if (laufFehler) throw new Error(`PROJ-87 Lauf: ${laufFehler.message}`);
+    laufId = neuerLauf!.id;
+    laufGehoertUns = true;
+  }
+  const { error: postenFehler } = await service.from("sepa_collection_items").insert({
+    run_id: laufId,
+    customer_id: kundeId,
+    subscription_id: aboId,
+    amount: KURSPREIS,
+    iban: "AT611904300234573201",
+    account_holder_name: NAME,
+    mandate_reference: `E2E87-${stempel}`,
+  });
+  if (postenFehler) throw new Error(`PROJ-87 Position: ${postenFehler.message}`);
+
   // Die Preisliste gehört allen Tests: lesen, nur ergänzen wenn leer.
   const { data: preise } = await service
     .from("dropin_pricing")
@@ -182,6 +191,10 @@ test.afterAll(async () => {
     await service.auth.admin.deleteUser(kundeId).catch(() => {});
   }
   if (kursId) await service.from("courses").delete().eq("id", kursId);
+  if (laufId && laufGehoertUns) {
+    await service.from("sepa_collection_items").delete().eq("run_id", laufId);
+    await service.from("sepa_collection_runs").delete().eq("id", laufId);
+  }
   if (preisErgaenzt) {
     await service
       .from("dropin_pricing")
@@ -202,7 +215,8 @@ test.describe("PROJ-87: Upgrade auf die Flatrate", () => {
 
     const karte = page.locator("li", { hasText: "E2E87 Kursabo" });
     await expect(karte.getByText("Auf Flatrate upgraden")).toBeVisible();
-    // Der laufende Preis und die einmalige Differenz stehen da, bevor er drückt.
+    // Der laufende Preis und die einmalige Differenz stehen da, bevor er
+    // drückt — die Differenz gegen den Einzug dieses Zyklus (PROJ-88).
     await expect(karte).toContainText(String(flatrateNormal - KURSPREIS));
 
     await karte.getByRole("button", { name: "Upgrade anfragen" }).click();
@@ -239,8 +253,8 @@ test.describe("PROJ-87: Upgrade auf die Flatrate", () => {
   test("Der Betreiber bestätigt — Abo umgestellt, Kursplatz da, Aufschlag festgehalten", async ({
     page,
   }) => {
-    // Ausgangslage: angefragt, nichts bestätigt, Beitrag wieder fällig.
-    await einzuegeWeg();
+    // Ausgangslage: angefragt, nichts bestätigt. Der Einzug aus dem Aufbau
+    // bleibt stehen — gegen ihn rechnet die Differenz (PROJ-88).
     await service.from("subscription_surcharges").delete().eq("customer_id", kundeId);
     await service.from("course_memberships").delete().eq("customer_id", kundeId);
     await service

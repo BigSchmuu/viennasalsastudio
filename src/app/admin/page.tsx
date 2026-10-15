@@ -84,14 +84,45 @@ export default async function AdminDashboardPage({
   if (anfrageRes.error) {
     console.error("Dashboard: Upgrade-Anfragen", anfrageRes.error);
   }
-  const upgradeAnfragen: UpgradeAnfrage[] = (anfrageRes.data ?? []).map((a) => ({
-    aboId: a.id,
-    kundeId: a.customer_id,
-    kundeName: a.profiles?.full_name || "Unbenannter Kunde",
-    kursName: a.courses?.name ?? null,
-    bisher: a.price,
-    angefragtAm: a.upgrade_requested_at as string,
-  }));
+  // PROJ-88: Zu jeder Anfrage die Aufstellung — was angerechnet wird, wann es
+  // einging, und welche Abos mit der Bestätigung enden. Aus derselben
+  // Funktion, die auch die Bestätigung rechnet.
+  const upgradeAnfragen: UpgradeAnfrage[] = [];
+  for (const a of anfrageRes.data ?? []) {
+    const [anrechnungRes, weitereRes] = await Promise.all([
+      supabase.rpc("flatrate_upgrade_anrechnung", { p_customer_id: a.customer_id }),
+      supabase
+        .from("subscriptions")
+        .select("id, price, courses(name), name")
+        .eq("customer_id", a.customer_id)
+        .eq("status", "active")
+        .not("course_id", "is", null)
+        .neq("id", a.id),
+    ]);
+    if (anrechnungRes.error) {
+      console.error("Dashboard: Anrechnung", a.id, anrechnungRes.error);
+    }
+    if (weitereRes.error) {
+      console.error("Dashboard: weitere Abos", a.id, weitereRes.error);
+    }
+    upgradeAnfragen.push({
+      aboId: a.id,
+      kundeId: a.customer_id,
+      kundeName: a.profiles?.full_name || "Unbenannter Kunde",
+      kursName: a.courses?.name ?? null,
+      bisher: a.price,
+      angefragtAm: a.upgrade_requested_at as string,
+      anrechnung: (anrechnungRes.data ?? []).map((z) => ({
+        bezeichnung: z.bezeichnung ?? "Abo",
+        betrag: Number(z.betrag),
+        eingang: z.eingang,
+        art: z.art === "barzahlung" ? ("barzahlung" as const) : ("lastschrift" as const),
+      })),
+      endendeAbos: (weitereRes.data ?? []).map(
+        (w) => w.courses?.name ?? w.name ?? "Weiteres Abo"
+      ),
+    });
+  }
   const flatratePreise = readStudioPricing(preisRes.data).flatrate;
 
   const { count: pausedCount } = await supabase

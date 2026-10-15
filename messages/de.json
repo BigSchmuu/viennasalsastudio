@@ -354,7 +354,12 @@
     "upgradeBody": "{price} je Zyklus, alle Kurse statt einem. Dazu einmalig die Differenz von {diff} im nächsten Einzug. Studierendentarif prüfen wir bei der Bestätigung.",
     "upgradeAsk": "Upgrade anfragen",
     "upgradePending": "Upgrade angefragt — wir melden uns, sobald es bestätigt ist.",
-    "upgradeWithdraw": "Anfrage zurückziehen"
+    "upgradeWithdraw": "Anfrage zurückziehen",
+    "upgradeBlocked": {
+      "flatrate": "Du hast bereits eine Flatrate — damit stehen dir alle Kurse offen.",
+      "pending": "Solange eine Pause oder Kündigung aussteht, lässt sich nicht upgraden. Nimm sie zurück, wenn du stattdessen auf die Flatrate wechseln möchtest.",
+      "preis": "Ein Upgrade auf die Flatrate ist derzeit nicht buchbar. Melde dich bei uns — wir richten es ein."
+    }
   },
   "notifications": {
     "event": "Ereignis",

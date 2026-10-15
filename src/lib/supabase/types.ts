@@ -3309,6 +3309,20 @@ export type Database = {
         Args: { p_run_id: string }
         Returns: number
       }
+      flatrate_upgrade_anrechnung: {
+        Args: { p_customer_id: string }
+        Returns: {
+          art: string
+          betrag: number
+          bezeichnung: string | null
+          eingang: string
+          subscription_id: string
+        }[]
+      }
+      flatrate_upgrade_angerechnet: {
+        Args: { p_customer_id: string }
+        Returns: number
+      }
       flatrate_upgrade_moeglich: {
         Args: { p_subscription_id: string }
         Returns: boolean
