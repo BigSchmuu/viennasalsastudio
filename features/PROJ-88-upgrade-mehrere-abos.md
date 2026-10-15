@@ -1,6 +1,6 @@
 # PROJ-88: Upgrade auf die Flatrate auch mit mehreren Kursabos
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15
 
@@ -196,3 +196,26 @@ und macht es von Hand.
 - [ ] Soll der Kunde sehen, **welche** Abos beendet werden, bevor er anfragt? Vorerst nein: Er fragt
       „alle Kurse statt zwei" an, und was im Hintergrund zusammengelegt wird, ist eine
       Verwaltungsfrage. Der Betreiber sieht es.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-15
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commit:** `2fa54c6`, Tag `v1.88.0-PROJ-88`
+- **Migration:** `20261015230000_proj88_upgrade_mehrere_abos.sql` — vor dem Deploy in Test und
+  Produktion eingespielt. Nötig in dieser Reihenfolge: Die Anwendung ruft `flatrate_upgrade_angerechnet`
+  und `flatrate_upgrade_anrechnung` auf.
+- **Nachgesehen:** Vercel-Deployment `Ready`; Startseite 200, `/profil` und `/admin` 307.
+
+### Für den Betrieb
+
+- **Der Knopf steht jetzt an jeder Abo-Karte**, auch wenn jemand zwei Kurse einzeln zahlt. Welche
+  Karte er drückt, entscheidet, welches Abo die Flatrate wird — der Zyklus dieses Abos bleibt.
+- **Vor dem Bestätigen steht die Rechnung da:** was angerechnet wird, wann es einging, und welche
+  Abos enden. Kam im laufenden Zyklus nichts herein, steht dort ein Warnsatz — dann kommt die ganze
+  Differenz dazu, und das ist meist der Moment, erst einmal nachzufragen.
+- **Ferienzyklen:** Liegt ein Einzug mehr als 28 Tage zurück, weil Ferien den Zyklus verlängert
+  haben, wird er nicht angerechnet — der Kunde zahlte dann zu viel. Deshalb die Aufstellung lesen,
+  bevor du bestätigst; im Zweifel ablehnen und von Hand umstellen.
+- **Fehlt der Kasten beim Kunden**, nennt die Seite jetzt den Grund. Der häufigste wird „ausstehende
+  Pause oder Kündigung“ sein.

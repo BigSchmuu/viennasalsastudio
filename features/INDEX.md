@@ -147,7 +147,7 @@
 
 | PROJ-87 | Upgrade auf die Flatrate (Selbstbedienung mit Bestätigung) | Deployed | [PROJ-87](../features/PROJ-87-upgrade-auf-flatrate.md) | 2026-10-15 |
 
-| PROJ-88 | Upgrade auf die Flatrate auch mit mehreren Kursabos | Approved | [PROJ-88](../features/PROJ-88-upgrade-mehrere-abos.md) | 2026-10-15 |
+| PROJ-88 | Upgrade auf die Flatrate auch mit mehreren Kursabos | Deployed | [PROJ-88](../features/PROJ-88-upgrade-mehrere-abos.md) | 2026-10-15 |
 
 <!-- Add features above this line -->
 
