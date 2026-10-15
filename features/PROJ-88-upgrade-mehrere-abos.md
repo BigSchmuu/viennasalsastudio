@@ -219,3 +219,28 @@ und macht es von Hand.
   bevor du bestätigst; im Zweifel ablehnen und von Hand umstellen.
 - **Fehlt der Kasten beim Kunden**, nennt die Seite jetzt den Grund. Der häufigste wird „ausstehende
   Pause oder Kündigung“ sein.
+
+## Nachtrag (2026-10-16): Ein Entwurfslauf zählte als bezahlt
+
+**Der Fehler.** `flatrate_upgrade_anrechnung` verband die Positionen mit ihrem Lauf, ohne zu fragen,
+ob der Lauf **freigegeben** ist. Ein vorbereiteter Entwurf — angelegt, aber nicht bei der Bank
+hochgeladen — zählte damit als bezahlt. Der Kunde sah eine zu kleine Differenz, und der Betreiber
+hätte Geld angerechnet, das nie geflossen ist.
+
+**Wie er auffiel.** Nicht durch einen Test, sondern am ersten echten Fall: eine Kundin mit zwei Abos
+über je 65 €, für die noch **nichts** eingezogen war — und die Karte bot „145 € (+80 €)" an. 80
+statt 145 heißt: genau ein Beitrag war angerechnet. Die Frage des Betreibers („ist das in der
+Anfrage noch korrekt?") war die Fehlermeldung.
+
+**Behoben** in `20261016090000_proj88_nur_freigegebene_einzuege.sql`: `and r.released_at is not
+null`. `released_at` ist auch sonst die Grenze, ab der ein Lauf Geld bedeutet — erst damit entstehen
+die Rechnungen und gehen die Ankündigungen raus (PROJ-47, PROJ-61).
+
+**Festgehalten** durch eine Prüfung: Position in einem nicht freigegebenen Lauf → angerechnet wird
+null. Beim Schreiben fiel auf, dass der Testhelfer den Lauf erst freigab und dann die Position
+einfügen wollte — was der Wächter aus PROJ-47 zu Recht verbietet. Jetzt: Entwurf, Position,
+Freigabe.
+
+**Was offen bleibt.** Stimmt die gerechnete Zahl nicht, kann der Betreiber sie nirgends korrigieren;
+„dann von Hand" heißt drei Schritte mit der Kursplatz-Falle. Bei mehreren Abos mit verschiedenen
+Zyklen kommt das vor. Ein überschreibbares Feld bei der Bestätigung steht als Vorschlag offen.

@@ -133,23 +133,32 @@ test.beforeAll(async () => {
   // Der Lauf wird **nicht** freigegeben und trägt nur diese eine Position:
   // Ein echter, freigegebener Lauf schreibt Rechnungen für jedes fällige Abo
   // der Testdatenbank und hat PROJ-10, PROJ-33 und PROJ-70 umgeworfen.
-  const einzugsTag = wienerDatum(-10);
-  const { data: vorhandenerLauf } = await service
-    .from("sepa_collection_runs")
-    .select("id")
-    .eq("due_date", einzugsTag)
-    .maybeSingle();
-  laufId = vorhandenerLauf?.id ?? "";
-  if (!laufId) {
-    const { data: neuerLauf, error: laufFehler } = await service
+  // Ein eigener Tag im Fenster: Einen fremden Lauf mitzubenutzen hieße, ihn
+  // am Ende freizugeben — und wäre er der Entwurf einer anderen Suite, hätte
+  // ich ihr die Arbeit verdorben.
+  let einzugsTag = "";
+  for (let versatz = 10; versatz <= 27; versatz++) {
+    const tag = wienerDatum(-versatz);
+    const { count } = await service
       .from("sepa_collection_runs")
-      .insert({ due_date: einzugsTag })
-      .select("id")
-      .single();
-    if (laufFehler) throw new Error(`PROJ-87 Lauf: ${laufFehler.message}`);
-    laufId = neuerLauf!.id;
-    laufGehoertUns = true;
+      .select("id", { count: "exact", head: true })
+      .eq("due_date", tag);
+    if ((count ?? 0) === 0) {
+      einzugsTag = tag;
+      break;
+    }
   }
+  if (!einzugsTag) throw new Error("PROJ-87: kein freier Tag im Anrechnungsfenster");
+
+  const { data: neuerLauf, error: laufFehler } = await service
+    .from("sepa_collection_runs")
+    .insert({ due_date: einzugsTag })
+    .select("id")
+    .single();
+  if (laufFehler) throw new Error(`PROJ-87 Lauf: ${laufFehler.message}`);
+  laufId = neuerLauf!.id;
+  laufGehoertUns = true;
+
   const { error: postenFehler } = await service.from("sepa_collection_items").insert({
     run_id: laufId,
     customer_id: kundeId,
@@ -160,6 +169,14 @@ test.beforeAll(async () => {
     mandate_reference: `E2E87-${stempel}`,
   });
   if (postenFehler) throw new Error(`PROJ-87 Position: ${postenFehler.message}`);
+
+  // Erst jetzt freigeben: Angerechnet wird nur ein freigegebener Einzug, und
+  // einer freigegebenen Position etwas hinzuzufügen verbietet PROJ-47.
+  const { error: freigabeFehler } = await service
+    .from("sepa_collection_runs")
+    .update({ released_at: new Date().toISOString() })
+    .eq("id", laufId);
+  if (freigabeFehler) throw new Error(`PROJ-87 Freigabe: ${freigabeFehler.message}`);
 
   // Die Preisliste gehört allen Tests: lesen, nur ergänzen wenn leer.
   const { data: preise } = await service

@@ -130,7 +130,13 @@ async function zuruecksetzen() {
 }
 
 /** Einen Einzug für ein Abo vortäuschen — mit oder ohne Rückbuchung. */
-async function einzug(abo: string, betrag: number, versatzTage: number, geplatzt = false) {
+async function einzug(
+  abo: string,
+  betrag: number,
+  versatzTage: number,
+  geplatzt = false,
+  freigegeben = true
+) {
   const tag = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Vienna" }).format(
     new Date(Date.now() + versatzTage * 24 * 3_600_000)
   );
@@ -147,6 +153,9 @@ async function einzug(abo: string, betrag: number, versatzTage: number, geplatzt
   if (!laufId) {
     const { data: lauf, error: laufFehler } = await service
       .from("sepa_collection_runs")
+      // Erst als Entwurf: Einer freigegebenen Position etwas hinzuzufügen
+      // verbietet der Wächter aus PROJ-47 — zu Recht. Freigegeben wird unten,
+      // nachdem die Position steht.
       .insert({ due_date: tag })
       .select("id")
       .single();
@@ -154,6 +163,10 @@ async function einzug(abo: string, betrag: number, versatzTage: number, geplatzt
     laufId = lauf!.id;
     laeufe.push(laufId);
   }
+
+  // Ein schon freigegebener Lauf (zweiter Einzug am selben Tag) muss für den
+  // Augenblick zurück in den Entwurf — sonst greift dieselbe Sperre.
+  await service.from("sepa_collection_runs").update({ released_at: null }).eq("id", laufId);
 
   const { error } = await service.from("sepa_collection_items").insert({
     run_id: laufId,
@@ -166,6 +179,14 @@ async function einzug(abo: string, betrag: number, versatzTage: number, geplatzt
     bounced_at: geplatzt ? new Date().toISOString() : null,
   });
   if (error) throw new Error(`PROJ-88 Position: ${error.message}`);
+
+  if (freigegeben) {
+    const { error: freigabeFehler } = await service
+      .from("sepa_collection_runs")
+      .update({ released_at: new Date().toISOString() })
+      .eq("id", laufId);
+    if (freigabeFehler) throw new Error(`PROJ-88 Freigabe: ${freigabeFehler.message}`);
+  }
 }
 
 async function abo() {
@@ -737,6 +758,19 @@ describe("PROJ-88: Mehrere Kursabos", () => {
       p_customer_id: kundeId,
     });
     expect(Number(data)).toBe(40);
+  });
+
+  it("rechnet einen Entwurfslauf nicht an", async () => {
+    // Ein vorbereiteter, aber nicht freigegebener Lauf ist eine Absicht, kein
+    // Geld. Der erste Entwurf dieser Funktion hat ihn angerechnet — gefunden
+    // am ersten echten Fall: zwei Abos, nichts eingezogen, und die Karte bot
+    // trotzdem eine gekürzte Differenz an.
+    await zuruecksetzen();
+    await einzug(aboId, KURSPREIS, -10, false, false);
+    const { data } = await alsKunde.rpc("flatrate_upgrade_angerechnet", {
+      p_customer_id: kundeId,
+    });
+    expect(Number(data), "Ein Entwurf wurde angerechnet").toBe(0);
   });
 
   it("lässt einen Einzug außerhalb des Fensters liegen", async () => {
