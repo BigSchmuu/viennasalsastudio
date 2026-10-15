@@ -1,6 +1,6 @@
 # PROJ-87: Upgrade auf die Flatrate (Selbstbedienung, mit Bestätigung)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15
 
@@ -256,3 +256,32 @@ Reihe.
 - [ ] Braucht der Aufschlag eine eigene Übersicht in der Verwaltung („was ist noch nicht
       abgerechnet")? Vorerst nicht: Er steht am Kunden und landet im nächsten Lauf. Sichtbar wird er
       nötig, sobald jemand ohne Mandat einen Aufschlag hat.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-15
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commit:** `5936f69`, Tag `v1.87.0-PROJ-87`
+- **Migrationen**, in dieser Reihenfolge vor dem Deploy in Test und Produktion eingespielt:
+  1. `20261015160000_proj87_upgrade_auf_flatrate.sql` — Spalte, Tabelle, die fünf Funktionen, die
+     Rechnung, die CHECK-Liste.
+  2. `20261015190000_proj87_aufschlaege_im_lauf.sql` — `apply_surcharges_to_run`, weil der Stempel
+     aus der Anwendung null Zeilen traf.
+  3. `20261015210000_proj87_aufschlag_auch_ohne_beitrag.sql` — eigene Position für den Aufschlag,
+     wenn das Abo nicht im Lauf ist.
+- **Nachgesehen:** Vercel-Deployment `Ready`; Startseite 200, `/profil` und `/admin` antworten mit
+  307 auf die Anmeldung.
+
+### Für den Betrieb
+
+- **Der Knopf erscheint nur**, wenn der Kunde genau ein aktives Kursabo hat, keine Pause oder
+  Kündigung aussteht, er noch keine Flatrate hat — und wenn in der Preisliste ein Flatrate-Preis
+  steht. Fehlt der Preis, sagt die Karte im Dashboard das.
+- **Die Anfragen stehen im Dashboard**, über den Kennzahlen. Beide Tarife sind je ein Knopf, mit der
+  Differenz daneben.
+- **Mit der Bestätigung gilt die Flatrate sofort.** Willst du, dass sie erst zum Fälligkeitstag
+  gilt, bestätige erst dann — den Zeitpunkt steuerst du so ohne zweites Feld.
+- **Der Aufschlag kommt in den nächsten Lauf**, auch wenn der Beitrag selbst nicht fällig ist oder
+  der Kunde gekündigt hat. Wer **kein Mandat** hat, bekommt keine Lastschrift — sein Aufschlag steht
+  unter Barzahlungen und wird dort eingesammelt.
+- **Sonderabsprachen** trägst du wie bisher nach der Bestätigung am Abo ein.
