@@ -3349,7 +3349,7 @@ export type Database = {
         Returns: boolean
       }
       confirm_flatrate_upgrade: {
-        Args: { p_subscription_id: string; p_student?: boolean }
+        Args: { p_subscription_id: string; p_student?: boolean; p_differenz?: number | null }
         Returns: {
           cancelled_at: string | null
           course_id: string | null

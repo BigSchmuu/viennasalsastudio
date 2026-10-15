@@ -244,3 +244,22 @@ Freigabe.
 **Was offen bleibt.** Stimmt die gerechnete Zahl nicht, kann der Betreiber sie nirgends korrigieren;
 „dann von Hand" heißt drei Schritte mit der Kursplatz-Falle. Bei mehreren Abos mit verschiedenen
 Zyklen kommt das vor. Ein überschreibbares Feld bei der Bestätigung steht als Vorschlag offen.
+
+## Nachtrag (2026-10-16): Die Differenz ist überschreibbar
+
+Die offene Frage von oben ist damit geschlossen. In der Dashboard-Karte steht unter den beiden
+Tarifknöpfen **„Differenz anpassen"**; ein Klick öffnet ein Feld, vorbelegt mit dem gerechneten
+Wert. Sobald dort etwas Anderes steht, **steht dein Betrag auf den Knöpfen** — sonst bestätigte man
+eine Zahl und sähe eine andere. „Gerechneten Betrag nehmen" macht es rückgängig.
+
+**Null ist erlaubt** und heißt „nichts dazu", nicht „kein Wert". Deshalb liest die Aktion das Feld
+mit eigenen Grenzen (0 bis 10.000) und nicht mit `betragAusEingabe`, das die Null verwirft.
+
+Ohne Eingabe rechnet die Funktion wie bisher — für den häufigen Fall ändert sich nichts.
+
+**Migration:** `20261016110000_proj88_differenz_ueberschreibbar.sql`. Ein dritter Parameter mit
+Standardwert macht den zweistelligen Aufruf zweideutig, also `drop` und neu anlegen.
+
+**Fünf Prüfungen** halten es fest: der eingegebene Betrag gewinnt über den gerechneten, die Null
+legt keinen Aufschlag an, ohne Eingabe wird weiter gerechnet, negative und zu hohe Beträge werden
+abgewiesen (und lassen das Abo unberührt), und ein Kunde kann die Differenz nicht setzen.

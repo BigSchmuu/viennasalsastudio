@@ -462,6 +462,79 @@ describe("PROJ-87: Bestätigen", () => {
   });
 });
 
+describe("PROJ-88: Die Differenz überschreiben", () => {
+  async function angefragtMitEinzug(): Promise<void> {
+    await zuruecksetzen();
+    await einzug(aboId, KURSPREIS, -10);
+    await alsKunde.rpc("request_flatrate_upgrade", { p_subscription_id: aboId });
+  }
+
+  async function aufschlag(): Promise<number | null> {
+    const { data } = await service
+      .from("subscription_surcharges")
+      .select("amount")
+      .eq("subscription_id", aboId)
+      .maybeSingle();
+    return data ? Number(data.amount) : null;
+  }
+
+  it("nimmt den eingegebenen Betrag statt des gerechneten", async () => {
+    await angefragtMitEinzug();
+    const { error } = await alsAdmin.rpc("confirm_flatrate_upgrade", {
+      p_subscription_id: aboId,
+      p_student: false,
+      p_differenz: 15,
+    });
+    expect(error, `Bestätigen scheiterte: ${error?.message}`).toBeNull();
+    // Gerechnet wären 145 − 75 = 70 gewesen.
+    expect(await aufschlag()).toBe(15);
+  });
+
+  it("nimmt die Null als Aussage und legt dann keinen Aufschlag an", async () => {
+    await angefragtMitEinzug();
+    const { error } = await alsAdmin.rpc("confirm_flatrate_upgrade", {
+      p_subscription_id: aboId,
+      p_student: false,
+      p_differenz: 0,
+    });
+    expect(error, `Null wurde abgewiesen: ${error?.message}`).toBeNull();
+    expect(await aufschlag(), "Bei null entstand ein Aufschlag").toBeNull();
+  });
+
+  it("rechnet weiter selbst, wenn nichts eingegeben ist", async () => {
+    await angefragtMitEinzug();
+    await alsAdmin.rpc("confirm_flatrate_upgrade", {
+      p_subscription_id: aboId,
+      p_student: false,
+    });
+    expect(await aufschlag()).toBe(flatrateNormal - KURSPREIS);
+  });
+
+  it("weist negative und zu hohe Beträge ab", async () => {
+    for (const betrag of [-1, 10001]) {
+      await angefragtMitEinzug();
+      const { error } = await alsAdmin.rpc("confirm_flatrate_upgrade", {
+        p_subscription_id: aboId,
+        p_student: false,
+        p_differenz: betrag,
+      });
+      expect(error, `Der Betrag ${betrag} wurde angenommen`).not.toBeNull();
+      // Und das Abo ist unberührt geblieben.
+      expect((await abo()).course_id).toBe(kursId);
+    }
+  });
+
+  it("lässt den Kunden keinen Betrag setzen", async () => {
+    await angefragtMitEinzug();
+    const { error } = await alsKunde.rpc("confirm_flatrate_upgrade", {
+      p_subscription_id: aboId,
+      p_student: false,
+      p_differenz: 0,
+    });
+    expect(error, "Ein Kunde konnte die Differenz setzen").not.toBeNull();
+  });
+});
+
 describe("PROJ-87: Zurück geht es nicht", () => {
   it("lässt eine Flatrate nicht in einen Kurs zurückwechseln", async () => {
     // Die Sperre ist älter als dieses Feature (`course_id is not null` in

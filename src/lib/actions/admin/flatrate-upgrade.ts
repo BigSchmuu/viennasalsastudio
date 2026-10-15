@@ -19,16 +19,43 @@ import type { ActionResult } from "@/lib/actions/types";
  * Studierende. Beide Preise stehen in der Preisliste (PROJ-41); eine
  * Sonderabsprache trägt der Betreiber danach am Abo ein, wo er es immer tut.
  */
+/**
+ * Einen eingegebenen Differenzbetrag lesen — oder `null`.
+ *
+ * Anders als `betragAusEingabe` ist **null erlaubt**: Sie ist hier eine
+ * Aussage („nichts dazu") und kein fehlender Wert. Leer heißt dagegen „nimm
+ * den gerechneten Betrag".
+ */
+function differenzAusEingabe(eingabe: string): number | null | "ungueltig" {
+  const sauber = eingabe.trim().replace(",", ".");
+  if (sauber === "") return null;
+  const zahl = Number(sauber);
+  if (!Number.isFinite(zahl) || zahl < 0 || zahl > 10000) return "ungueltig";
+  return Math.round(zahl * 100) / 100;
+}
+
 export async function confirmFlatrateUpgrade(
   subscriptionId: string,
-  student: boolean
+  student: boolean,
+  differenzEingabe?: string
 ): Promise<ActionResult> {
   await requireAdmin();
+
+  let differenz: number | null = null;
+  if (differenzEingabe !== undefined) {
+    const gelesen = differenzAusEingabe(differenzEingabe);
+    if (gelesen === "ungueltig") {
+      return { error: "Bitte eine Differenz zwischen 0 und 10.000 € eingeben." };
+    }
+    differenz = gelesen;
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.rpc("confirm_flatrate_upgrade", {
     p_subscription_id: subscriptionId,
     p_student: student,
+    p_differenz: differenz,
   });
 
   if (error) {
@@ -37,6 +64,9 @@ export async function confirmFlatrateUpgrade(
     }
     if (error.message.includes("no open request")) {
       return { error: "Für dieses Abo liegt keine Anfrage mehr vor." };
+    }
+    if (error.message.includes("difference")) {
+      return { error: "Die Differenz muss zwischen 0 und 10.000 € liegen." };
     }
     if (error.message.includes("upgrade not possible")) {
       return {

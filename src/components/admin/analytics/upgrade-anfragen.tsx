@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { ArrowUpCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -65,6 +67,9 @@ export function UpgradeAnfragen({
   const router = useRouter();
   const [fehler, setFehler] = useState<string | null>(null);
   const [laufendeId, setLaufendeId] = useState<string | null>(null);
+  // Welche Anfrage gerade einen eigenen Differenzbetrag bekommt, und welchen.
+  const [eigeneZeile, setEigeneZeile] = useState<string | null>(null);
+  const [eigenerBetrag, setEigenerBetrag] = useState("");
 
   if (anfragen.length === 0) return null;
 
@@ -88,11 +93,26 @@ export function UpgradeAnfragen({
    * eines einzelnen Abos (PROJ-88). Wer zwei Kurse einzeln zahlt, hat schon
    * beides bezahlt; wer nichts bezahlt hat, zahlt die ganze Differenz.
    */
+  function differenzWert(anfrage: UpgradeAnfrage, neu: number | null): number {
+    if (neu === null) return 0;
+    const angerechnet = anfrage.anrechnung.reduce((s, z) => s + z.betrag, 0);
+    return Math.max(Math.round((neu - angerechnet) * 100) / 100, 0);
+  }
+
   function differenz(anfrage: UpgradeAnfrage, neu: number | null): string {
     if (neu === null) return "—";
-    const angerechnet = anfrage.anrechnung.reduce((s, z) => s + z.betrag, 0);
-    const wert = Math.max(Math.round((neu - angerechnet) * 100) / 100, 0);
-    return EUR.format(wert);
+    // Ist ein eigener Betrag eingetragen, steht **der** auf dem Knopf: Sonst
+    // bestätigte der Betreiber eine Zahl und sähe eine andere.
+    if (eigeneZeile === anfrage.aboId && eigenerBetrag.trim() !== "") {
+      const zahl = Number(eigenerBetrag.trim().replace(",", "."));
+      if (Number.isFinite(zahl) && zahl >= 0) return EUR.format(zahl);
+    }
+    return EUR.format(differenzWert(anfrage, neu));
+  }
+
+  /** Der Betrag, der mit dem Druck mitgeht — leer heißt „rechne selbst". */
+  function mitgegebenerBetrag(anfrage: UpgradeAnfrage): string | undefined {
+    return eigeneZeile === anfrage.aboId ? eigenerBetrag : undefined;
   }
 
   return (
@@ -179,7 +199,11 @@ export function UpgradeAnfragen({
                   <Button
                     size="sm"
                     disabled={laeuft || flatrateNormal === null}
-                    onClick={() => void tun(a.aboId, () => confirmFlatrateUpgrade(a.aboId, false))}
+                    onClick={() =>
+                      void tun(a.aboId, () =>
+                        confirmFlatrateUpgrade(a.aboId, false, mitgegebenerBetrag(a))
+                      )
+                    }
                     aria-label={`Upgrade von ${a.kundeName} zum Normaltarif bestätigen`}
                   >
                     {laeuft
@@ -190,7 +214,11 @@ export function UpgradeAnfragen({
                     size="sm"
                     variant="outline"
                     disabled={laeuft || flatrateStudent === null}
-                    onClick={() => void tun(a.aboId, () => confirmFlatrateUpgrade(a.aboId, true))}
+                    onClick={() =>
+                      void tun(a.aboId, () =>
+                        confirmFlatrateUpgrade(a.aboId, true, mitgegebenerBetrag(a))
+                      )
+                    }
                     aria-label={`Upgrade von ${a.kundeName} zum Studierendentarif bestätigen`}
                   >
                     {laeuft
@@ -207,6 +235,59 @@ export function UpgradeAnfragen({
                     Ablehnen
                   </Button>
                 </div>
+
+                {/* Die Anrechnung rechnet, was eingegangen ist — das stimmt
+                    meistens. Bei zwei Abos mit verschiedenen Zyklen oder einem
+                    durch Ferien verlängerten Zyklus stimmt es nicht, und dann
+                    braucht die Zahl einen Menschen. Leer heißt „rechne
+                    selbst". */}
+                {eigeneZeile === a.aboId ? (
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="space-y-1">
+                      <Label htmlFor={`differenz-${a.aboId}`} className="text-xs">
+                        Differenz statt der gerechneten
+                      </Label>
+                      <Input
+                        id={`differenz-${a.aboId}`}
+                        value={eigenerBetrag}
+                        onChange={(e) => setEigenerBetrag(e.target.value)}
+                        inputMode="decimal"
+                        className="h-8 w-28 text-right"
+                        aria-label={`Differenz für ${a.kundeName}`}
+                        autoFocus
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setEigeneZeile(null);
+                        setEigenerBetrag("");
+                        setFehler(null);
+                      }}
+                    >
+                      Gerechneten Betrag nehmen
+                    </Button>
+                    <p className="w-full text-xs text-muted-foreground">
+                      0 ist erlaubt und heißt „nichts dazu“. Der Betrag steht auf den Knöpfen
+                      darüber, bevor du drückst.
+                    </p>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="px-0"
+                    onClick={() => {
+                      setEigeneZeile(a.aboId);
+                      setEigenerBetrag(String(differenzWert(a, flatrateNormal)));
+                      setFehler(null);
+                    }}
+                    aria-label={`Differenz für ${a.kundeName} anpassen`}
+                  >
+                    Differenz anpassen
+                  </Button>
+                )}
               </li>
             );
           })}
