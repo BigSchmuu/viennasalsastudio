@@ -1,6 +1,6 @@
 # PROJ-89: Der Eincheck-Stand über der Anwesenheitsliste
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-10-16
 **Last Updated:** 2026-10-16
 
@@ -107,3 +107,22 @@ Pluralformen) und fünf Browserprüfungen in
 [PROJ-89-eincheckstand.spec.ts](../tests/PROJ-89-eincheckstand.spec.ts) — darunter
 „1 von 3 eingecheckt" mit einem anwesenden Gast daneben, der den Nenner **nicht**
 auf 4 schiebt, und „2 von 3" unmittelbar nach einem Häkchen ohne Neuladen.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-16
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commit:** `277db5c`, Tag `v1.89.0-PROJ-89`
+- **Migration:** keine — die Zahl steht schon im Browser.
+- **Nachgesehen:** Vercel-Deployment `Ready` (58 s); Startseite und `/login` 200, `/lehrer` und
+  `/mein-bereich` 307 auf die Anmeldung.
+
+### Für den Betrieb
+
+- Die Zeile steht über der Anwesenheitsliste und gilt dem **angeklickten** Termin — dem mit dem
+  hervorgehobenen Spaltenkopf. Ein Klick auf ein anderes Datum rechnet sie um.
+- Der Nenner sind die Kursteilnehmer. Ein Drop-in oder Gast steht als „+ 1 Gast" dahinter, nie
+  darin.
+- „2 abwesend gemeldet" erklärt eine Lücke, verlangt aber nichts: Wer nicht eingecheckt ist, muss
+  nicht abgemeldet werden.
+- Nach einem Häkchen stimmt die Zahl sofort, ohne Neuladen.

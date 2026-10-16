@@ -1,6 +1,6 @@
 # PROJ-90: Einchecken noch nachträglich bis 23 Uhr
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-10-16
 **Last Updated:** 2026-10-16
 
@@ -128,3 +128,24 @@ Fall „springt nach Kursende auf die Folgewoche" ist genau die Regel, die diese
 eine, die ihre Erwartung wie ihre Nachbarn aus der Uhrzeit ableitet und deshalb
 zu jeder Tageszeit die Regel misst, und eine, die belegt, dass das
 Zurücknehmen nach Kursende weiterhin gesperrt ist.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-16
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commit:** `626b7f7`, Tag `v1.90.0-PROJ-90`
+- **Migration:** `20261016140000_proj90_nachtragen_bis_23_uhr.sql` — vor dem Deploy in Test und
+  Produktion eingespielt. Reihenfolge unkritisch: Die Anwendung ruft dieselbe Signatur wie vorher
+  auf; die Migration fügt nur die Grenze hinzu.
+- **Nachgesehen:** Vercel-Deployment `Ready` (58 s); Startseite und `/login` 200, `/mein-bereich`
+  und `/lehrer` 307 auf die Anmeldung.
+
+### Für den Betrieb
+
+- Der Kunde sieht seinen heutigen Kurs nach Kursende weiter auf dem Dashboard, mit dem Knopf und
+  der Zeile „Kurs vorbei — Einchecken noch bis 23:00 möglich.". Um 23 Uhr fällt die Karte weg.
+- Zurücknehmen bleibt ab Kursende gesperrt. Wer sich verdrückt hat, wendet sich an die Lehrkraft —
+  die hat beim Nachtragen ohnehin keine Frist, auch Tage später nicht.
+- Nur das eigene Abo, nur der heutige Kurstag. Eine Probestunde oder ein Drop-in lässt sich nicht
+  selbst nachtragen.
+- Ein Kurs, der bis nach 23 Uhr läuft, bleibt bis zu seinem Ende eincheckbar.
