@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  eincheckStand,
+  eincheckText,
   einmalArt,
   einmalGaesteAm,
   gueltigerTermin,
@@ -171,5 +173,94 @@ describe("gueltigerTermin", () => {
 
   it("wählt auch dann, wenn noch nichts gewählt war", () => {
     expect(gueltigerTermin(null, ["2026-10-07", "2026-10-14"], "2026-10-07")).toBe("2026-10-07");
+  });
+});
+
+describe("eincheckStand", () => {
+  const abend = "2026-10-16";
+
+  function kurs() {
+    return [
+      zeile("Anna", { [abend]: { source: "abo", status: "present" } }),
+      zeile("Bea", { [abend]: { source: "abo", status: "present" } }),
+      zeile("Carl", { [abend]: { source: "abo", status: null } }),
+      zeile("Dora", { [abend]: { source: "abo", status: "absent" } }),
+    ];
+  }
+
+  it("zählt die Anwesenden gegen alle Kursteilnehmer", () => {
+    const stand = eincheckStand(kurs(), abend);
+    expect(stand.eingecheckt).toBe(2);
+    expect(stand.imKurs).toBe(4);
+  });
+
+  // Wer nicht eingecheckt ist, ist nicht automatisch abwesend — und wer
+  // abgemeldet ist, ist nicht eingecheckt.
+  it("hält Abwesende von den Eingecheckten getrennt", () => {
+    const stand = eincheckStand(kurs(), abend);
+    expect(stand.abwesend).toBe(1);
+    expect(stand.eingecheckt + stand.abwesend).toBeLessThan(stand.imKurs);
+  });
+
+  // „Wie viele sind im Kurs" meint die Kursteilnehmer. Ein Drop-in im Nenner
+  // verschöbe die Vergleichszahl jeden Abend anders.
+  it("zählt Gäste getrennt und nicht in den Nenner", () => {
+    const mitGast = [...kurs(), zeile("Gast", { [abend]: { source: "dropin", status: "present" } })];
+    const stand = eincheckStand(mitGast, abend);
+    expect(stand.imKurs).toBe(4);
+    expect(stand.gaeste).toBe(1);
+  });
+
+  it("rechnet auf den gewählten Abend um, nicht auf einen anderen", () => {
+    const zeilen = [
+      zeile("Anna", {
+        "2026-10-09": { source: "abo", status: "present" },
+        [abend]: { source: "abo", status: null },
+      }),
+    ];
+    expect(eincheckStand(zeilen, "2026-10-09").eingecheckt).toBe(1);
+    expect(eincheckStand(zeilen, abend).eingecheckt).toBe(0);
+  });
+
+  it("nennt den Kurs auch, wenn für den Abend noch niemand erfasst ist", () => {
+    const zeilen = kurs().map((z) => ({ ...z, cells: { "2026-10-09": z.cells[abend] } }));
+    const stand = eincheckStand(zeilen, abend);
+    expect(stand.imKurs).toBe(4);
+    expect(stand.eingecheckt).toBe(0);
+  });
+
+  // So sieht eine gerade von Hand hinzugefügte Person aus: noch keine Zelle.
+  // Sie gehört in den Nenner, sonst springt er beim ersten Häkchen.
+  it("zählt eine Zeile ohne jede Zelle als Kursteilnehmer", () => {
+    expect(eincheckStand([zeile("Neu", {})], abend).imKurs).toBe(1);
+  });
+});
+
+describe("eincheckText", () => {
+  it("nennt im einfachsten Fall nur den Stand", () => {
+    expect(eincheckText({ imKurs: 12, eingecheckt: 7, abwesend: 0, gaeste: 0 })).toBe(
+      "7 von 12 eingecheckt"
+    );
+  });
+
+  it("nennt Abwesende als Erklärung für die Lücke", () => {
+    expect(eincheckText({ imKurs: 12, eingecheckt: 7, abwesend: 2, gaeste: 0 })).toBe(
+      "7 von 12 eingecheckt · 2 abwesend gemeldet"
+    );
+  });
+
+  it("hängt Gäste hinten an, einzeln und mehrfach", () => {
+    expect(eincheckText({ imKurs: 12, eingecheckt: 7, abwesend: 0, gaeste: 1 })).toContain(
+      "+ 1 Gast"
+    );
+    expect(eincheckText({ imKurs: 12, eingecheckt: 7, abwesend: 0, gaeste: 3 })).toContain(
+      "+ 3 Gäste"
+    );
+  });
+
+  it("sagt auch „0 von 12“, statt zu schweigen", () => {
+    expect(eincheckText({ imKurs: 12, eingecheckt: 0, abwesend: 0, gaeste: 0 })).toBe(
+      "0 von 12 eingecheckt"
+    );
   });
 });

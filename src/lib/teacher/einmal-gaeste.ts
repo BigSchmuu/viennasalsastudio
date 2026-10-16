@@ -91,6 +91,65 @@ export function einmalGaesteAm<T extends Zeile>(zeilen: T[], datum: string): Ein
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "de"));
 }
 
+export type EincheckStand = {
+  /** Wie viele Kursteilnehmer die Liste kennt — der Nenner. */
+  imKurs: number;
+  /** Davon für diesen Abend als anwesend erfasst. */
+  eingecheckt: number;
+  /** Für diesen Abend ausdrücklich als abwesend gemeldet. */
+  abwesend: number;
+  /** Einmal-Gäste dieses Abends, die anwesend sind — **nicht** im Nenner. */
+  gaeste: number;
+};
+
+/**
+ * „Wie viele sind schon da?" für **einen** Abend (PROJ-89).
+ *
+ * Die Lehrkraft stellt diese Frage am Kursabend, und bisher musste sie dafür
+ * zweimal zählen: die Häkchen in der Spalte und die Zeilen daneben. Seit dem
+ * Self-Check-In (PROJ-25) checken sich Leute auch ohne sie ein, also stimmt
+ * das Gezählte nicht lange.
+ *
+ * Gezählt wird der **gewählte** Termin, nicht „heute": Die Matrix zeigt
+ * mehrere Abende, und eine Zahl ohne Bezug wäre die gefährlichste Variante —
+ * sie sieht richtig aus.
+ *
+ * Gäste zählen getrennt. „Wie viele sind im Kurs" meint die Kursteilnehmer;
+ * ein Drop-in im Nenner verschöbe die Vergleichszahl jeden Abend anders. Die
+ * Trennung stammt aus `teileZeilen` und nicht aus einer zweiten Regel hier —
+ * sonst gäbe es zwei Wahrheiten darüber, wer Gast ist.
+ */
+export function eincheckStand<T extends Zeile>(zeilen: T[], datum: string): EincheckStand {
+  const { kursteilnehmer, einmal } = teileZeilen(zeilen);
+  const stand: EincheckStand = { imKurs: kursteilnehmer.length, eingecheckt: 0, abwesend: 0, gaeste: 0 };
+
+  for (const zeile of kursteilnehmer) {
+    const status = zeile.cells[datum]?.status;
+    if (status === "present") stand.eingecheckt += 1;
+    else if (status === "absent") stand.abwesend += 1;
+  }
+
+  for (const zeile of einmal) {
+    if (zeile.cells[datum]?.status === "present") stand.gaeste += 1;
+  }
+
+  return stand;
+}
+
+/**
+ * Der Satz über der Liste.
+ *
+ * Abwesende werden genannt, weil sie die Erklärung für eine Lücke sind
+ * („7 von 12, 2 abwesend gemeldet"), aber nichts ist Pflicht: Wer nicht
+ * eingecheckt ist, gilt nicht automatisch als abwesend.
+ */
+export function eincheckText(stand: EincheckStand): string {
+  const teile = [`${stand.eingecheckt} von ${stand.imKurs} eingecheckt`];
+  if (stand.abwesend > 0) teile.push(`${stand.abwesend} abwesend gemeldet`);
+  if (stand.gaeste > 0) teile.push(`+ ${stand.gaeste} ${stand.gaeste === 1 ? "Gast" : "Gäste"}`);
+  return teile.join(" · ");
+}
+
 /**
  * Welcher Termin ist vorausgewählt?
  *

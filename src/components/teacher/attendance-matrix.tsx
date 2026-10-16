@@ -17,7 +17,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { SessionNoteEditor } from "@/components/teacher/session-note-editor";
 import { EinmalGaesteListe } from "@/components/teacher/einmal-gaeste-liste";
-import { einmalGaesteAm, gueltigerTermin, teileZeilen } from "@/lib/teacher/einmal-gaeste";
+import {
+  eincheckStand,
+  eincheckText,
+  einmalGaesteAm,
+  gueltigerTermin,
+  teileZeilen,
+} from "@/lib/teacher/einmal-gaeste";
 
 export type MatrixCell = {
   status: "present" | "absent" | null;
@@ -223,6 +229,10 @@ export function AttendanceMatrix({
   const sortedRows = [...kursteilnehmer].sort((a, b) => a.fullName.localeCompare(b.fullName, "de"));
   const activeColumn = columns.find((c) => c.date === noteDate) ?? null;
   const einmalGaeste = gewaehlterTermin ? einmalGaesteAm(rows, gewaehlterTermin) : [];
+  // PROJ-89: „Sind alle da?“ — gerechnet im Browser aus den Zeilen, die schon
+  // hier liegen. Nach einem Häkchen stimmt die Zahl damit sofort; ein zweiter
+  // Abruf wäre langsamer und könnte abweichen.
+  const stand = gewaehlterTermin ? eincheckStand(rows, gewaehlterTermin) : null;
 
   // Nach dem Blättern kann der gewählte Termin aus der Tabelle verschwunden
   // sein. Eine Liste, die dann auf ihm stehen bleibt, behauptet etwas über
@@ -287,6 +297,21 @@ export function AttendanceMatrix({
           {loadingMore === "spaeter" ? "Lädt…" : "Spätere Termine →"}
         </Button>
       </div>
+
+      {/* PROJ-89: Der Stand des gewählten Abends, über der Liste. Das Datum
+          steht dabei, weil die Tabelle mehrere Abende zeigt — eine Zahl ohne
+          Bezug sähe richtig aus und wäre es nicht. Bei leerem Kurs bleibt die
+          Zeile weg: „0 von 0“ wäre wahr und nutzlos. */}
+      {gewaehlterTermin && stand && stand.imKurs > 0 && (
+        <div className="rounded-md border bg-muted/40 px-3 py-2" aria-live="polite">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {formatColumnDate(gewaehlterTermin)}
+          </p>
+          <p className="font-heading text-base font-semibold tabular-nums">
+            {eincheckText(stand)}
+          </p>
+        </div>
+      )}
 
       {roleQueryEnabled && (
         <p className="text-sm text-muted-foreground">
