@@ -29,6 +29,13 @@ export async function selfToggleAttendance(courseId: string): Promise<SelfChecki
     if (error.message.includes("membership not started")) {
       return { error: "Dein Platz in diesem Kurs beginnt erst später — ab dann kannst du dich einchecken." };
     }
+    // PROJ-90: Nachtragen geht bis 23 Uhr. Danach ist der Tag zu — die Zahl
+    // steht in src/lib/constants/checkin.ts und in der Datenbankfunktion.
+    if (error.message.includes("too late")) {
+      return {
+        error: "Für heute lässt sich der Check-In nicht mehr nachtragen — ab 23 Uhr ist der Tag zu.",
+      };
+    }
     if (error.message.includes("cannot undo after class end")) {
       return { error: "Nach Kursende kann der Check-In nicht mehr rückgängig gemacht werden." };
     }

@@ -520,6 +520,7 @@
       "noPlace": "Ort wird noch bekanntgegeben",
       "after": "Danach: {weekday}, {time} · {course}",
       "checkinOpensAt": "Einchecken ab {time}",
+      "checkinLate": "Kurs vorbei — Einchecken noch bis {time} möglich.",
       "trialBadge": "Probestunde",
       "dropinBadge": "Drop-in",
       "becomes": "Ab {date} heißt dieser Kurs {course}."

@@ -149,7 +149,11 @@
 
 | PROJ-88 | Upgrade auf die Flatrate auch mit mehreren Kursabos | Deployed | [PROJ-88](../features/PROJ-88-upgrade-mehrere-abos.md) | 2026-10-15 |
 
+| PROJ-89 | Der Eincheck-Stand über der Anwesenheitsliste | In Progress | [PROJ-89](../features/PROJ-89-eincheckstand-oben.md) | 2026-10-16 |
+
+| PROJ-90 | Einchecken noch nachträglich bis 23 Uhr | In Progress | [PROJ-90](../features/PROJ-90-einchecken-bis-23-uhr.md) | 2026-10-16 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-89
+## Next Available ID: PROJ-91

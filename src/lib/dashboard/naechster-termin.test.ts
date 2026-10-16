@@ -48,10 +48,39 @@ describe("naechsteTermine", () => {
     expect(naechste[0].datum).toBe("2026-08-27");
   });
 
-  it("springt nach Kursende auf die Folgewoche", () => {
+  // PROJ-90: Bis 22:59 bleibt der Abend stehen — sonst gibt es nach Kursende
+  // keinen Knopf zum Einchecken, obwohl die Datenbank es erlaubt.
+  it("lässt den heutigen Kurs nach Kursende zum Nachtragen stehen", () => {
     // 20:30 Wiener Zeit — der Kurs ist seit einer halben Stunde vorbei.
     const { naechste } = naechsteTermine([abo()], [], [], new Date("2026-08-27T18:30:00Z"));
+    expect(naechste[0].datum).toBe("2026-08-27");
+  });
+
+  it("springt nach 23 Uhr auf die Folgewoche", () => {
+    // 23:30 Wiener Zeit.
+    const { naechste } = naechsteTermine([abo()], [], [], new Date("2026-08-27T21:30:00Z"));
     expect(naechste[0].datum).toBe("2026-09-03");
+  });
+
+  // Die Grenze darf nie *vor* dem Kursende greifen.
+  it("zeigt einen Kurs, der bis nach 23 Uhr läuft, während des Unterrichts", () => {
+    const spaet = abo({ startZeit: "22:00:00", endZeit: "23:30:00" });
+    const { naechste } = naechsteTermine([spaet], [], [], new Date("2026-08-27T21:10:00Z"));
+    expect(naechste[0].datum).toBe("2026-08-27");
+  });
+
+  // Nachtragen gilt dem heutigen Kurstag. Am nächsten Morgen ist gestern zu.
+  it("zeigt den Kurs von gestern am nächsten Tag nicht mehr", () => {
+    const { naechste } = naechsteTermine([abo()], [], [], new Date("2026-08-28T06:00:00Z"));
+    expect(naechste[0].datum).toBe("2026-09-03");
+  });
+
+  // An einer Probestunde ist nichts nachzutragen — es gibt dafür keinen
+  // Selbst-Check-in. Eine Karte ohne Knopf erklärte sich nicht.
+  it("lässt eine vorbei gegangene Buchung nicht stehen", () => {
+    const heutigeBuchung = buchung({ datum: "2026-08-27", startZeit: "19:00:00", endZeit: "20:00:00" });
+    const { naechste } = naechsteTermine([], [heutigeBuchung], [], new Date("2026-08-27T18:30:00Z"));
+    expect(naechste).toHaveLength(0);
   });
 
   it("überspringt Termine, die in eine eingetragene Pause fallen", () => {

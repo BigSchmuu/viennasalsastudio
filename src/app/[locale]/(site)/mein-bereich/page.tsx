@@ -281,6 +281,10 @@ export default async function MeinBereichPage() {
             endsAtIso: fenster.endsAt.toISOString(),
             checkedIn: eingechecktHeute.has(termin.kursId),
             nochGeschlossen: jetzt < fenster.opensAt,
+            // PROJ-90: Der Kurs ist vorbei, eingetragen werden kann noch. Ohne
+            // diesen Hinweis stünde an einer Karte „HEUTE“ ein Knopf „Ich bin
+            // da“ für eine Stunde, die schon war.
+            nachtrag: jetzt >= termin.ende,
             oeffnetUm: fenster.opensAt.toLocaleTimeString("de-AT", {
               hour: "2-digit",
               minute: "2-digit",

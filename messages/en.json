@@ -520,6 +520,7 @@
       "noPlace": "Location to be announced",
       "after": "After that: {weekday}, {time} · {course}",
       "checkinOpensAt": "Check in from {time}",
+      "checkinLate": "Class is over — you can still check in until {time}.",
       "trialBadge": "Trial class",
       "dropinBadge": "Drop-in",
       "becomes": "From {date} this class is called {course}."

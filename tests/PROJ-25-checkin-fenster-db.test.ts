@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { angemeldetAls } from "./anmeldung";
-import { SELF_CHECKIN_VORLAUF_STUNDEN } from "@/lib/constants/checkin";
+import {
+  SELF_CHECKIN_NACHTRAG_BIS_STUNDE,
+  SELF_CHECKIN_VORLAUF_STUNDEN,
+} from "@/lib/constants/checkin";
 
 /**
  * PROJ-25: Wann sich jemand selbst einchecken darf.
@@ -178,4 +181,58 @@ describe(`PROJ-25: Das Fenster öffnet ${SELF_CHECKIN_VORLAUF_STUNDEN} Stunden v
     const { data } = await alsKunde.rpc("self_toggle_attendance", { p_course_id: kurs });
     expect(data).toBe("removed");
   });
+});
+
+/**
+ * PROJ-90: Nachtragen bis 23 Uhr.
+ *
+ * Nach oben gab es nie eine Grenze — die Datenbank liess den ganzen Kurstag zu,
+ * verschwunden war nur der Knopf. Jetzt gibt es eine, und sie wird hier
+ * geprüft: Die Oberfläche entscheidet, ob die Karte stehen bleibt, die
+ * Datenbank entscheidet.
+ *
+ * Eine Grenze an der Wanduhr lässt sich ohne verstellbare Uhr nur von einer
+ * Seite messen: Dass die Datenbank **ab** 23 Uhr abweist, prüft der erste Fall
+ * nur, wenn der Lauf in diese Stunde fällt. Dass bis dahin nachgetragen werden
+ * kann — die eigentliche Änderung —, prüft er den ganzen restlichen Tag.
+ *
+ * Braucht die Migration 20261016140000_proj90_nachtragen_bis_23_uhr.sql.
+ */
+describe(`PROJ-90: Nachtragen bis ${SELF_CHECKIN_NACHTRAG_BIS_STUNDE} Uhr`, () => {
+  // Braucht einen Tag, der schon zwei Stunden hinter sich hat — sonst läge der
+  // „vorbei gegangene" Kurs im gestrigen Abend, und die Funktion antwortete zu
+  // Recht „not today" (dieselbe Falle wie oben).
+  it.skipIf(bisherigeStunden() < 2)(
+    "entscheidet nach Kursende genau an der Nachtragsgrenze",
+    async () => {
+      // Ein Kurs, der vor zwei Stunden begann und vor einer Stunde endete. Die
+      // Erwartung kommt aus derselben Zahl wie die Regel: vor 23 Uhr geht es,
+      // danach nicht mehr. So misst die Prüfung zu jeder Tageszeit die Regel
+      // und nicht die Uhr.
+      const kurs = await kursDerHeuteBeginntIn(-2);
+      const { data, error } = await alsKunde.rpc("self_toggle_attendance", { p_course_id: kurs });
+
+      if (bisherigeStunden() >= SELF_CHECKIN_NACHTRAG_BIS_STUNDE) {
+        expect(error?.message, "nach der Grenze").toContain("too late");
+      } else {
+        expect(error?.message ?? null, "vor der Grenze").toBeNull();
+        expect(data).toBe("present");
+      }
+    }
+  );
+
+  // Unverändert aus PROJ-25, und gerade deshalb geprüft: Nachtragen ist etwas
+  // anderes als Widerrufen. Ein Check-in, den die Lehrkraft gesehen hat, soll
+  // nicht nachträglich verschwinden.
+  it.skipIf(bisherigeStunden() < 2 || bisherigeStunden() >= SELF_CHECKIN_NACHTRAG_BIS_STUNDE)(
+    "lässt den nachgetragenen Check-in nicht mehr zurücknehmen",
+    async () => {
+      const kurs = await kursDerHeuteBeginntIn(-2);
+      const { data: ein } = await alsKunde.rpc("self_toggle_attendance", { p_course_id: kurs });
+      expect(ein).toBe("present");
+
+      const { error } = await alsKunde.rpc("self_toggle_attendance", { p_course_id: kurs });
+      expect(error?.message).toContain("cannot undo after class end");
+    }
+  );
 });

@@ -1,3 +1,5 @@
+import { SELF_CHECKIN_NACHTRAG_BIS_STUNDE } from "@/lib/constants/checkin";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import {
   upcomingOccurrences,
   viennaWallClockToDate,
@@ -126,8 +128,30 @@ export function sammleTermine(
     );
   }
 
-  // Ein Kurs, der gerade läuft, zählt noch. Erst wenn er vorbei ist, fällt er raus.
-  const laufendOderKuenftig = termine.filter((t) => t.ende.getTime() > jetzt.getTime());
+  // Ein Kurs, der gerade läuft, zählt noch.
+  //
+  // Und einer, der heute schon vorbei ist, bleibt bis zur Nachtragsgrenze
+  // stehen (PROJ-90). Diese Zeile war der eigentliche Grund, warum sich nach
+  // Kursende niemand mehr einchecken konnte: Die Datenbank erlaubte es den
+  // ganzen Tag, nur verschwand mit der Karte der Knopf.
+  //
+  // Nur Abo-Termine. An einer Probestunde oder einem Drop-in ist nichts
+  // nachzutragen — dafür gibt es keinen Selbst-Check-in —, und eine Karte, die
+  // ohne Knopf bis 23 Uhr stehen bliebe, erklärte sich nicht.
+  //
+  // Die Grenze kann nie *vor* dem Kursende greifen: Was noch läuft, ist über
+  // die erste Bedingung schon drin. Ein Kurs bis 23:30 bleibt also während des
+  // Unterrichts sichtbar.
+  const heute = heuteInWien(jetzt);
+  const nachtragBis = viennaWallClockToDate(
+    heute,
+    `${String(SELF_CHECKIN_NACHTRAG_BIS_STUNDE).padStart(2, "0")}:00`
+  );
+  const laufendOderKuenftig = termine.filter(
+    (t) =>
+      t.ende.getTime() > jetzt.getTime() ||
+      (t.quelle === "abo" && t.datum === heute && jetzt.getTime() < nachtragBis.getTime())
+  );
 
   // Ein Kunde kann für denselben Kurstag ein Abo *und* eine Buchung haben —
   // etwa wenn er eine Probestunde nimmt, wo er ohnehin eingeschrieben ist.

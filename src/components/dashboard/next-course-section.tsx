@@ -3,6 +3,7 @@ import { formatShortDate } from "@/lib/formatting";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SelfCheckinButton } from "@/components/schedule/self-checkin-button";
+import { SELF_CHECKIN_NACHTRAG_BIS_STUNDE } from "@/lib/constants/checkin";
 import { DashboardSection } from "./dashboard-section";
 import type { Kurstermin } from "@/lib/dashboard/naechster-termin";
 
@@ -13,6 +14,8 @@ export type CheckinAngebot = {
   /** Fenster noch zu — dann steht statt des Knopfes der Hinweis, ab wann. */
   nochGeschlossen: boolean;
   oeffnetUm: string;
+  /** PROJ-90: Kurs vorbei, Eintragen noch möglich — der Knopf braucht dann ein Wort dazu. */
+  nachtrag: boolean;
 };
 
 /**
@@ -82,6 +85,11 @@ export async function NextCourseSection({
     return tw(String(wochentag));
   }
 
+  // PROJ-90: Die Stunde, bis zu der nachgetragen werden darf — aus derselben
+  // Konstante, die den Termin stehen lässt. Zwei Zahlen daraus zu machen hieße,
+  // dass der Hinweis irgendwann etwas anderes sagt als die Regel.
+  const nachtragBis = `${String(SELF_CHECKIN_NACHTRAG_BIS_STUNDE).padStart(2, "0")}:00`;
+
   function ort(raum: string | null, standort: string | null): string {
     if (raum && standort) return t("place", { room: raum, location: standort });
     if (raum) return t("roomOnly", { room: raum });
@@ -126,12 +134,19 @@ export async function NextCourseSection({
                       {t("checkinOpensAt", { time: checkin.oeffnetUm })}
                     </p>
                   ) : (
-                    <SelfCheckinButton
-                      courseId={termin.kursId}
-                      opensAtIso={checkin.opensAtIso}
-                      endsAtIso={checkin.endsAtIso}
-                      initialCheckedIn={checkin.checkedIn}
-                    />
+                    <>
+                      {checkin.nachtrag && !checkin.checkedIn ? (
+                        <p className="mb-2 text-center text-xs text-muted-foreground">
+                          {t("checkinLate", { time: nachtragBis })}
+                        </p>
+                      ) : null}
+                      <SelfCheckinButton
+                        courseId={termin.kursId}
+                        opensAtIso={checkin.opensAtIso}
+                        endsAtIso={checkin.endsAtIso}
+                        initialCheckedIn={checkin.checkedIn}
+                      />
+                    </>
                   )}
                 </div>
               ) : null}
