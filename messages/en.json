@@ -352,6 +352,7 @@
     "cancelReasonNote": "Anything you would like to add?",
     "upgradeTitle": "Upgrade to the flat rate",
     "upgradeBody": "{price} per cycle, every course instead of one. Plus the difference of {diff} once, with your next collection. We check eligibility for the student rate when confirming.",
+    "upgradeBodyOhneDifferenz": "{price} per cycle, every course instead of one. Your next collection charges the flat rate — nothing is added on top. We check eligibility for the student rate when confirming.",
     "upgradeAsk": "Request upgrade",
     "upgradePending": "Upgrade requested — we will get back to you once it is confirmed.",
     "upgradeWithdraw": "Withdraw request",

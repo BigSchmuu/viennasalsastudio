@@ -197,6 +197,7 @@ export default async function ProfilePage() {
   // Nur für aktive, kursgebundene Abos gefragt: Bei allen anderen ist die
   // Antwort ohnehin „nein", und das sind ein bis zwei Aufrufe, nicht zwanzig.
   const upgradeMoeglichkeiten = new Map<string, boolean>();
+  const zyklusLage = new Map<string, boolean>();
   for (const s of subscriptionRows ?? []) {
     if (s.status !== "active" || !s.course_id) continue;
     const { data: moeglich, error: moeglichFehler } = await supabase.rpc(
@@ -210,6 +211,18 @@ export default async function ProfilePage() {
       continue;
     }
     upgradeMoeglichkeiten.set(s.id, Boolean(moeglich));
+
+    // PROJ-91: Bucht der nächste Lauf diesen Zyklus noch voll ab? Dann kommt
+    // zur Flatrate nichts dazu. Ohne Antwort bleibt es bei der alten Rechnung.
+    const { data: lage, error: lageFehler } = await supabase.rpc(
+      "flatrate_upgrade_zyklus_wird_abgebucht",
+      { p_subscription_id: s.id }
+    );
+    if (lageFehler) {
+      console.error("Zyklus-Lage nicht lesbar", s.id, lageFehler);
+    } else {
+      zyklusLage.set(s.id, Boolean(lage));
+    }
   }
 
   // PROJ-88: Angerechnet wird, was im laufenden Zyklus tatsächlich bezahlt
@@ -258,6 +271,7 @@ export default async function ProfilePage() {
     pendingEffectiveDate: s.pending_effective_date,
     upgradeMoeglich: upgradeMoeglichkeiten.get(s.id) ?? false,
     upgradeAngefragt: s.upgrade_requested_at !== null,
+    zyklusWirdAbgebucht: zyklusLage.get(s.id) ?? false,
     // Nur für aktive Kursabos: Bei allen anderen ist die Frage gar nicht
     // gestellt, und ein Grund wäre eine Antwort auf nichts.
     upgradeGrund:

@@ -535,6 +535,121 @@ describe("PROJ-88: Die Differenz überschreiben", () => {
   });
 });
 
+/**
+ * PROJ-91: Die Differenz nur für einen Zyklus, der schon abgebucht ist.
+ *
+ * Aus dem Betrieb gemeldet (2026-10-19): Ein Lauf buchte 290 statt 145. Für die
+ * Kursabos war im laufenden Zyklus nichts eingezogen, also schlug die
+ * Anrechnung den ganzen Flatrate-Preis als Differenz vor — und der Lauf nahm
+ * das Abo danach regulär mit. Beides bezahlte denselben Zyklus.
+ */
+describe("PROJ-91: Kein Aufschlag auf einen Zyklus, der noch abgebucht wird", () => {
+  async function lage(): Promise<boolean> {
+    const { data, error } = await alsAdmin.rpc("flatrate_upgrade_zyklus_wird_abgebucht", {
+      p_subscription_id: aboId,
+    });
+    if (error) throw new Error(`PROJ-91 Lage: ${error.message}`);
+    return data as boolean;
+  }
+
+  async function aufschlag(): Promise<number | null> {
+    const { data } = await service
+      .from("subscription_surcharges")
+      .select("amount")
+      .eq("subscription_id", aboId)
+      .maybeSingle();
+    return data ? Number(data.amount) : null;
+  }
+
+  it("sieht den Zyklus als offen, solange nichts eingezogen ist", async () => {
+    await zuruecksetzen();
+    expect(await lage()).toBe(true);
+  });
+
+  it("sieht ihn als gedeckt, sobald ein freigegebener Lauf ihn enthält", async () => {
+    await zuruecksetzen();
+    await einzug(aboId, KURSPREIS, -10);
+    expect(await lage()).toBe(false);
+  });
+
+  // Anders als bei der Anrechnung: Zurückgebuchtes Geld ist nicht angekommen,
+  // aber der Lauf bucht deshalb nicht noch einmal ab. Der offene Betrag steht
+  // in den offenen Posten (PROJ-37).
+  it("zählt eine Rückbuchung mit", async () => {
+    await zuruecksetzen();
+    await einzug(aboId, KURSPREIS, -10, true);
+    expect(await lage()).toBe(false);
+  });
+
+  // Ein Entwurf ist kein ausgezahltes Geld — dieselbe Linie wie bei der
+  // Anrechnung (v1.88.1).
+  it("zählt einen Entwurf nicht mit", async () => {
+    await zuruecksetzen();
+    await einzug(aboId, KURSPREIS, -12, false, false);
+    expect(await lage()).toBe(true);
+  });
+
+  it("legt keinen Aufschlag an, wenn der Lauf den Zyklus noch voll abbucht", async () => {
+    await zuruecksetzen();
+    await alsKunde.rpc("request_flatrate_upgrade", { p_subscription_id: aboId });
+    const { error } = await alsAdmin.rpc("confirm_flatrate_upgrade", {
+      p_subscription_id: aboId,
+      p_student: false,
+    });
+    expect(error, `Bestätigen scheiterte: ${error?.message}`).toBeNull();
+
+    // Das Abo ist umgestellt — nur der Aufschlag bleibt aus. Vorher stand hier
+    // der ganze Flatrate-Preis, und der Lauf buchte ihn zusätzlich ab.
+    expect(Number((await abo()).price)).toBe(flatrateNormal);
+    expect(await aufschlag(), "Der Zyklus wäre zweimal bezahlt worden").toBeNull();
+  });
+
+  // Ohne Mandat gibt es keine Position, die etwas doppelt abbuchen könnte —
+  // der Aufschlag ist dort der Weg in die Barzahler-Übersicht.
+  it("bleibt bei der ganzen Differenz, wenn kein Mandat da ist", async () => {
+    const jetzt = new Date().toISOString();
+    await service.from("sepa_mandates").update({ revoked_at: jetzt }).eq("customer_id", kundeId);
+    try {
+      await zuruecksetzen();
+      expect(await lage()).toBe(false);
+      await alsKunde.rpc("request_flatrate_upgrade", { p_subscription_id: aboId });
+      await alsAdmin.rpc("confirm_flatrate_upgrade", {
+        p_subscription_id: aboId,
+        p_student: false,
+      });
+      expect(await aufschlag()).toBe(flatrateNormal);
+    } finally {
+      await service.from("sepa_mandates").update({ revoked_at: null }).eq("customer_id", kundeId);
+    }
+  });
+
+  // Die gerechnete Null ist ein Vorschlag, kein Verbot: Der Betreiber kann
+  // weiterhin etwas eintragen (PROJ-88).
+  it("lässt sich vom Betreiber überstimmen", async () => {
+    await zuruecksetzen();
+    await alsKunde.rpc("request_flatrate_upgrade", { p_subscription_id: aboId });
+    await alsAdmin.rpc("confirm_flatrate_upgrade", {
+      p_subscription_id: aboId,
+      p_student: false,
+      p_differenz: 20,
+    });
+    expect(await aufschlag()).toBe(20);
+  });
+
+  it("lässt den Kunden die eigene Lage lesen, aber keine fremde", async () => {
+    await zuruecksetzen();
+    const { error: eigen } = await alsKunde.rpc("flatrate_upgrade_zyklus_wird_abgebucht", {
+      p_subscription_id: aboId,
+    });
+    expect(eigen, `Die eigene Lage war nicht lesbar: ${eigen?.message}`).toBeNull();
+
+    const { error: fremd } = await alsFremder.rpc("flatrate_upgrade_zyklus_wird_abgebucht", {
+      p_subscription_id: aboId,
+    });
+    expect(fremd, "Ein fremdes Abo war lesbar").not.toBeNull();
+  });
+});
+
 describe("PROJ-87: Zurück geht es nicht", () => {
   it("lässt eine Flatrate nicht in einen Kurs zurückwechseln", async () => {
     // Die Sperre ist älter als dieses Feature (`course_id is not null` in
@@ -553,6 +668,10 @@ describe("PROJ-87: Zurück geht es nicht", () => {
 
   it("gibt dem Kunden seinen Aufschlag zu lesen, aber keinen fremden", async () => {
     await zuruecksetzen();
+    // Der Einzug ist der Grund, dass es überhaupt einen Aufschlag gibt: Ohne
+    // ihn bucht der nächste Lauf die Flatrate voll ab, und die Differenz ist
+    // null (PROJ-91). Geprüft wird hier die Sichtbarkeit, nicht der Betrag.
+    await einzug(aboId, KURSPREIS, -10);
     await alsKunde.rpc("request_flatrate_upgrade", { p_subscription_id: aboId });
     await alsAdmin.rpc("confirm_flatrate_upgrade", { p_subscription_id: aboId, p_student: false });
 

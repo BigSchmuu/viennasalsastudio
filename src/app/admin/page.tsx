@@ -89,8 +89,11 @@ export default async function AdminDashboardPage({
   // Funktion, die auch die Bestätigung rechnet.
   const upgradeAnfragen: UpgradeAnfrage[] = [];
   for (const a of anfrageRes.data ?? []) {
-    const [anrechnungRes, weitereRes] = await Promise.all([
+    const [anrechnungRes, lageRes, weitereRes] = await Promise.all([
       supabase.rpc("flatrate_upgrade_anrechnung", { p_customer_id: a.customer_id }),
+      // PROJ-91: Bucht der nächste Lauf diesen Zyklus noch voll ab? Dann ist
+      // die Differenz null — sonst zahlte der Kunde denselben Zyklus zweimal.
+      supabase.rpc("flatrate_upgrade_zyklus_wird_abgebucht", { p_subscription_id: a.id }),
       supabase
         .from("subscriptions")
         .select("id, price, courses(name), name")
@@ -105,6 +108,11 @@ export default async function AdminDashboardPage({
     if (weitereRes.error) {
       console.error("Dashboard: weitere Abos", a.id, weitereRes.error);
     }
+    // Ohne Antwort bleibt es bei der alten Rechnung — die ist in der Mehrzahl
+    // der Fälle richtig, und der Betreiber sieht die Aufstellung daneben.
+    if (lageRes.error) {
+      console.error("Dashboard: Zyklus-Lage", a.id, lageRes.error);
+    }
     upgradeAnfragen.push({
       aboId: a.id,
       kundeId: a.customer_id,
@@ -118,6 +126,7 @@ export default async function AdminDashboardPage({
         eingang: z.eingang,
         art: z.art === "barzahlung" ? ("barzahlung" as const) : ("lastschrift" as const),
       })),
+      zyklusWirdAbgebucht: lageRes.error ? false : Boolean(lageRes.data),
       endendeAbos: (weitereRes.data ?? []).map(
         (w) => w.courses?.name ?? w.name ?? "Weiteres Abo"
       ),

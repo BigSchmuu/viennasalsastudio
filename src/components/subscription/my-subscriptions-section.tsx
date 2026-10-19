@@ -26,6 +26,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { KUENDIGUNGSGRUENDE, grundLabel } from "@/lib/subscriptions/kuendigungsgrund";
+import { vorgeschlageneDifferenz } from "@/lib/flatrate/upgrade-differenz";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +68,12 @@ export type MySubscriptionRow = {
    * Möglichkeit nirgends und erfuhr auch nicht, warum.
    */
   upgradeGrund: "flatrate" | "pending" | "preis" | null;
+  /**
+   * PROJ-91: Bucht der nächste Lauf den laufenden Zyklus dieses Abos noch voll
+   * ab? Dann kommt zur Flatrate nichts dazu, und der Kasten sagt das — eine
+   * „Differenz von 0,00 €" wäre eine Zahl, die nichts erklärt.
+   */
+  zyklusWirdAbgebucht: boolean;
 };
 
 export type SubscriptionCourseOption = { id: string; name: string; runs_until?: string | null };
@@ -307,12 +314,18 @@ export function MySubscriptionsSection({
                   <div className="rounded-md border border-dashed p-3 text-sm">
                     <p className="font-medium">{t("upgradeTitle")}</p>
                     <p className="text-muted-foreground">
-                      {t("upgradeBody", {
-                        price: formatPrice(flatratePreis),
-                        diff: formatPrice(
-                          Math.max(Math.round((flatratePreis - angerechnet) * 100) / 100, 0)
-                        ),
-                      })}
+                      {subscription.zyklusWirdAbgebucht
+                        ? t("upgradeBodyOhneDifferenz", { price: formatPrice(flatratePreis) })
+                        : t("upgradeBody", {
+                            price: formatPrice(flatratePreis),
+                            diff: formatPrice(
+                              vorgeschlageneDifferenz({
+                                preis: flatratePreis,
+                                angerechnet,
+                                zyklusWirdAbgebucht: subscription.zyklusWirdAbgebucht,
+                              })
+                            ),
+                          })}
                     </p>
                     <Button
                       size="sm"

@@ -352,6 +352,7 @@
     "cancelReasonNote": "Magst du uns mehr sagen?",
     "upgradeTitle": "Auf Flatrate upgraden",
     "upgradeBody": "{price} je Zyklus, alle Kurse statt einem. Dazu einmalig die Differenz von {diff} im nächsten Einzug. Studierendentarif prüfen wir bei der Bestätigung.",
+    "upgradeBodyOhneDifferenz": "{price} je Zyklus, alle Kurse statt einem. Der nächste Einzug bucht die Flatrate — zusätzlich kommt nichts dazu. Studierendentarif prüfen wir bei der Bestätigung.",
     "upgradeAsk": "Upgrade anfragen",
     "upgradePending": "Upgrade angefragt — wir melden uns, sobald es bestätigt ist.",
     "upgradeWithdraw": "Anfrage zurückziehen",

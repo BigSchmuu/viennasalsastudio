@@ -3327,6 +3327,10 @@ export type Database = {
         Args: { p_subscription_id: string }
         Returns: boolean
       }
+      flatrate_upgrade_zyklus_wird_abgebucht: {
+        Args: { p_subscription_id: string }
+        Returns: boolean
+      }
       request_flatrate_upgrade: {
         Args: { p_subscription_id: string }
         Returns: {

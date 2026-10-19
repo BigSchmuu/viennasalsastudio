@@ -14,6 +14,7 @@ import {
   confirmFlatrateUpgrade,
   declineFlatrateUpgrade,
 } from "@/lib/actions/admin/flatrate-upgrade";
+import { nichtAngerechnet, vorgeschlageneDifferenz } from "@/lib/flatrate/upgrade-differenz";
 
 const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
 
@@ -43,6 +44,11 @@ export type UpgradeAnfrage = {
   anrechnung: AnrechnungsZeile[];
   /** PROJ-88: Welche weiteren Kursabos mit der Bestätigung enden. */
   endendeAbos: string[];
+  /**
+   * PROJ-91: Bucht der nächste Lauf den laufenden Zyklus dieses Abos noch voll
+   * ab? Dann kommt nichts dazu — sonst wäre es derselbe Zyklus zum zweiten Mal.
+   */
+  zyklusWirdAbgebucht: boolean;
 };
 
 /**
@@ -89,14 +95,21 @@ export function UpgradeAnfragen({
   }
 
   /**
-   * Die Differenz gegen das **tatsächlich Bezahlte**, nicht gegen den Preis
-   * eines einzelnen Abos (PROJ-88). Wer zwei Kurse einzeln zahlt, hat schon
-   * beides bezahlt; wer nichts bezahlt hat, zahlt die ganze Differenz.
+   * Die Differenz gegen das **tatsächlich Bezahlte** (PROJ-88) — und nur, wenn
+   * der laufende Zyklus nicht ohnehin noch voll abgebucht wird (PROJ-91). Die
+   * Regel steht in lib/flatrate/upgrade-differenz.ts, damit sie prüfbar ist und
+   * nicht in drei Fassungen lebt.
    */
+  function lage(anfrage: UpgradeAnfrage, neu: number | null) {
+    return {
+      preis: neu,
+      angerechnet: anfrage.anrechnung.reduce((s, z) => s + z.betrag, 0),
+      zyklusWirdAbgebucht: anfrage.zyklusWirdAbgebucht,
+    };
+  }
+
   function differenzWert(anfrage: UpgradeAnfrage, neu: number | null): number {
-    if (neu === null) return 0;
-    const angerechnet = anfrage.anrechnung.reduce((s, z) => s + z.betrag, 0);
-    return Math.max(Math.round((neu - angerechnet) * 100) / 100, 0);
+    return vorgeschlageneDifferenz(lage(anfrage, neu));
   }
 
   function differenz(anfrage: UpgradeAnfrage, neu: number | null): string {
@@ -172,7 +185,28 @@ export function UpgradeAnfragen({
                     angerechnet. Deshalb steht hier, was angerechnet wird und
                     wann es einging: Sieht es falsch aus, lieber ablehnen und
                     von Hand machen. */}
-                {a.anrechnung.length > 0 ? (
+                {a.zyklusWirdAbgebucht ? (
+                  <>
+                    {/* PROJ-91: Hier stand „die ganze Differenz kommt dazu" —
+                        und genau das hat am 2026-10-19 denselben Zyklus zweimal
+                        abgebucht (290 statt 145). Der nächste Lauf nimmt dieses
+                        Abo regulär mit; ein Aufschlag darauf wäre doppelt. */}
+                    <p className="text-sm text-muted-foreground">
+                      Der laufende Zyklus wurde für dieses Abo noch nicht eingezogen — der nächste
+                      Lauf bucht die Flatrate voll ab. Es kommt nichts dazu.
+                    </p>
+                    {nichtAngerechnet(lage(a, flatrateNormal)) > 0 && (
+                      <p className="text-sm text-amber-700 dark:text-amber-500">
+                        Im Zyklus sind{" "}
+                        <span className="tabular-nums">
+                          {EUR.format(nichtAngerechnet(lage(a, flatrateNormal)))}
+                        </span>{" "}
+                        für ein Abo eingegangen, das mit der Bestätigung endet. Angerechnet wird das
+                        nicht — prüfe, ob ein Guthaben fällig ist.
+                      </p>
+                    )}
+                  </>
+                ) : a.anrechnung.length > 0 ? (
                   <ul className="text-sm text-muted-foreground">
                     {a.anrechnung.map((z, i) => (
                       <li key={`${a.aboId}-${i}`}>
@@ -184,7 +218,8 @@ export function UpgradeAnfragen({
                   </ul>
                 ) : (
                   <p className="text-sm text-amber-700 dark:text-amber-500">
-                    Im laufenden Zyklus ist nichts eingegangen — die ganze Differenz kommt dazu.
+                    Im laufenden Zyklus ist nichts eingegangen, und es kommt keine Abbuchung — ohne
+                    Mandat ist der Aufschlag der Weg in die Barzahler-Übersicht.
                   </p>
                 )}
 
