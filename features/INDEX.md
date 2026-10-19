@@ -153,7 +153,7 @@
 
 | PROJ-90 | Einchecken noch nachträglich bis 23 Uhr | Deployed | [PROJ-90](../features/PROJ-90-einchecken-bis-23-uhr.md) | 2026-10-16 |
 
-| PROJ-91 | Die Upgrade-Differenz nur für einen Zyklus, der schon abgebucht ist | In Progress | [PROJ-91](../features/PROJ-91-upgrade-differenz-nur-bezahlte-zyklen.md) | 2026-10-19 |
+| PROJ-91 | Die Upgrade-Differenz nur für einen Zyklus, der schon abgebucht ist | Deployed | [PROJ-91](../features/PROJ-91-upgrade-differenz-nur-bezahlte-zyklen.md) | 2026-10-19 |
 
 <!-- Add features above this line -->
 

@@ -1,6 +1,6 @@
 # PROJ-91: Die Upgrade-Differenz nur für einen Zyklus, der schon abgebucht ist
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-10-19
 **Last Updated:** 2026-10-19
 
@@ -109,3 +109,62 @@ Differenz kommt dazu." Und das Feld war mit dem ganzen Preis vorbelegt. Der Betr
 
 - [ ] Soll ein offener **Entwurf**, der dieses Abo zum alten Preis enthält, an der Anfrage genannt
       werden? Heute sieht der Betreiber ihn nur im Lauf. Erst beobachten, ob der Fall vorkommt.
+
+## Umsetzung (2026-10-19)
+
+**Die Frage:** `flatrate_upgrade_zyklus_wird_abgebucht(abo)` in
+[20261019100000_proj91_differenz_nur_fuer_bezahlte_zyklen.sql](../supabase/migrations/20261019100000_proj91_differenz_nur_fuer_bezahlte_zyklen.sql)
+— Mandat vorhanden **und** für dieses Abo im laufenden Zyklus noch kein
+freigegebener Einzug. Dieselbe Migration richtet `confirm_flatrate_upgrade`
+danach aus; ein mitgegebener Betrag gilt unverändert.
+
+**Die Regel:** [upgrade-differenz.ts](../src/lib/flatrate/upgrade-differenz.ts)
+mit `vorgeschlageneDifferenz` und `nichtAngerechnet`. Sie lag vorher in drei
+Fassungen — Kundenkarte, Verwaltungskarte, Datenbank —, zwei davon in
+TypeScript. Die Migration zeigt auf die Datei.
+
+**Die Oberfläche:**
+[upgrade-anfragen.tsx](../src/components/admin/analytics/upgrade-anfragen.tsx)
+sagt jetzt, was der Lauf tut, und nennt überzähliges Geld samt Hinweis auf ein
+Guthaben; [my-subscriptions-section.tsx](../src/components/subscription/my-subscriptions-section.tsx)
+kündigt dem Kunden keinen Betrag mehr an, der nicht kommt
+(`profile.upgradeBodyOhneDifferenz`, DE/EN). Die Lage kommt aus den Ladern in
+[admin/page.tsx](../src/app/admin/page.tsx) und
+[profil/page.tsx](../src/app/[locale]/(site)/profil/page.tsx); ohne Antwort
+bleibt es bei der alten Rechnung, und der Fehler steht im Log.
+
+**Geprüft:** 10 Vitest-Fälle für die Regel
+([upgrade-differenz.test.ts](../src/lib/flatrate/upgrade-differenz.test.ts)) und
+8 Datenbankprüfungen in
+[PROJ-87-upgrade-flatrate-db.test.ts](../tests/PROJ-87-upgrade-flatrate-db.test.ts):
+offener Zyklus, gedeckter Zyklus, Rückbuchung zählt mit, Entwurf zählt nicht,
+kein Aufschlag im gemeldeten Fall, ganze Differenz ohne Mandat, Überstimmen
+durch den Betreiber, Leserechte. 44/44 in der Datei, 4/4 im Browser.
+
+**Ein bestehender Test ist dabei zu Recht rot geworden:** „gibt dem Kunden
+seinen Aufschlag zu lesen" bestätigte das Upgrade **ohne** Einzug und verließ
+sich darauf, dass dann ein Aufschlag entsteht — genau die Annahme, die den
+Fehler verursacht hat. Er legt jetzt vorher einen Einzug an.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-19
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commit:** `1df66eb`, Tag `v1.91.0-PROJ-91`
+- **Migration:** `20261019100000_proj91_differenz_nur_fuer_bezahlte_zyklen.sql` — **vor** dem Deploy
+  in Test und Produktion eingespielt. In dieser Reihenfolge nötig: Ohne die neue Funktion fällt die
+  Oberfläche in die alte Rechnung zurück.
+- **Nachgesehen:** Vercel-Deployment `Ready` (55 s); Startseite und `/login` 200, `/admin` und
+  `/profil` 307 auf die Anmeldung.
+
+### Für den Betrieb
+
+- Der gemeldete Lauf wird dadurch **nicht** rückwirkend korrigiert: Ein schon angelegter Aufschlag
+  bleibt, bis er im Entwurf des Laufs korrigiert oder die Zeile gelöscht wird.
+- Steht an einer Anfrage „Es kommt nichts dazu", dann bucht der nächste Lauf die Flatrate einmal —
+  das ist der ganze Betrag für diesen Zyklus.
+- Steht dort eine Aufstellung mit angerechneten Beträgen, war der Zyklus schon abgebucht, und der
+  Aufschlag ist die Differenz.
+- Steht der amberfarbene Hinweis auf ein Guthaben, ist im Zyklus Geld für ein Abo eingegangen, das
+  mit der Bestätigung endet. Das rechnet niemand automatisch gegen.
+- Barzahler ohne Mandat: unverändert die ganze Differenz, sichtbar in der Barzahler-Übersicht.
