@@ -227,6 +227,52 @@ Fälle fielen um. Die Anwendung hat sich dabei völlig richtig verhalten.
    Testlaufs ist („E2E Salsa Kurs (erneut bearbeitet)"). Die sind beim nächsten
    Lauf weg.
 
+## Nur im Vollauf rot, einzeln grün (2026-10-19)
+
+**Symptom:** Eine ganze Spec-Datei fällt im vollständigen Lauf um, läuft allein
+aber grün. Die Fehler sehen aus wie Produktfehler: ein gesperrter Knopf, eine
+fehlende Meldung, ein Betrag, der nicht stimmt.
+
+**Befund aus dem Vollauf vom 2026-10-19** (1467 von 1498 grün, 11 rot, keiner
+davon ein Fehler der Anwendung):
+
+- **Neun Fehlschläge in PROJ-8** aus *einer* Ursache. Die Datei ist eine
+  durchlaufende Geschichte; die erste Buchung wurde abgewiesen, und alles
+  danach hing in der Luft. Der geteilte Testkunde (`e2e8-customer`, **17**
+  Suiten!) war noch im Kurs, und `create_regular_course_booking` sagt dazu
+  „already enrolled" — über die Sicht `course_members`, in der neben dem Abo
+  auch ein Flatrate-**Kursplatz** steckt. Das Zurücksetzen räumte nur Abos.
+- **Ein Fehlschlag in PROJ-44** nur im zweiten Browser-Projekt. Die Auswahl des
+  Geworbenen war unsortiert und traf dort einen Kunden mit **zwei** Abos; das
+  Guthaben wurde korrekt verrechnet, nur gegen die Position des anderen Abos.
+- **Ein Fehlschlag in PROJ-73** auf Mobile Safari, bei jedem Lauf ein anderer
+  Test derselben Datei. Der Helfer klickte den Bereich auf und tippte sofort
+  los; stand das Formular noch nicht, ging der Klick auf „Speichern" ins Leere
+  und die erwartete Meldung kam nie.
+
+**Regeln:**
+
+1. **Erst die Artefakte lesen, dann neu laufen lassen.** Playwright leert
+   `test-results/` bei jedem Start. In `error-context.md` steht die
+   Momentaufnahme der Seite mit der Fehlermeldung — danach ist sie weg. Beim
+   Lauf vom 2026-10-19 habe ich mir damit selbst den Beweis gelöscht.
+2. **Ein Aufbau, der aufräumt, prüft sein Ergebnis.** `delete` ohne
+   Fehlerprüfung scheitert stumm am Fremdschlüssel: Für `e2e8-customer` lagen
+   149 gekündigte Abos herum, weil Laufpositionen daran hingen. Am Ende des
+   `beforeAll` steht deshalb die Frage, die das Produkt stellt („ist der Kunde
+   noch im Kurs?") — und ein Abbruch mit Klartext, wenn die Antwort falsch ist.
+3. **Gekündigt heißt mit Datum.** `status = 'cancelled'` ohne `cancelled_at`
+   ist ein Zwitter: in den Auswertungen (PROJ-79/80) keine Kündigung, für ein
+   `delete … is("cancelled_at", null)` aber „noch offen".
+4. **Fixtures nicht suchen, sondern festlegen.** Eine Auswahl ohne `order` ist
+   nicht reproduzierbar — zwei Browser-Projekte landen auf verschiedenen Zeilen,
+   und einer von beiden wird rot. Wer suchen muss, sortiert und verlangt die
+   Eigenschaften, von denen der Test lebt (hier: genau ein Abo).
+5. **Auf Sicht warten, nicht auf Zeit.** `waitForTimeout` nach dem Aufklappen
+   ist auf dem langsamen mobilen Gerät zu kurz. Stattdessen auf das Feld
+   (`toBeVisible`) und den freigegebenen Knopf (`toBeEnabled`) warten — und
+   einen Abschnitt nur aufklappen, wenn `aria-expanded` nicht schon `true` ist.
+
 ## Einen Text im Produkt ändern
 
 Wird eine Beschriftung geändert, brechen die Tests, die den alten Wortlaut

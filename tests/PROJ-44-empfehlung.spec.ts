@@ -213,16 +213,30 @@ test.describe("PROJ-44: von der Buchung bis zur Gutschrift", () => {
     const { data: w } = await svc.from("profiles").select("referral_code").eq("id", werber).single();
 
     // Ein Geworbener mit aktivem Abo und Mandat, damit der Lauf ihn erfasst.
+    //
+    // Mit **genau einem** Abo, und die Auswahl geordnet. Beides gelernt im
+    // Vollauf vom 2026-10-19: Die Auswahl war unsortiert, und so landete der
+    // zweite Browser-Durchgang auf einem anderen Kunden als der erste — auf
+    // einem mit zwei Abos. Das Guthaben wurde dann korrekt verrechnet, nur eben
+    // gegen die Position des *anderen* Abos; die Prüfung unten sah 45 statt 30
+    // und sah damit nach einem Fehler der Anwendung aus, der keiner war.
     const { data: abos } = await svc
       .from("subscriptions")
-      .select("id, customer_id, price, profiles!inner(full_name)")
+      .select("id, customer_id, price")
       .eq("status", "active")
       .not("price", "is", null)
-      .limit(50);
+      .order("created_at")
+      .limit(200);
     const { data: mandate } = await svc.from("sepa_mandates").select("customer_id").is("revoked_at", null);
     const mitMandat = new Set(mandate!.map((m) => m.customer_id));
-    const geworben = abos!.find((a) => a.customer_id !== werber && mitMandat.has(a.customer_id));
-    test.skip(!geworben, "Kein E2E-Kunde mit Abo und Mandat verfügbar");
+    const aboZahl = new Map<string, number>();
+    for (const a of abos ?? []) {
+      aboZahl.set(a.customer_id, (aboZahl.get(a.customer_id) ?? 0) + 1);
+    }
+    const geworben = (abos ?? []).find(
+      (a) => a.customer_id !== werber && mitMandat.has(a.customer_id) && aboZahl.get(a.customer_id) === 1
+    );
+    test.skip(!geworben, "Kein E2E-Kunde mit genau einem Abo und Mandat verfügbar");
 
     const gid = geworben!.customer_id;
     beruehrteKunden.push(werber, gid);

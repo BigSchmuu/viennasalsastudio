@@ -72,12 +72,27 @@ async function formularAusfuellen(
   titel: RegExp = /Passwort ändern/,
   knopf = "Passwort speichern"
 ) {
-  await page.getByRole("button", { name: titel }).click();
+  // Nur aufklappen, wenn er zu ist: Ein zweiter Klick schlösse ihn wieder, und
+  // die Felder darunter bekämen den Text nie.
+  const kopf = page.getByRole("button", { name: titel }).first();
+  if ((await kopf.getAttribute("aria-expanded")) !== "true") {
+    await kopf.click();
+  }
+
   const abschnitt = page.getByRole("region", { name: titel });
-  await abschnitt.locator('input[name="currentPassword"]').fill(aktuell);
+  // Auf das Feld warten, nicht auf eine Zeitspanne. Im Vollauf vom 2026-10-19
+  // ist auf dem langsamen mobilen Gerät je Lauf eine andere Prüfung dieser
+  // Datei gescheitert — immer an einer Meldung, die nie kam, weil das Formular
+  // noch nicht stand und der Klick auf „Speichern" ins Leere ging.
+  const aktuellesFeld = abschnitt.locator('input[name="currentPassword"]');
+  await expect(aktuellesFeld).toBeVisible({ timeout: 20000 });
+  await aktuellesFeld.fill(aktuell);
   await abschnitt.locator('input[name="password"]').fill(neu);
   await abschnitt.locator('input[name="confirmPassword"]').fill(wiederholung);
-  await abschnitt.getByRole("button", { name: knopf }).click();
+
+  const senden = abschnitt.getByRole("button", { name: knopf });
+  await expect(senden).toBeEnabled({ timeout: 20000 });
+  await senden.click();
 }
 
 test.beforeAll(async () => {

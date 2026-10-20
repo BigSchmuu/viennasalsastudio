@@ -34,6 +34,9 @@ const CUSTOMER_TODAY = {
 };
 const COURSE_NAME = "E2E8 Kurs";
 
+/** Der heutige Wiener Kalendertag — für `cancelled_at` beim Zurücksetzen. */
+const HEUTE = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Vienna" }).format(new Date());
+
 const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -69,21 +72,90 @@ test.beforeAll(async () => {
   // am Fremdschlüssel, weshalb sich 23 aktive Abos desselben Kunden für
   // denselben Kurs angesammelt hatten. Aufgefallen erst, als die neue Prüfung
   // "bereits angemeldet" darauf ansprang.
+  //
+  // Mit Datum, nicht nur mit Status: `status = 'cancelled'` ohne `cancelled_at`
+  // ist ein Zwitter — in den Auswertungen (PROJ-79/80) zählt er nicht als
+  // Kündigung, und beim Löschen unten fiel er in den Filter „noch nicht
+  // gekündigt". Am 2026-10-19 lagen so 149 Zeilen für diesen einen Kunden da.
   const { error: cancelError } = await service
     .from("subscriptions")
-    .update({ status: "cancelled" })
+    .update({ status: "cancelled", cancelled_at: HEUTE })
     .eq("customer_id", customerId)
     .eq("course_id", course.id)
     .neq("status", "cancelled");
   if (cancelError) throw new Error(`PROJ-8 Abo-Reset fehlgeschlagen: ${cancelError.message}`);
 
-  // Was nicht abgerechnet wurde, darf ganz weg — hält die Fixture-Daten schlank.
-  await service
-    .from("subscriptions")
+  // Kursplätze einer Flatrate gehören dazu: `already enrolled` liest
+  // `course_members`, und darin steckt neben dem kursgebundenen Abo auch ein
+  // Platz (PROJ-50). Abos allein zurückzusetzen reichte also nie.
+  const { error: platzFehler } = await service
+    .from("course_memberships")
     .delete()
     .eq("customer_id", customerId)
-    .eq("course_id", course.id)
-    .is("cancelled_at", null);
+    .eq("course_id", course.id);
+  if (platzFehler) throw new Error(`PROJ-8 Kursplatz-Reset fehlgeschlagen: ${platzFehler.message}`);
+
+  // Löschen, was keine Laufposition hält — und zwar **geprüft**. Bisher stand
+  // hier ein Löschen ohne Fehlerprüfung; es scheiterte stumm am Fremdschlüssel
+  // und die Reste blieben liegen. Was an einem Lauf hängt, bleibt bewusst als
+  // gekündigtes Abo stehen: Seine Rechnungen sollen nicht verschwinden.
+  const { data: abos, error: leseFehler } = await service
+    .from("subscriptions")
+    .select("id")
+    .eq("customer_id", customerId)
+    .eq("course_id", course.id);
+  if (leseFehler) throw new Error(`PROJ-8 Abo-Liste nicht lesbar: ${leseFehler.message}`);
+  const aboIds = (abos ?? []).map((a) => a.id);
+  if (aboIds.length > 0) {
+    const { data: posten, error: postenFehler } = await service
+      .from("sepa_collection_items")
+      .select("subscription_id")
+      .in("subscription_id", aboIds);
+    if (postenFehler) throw new Error(`PROJ-8 Laufpositionen nicht lesbar: ${postenFehler.message}`);
+    const gebunden = new Set((posten ?? []).map((p) => p.subscription_id));
+    const loeschbar = aboIds.filter((id) => !gebunden.has(id));
+    if (loeschbar.length > 0) {
+      const { error: loeschFehler } = await service.from("subscriptions").delete().in("id", loeschbar);
+      if (loeschFehler) throw new Error(`PROJ-8 Abo-Reste nicht gelöscht: ${loeschFehler.message}`);
+    }
+  }
+
+  // Geprüft, nicht gehofft — und zwar genau die Frage, die die
+  // Buchungsfunktion stellt.
+  //
+  // Am 2026-10-19 sind neun Prüfungen dieser Datei gescheitert, weil die erste
+  // Buchung abgewiesen wurde; woran, stand nirgends. Dieser Kunde wird von 17
+  // Spec-Dateien geteilt. Bleibt er im Kurs oder hat er eine Flatrate, weist
+  // `create_regular_course_booking` mit „already enrolled" bzw. „flatrate
+  // covers this" ab — dann soll der Aufbau das sagen, statt die Geschichte in
+  // neun unverständlichen Fehlschlägen auflaufen zu lassen.
+  const [{ count: nochAktiv }, { count: nochPlaetze }, { count: flatrate }] = await Promise.all([
+    service
+      .from("subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", customerId)
+      .eq("course_id", course.id)
+      .eq("status", "active"),
+    service
+      .from("course_memberships")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", customerId)
+      .eq("course_id", course.id),
+    service
+      .from("subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", customerId)
+      .is("course_id", null)
+      .eq("status", "active"),
+  ]);
+  if ((nochAktiv ?? 0) > 0 || (nochPlaetze ?? 0) > 0 || (flatrate ?? 0) > 0) {
+    throw new Error(
+      `PROJ-8 Fixture: ${CUSTOMER.email} ist noch im Kurs — aktive Abos: ${nochAktiv}, ` +
+        `Kursplätze: ${nochPlaetze}, aktive Flatrate: ${flatrate}. Die Buchung wird damit ` +
+        `abgewiesen, und die ganze Geschichte dieser Datei fällt um. Eine andere Suite hat ` +
+        `diesen geteilten Testkunden liegen gelassen.`
+    );
+  }
 });
 
 async function login(page: Page, { email, password }: { email: string; password: string }) {
