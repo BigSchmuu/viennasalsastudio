@@ -155,7 +155,7 @@
 
 | PROJ-91 | Die Upgrade-Differenz nur für einen Zyklus, der schon abgebucht ist | Deployed | [PROJ-91](../features/PROJ-91-upgrade-differenz-nur-bezahlte-zyklen.md) | 2026-10-19 |
 
-| PROJ-92 | Ein Druck darf nicht ins Nichts gehen | Planned | [PROJ-92](../features/PROJ-92-ein-druck-darf-nicht-ins-nichts-gehen.md) | 2026-10-24 |
+| PROJ-92 | Ein Druck darf nicht ins Nichts gehen | Deployed | [PROJ-92](../features/PROJ-92-ein-druck-darf-nicht-ins-nichts-gehen.md) | 2026-10-24 |
 
 <!-- Add features above this line -->
 

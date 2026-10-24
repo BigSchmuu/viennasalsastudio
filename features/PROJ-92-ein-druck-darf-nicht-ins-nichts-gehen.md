@@ -1,6 +1,6 @@
 # PROJ-92: Ein Druck darf nicht ins Nichts gehen
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-10-24
 **Last Updated:** 2026-10-24
 
@@ -167,3 +167,25 @@ beide sind Fehlergrenzen.
   ins Leere räumt. Bewusst eng gefasst — nur diese Fehler, und nur während ein Übersetzer
   tatsächlich am Werk ist (`html.translated-ltr`). Ein `removeChild`-Fehler ohne Übersetzer
   wäre unserer und kommt weiterhin an.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-24
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commit:** `aa285b1`
+- **Migration:** keine — reine Browserseite.
+- **Nachgesehen:** Vercel-Deployment `Ready` (1 min); Startseite, `/login` und `/en/login`
+  200, `/profil` 307 auf die Anmeldung.
+
+### Für den Betrieb
+
+- Bricht die Verbindung beim Absenden ab, steht die Meldung jetzt **im Formular**, die
+  Eingaben bleiben stehen, und der Knopf ist wieder frei. Keine Fehlerseite.
+- Die Meldung sagt bewusst nicht, dass es nicht geklappt hat: Der Vorgang kann serverseitig
+  geglückt sein, nur die Antwort fehlte. Nochmal drücken führt dann einfach zum Ziel.
+- **Was in Sentry zu erwarten ist:** `TypeError: Load failed` auf `/login` sollte als Fehler
+  verschwinden — die Abbrüche passieren weiter, werden aber gefangen. Bleibt die Zahl hoch,
+  war die Diagnose falsch und es gehört nochmal angesehen.
+- `NotFoundError: removeChild` von Google Translate kommt nicht mehr an, solange ein
+  Übersetzer aktiv ist. Ohne Übersetzer kommt ein solcher Fehler weiterhin — der wäre dann
+  unserer.
