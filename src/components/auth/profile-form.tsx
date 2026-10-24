@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BirthdateField } from "@/components/form/birthdate-field";
 import { useTranslations } from "next-intl";
+import { mitVerbindung, VERBINDUNG_ABGEBROCHEN } from "@/lib/auth/verbindung";
 import {
   Select,
   SelectContent,
@@ -48,10 +49,17 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
       formData.set("birthdate", values.birthdate ?? "");
       formData.set("gender", values.gender ?? "");
 
-      const result = await updateProfile(formData);
+      // PROJ-92: Bricht die Anfrage ab, kommt der Abbruch als Ergebnis zurück
+      // und wird unten angezeigt — statt als Fehler aus der Form-Action zur
+      // Fehlergrenze zu fliegen und dem Kunden die Fehlerseite zu zeigen.
+      const result = await mitVerbindung(() => updateProfile(formData));
 
       if ("error" in result) {
-        setFormError(result.error);
+        // `updateProfile` gibt fertige Sätze zurück, der Abbruch einen
+        // Schlüssel — deshalb hier der einzige Fall, der übersetzt wird.
+        setFormError(
+          result.error === VERBINDUNG_ABGEBROCHEN ? t("connectionLost") : result.error
+        );
         return;
       }
 
@@ -134,7 +142,12 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
           render={({ field }) => (
             <FormItem>
               <FormLabel>{t("gender")}</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value || undefined}>
+              {/* `?? ""` und nicht `|| undefined`: Bei leerem Feld wäre `value`
+                  sonst `undefined` und das Feld unkontrolliert, nach der ersten
+                  Wahl kontrolliert — React warnt darüber zu Recht (aus Sentry,
+                  2026-10-23). Radix zeigt beim leeren String denselben
+                  Platzhalter. */}
+              <Select onValueChange={field.onChange} value={field.value ?? ""}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder={t("choose")} />

@@ -21,6 +21,7 @@ import {
 import { AuthFormMessage } from "@/components/auth/auth-form-message";
 import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { fehlertext } from "@/lib/auth/fehler";
+import { mitVerbindung } from "@/lib/auth/verbindung";
 
 export function RegisterForm() {
   const t = useTranslations("auth");
@@ -38,7 +39,10 @@ export function RegisterForm() {
     setLoading(true);
     setFormError(null);
     try {
-      const result = await signUp(formData);
+      // PROJ-92: Bricht die Anfrage ab, kommt der Abbruch als Ergebnis zurück
+      // und wird unten angezeigt — statt als Fehler aus der Form-Action zur
+      // Fehlergrenze zu fliegen und dem Kunden die Fehlerseite zu zeigen.
+      const result = await mitVerbindung(() => signUp(formData));
 
       if ("error" in result) {
         // Auch das Mailversand-Limit hat jetzt eine eigene Meldung — vorher war

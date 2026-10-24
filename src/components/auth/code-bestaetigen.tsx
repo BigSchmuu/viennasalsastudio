@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { geraetMerken } from "@/lib/actions/geraet-merken";
+import { mitVerbindung } from "@/lib/auth/verbindung";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -85,7 +86,10 @@ export function CodeBestaetigen({ weiterNach }: { weiterNach: string }) {
 
       // Erst nach bestandener Prüfung merken — vorher wüsste der Merker nicht,
       // wessen Gerät er sich merkt.
-      await geraetMerken(merken);
+      // PROJ-92: Scheitert nur das Merken an der Verbindung, ist die Prüfung
+      // dennoch bestanden — dann geht es weiter, das Gerät ist eben nicht
+      // gemerkt. Ein Fehler hier hätte sonst die Fehlerseite gezeigt.
+      await mitVerbindung(() => geraetMerken(merken));
       window.location.href = weiterNach;
     } finally {
       setPrueft(false);

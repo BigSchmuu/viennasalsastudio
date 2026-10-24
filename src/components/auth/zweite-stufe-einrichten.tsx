@@ -5,6 +5,7 @@ import Image from "next/image";
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/client";
 import { geraetMerken } from "@/lib/actions/geraet-merken";
+import { mitVerbindung } from "@/lib/auth/verbindung";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -108,7 +109,7 @@ export function ZweiteStufeEinrichten({ weiterNach }: { weiterNach: string }) {
       // landete sofort wieder auf der Code-Seite. `false`, weil hier niemand
       // um Vertrauen für dieses Gerät gebeten hat: Der Merker endet mit dem
       // Browser, wie bei einer Anmeldung ohne Häkchen.
-      await geraetMerken(false);
+      await mitVerbindung(() => geraetMerken(false));
       window.location.href = weiterNach;
     } finally {
       setSpeichert(false);

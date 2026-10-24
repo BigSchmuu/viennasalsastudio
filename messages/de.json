@@ -260,6 +260,8 @@
     "heading": "Mein Profil",
     "logout": "Logout",
     "loggingOut": "Wird ausgeloggt…",
+    "connectionLost": "Die Verbindung ist abgebrochen. Bitte versuch es noch einmal.",
+    "logoutFailed": "Das Abmelden hat nicht geklappt — du bist noch angemeldet. Bitte versuch es noch einmal.",
     "save": "Speichern",
     "saving": "Wird gespeichert…",
     "cancel": "Abbrechen",
@@ -468,7 +470,8 @@
     "errSamePassword": "Das neue Passwort muss sich vom alten unterscheiden.",
     "errSessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich neu an und versuche es noch einmal.",
     "errPasswordChangeFailed": "Das Passwort konnte nicht geändert werden. Bitte versuche es noch einmal.",
-    "errReauthNeeded": "Für diese Änderung verlangt der Anmeldedienst eine zusätzliche Bestätigung. Bitte wende dich an das Studio."
+    "errReauthNeeded": "Für diese Änderung verlangt der Anmeldedienst eine zusätzliche Bestätigung. Bitte wende dich an das Studio.",
+    "errConnectionLost": "Die Verbindung ist abgebrochen. Bitte versuch es noch einmal."
   },
   "legal": {
     "termsTitle": "Allgemeine Geschäftsbedingungen",

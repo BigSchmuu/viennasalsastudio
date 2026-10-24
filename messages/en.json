@@ -260,6 +260,8 @@
     "heading": "My profile",
     "logout": "Log out",
     "loggingOut": "Logging out…",
+    "connectionLost": "The connection was interrupted. Please try again.",
+    "logoutFailed": "Signing out didn't work — you are still signed in. Please try again.",
     "save": "Save",
     "saving": "Saving…",
     "cancel": "Cancel",
@@ -468,7 +470,8 @@
     "errSamePassword": "The new password has to differ from the old one.",
     "errSessionExpired": "Your session has expired. Please sign in again and retry.",
     "errPasswordChangeFailed": "The password could not be changed. Please try again.",
-    "errReauthNeeded": "The sign-in service requires an extra confirmation for this change. Please contact the studio."
+    "errReauthNeeded": "The sign-in service requires an extra confirmation for this change. Please contact the studio.",
+    "errConnectionLost": "The connection was interrupted. Please try again."
   },
   "legal": {
     "termsTitle": "Terms and Conditions",

@@ -30,6 +30,8 @@ export type AuthFehler =
   | "errSessionExpired"
   | "errPasswordChangeFailed"
   | "errReauthNeeded"
+  /** PROJ-92: Die Anfrage kam nicht zu Ende — siehe lib/auth/verbindung.ts. */
+  | "errConnectionLost"
   /** Bleibt ein Code: Das Anmeldeformular zeigt dafür einen eigenen Block. */
   | "email_not_confirmed";
 

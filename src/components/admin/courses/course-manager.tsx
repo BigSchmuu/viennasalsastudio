@@ -501,7 +501,7 @@ function CourseFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tanzstil</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || undefined}>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Bitte wählen" />
@@ -526,7 +526,7 @@ function CourseFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Level</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || undefined}>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Bitte wählen" />
@@ -548,7 +548,7 @@ function CourseFormDialog({
             <div className="space-y-2">
               <Label htmlFor="course-location">Standort</Label>
               <Select
-                value={locationId || undefined}
+                value={locationId ?? ""}
                 onValueChange={(value) => {
                   setLocationId(value);
                   form.setValue("room_id", "");
@@ -575,7 +575,7 @@ function CourseFormDialog({
                   <FormLabel>Raum</FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    value={field.value || undefined}
+                    value={field.value ?? ""}
                     disabled={!locationId}
                   >
                     <FormControl>

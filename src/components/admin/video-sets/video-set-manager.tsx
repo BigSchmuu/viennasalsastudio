@@ -246,7 +246,7 @@ function VideoSetFormDialog({
                   <FormLabel>Level (optional)</FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    value={field.value || undefined}
+                    value={field.value ?? ""}
                   >
                     <FormControl>
                       <SelectTrigger>

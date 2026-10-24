@@ -397,7 +397,7 @@ function SerieFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Eventart</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || undefined}>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Eventart wählen" />

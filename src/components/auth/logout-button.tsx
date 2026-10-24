@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { signOut } from "@/lib/actions/auth";
+import { mitVerbindung } from "@/lib/auth/verbindung";
+import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
@@ -13,7 +15,15 @@ export function LogoutButton() {
     event.preventDefault();
     setLoading(true);
     try {
-      await signOut();
+      // PROJ-92: Der einzige dieser Knöpfe ohne eigene Anzeigefläche — deshalb
+      // ein Hinweis als Einblendung. Ohne ihn wurde der Knopf nach einem
+      // Abbruch einfach wieder normal, und der Kunde blieb angemeldet, ohne
+      // es zu erfahren.
+      const ergebnis = await mitVerbindung(() => signOut());
+      if (ergebnis && typeof ergebnis === "object" && "error" in ergebnis) {
+        toast.error(t("logoutFailed"));
+        return;
+      }
       window.location.href = "/";
     } finally {
       setLoading(false);

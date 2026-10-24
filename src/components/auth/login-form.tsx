@@ -22,6 +22,7 @@ import {
 import { AuthFormMessage } from "@/components/auth/auth-form-message";
 import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { fehlertext } from "@/lib/auth/fehler";
+import { mitVerbindung } from "@/lib/auth/verbindung";
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const t = useTranslations("auth");
@@ -46,7 +47,10 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
     setNeedsConfirmation(false);
     letzteAdresse.current = String(formData.get("email") ?? "");
     try {
-      const result = await signIn(formData);
+      // PROJ-92: Bricht die Anfrage ab, kommt der Abbruch als Ergebnis zurück
+      // und wird unten angezeigt — statt als Fehler aus der Form-Action zur
+      // Fehlergrenze zu fliegen und dem Kunden die Fehlerseite zu zeigen.
+      const result = await mitVerbindung(() => signIn(formData));
 
       if ("error" in result) {
         if (result.error === "email_not_confirmed") {

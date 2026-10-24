@@ -207,7 +207,7 @@ export function CourseScheduleSection({
       <div className="grid grid-cols-3 gap-2">
         <div className="space-y-1">
           <Label htmlFor="schedule-weekday">Wochentag</Label>
-          <Select value={weekday || undefined} onValueChange={setWeekday}>
+          <Select value={weekday ?? ""} onValueChange={setWeekday}>
             <SelectTrigger id="schedule-weekday">
               <SelectValue placeholder="Bitte wählen" />
             </SelectTrigger>

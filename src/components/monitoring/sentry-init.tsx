@@ -44,6 +44,9 @@ export function SentryInit() {
         dsn,
         tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
         enabled: true,
+        beforeSend(event) {
+          return uebersetzerSchuld(event) ? null : event;
+        },
       });
     }
 
@@ -62,4 +65,30 @@ export function SentryInit() {
   }, []);
 
   return null;
+}
+
+/**
+ * Hat ein Übersetzer den DOM unter React verändert?
+ *
+ * Google Translate hängt `translated-ltr` an `<html>` und wickelt jeden
+ * Textknoten in `<font>`-Hüllen. Räumt React beim Seitenwechsel seine Knoten
+ * ab, sind die inzwischen fremd eingepackt — `removeChild: The node to be
+ * removed is not a child of this node`. Aus Sentry, 2026-10-23: ein Kunde, der
+ * die englische Seite zusätzlich übersetzen ließ.
+ *
+ * Von uns ist daran nichts zu beheben. Zu verbieten wäre die Übersetzung auch
+ * keine Lösung — der Kunde übersetzt offensichtlich in eine dritte Sprache, die
+ * wir nicht anbieten. Also wird gemeldet, was wir ändern können, und das
+ * Übrige nicht.
+ *
+ * Bewusst eng: nur **diese** DOM-Fehler, und nur **während** ein Übersetzer
+ * tatsächlich am Werk ist. Ein `removeChild`-Fehler ohne Übersetzer wäre
+ * unserer und soll ankommen.
+ */
+function uebersetzerSchuld(ereignis: { exception?: { values?: { value?: string }[] } }): boolean {
+  const wurzel = document.documentElement.classList;
+  if (!wurzel.contains("translated-ltr") && !wurzel.contains("translated-rtl")) return false;
+  return (ereignis.exception?.values ?? []).some((wert) =>
+    /removeChild|insertBefore|not a child of this node/.test(wert.value ?? "")
+  );
 }
