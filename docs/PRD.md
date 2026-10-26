@@ -72,6 +72,7 @@ Vienna Salsa Studio App ist eine Kunden-Self-Service-Plattform für die Tanzschu
 | P1 | Kursbeschreibung und Verlinkung aus dem Stundenplan | Deployed |
 | P2 | Pagination für Admin-Listen (DB-seitig filtern/sortieren) | Roadmap |
 | P1 | Pass für eine Stilrichtung (Bachata-Pass) | Deployed |
+| P1 | Vorname und Nachname getrennt, Pflicht beim Registrieren | Deployed |
 
 ## Success Metrics
 - 80%+ der Abo-Änderungen (Pause/Kündigung) laufen über Self-Service statt manuell

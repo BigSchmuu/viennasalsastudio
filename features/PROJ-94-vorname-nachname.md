@@ -1,6 +1,6 @@
 # PROJ-94: Vorname und Nachname getrennt, Pflicht bei der Registrierung
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -160,3 +160,32 @@ Stattdessen steht der Weg an zwei deterministischen Stellen: Die Server-Action g
 als Metadatum mit (Unit-Test mit nachgebildetem Supabase), und der Trigger übernimmt ihn
 daraus ins Profil und bildet `full_name` (Datenbankprüfung). Zusammen decken die beiden
 dieselbe Kette ab, ohne eine Mail zu verschicken.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-26
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commits:** `27324c8` (Funktion), `14d31ca` (Prüfungen), Tag `v1.94.0-PROJ-94`
+- **Migration:** `20261026160000_proj94_vorname_nachname.sql` — **vor** dem Deploy in Test
+  und Produktion eingespielt. Zwingend in dieser Reihenfolge: `handle_new_user` schreibt die
+  neuen Spalten, und ohne sie schlägt **jede** Registrierung fehl.
+- **Nachgesehen:** Vercel-Deployment `Ready` (1 min); `/registrieren` und `/en/registrieren`
+  200, und die Seite liefert tatsächlich die Felder „Vorname" und „Nachname" aus —
+  nachgesehen im HTML, nicht nur am Statuscode. `/profil` und `/admin/kunden` 307 auf die
+  Anmeldung.
+
+### Für den Betrieb
+
+- **Sieh die Teilung durch.** Verwaltung → Kunden: Bei rund 50 Kunden ist das ein Durchgang.
+  Auffallen werden Namen mit Präfix („van der Berg" → Vorname „van der"), das ist die
+  bekannte Grenze der Regel.
+- **Bestandskunden werden nicht genötigt** — kein Hinweis, nichts gesperrt. Öffnet ein
+  Bestandskunde ohne Namen sein Profil, verlangt das Formular dort allerdings beides, bevor
+  er speichern kann.
+- Beim Anlegen eines Kunden in der Verwaltung ist der **Nachname freiwillig**; an der Tür
+  trägt die Lehrkraft weiter **einen** Namen ein, den die Anwendung teilt.
+- `full_name` existiert weiter und wird automatisch gepflegt. Überall, wo der Name heute
+  erscheint — Anwesenheitsliste, Rechnungen, Belege, Barzahler-Liste —, ändert sich nichts.
+- **Für künftige Tests:** Die Testdatenbank lässt keine echte Registrierung über das
+  Formular mehr zu (`email_address_invalid` für `.test`-Adressen, danach
+  `over_email_send_rate_limit`). Der Weg wird deshalb ohne Mailversand geprüft; siehe oben.
