@@ -202,9 +202,26 @@ einzeln buchen", dazu zwei Abweisungen für Aufrufe, die die Oberfläche nicht a
 Upgrade-Sperre jetzt den Pass statt „du hast bereits eine Flatrate — damit stehen dir alle
 Kurse offen", was bei einem Pass falsch war.
 
-**Geprüft bis hierher:** 1092 Unit-Tests grün, darunter 6 neue für den Passpreis und 6 für
-`decktKurs`/`darfVideosSehen`. Lint und Build sauber. Die Datenbankprüfungen und der
-Browsertest folgen, sobald die Migration in der Testdatenbank steht.
+**Geprüft:** 1092 Unit-Tests grün, darunter 6 neue für den Passpreis und 6 für
+`decktKurs`/`darfVideosSehen`. Lint und Build sauber.
+
+Dazu 18 Datenbankprüfungen in
+[PROJ-93-stil-pass-db.test.ts](../tests/PROJ-93-stil-pass-db.test.ts): die Deckung von
+beiden Seiten (Flatrate deckt alles, Pass nur seinen Stil, kein Pass deckt einen Kurs ohne
+Stilrichtung), der Preis am Stil samt Ermäßigung, die drei Abweisungen beim Buchen und die
+zwei beim Hinzufügen. Die wichtigste darunter ist nicht, dass der Pass Bachata deckt,
+sondern dass er den Kunden **nicht** aus Salsa aussperrt — genau das hätte die alte Annahme
+getan.
+
+Und drei Browserprüfungen in
+[PROJ-93-stil-pass.spec.ts](../tests/PROJ-93-stil-pass.spec.ts): Kachel mit Preis bei einem
+Kurs mit Pass, **keine** Kachel bei einem Kurs ohne, und der ganze Weg bis zur Anfrage in
+der Datenbank (`desired_plan = 'style_pass'`, Preis der Stilrichtung).
+
+**Ein Test von mir war falsch gedacht**, nicht der Code: „zweites kursloses Abo abweisen"
+hatte ich mit einer laufenden Flatrate geprüft — dort greift aber zuerst die frühere und
+bessere Meldung „dieser Kurs ist schon gedeckt". Der Fall braucht einen **zweiten**
+Pass-Stil, und so steht er jetzt da.
 
 ## Open Questions
 
