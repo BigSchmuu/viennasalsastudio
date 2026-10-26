@@ -1,6 +1,6 @@
 # PROJ-94: Vorname und Nachname getrennt, Pflicht bei der Registrierung
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -118,3 +118,45 @@ sortieren.
       ob es gewünscht ist, entscheidet der Betreiber (passt zu PROJ-33).
 - [ ] Soll die Rechnung „Müller, Anna" statt „Anna Müller" schreiben? Heute steht der
       zusammengesetzte Name; beides ist jetzt möglich.
+
+## Umsetzung (2026-10-26)
+
+**Die Regel** steht als reine Funktion in [namen.ts](../src/lib/namen.ts): `teileName()`
+teilt am letzten Leerzeichen, `zusammengesetzterName()` ist das Gegenstück. Beides wird an
+drei Stellen gebraucht — beim Umzug des Bestands, beim Gast an der Tür und beim Einladen
+einer Lehrkraft — und ist der Teil, der falsch sein kann. Die bekannte Grenze („van der
+Berg") steht als Test da, nicht als Fußnote.
+
+**Datenbank** — [20261026160000_proj94_vorname_nachname.sql](../supabase/migrations/20261026160000_proj94_vorname_nachname.sql):
+zwei Spalten, ein Trigger, der Umzug und `handle_new_user`. Der Umzug läuft nur, wo noch
+nichts steht, damit ein zweiter Lauf keine von Hand korrigierte Teilung überschreibt.
+
+**Oberfläche:** Registrierung und Profil haben zwei Pflichtfelder, die Kundenverwaltung zwei
+Felder mit freiwilligem Nachnamen, und Lehrer-Einladung wie Gast-Eintragung behalten ein
+Feld, das die Anwendung teilt.
+
+**Der Name geht als Metadatum der Anmeldung mit.** Das war die entscheidende technische
+Frage: Das Profil entsteht im Trigger, bevor die Anwendung es sehen kann.
+
+**Geprüft:** 1107 Unit-Tests grün — 10 neue für `teileName`/`zusammengesetzterName`, dazu
+eigene Fälle dafür, dass die Pflicht wirklich greift (ohne Namen wird abgewiesen, **bevor**
+Supabase gefragt wird) und dass der Name als Metadatum mitgeht. 9 Datenbankprüfungen in
+[PROJ-94-vorname-nachname-db.test.ts](../tests/PROJ-94-vorname-nachname-db.test.ts) und 2
+Browserprüfungen in
+[PROJ-94-vorname-nachname.spec.ts](../tests/PROJ-94-vorname-nachname.spec.ts).
+
+**Acht bestehende Unit-Tests und zwei Browsertests** bauten Registrierung oder Profil noch
+ohne Namen auf. Nachgezogen — das ist die Folge der Pflicht, kein Fehler.
+
+### Was nicht geprüft werden kann, und warum
+
+Eine **echte** Registrierung über das Formular steht bewusst nicht im Browsertest. Sie hängt
+an Supabases Mailversand, und der ist in der Testdatenbank gedrosselt: Nach wenigen
+Versuchen kommt `over_email_send_rate_limit`, und eine `.test`-Adresse hat er zusätzlich als
+`email_address_invalid` abgewiesen. Ein Nachweis, der an einer Mailquote hängt, ist keiner —
+er ist mal grün und mal rot, und niemand weiß, warum.
+
+Stattdessen steht der Weg an zwei deterministischen Stellen: Die Server-Action gibt den Namen
+als Metadatum mit (Unit-Test mit nachgebildetem Supabase), und der Trigger übernimmt ihn
+daraus ins Profil und bildet `full_name` (Datenbankprüfung). Zusammen decken die beiden
+dieselbe Kette ab, ohne eine Mail zu verschicken.

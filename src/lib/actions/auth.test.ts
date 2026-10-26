@@ -76,4 +76,36 @@ describe("signUp", () => {
     expect(await signUp(formular("halb@example.test"))).toEqual({ success: true });
     expect(enqueueAndDispatch).not.toHaveBeenCalled();
   });
+  // PROJ-94: Der Name muss als Metadatum der Anmeldung mitgehen. Das Profil
+  // entsteht im Datenbank-Trigger `handle_new_user`, bevor die Anwendung es
+  // sehen kann — geht der Name hier nicht mit, gibt es ein Konto ohne Namen,
+  // obwohl er Pflicht ist.
+  //
+  // Geprüft wird hier und nicht im Browser: Eine echte Registrierung hängt an
+  // Supabases Mailversand, und der ist in der Testdatenbank gedrosselt
+  // (`over_email_send_rate_limit`). Ein Nachweis, der an einer Mailquote hängt,
+  // ist kein Nachweis.
+  it("gibt Vor- und Nachnamen als Metadaten der Anmeldung mit", async () => {
+    const { signUp } = await import("./auth");
+    await signUp(formular("neu@example.test"));
+
+    expect(supabaseSignUp).toHaveBeenCalledTimes(1);
+    const aufruf = supabaseSignUp.mock.calls[0][0] as {
+      options?: { data?: Record<string, string> };
+    };
+    expect(aufruf.options?.data).toEqual({ first_name: "Anna", last_name: "Müller" });
+  });
+
+  it("weist ohne Namen ab, bevor Supabase überhaupt gefragt wird", async () => {
+    const ohne = new FormData();
+    ohne.set("email", "neu@viennasalsastudio.test");
+    ohne.set("password", "Tanzen2026");
+
+    const { signUp } = await import("./auth");
+    const ergebnis = await signUp(ohne);
+
+    expect("error" in ergebnis).toBe(true);
+    expect(supabaseSignUp, "Supabase wurde trotz fehlendem Namen gefragt").not.toHaveBeenCalled();
+  });
+
 });
