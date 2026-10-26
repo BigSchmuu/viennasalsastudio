@@ -157,7 +157,7 @@
 
 | PROJ-92 | Ein Druck darf nicht ins Nichts gehen | Deployed | [PROJ-92](../features/PROJ-92-ein-druck-darf-nicht-ins-nichts-gehen.md) | 2026-10-24 |
 
-| PROJ-93 | Ein Pass für eine Stilrichtung (Bachata-Pass) | In Progress | [PROJ-93](../features/PROJ-93-stil-pass.md) | 2026-10-26 |
+| PROJ-93 | Ein Pass für eine Stilrichtung (Bachata-Pass) | Deployed | [PROJ-93](../features/PROJ-93-stil-pass.md) | 2026-10-26 |
 
 <!-- Add features above this line -->
 

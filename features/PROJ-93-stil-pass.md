@@ -1,6 +1,6 @@
 # PROJ-93: Ein Pass für eine Stilrichtung (Bachata-Pass)
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -236,3 +236,37 @@ Pass-Stil, und so steht er jetzt da.
 - [ ] Soll beim Bestätigen eines Pass- oder Flatrate-Abos der gebuchte Kurs automatisch als
       Kursplatz entstehen? Heute muss der Kunde ihn im Profil eintragen. Betrifft beide
       Produkte gleich.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-10-26
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commits:** `b52816f` (Funktion), `f97bb58` (Prüfungen), Tag `v1.93.0-PROJ-93`
+- **Migration:** `20261026100000_proj93_stil_pass.sql` — **vor** dem Deploy in Test und
+  Produktion eingespielt. In dieser Reihenfolge zwingend: Katalog, Stundenplan und Profil
+  lesen die neuen Spalten, und ohne sie antwortet die Seite mit einem Fehler.
+- **Regression geprüft:** Kursbuchung (PROJ-8), Flatrate (PROJ-50) und Preiskacheln
+  (PROJ-41) — 59 Browserprüfungen grün.
+- **Nachgesehen:** Vercel-Deployment `Ready` (1 min); Startseite, `/kurse` und
+  `/stundenplan` 200 — damit ist belegt, dass die Migration in Produktion steht, denn genau
+  diese Seiten lesen die neuen Spalten. `/admin/tanzstile` und `/profil` 307 auf die
+  Anmeldung.
+
+### Für den Betrieb
+
+- **So entsteht der Pass:** Verwaltung → Tanzstile → Stilrichtung bearbeiten → „Pass je
+  Monat" eintragen. Ab dem Speichern sehen Kunden bei allen Kursen dieser Stilrichtung die
+  dritte Kachel. Feld leeren = es gibt ihn nicht mehr; **laufende Pässe bleiben davon
+  unberührt**, ihr Preis steht im Abo.
+- Bleibt der Studierendenpreis leer, gilt für Studierende der normale Passpreis.
+- Ein Pass-Kunde kann Kurse anderer Stilrichtungen **einzeln** buchen — das ist gewollt und
+  geprüft. Er sieht dort „Jetzt buchen" statt „hinzufügen".
+- **Der Wechsel auf die volle Flatrate ist Handarbeit.** Im Profil steht dem Kunden das
+  jetzt so da; er schreibt dir, du stellst das Abo um (Kurs-Feld leer, Stilrichtung
+  entfernen, Preis setzen).
+- Ein Kunde hat höchstens **ein** kursloses Abo: Pass oder Flatrate. Ein zweites weist die
+  Datenbank ab.
+- **Nicht automatisch:** Der gebuchte Kurs wird mit der Bestätigung **kein** Kursplatz — der
+  Kunde trägt ihn im Profil ein, genau wie bei der Flatrate. Siehe offene Fragen.
+- Lehrkraft und Anwesenheitsliste merken vom Pass nichts: Dort zählt der Kursplatz, und der
+  sieht aus wie jeder andere.
