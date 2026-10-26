@@ -205,6 +205,8 @@
     "planSingleHint": "This one class, weekly",
     "planFlatName": "Flatrate (all classes)",
     "planFlatHint": "All classes, as often as you like",
+    "planPassName": "{style} pass",
+    "planPassHint": "Every {style} course, cancel monthly",
     "priceOnRequest": "Price on request",
     "perMonth": "/ month",
     "termsAccept": "I have read and accept the <link>Terms</link>.",
@@ -360,6 +362,7 @@
     "upgradeWithdraw": "Withdraw request",
     "upgradeBlocked": {
       "flatrate": "You already have a flat rate — every course is open to you.",
+      "pass": "You have a {style} pass. For courses of other styles, book them individually — or write to us if you would like to switch to the flat rate.",
       "pending": "While a pause or cancellation is pending, upgrading is not possible. Withdraw it if you would rather switch to the flat rate.",
       "preis": "Upgrading to the flat rate is currently unavailable. Get in touch — we will set it up."
     }

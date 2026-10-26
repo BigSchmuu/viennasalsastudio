@@ -205,6 +205,8 @@
     "planSingleHint": "Dieser eine Kurs, wöchentlich",
     "planFlatName": "Flatrate (alle Kurse)",
     "planFlatHint": "Alle Kurse, so oft du willst",
+    "planPassName": "{style}-Pass",
+    "planPassHint": "Alle {style}-Kurse, monatlich kündbar",
     "priceOnRequest": "Preis auf Anfrage",
     "perMonth": "/ Monat",
     "termsAccept": "Ich habe die <link>AGB</link> gelesen und akzeptiere sie.",
@@ -360,6 +362,7 @@
     "upgradeWithdraw": "Anfrage zurückziehen",
     "upgradeBlocked": {
       "flatrate": "Du hast bereits eine Flatrate — damit stehen dir alle Kurse offen.",
+      "pass": "Du hast einen {style}-Pass. Für Kurse anderer Stilrichtungen buche einzelne Kurse — oder schreib uns, wenn du auf die Flatrate wechseln möchtest.",
       "pending": "Solange eine Pause oder Kündigung aussteht, lässt sich nicht upgraden. Nimm sie zurück, wenn du stattdessen auf die Flatrate wechseln möchtest.",
       "preis": "Ein Upgrade auf die Flatrate ist derzeit nicht buchbar. Melde dich bei uns — wir richten es ein."
     }

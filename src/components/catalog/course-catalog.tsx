@@ -37,6 +37,9 @@ export type CatalogCourseRow = {
   name: string;
   danceStyleId: string | null;
   danceStyleName: string;
+  /** PROJ-93: Passpreise der Stilrichtung — `null` heißt „keinen Pass dafür“. */
+  passPrice: number | null;
+  passStudentPrice: number | null;
   level: string | null;
   locationId: string;
   locationName: string;
@@ -49,6 +52,11 @@ export type CatalogCourseRow = {
   hasOpenRegularBooking: boolean;
   hasActiveSubscription: boolean;
   /** PROJ-50: laufende Flatrate — der Kurs kostet nichts extra. */
+  /**
+   * PROJ-50/93: Ein kursloses Abo deckt **diesen** Kurs — die volle Flatrate
+   * jeden, ein Pass nur Kurse seiner Stilrichtung. Daran hängt, ob „hinzufügen"
+   * statt „buchen" angeboten wird.
+   */
   hasFlatrate: boolean;
   isFull: boolean;
   isOnWaitlist: boolean;

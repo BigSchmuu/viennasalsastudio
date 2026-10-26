@@ -29,6 +29,13 @@ function uebersetze(meldung: string): FlatrateErgebnis {
   if (meldung.includes("already requested")) {
     return { error: "Du hast diesen Kurs bereits gebucht — die Bestätigung steht noch aus." };
   }
+  // PROJ-93: Der Pass gilt, aber nicht für diesen Kurs. Eigene Meldung, weil
+  // „keine Flatrate" hier falsch wäre — er hat eine, nur eine engere.
+  if (meldung.includes("pass does not cover")) {
+    return {
+      error: "Dein Pass gilt nur für Kurse seiner Stilrichtung — diesen Kurs kannst du einzeln buchen.",
+    };
+  }
   if (meldung.includes("no flatrate")) {
     // Kann eintreten, während der Kunde auf dem Kurs steht: Der Betreiber
     // kündigt oder pausiert gerade. Ein verständlicher Satz statt eines

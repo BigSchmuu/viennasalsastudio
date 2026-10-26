@@ -53,7 +53,7 @@ type KursBezug = {
   video_set_id: string | null;
   course_schedule: Zeitplan | Zeitplan[] | null;
   rooms: { name: string; locations: { name: string } | null } | null;
-  dance_styles: { name: string } | null;
+  dance_styles: { name: string; pass_price: number | null; pass_student_price: number | null } | null;
   /** PROJ-51: der Kurszeitraum — außerhalb davon findet nichts statt. */
   runs_from: string | null;
   runs_until: string | null;
@@ -94,7 +94,7 @@ export default async function MeinBereichPage() {
   const fensterEnde = new Date(jetzt.getTime() + EVENT_FENSTER_TAGE * 24 * 60 * 60 * 1000).toISOString();
 
   const kursAuswahl =
-    "id, name, level, video_set_id, runs_from, runs_until, pending_name, pending_effective_date, course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), rooms(name, locations(name)), dance_styles(name)";
+    "id, name, level, video_set_id, runs_from, runs_until, pending_name, pending_effective_date, course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), rooms(name, locations(name)), dance_styles(name, pass_price, pass_student_price)";
 
   const [
     { data: profil },
@@ -415,6 +415,9 @@ export default async function MeinBereichPage() {
           kurs: {
             id: kurs.id,
             name: kurs.name,
+            danceStyleName: kurs.dance_styles?.name ?? null,
+            passPrice: kurs.dance_styles?.pass_price ?? null,
+            passStudentPrice: kurs.dance_styles?.pass_student_price ?? null,
             entryDates: (kurs.course_entry_dates ?? []).map((d) => d.entry_date),
             nextOccurrenceDates: upcomingOccurrences(plan.weekday, {
               count: 4,

@@ -19,7 +19,11 @@ export type CourseDetailData = {
   price: number | null;
   hasOpenRegularBooking: boolean;
   hasActiveSubscription: boolean;
-  /** PROJ-50: Der Kunde hat eine laufende Flatrate — Kurse kosten ihn nichts extra. */
+  /**
+   * PROJ-50/93: Ein kursloses Abo deckt **diesen** Kurs — die volle Flatrate
+   * jeden, ein Pass nur Kurse seiner Stilrichtung. Daran hängt, ob „hinzufügen"
+   * statt „buchen" angeboten wird.
+   */
   hasFlatrate: boolean;
   isFull: boolean;
   isOnWaitlist: boolean;
@@ -27,6 +31,10 @@ export type CourseDetailData = {
   /** PROJ-51: Kursende — der Dialog weist darauf hin, bevor jemand bucht. */
   runsUntil: string | null;
   roleQueryEnabled: boolean;
+  /** PROJ-93: Stilrichtung und ihre Passpreise — entscheiden über die Pass-Kachel. */
+  danceStyleName: string | null;
+  passPrice: number | null;
+  passStudentPrice: number | null;
 };
 
 export function CourseDetailBooking({

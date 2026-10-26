@@ -156,3 +156,32 @@ describe("preisUeberblick", () => {
     expect(preisUeberblick(halb)).toContain(`Empfehlung ${p(15)} / ${p(0)}`);
   });
 });
+
+describe("planPrice: Stil-Pass (PROJ-93)", () => {
+  const preise = readStudioPricing({ flatrate_price: 145, course_price: 65 });
+
+  it("nimmt den Passpreis der Stilrichtung", () => {
+    expect(planPrice(preise, "style_pass", { passPrice: 85 })).toBe(85);
+  });
+
+  it("nimmt den ermäßigten Passpreis, wenn er gepflegt ist", () => {
+    expect(planPrice(preise, "style_pass", { passPrice: 85, passStudentPrice: 70, student: true })).toBe(70);
+  });
+
+  // Dieselbe Linie wie bei der Flatrate: Eine fehlende Ermäßigung darf nicht
+  // dazu führen, dass gar kein Preis erscheint.
+  it("fällt ohne ermäßigten Satz auf den normalen zurück", () => {
+    expect(planPrice(preise, "style_pass", { passPrice: 85, student: true })).toBe(85);
+  });
+
+  // Kein Preis heißt „diesen Pass gibt es nicht" — die Kachel bleibt dann weg.
+  it("gibt null, wenn die Stilrichtung keinen Passpreis hat", () => {
+    expect(planPrice(preise, "style_pass", {})).toBeNull();
+    expect(planPrice(preise, "style_pass", { passPrice: null, student: true })).toBeNull();
+  });
+
+  it("lässt Kursabo und Flatrate unberührt", () => {
+    expect(planPrice(preise, "flatrate", { passPrice: 85 })).toBe(145);
+    expect(planPrice(preise, "single_course", { passPrice: 85, coursePrice: 65 })).toBe(65);
+  });
+});

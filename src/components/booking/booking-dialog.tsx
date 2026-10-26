@@ -77,8 +77,8 @@ export type BookingDialogCourse = {
   hasOpenRegularBooking: boolean;
   /** Fix zu PROJ-8: schon eingeschrieben — eine zweite Anmeldung hieße doppelter Einzug. */
   hasActiveSubscription: boolean;
-  /** PROJ-50: laufende Flatrate. Der Dialog nutzt es nicht — die Aufrufer
-   *  entscheiden damit, ob sie ihn überhaupt anbieten. */
+  /** PROJ-50/93: Ein kursloses Abo deckt diesen Kurs. Der Dialog nutzt es
+   *  nicht — die Aufrufer entscheiden damit, ob sie ihn überhaupt anbieten. */
   hasFlatrate?: boolean;
   /** Eigener Preis dieses Kurses; `null` heißt „Standardpreis gilt" (PROJ-41). */
   price: number | null;
@@ -94,6 +94,17 @@ export type BookingDialogCourse = {
    */
   runsUntil: string | null;
   roleQueryEnabled: boolean;
+  /**
+   * PROJ-93: Die Stilrichtung dieses Kurses und ihre Passpreise.
+   *
+   * Beides zusammen entscheidet, ob es die Pass-Kachel gibt: ohne
+   * Stilrichtung oder ohne Preis daran kein Pass. Pflichtangaben, nicht
+   * optional — sonst fehlte der Pass genau dort, wo ein Aufrufer sie vergisst,
+   * und niemandem fiele es auf.
+   */
+  danceStyleName: string | null;
+  passPrice: number | null;
+  passStudentPrice: number | null;
 };
 
 export function BookingDialog({
@@ -417,6 +428,9 @@ export function BookingDialog({
                     pricing={pricing}
                     coursePrice={course.price}
                     student={wantsStudentPrice}
+                    danceStyleName={course.danceStyleName}
+                    passPrice={course.passPrice}
+                    passStudentPrice={course.passStudentPrice}
                     value={desiredPlan}
                     onChange={setDesiredPlan}
                   />

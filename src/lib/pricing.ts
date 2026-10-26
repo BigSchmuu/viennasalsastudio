@@ -77,9 +77,24 @@ export function readStudioPricing(row: PricingRow): StudioPricing {
 export function planPrice(
   pricing: StudioPricing,
   plan: DesiredPlan,
-  options: { coursePrice?: number | null; student?: boolean } = {}
+  options: {
+    coursePrice?: number | null;
+    student?: boolean;
+    /** PROJ-93: Die Passpreise der Stilrichtung **dieses** Kurses. */
+    passPrice?: number | null;
+    passStudentPrice?: number | null;
+  } = {}
 ): number | null {
   const student = options.student ?? false;
+
+  // PROJ-93: Der Passpreis hängt am Stil, nicht an der Preisliste des Studios.
+  // Kein Preis heißt „diesen Pass gibt es nicht" — dann gibt es auch keine
+  // Kachel, und `null` ist hier kein Fehler, sondern die Antwort.
+  if (plan === "style_pass") {
+    const pass = options.passPrice ?? null;
+    if (pass === null) return null;
+    return student ? (options.passStudentPrice ?? pass) : pass;
+  }
 
   if (plan === "flatrate") {
     const price = student ? pricing.flatrate.student : pricing.flatrate.normal;

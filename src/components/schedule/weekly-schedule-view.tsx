@@ -21,6 +21,9 @@ export type ScheduleEntry = {
   courseId: string;
   courseName: string;
   danceStyleName: string;
+  /** PROJ-93: Passpreise der Stilrichtung — `null` heißt „keinen Pass dafür“. */
+  passPrice: number | null;
+  passStudentPrice: number | null;
   level: string | null;
   locationId: string;
   locationName: string;
@@ -146,6 +149,9 @@ function ScheduleCard({
               name: entry.courseName,
               entryDates: entry.booking.entryDates,
               nextOccurrenceDates: entry.booking.nextOccurrenceDates,
+              danceStyleName: entry.danceStyleName,
+              passPrice: entry.passPrice,
+              passStudentPrice: entry.passStudentPrice,
               price: entry.booking.price,
               hasOpenRegularBooking: entry.booking.hasOpenRegularBooking,
               hasActiveSubscription: entry.booking.hasActiveSubscription,

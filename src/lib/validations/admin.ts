@@ -29,8 +29,25 @@ export const roomSchema = z.object({
 });
 export type RoomInput = z.infer<typeof roomSchema>;
 
+/**
+ * PROJ-93: Freiwillige Passpreise. Leer heisst „für diese Stilrichtung gibt es
+ * keinen Pass" — und ist deshalb etwas anderes als 0. Die Null lehnt das
+ * Schema ab: Ein Pass für null Euro wäre ein Angebot, das niemand machen
+ * wollte, sondern ein Vertipper.
+ */
+const passPreisFeld = z
+  .string()
+  .trim()
+  .refine((value) => value === "" || (Number.isFinite(Number(value)) && Number(value) > 0), {
+    message: "Bitte einen Preis größer als null eingeben oder das Feld leer lassen",
+  })
+  .optional()
+  .or(z.literal(""));
+
 export const danceStyleSchema = z.object({
   name: z.string().trim().min(1, "Name ist erforderlich").max(100),
+  pass_price: passPreisFeld,
+  pass_student_price: passPreisFeld,
 });
 export type DanceStyleInput = z.infer<typeof danceStyleSchema>;
 

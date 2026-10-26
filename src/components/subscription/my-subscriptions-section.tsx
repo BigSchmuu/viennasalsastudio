@@ -67,7 +67,7 @@ export type MySubscriptionRow = {
    * die Frage sich nicht stellt. Ohne diesen Grund sähe der Kunde die
    * Möglichkeit nirgends und erfuhr auch nicht, warum.
    */
-  upgradeGrund: "flatrate" | "pending" | "preis" | null;
+  upgradeGrund: "flatrate" | "pass" | "pending" | "preis" | null;
   /**
    * PROJ-91: Bucht der nächste Lauf den laufenden Zyklus dieses Abos noch voll
    * ab? Dann kommt zur Flatrate nichts dazu, und der Kasten sagt das — eine
@@ -97,6 +97,7 @@ export function MySubscriptionsSection({
   courses,
   flatratePreis,
   angerechnet,
+  passStil,
 }: {
   subscriptions: MySubscriptionRow[];
   courses: SubscriptionCourseOption[];
@@ -108,6 +109,8 @@ export function MySubscriptionsSection({
    * einzelnen Abos: Wer zwei Kurse einzeln zahlt, hat schon beides bezahlt.
    */
   angerechnet: number;
+  /** PROJ-93: Name der Stilrichtung eines laufenden Passes, sonst `null`. */
+  passStil: string | null;
 }) {
   const t = useTranslations("profile");
   const locale = useLocale();
@@ -307,7 +310,9 @@ export function MySubscriptionsSection({
               ) : (
                 subscription.upgradeGrund !== null ? (
                   <p className="text-sm text-muted-foreground">
-                    {t(`upgradeBlocked.${subscription.upgradeGrund}`)}
+                    {subscription.upgradeGrund === "pass"
+                      ? t("upgradeBlocked.pass", { style: passStil ?? "" })
+                      : t(`upgradeBlocked.${subscription.upgradeGrund}`)}
                   </p>
                 ) : subscription.upgradeMoeglich &&
                   flatratePreis !== null && (

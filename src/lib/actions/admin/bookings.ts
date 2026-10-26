@@ -31,7 +31,7 @@ export async function confirmRegularBooking(
 
   const { data: booking } = await supabase
     .from("course_bookings")
-    .select("id, customer_id, type, status, course_id, desired_plan, chosen_date")
+    .select("id, customer_id, type, status, course_id, desired_plan, chosen_date, courses(dance_style_id)")
     .eq("id", bookingId)
     .single();
 
@@ -53,7 +53,12 @@ export async function confirmRegularBooking(
       name,
       price,
       status: "active",
+      // PROJ-93: Beim Pass bleibt `course_id` leer wie bei der Flatrate — die
+      // Grenze steht in `dance_style_id`. Genau diese beiden Felder
+      // unterscheiden die drei Tarife voneinander.
       course_id: booking.desired_plan === "single_course" ? booking.course_id : null,
+      dance_style_id:
+        booking.desired_plan === "style_pass" ? (booking.courses?.dance_style_id ?? null) : null,
       cycle_anchor_date: booking.chosen_date,
     })
     .select("id")
@@ -228,7 +233,7 @@ export async function bestaetigeBuchungenStapel(
 
   const { data: buchungen, error: leseFehler } = await supabase
     .from("course_bookings")
-    .select("id, customer_id, type, status, course_id, desired_plan, chosen_date, profiles(full_name)")
+    .select("id, customer_id, type, status, course_id, desired_plan, chosen_date, profiles(full_name), courses(dance_style_id)")
     .in("id", eintraege.map((e) => e.buchungId));
 
   if (leseFehler) return { error: "Die Buchungen konnten nicht gelesen werden." };
@@ -265,6 +270,8 @@ export async function bestaetigeBuchungenStapel(
           price: eintrag.preis,
           status: "active",
           course_id: buchung.desired_plan === "single_course" ? buchung.course_id : null,
+          dance_style_id:
+            buchung.desired_plan === "style_pass" ? (buchung.courses?.dance_style_id ?? null) : null,
           cycle_anchor_date: buchung.chosen_date,
         })
         .select("id")

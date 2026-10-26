@@ -39,7 +39,20 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-export type DanceStyleRow = { id: string; name: string; courseCount: number };
+export type DanceStyleRow = {
+  id: string;
+  name: string;
+  courseCount: number;
+  /**
+   * PROJ-93: Der Passpreis dieser Stilrichtung. `null` heißt „es gibt keinen
+   * Pass dafür" — dann fehlt die Kachel im Buchungsdialog ganz. Der Preis ist
+   * also nicht nur ein Betrag, sondern der Schalter für das Angebot.
+   */
+  passPrice: number | null;
+  passStudentPrice: number | null;
+};
+
+const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
 
 export function DanceStyleManager({ danceStyles }: { danceStyles: DanceStyleRow[] }) {
   const [editing, setEditing] = useState<DanceStyleRow | null | "new">(null);
@@ -73,6 +86,7 @@ export function DanceStyleManager({ danceStyles }: { danceStyles: DanceStyleRow[
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Kurse</TableHead>
+              <TableHead>Pass</TableHead>
               <TableHead className="text-right">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
@@ -81,6 +95,21 @@ export function DanceStyleManager({ danceStyles }: { danceStyles: DanceStyleRow[
               <TableRow key={style.id}>
                 <TableCell className="font-medium">{style.name}</TableCell>
                 <TableCell>{style.courseCount}</TableCell>
+                <TableCell className="tabular-nums">
+                  {style.passPrice === null ? (
+                    <span className="text-muted-foreground">kein Pass</span>
+                  ) : (
+                    <>
+                      {EUR.format(style.passPrice)}
+                      {style.passStudentPrice !== null && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {EUR.format(style.passStudentPrice)} erm.
+                        </span>
+                      )}
+                    </>
+                  )}
+                </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button variant="outline" size="sm" onClick={() => setEditing(style)}>
                     Bearbeiten
@@ -152,7 +181,11 @@ function DanceStyleFormDialog({
 
   const form = useForm<DanceStyleInput>({
     resolver: zodResolver(danceStyleSchema),
-    values: { name: danceStyle?.name ?? "" },
+    values: {
+      name: danceStyle?.name ?? "",
+      pass_price: danceStyle?.passPrice?.toString() ?? "",
+      pass_student_price: danceStyle?.passStudentPrice?.toString() ?? "",
+    },
   });
 
   async function onSubmit(values: DanceStyleInput) {
@@ -161,6 +194,8 @@ function DanceStyleFormDialog({
     try {
       const formData = new FormData();
       formData.set("name", values.name);
+      formData.set("pass_price", values.pass_price ?? "");
+      formData.set("pass_student_price", values.pass_student_price ?? "");
 
       const result = danceStyle
         ? await updateDanceStyle(danceStyle.id, formData)
@@ -204,6 +239,42 @@ function DanceStyleFormDialog({
                 </FormItem>
               )}
             />
+
+            {/* PROJ-93: Der Preis ist der Schalter. Deshalb steht der Satz
+                darunter und nicht in einer Anleitung woanders. */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="pass_price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pass je Monat</FormLabel>
+                    <FormControl>
+                      <Input {...field} inputMode="decimal" placeholder="z. B. 85" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="pass_student_price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pass für Studierende</FormLabel>
+                    <FormControl>
+                      <Input {...field} inputMode="decimal" placeholder="z. B. 70" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Mit einem Preis gibt es einen Pass für diese Stilrichtung: Kunden sehen ihn beim Buchen
+              ihrer Kurse als dritte Wahl neben Kursabo und Flatrate. Leer heißt, dass es keinen
+              gibt. Bleibt der Studierendenpreis leer, gilt der normale.
+            </p>
 
             <DialogFooter>
               <Button type="submit" disabled={loading}>

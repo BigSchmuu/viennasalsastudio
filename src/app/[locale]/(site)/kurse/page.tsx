@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
+import {
+  ladeKurszugehoerigkeit,
+  decktKurs,
+  LEERE_ZUGEHOERIGKEIT,
+  type Kurszugehoerigkeit,
+} from "@/lib/flatrate/kurszugehoerigkeit";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { CourseCatalog, type CatalogCourseRow, type SimpleOption } from "@/components/catalog/course-catalog";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
@@ -23,7 +28,7 @@ export default async function KurskatalogPage() {
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
+        "id, name, level, dance_style_id, dance_styles(name, pass_price, pass_student_price), room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
       )
       .order("created_at", { ascending: true }),
     supabase.from("dance_styles").select("id, name").order("name", { ascending: true }),
@@ -52,10 +57,12 @@ export default async function KurskatalogPage() {
   let openRegularCourseIds = new Set<string>();
   let waitlistCourseIds = new Set<string>();
   let enrolledCourseIds = new Set<string>();
-  let hatFlatrate = false;
+  // PROJ-93: Nicht mehr ein Merker „hat Flatrate“, sondern die ganze
+  // Antwort — ob ein Kurs gedeckt ist, entscheidet sich je Kurs.
+  let zugehoerigkeit: Kurszugehoerigkeit = LEERE_ZUGEHOERIGKEIT;
 
   if (user) {
-    const [mandateRes, profileRes, bookingsRes, waitlistRes, zugehoerigkeit] = await Promise.all([
+    const [mandateRes, profileRes, bookingsRes, waitlistRes, zugehoerigkeitRes] = await Promise.all([
       supabase.from("sepa_mandates").select("id").eq("customer_id", user.id).is("revoked_at", null).maybeSingle(),
       supabase.from("profiles").select("referral_source").eq("id", user.id).single(),
       supabase
@@ -79,8 +86,8 @@ export default async function KurskatalogPage() {
     hasReferralSource = !!profileRes.data?.referral_source;
     openRegularCourseIds = new Set((bookingsRes.data ?? []).map((b) => b.course_id));
     waitlistCourseIds = new Set((waitlistRes.data ?? []).map((w) => w.course_id));
-    enrolledCourseIds = zugehoerigkeit.kursIds;
-    hatFlatrate = zugehoerigkeit.hatFlatrate;
+    enrolledCourseIds = zugehoerigkeitRes.kursIds;
+    zugehoerigkeit = zugehoerigkeitRes;
   }
 
   // PROJ-51: einmal für die ganze Liste geladen, nicht je Kurs.
@@ -121,6 +128,8 @@ export default async function KurskatalogPage() {
       name: c.name,
       danceStyleId: c.dance_style_id,
       danceStyleName: c.dance_styles?.name ?? "—",
+      passPrice: c.dance_styles?.pass_price ?? null,
+      passStudentPrice: c.dance_styles?.pass_student_price ?? null,
       level: c.level,
       locationId: c.rooms?.location_id ?? "",
       locationName: c.rooms?.locations?.name ?? "—",
@@ -133,7 +142,7 @@ export default async function KurskatalogPage() {
       price: c.price,
       hasOpenRegularBooking: openRegularCourseIds.has(c.id),
       hasActiveSubscription: enrolledCourseIds.has(c.id),
-      hasFlatrate: hatFlatrate,
+      hasFlatrate: decktKurs(zugehoerigkeit, c.dance_style_id),
       isFull: c.max_participants !== null && (occupiedByCourse.get(c.id) ?? 0) >= c.max_participants,
       isOnWaitlist: waitlistCourseIds.has(c.id),
       prerequisiteNote: c.prerequisite_note,

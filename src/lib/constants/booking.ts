@@ -25,11 +25,20 @@ export function bookingStatusColor(value: string): string {
   return bookingStatusOptions.find((o) => o.value === value)?.color ?? "#94a3b8";
 }
 
-export const desiredPlanValues = ["single_course", "flatrate"] as const;
+/**
+ * PROJ-93: `style_pass` ist die Flatrate mit Stilgrenze — ein Pass für alle
+ * Kurse einer Stilrichtung. Er erscheint nur bei Kursen, deren Stilrichtung
+ * einen Passpreis hat; die Spalte `course_bookings.desired_plan` kennt den
+ * Wert seit der Migration 20261026100000.
+ */
+export const desiredPlanValues = ["single_course", "flatrate", "style_pass"] as const;
 export type DesiredPlan = (typeof desiredPlanValues)[number];
 
 export const desiredPlanOptions: { value: DesiredPlan; label: string }[] = [
   { value: "single_course", label: "Nur diesen Kurs" },
+  // Ohne Stilnamen: Diese Liste kennt den Kurs nicht. Wo der Name gebraucht
+  // wird — in der Kachel und im Profil —, kommt er aus der Stilrichtung.
+  { value: "style_pass", label: "Pass für eine Stilrichtung" },
   { value: "flatrate", label: "Flatrate (alle Kurse)" },
 ];
 

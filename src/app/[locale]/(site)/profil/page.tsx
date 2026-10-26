@@ -85,7 +85,7 @@ export default async function ProfilePage() {
     supabase
       .from("subscriptions")
       .select(
-        "id, name, price, status, pending_status, pending_effective_date, upgrade_requested_at, course_id, courses(name, runs_until)"
+        "id, name, price, status, pending_status, pending_effective_date, upgrade_requested_at, course_id, dance_style_id, dance_styles(name), courses(name, runs_until)"
       )
       .eq("customer_id", user.id)
       .order("created_at", { ascending: true }),
@@ -247,6 +247,12 @@ export default async function ProfilePage() {
   const hatFlatrateAbo = (subscriptionRows ?? []).some(
     (s) => s.status === "active" && !s.course_id
   );
+  // PROJ-93: Ein Pass sperrt das Upgrade genauso wie die Flatrate — aber aus
+  // einem anderen Grund, und „damit stehen dir alle Kurse offen" wäre bei ihm
+  // schlicht falsch.
+  const passStil = (subscriptionRows ?? []).find(
+    (s) => s.status === "active" && !s.course_id && s.dance_style_id !== null
+  )?.dance_styles?.name ?? null;
   const flatratePreisFehlt = studioPricingVorab.flatrate.normal === null;
 
   const subscriptions: MySubscriptionRow[] = (subscriptionRows ?? []).map((s) => ({
@@ -278,7 +284,9 @@ export default async function ProfilePage() {
       s.status !== "active" || !s.course_id || (upgradeMoeglichkeiten.get(s.id) ?? false)
         ? null
         : hatFlatrateAbo
-          ? "flatrate"
+          ? passStil !== null
+            ? "pass"
+            : "flatrate"
           : s.pending_status
             ? "pending"
             : flatratePreisFehlt
@@ -460,6 +468,7 @@ export default async function ProfilePage() {
               courses={courses}
               flatratePreis={studioPricing.flatrate.normal}
               angerechnet={angerechnet}
+              passStil={passStil}
             />
             {/* PROJ-50: Die Kurse gehören zum Abo — deshalb hier und nicht in
                 einem eigenen Abschnitt. */}

@@ -821,16 +821,22 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          pass_price: number | null
+          pass_student_price: number | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          pass_price?: number | null
+          pass_student_price?: number | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          pass_price?: number | null
+          pass_student_price?: number | null
         }
         Relationships: []
       }
@@ -2155,6 +2161,7 @@ export type Database = {
           created_at: string
           customer_id: string
           cycle_anchor_date: string
+          dance_style_id: string | null
           id: string
           name: string | null
           pending_effective_date: string | null
@@ -2171,6 +2178,7 @@ export type Database = {
           created_at?: string
           customer_id: string
           cycle_anchor_date?: string
+          dance_style_id?: string | null
           id?: string
           name?: string | null
           pending_effective_date?: string | null
@@ -2187,6 +2195,7 @@ export type Database = {
           created_at?: string
           customer_id?: string
           cycle_anchor_date?: string
+          dance_style_id?: string | null
           id?: string
           name?: string | null
           pending_effective_date?: string | null
@@ -2196,6 +2205,13 @@ export type Database = {
           upgrade_requested_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "subscriptions_dance_style_id_fkey"
+            columns: ["dance_style_id"]
+            isOneToOne: false
+            referencedRelation: "dance_styles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "subscriptions_course_id_fkey"
             columns: ["course_id"]

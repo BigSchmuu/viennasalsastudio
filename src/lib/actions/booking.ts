@@ -170,6 +170,21 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       if (error.message.includes("course is full")) {
         return { full: true };
       }
+      // PROJ-93: Die Oberfläche bietet den Pass nur dort an, wo es ihn gibt —
+      // diese drei Meldungen greifen, wenn der Aufruf trotzdem hier ankommt
+      // (alter Tab, zwischenzeitlich entfernter Preis, zwei Geräte).
+      if (
+        error.message.includes("no pass for this style") ||
+        error.message.includes("course has no dance style")
+      ) {
+        return { error: "Für diese Stilrichtung gibt es derzeit keinen Pass." };
+      }
+      if (error.message.includes("already has open plan")) {
+        return {
+          error:
+            "Für dieses Konto läuft schon eine Flatrate oder ein Pass — mehr als eines davon geht nicht.",
+        };
+      }
       if (error.message.includes("role imbalance")) {
         return { roleImbalance: true };
       }

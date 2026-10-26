@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { ladeKurszugehoerigkeit } from "@/lib/flatrate/kurszugehoerigkeit";
+import { ladeKurszugehoerigkeit, decktKurs } from "@/lib/flatrate/kurszugehoerigkeit";
 import { ladeFerien, ladeFerienMitNamen, kurszeitraum } from "@/lib/scheduling/ferien";
 import { imAngebot, zeitraumhinweis, anstehendeFerien } from "@/lib/scheduling/kursanzeige";
 import { WeeklyScheduleView, type ScheduleEntry } from "@/components/schedule/weekly-schedule-view";
@@ -38,7 +38,7 @@ export default async function StundenplanPage() {
       supabase
         .from("courses")
         .select(
-          "id, name, level, dance_styles(name), rooms(id, name, locations(id, name, address)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
+          "id, name, level, dance_style_id, dance_styles(name, pass_price, pass_student_price), rooms(id, name, locations(id, name, address)), course_teachers(teacher_id), course_schedule!inner(id, weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
         ),
       supabase.from("teacher_directory").select("id, full_name"),
       // PROJ-25: In welchen Kursen der Kunde sitzt, entscheidet über den
@@ -48,7 +48,12 @@ export default async function StundenplanPage() {
       // „Jetzt buchen".
       user
         ? ladeKurszugehoerigkeit(supabase, user.id)
-        : Promise.resolve({ hatFlatrate: false, kursIds: new Set<string>(), videoKursIds: new Set<string>() }),
+        : Promise.resolve({
+            hatFlatrate: false,
+            passStilId: null,
+            kursIds: new Set<string>(),
+            videoKursIds: new Set<string>(),
+          }),
       // PROJ-26: occupancy is public/aggregate (same RPC /kurse already uses), needed regardless of login state.
       supabase.rpc("get_course_occupancy"),
       supabase.from("dropin_pricing").select("*").limit(1).single(),
@@ -125,6 +130,8 @@ export default async function StundenplanPage() {
       courseId: course.id,
       courseName: course.name,
       danceStyleName: course.dance_styles?.name ?? "—",
+      passPrice: course.dance_styles?.pass_price ?? null,
+      passStudentPrice: course.dance_styles?.pass_student_price ?? null,
       level: course.level,
       locationId: course.rooms?.locations?.id ?? "unassigned",
       locationName: course.rooms?.locations?.name ?? "—",
@@ -169,7 +176,7 @@ export default async function StundenplanPage() {
       }),
       hasOpenRegularBooking: myOpenRegularCourseIds.has(course.id),
       hasActiveSubscription: istDrin,
-      hasFlatrate: mySubsRes.hatFlatrate,
+      hasFlatrate: decktKurs(mySubsRes, course.dance_style_id),
       isFull: course.max_participants !== null && (occupiedByCourse.get(course.id) ?? 0) >= course.max_participants,
       isOnWaitlist: myWaitlistCourseIds.has(course.id),
       isLoggedIn: !!user,

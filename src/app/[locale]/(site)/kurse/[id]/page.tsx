@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ladeFerien, kurszeitraum } from "@/lib/scheduling/ferien";
 import { heuteInWien } from "@/lib/constants/zeitzone";
 import { imAngebot } from "@/lib/scheduling/kursanzeige";
-import { ladeKurszugehoerigkeit, darfVideosSehen } from "@/lib/flatrate/kurszugehoerigkeit";
+import { ladeKurszugehoerigkeit, darfVideosSehen, decktKurs } from "@/lib/flatrate/kurszugehoerigkeit";
 import { upcomingOccurrences } from "@/lib/scheduling/dates";
 import { levelLabel, levelBadgeStyle } from "@/lib/constants/levels";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +37,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     supabase
       .from("courses")
       .select(
-        "id, name, level, dance_style_id, dance_styles(name), video_set_id, room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, description, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
+        "id, name, level, dance_style_id, dance_styles(name, pass_price, pass_student_price), video_set_id, room_id, rooms(name, location_id, locations(name)), course_teachers(teacher_id), course_schedule(weekday, start_time, end_time, course_schedule_pauses(pause_date)), course_entry_dates(entry_date), max_participants, price, prerequisite_note, description, role_query_enabled, runs_from, runs_until, pending_name, pending_effective_date"
       )
       .eq("id", id)
       .single(),
@@ -129,7 +129,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     hasOpenRegularBooking = !!bookingRes.data;
     hasVideoAccess = darfVideosSehen(zugehoerigkeit, id);
     hasActiveSubscription = zugehoerigkeit.kursIds.has(id);
-    hasFlatrate = zugehoerigkeit.hatFlatrate;
+    hasFlatrate = decktKurs(zugehoerigkeit, course.dance_style_id);
     isOnWaitlist = !!waitlistRes.data;
   }
 
@@ -166,6 +166,9 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     prerequisiteNote: course.prerequisite_note,
     runsUntil: course.runs_until,
     roleQueryEnabled: course.role_query_enabled,
+    danceStyleName: course.dance_styles?.name ?? null,
+    passPrice: course.dance_styles?.pass_price ?? null,
+    passStudentPrice: course.dance_styles?.pass_student_price ?? null,
   };
 
   const lehrerNamen = course.course_teachers

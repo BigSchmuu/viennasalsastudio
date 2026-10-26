@@ -15,6 +15,11 @@ import { cn } from "@/lib/utils";
  * helfen. Darunter liegt weiterhin eine RadioGroup: sie bringt Pfeiltasten-
  * Navigation und einen einzigen Tab-Stopp mit, was eine Sammlung anklickbarer
  * Kacheln erst mühsam nachbauen müsste.
+ *
+ * PROJ-93: Dazu kommt der Pass für eine Stilrichtung — aber nur dort, wo es
+ * ihn gibt. Ohne Passpreis an der Stilrichtung des Kurses fehlt die Kachel
+ * ganz; eine Kachel „Preis auf Anfrage" wäre ein Angebot, das niemand gemacht
+ * hat.
  */
 export function PlanPriceTiles({
   pricing,
@@ -22,25 +27,44 @@ export function PlanPriceTiles({
   student,
   value,
   onChange,
+  danceStyleName = null,
+  passPrice = null,
+  passStudentPrice = null,
 }: {
   pricing: StudioPricing;
   /** Eigener Preis dieses Kurses; `null` heißt „Standardpreis gilt". */
   coursePrice: number | null;
   student: boolean;
   value: DesiredPlan | "";
+  /** PROJ-93: Die Stilrichtung dieses Kurses — gibt der Kachel ihren Namen. */
+  danceStyleName?: string | null;
+  passPrice?: number | null;
+  passStudentPrice?: number | null;
   onChange: (plan: DesiredPlan) => void;
 }) {
   const t = useTranslations("booking");
   const locale = useLocale();
 
+  // PROJ-93: Der Pass braucht beides — eine Stilrichtung am Kurs und einen
+  // Preis daran. Fehlt eines, ist die Kachel nicht „leer", sondern nicht da.
+  const passMoeglich = danceStyleName !== null && passPrice !== null;
+  const sichtbareTarife = desiredPlanOptions.filter(
+    (option) => option.value !== "style_pass" || passMoeglich
+  );
+
   return (
     <RadioGroup
       value={value}
       onValueChange={(v) => onChange(v as DesiredPlan)}
-      className="grid gap-3 sm:grid-cols-2"
+      className={cn("grid gap-3", passMoeglich ? "sm:grid-cols-3" : "sm:grid-cols-2")}
     >
-      {desiredPlanOptions.map((option) => {
-        const price = planPrice(pricing, option.value, { coursePrice, student });
+      {sichtbareTarife.map((option) => {
+        const price = planPrice(pricing, option.value, {
+          coursePrice,
+          student,
+          passPrice,
+          passStudentPrice,
+        });
         const selected = value === option.value;
         return (
           <Label
@@ -54,7 +78,11 @@ export function PlanPriceTiles({
           >
             <RadioGroupItem value={option.value} id={`plan-${option.value}`} className="sr-only" />
             <span className="text-sm font-medium">
-              {option.value === "single_course" ? t("planSingleName") : t("planFlatName")}
+              {option.value === "single_course"
+                ? t("planSingleName")
+                : option.value === "style_pass"
+                  ? t("planPassName", { style: danceStyleName ?? "" })
+                  : t("planFlatName")}
             </span>
             {price === null ? (
               // Eine „0,00 €"-Kachel wäre eine Preisaussage, die niemand
@@ -68,7 +96,11 @@ export function PlanPriceTiles({
               </span>
             )}
             <span className="text-xs text-muted-foreground">
-              {option.value === "single_course" ? t("planSingleHint") : t("planFlatHint")}
+              {option.value === "single_course"
+                ? t("planSingleHint")
+                : option.value === "style_pass"
+                  ? t("planPassHint", { style: danceStyleName ?? "" })
+                  : t("planFlatHint")}
             </span>
           </Label>
         );
