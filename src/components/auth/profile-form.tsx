@@ -44,7 +44,8 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
     setSaved(false);
     try {
       const formData = new FormData();
-      formData.set("full_name", values.full_name ?? "");
+      formData.set("first_name", values.first_name);
+      formData.set("last_name", values.last_name);
       formData.set("phone", values.phone ?? "");
       formData.set("birthdate", values.birthdate ?? "");
       formData.set("gender", values.gender ?? "");
@@ -94,19 +95,34 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
           </Alert>
         )}
 
-        <FormField
-          control={form.control}
-          name="full_name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("name")}</FormLabel>
-              <FormControl>
-                <Input autoComplete="name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="first_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("firstName")}</FormLabel>
+                <FormControl>
+                  <Input autoComplete="given-name" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="last_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("lastName")}</FormLabel>
+                <FormControl>
+                  <Input autoComplete="family-name" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}

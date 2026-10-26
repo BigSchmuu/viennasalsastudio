@@ -36,31 +36,62 @@ describe("loginSchema", () => {
 });
 
 describe("registerSchema", () => {
+  // PROJ-94: Der Kern der Änderung — ohne Namen entsteht kein Konto.
+  it("verlangt Vor- und Nachnamen", () => {
+    const ohne = registerSchema.safeParse({ email: "a@b.com", password: "Passwort1" });
+    expect(ohne.success).toBe(false);
+
+    for (const feld of ["first_name", "last_name"] as const) {
+      const leer = registerSchema.safeParse({
+        email: "a@b.com",
+        password: "Passwort1",
+        first_name: "Anna",
+        last_name: "Müller",
+        [feld]: "   ",
+      });
+      expect(leer.success, `${feld} leer wurde angenommen`).toBe(false);
+    }
+  });
+
+  it("nimmt Vor- und Nachnamen mit Leerzeichen am Rand und kürzt sie", () => {
+    const result = registerSchema.safeParse({
+      email: "a@b.com",
+      password: "Passwort1",
+      first_name: "  Anna ",
+      last_name: " Müller  ",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.first_name).toBe("Anna");
+      expect(result.data.last_name).toBe("Müller");
+    }
+  });
+
   // Acht Zeichen aus drei Zeichenklassen. Dieselbe Regel muss im
   // Supabase-Dashboard stehen, sonst sagt die App "passt" und der Dienst
   // weist ab -- siehe den Kommentar in auth.ts.
   it("nimmt ein Passwort an, das alle drei Zeichenklassen und 8 Zeichen hat", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", password: "Passwort1" });
+    const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "Passwort1" });
     expect(result.success).toBe(true);
   });
 
   it("lehnt sieben Zeichen ab, auch wenn alle Klassen vorkommen", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", password: "Passw1r" });
+    const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "Passw1r" });
     expect(result.success).toBe(false);
   });
 
   it("lehnt ein Passwort ohne Ziffer ab", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", password: "Passwortt" });
+    const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "Passwortt" });
     expect(result.success).toBe(false);
   });
 
   it("lehnt ein Passwort ohne Großbuchstaben ab", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", password: "passwort1" });
+    const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "passwort1" });
     expect(result.success).toBe(false);
   });
 
   it("lehnt ein Passwort ohne Kleinbuchstaben ab", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", password: "PASSWORT1" });
+    const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "PASSWORT1" });
     expect(result.success).toBe(false);
   });
 
@@ -70,7 +101,7 @@ describe("registerSchema", () => {
     // Ziffer, Groß- oder Kleinbuchstabe — führt auf dieselbe vollständige
     // Anforderung, nie auf eine Meldung, die nur die Länge nennt.
     for (const password of ["Passw1r", "Passwortt", "passwort1", "PASSWORT1"]) {
-      const result = registerSchema.safeParse({ email: "a@b.com", password });
+      const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password });
       expect(result.success, password).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].message, password).toBe("passwordHint");
@@ -149,9 +180,13 @@ describe("changePasswordSchema (PROJ-73)", () => {
 });
 
 describe("profileSchema", () => {
+  // PROJ-94: Der Name ist Pflicht, alles andere bleibt freiwillig. Deshalb
+  // steht er in jedem dieser Fälle dabei.
+  const name = { first_name: "Anna", last_name: "Müller" };
+
   it("accepts all-empty optional fields", () => {
     const result = profileSchema.safeParse({
-      full_name: "",
+      ...name,
       phone: "",
       birthdate: "",
       gender: "",
@@ -159,8 +194,16 @@ describe("profileSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  // PROJ-94: Sonst wäre die Pflicht bei der Registrierung eine Formalität,
+  // die man eine Minute später rückgängig macht.
+  it("verlangt Vor- und Nachnamen", () => {
+    expect(profileSchema.safeParse({ phone: "", birthdate: "", gender: "" }).success).toBe(false);
+    expect(profileSchema.safeParse({ ...name, first_name: "  " }).success).toBe(false);
+    expect(profileSchema.safeParse({ ...name, last_name: "" }).success).toBe(false);
+  });
+
   it("accepts a past birthdate", () => {
-    const result = profileSchema.safeParse({ birthdate: "1990-01-01" });
+    const result = profileSchema.safeParse({ ...name, birthdate: "1990-01-01" });
     expect(result.success).toBe(true);
   });
 
@@ -172,7 +215,7 @@ describe("profileSchema", () => {
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
       now.getDate()
     ).padStart(2, "0")}`;
-    const result = profileSchema.safeParse({ birthdate: today });
+    const result = profileSchema.safeParse({ ...name, birthdate: today });
     expect(result.success).toBe(true);
   });
 

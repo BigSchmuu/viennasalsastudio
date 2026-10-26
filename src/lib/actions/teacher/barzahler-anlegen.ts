@@ -6,6 +6,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { heuteInWien } from "@/lib/constants/zeitzone";
 import { betragAusEingabe, nameGueltig, offlineAdresse } from "@/lib/kunden/offline";
 import type { ActionResult } from "@/lib/actions/types";
+import { teileName } from "@/lib/namen";
 
 /**
  * Einen Barzahler von Hand eintragen (PROJ-82, Flatrate ab PROJ-85).
@@ -99,9 +100,16 @@ export async function legeBarzahlerAn(
   }
 
   const kundeId = konto.user.id;
+  const geteilterName = teileName(name);
   const { error: profilFehler } = await service
     .from("profiles")
-    .update({ full_name: name.trim() })
+    // PROJ-94: Ein Feld an der Tür, geteilt gespeichert — zwei Felder kosten
+    // Zeit in genau dem Augenblick, in dem keine ist. Die Regel steht in
+    // lib/namen.ts und ist dieselbe wie beim Umzug der Bestandsdaten.
+    .update({
+      first_name: geteilterName.vorname,
+      last_name: geteilterName.nachname || null,
+    })
     .eq("id", kundeId);
   if (profilFehler) {
     // Das Konto steht schon — ohne Namen wäre es eine Zeile, die niemand

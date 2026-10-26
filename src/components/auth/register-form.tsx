@@ -31,7 +31,7 @@ export function RegisterForm() {
 
   const form = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { email: "", password: "", first_name: "", last_name: "" },
   });
 
   // Ein Weg für beide Auslöser, onSubmit und `action` — Begründung am Formular.
@@ -61,6 +61,8 @@ export function RegisterForm() {
     const formData = new FormData();
     formData.set("email", values.email);
     formData.set("password", values.password);
+    formData.set("first_name", values.first_name);
+    formData.set("last_name", values.last_name);
     await absenden(formData);
   }
 
@@ -97,6 +99,35 @@ export function RegisterForm() {
             <AlertDescription>{formError}</AlertDescription>
           </Alert>
         )}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="first_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("firstName")}</FormLabel>
+                <FormControl>
+                  <Input autoComplete="given-name" {...field} />
+                </FormControl>
+                <AuthFormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="last_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("lastName")}</FormLabel>
+                <FormControl>
+                  <Input autoComplete="family-name" {...field} />
+                </FormControl>
+                <AuthFormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}

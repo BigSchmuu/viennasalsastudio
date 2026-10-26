@@ -30,6 +30,10 @@ function formular(email: string) {
   const formData = new FormData();
   formData.set("email", email);
   formData.set("password", "Tanzen2026");
+  // PROJ-94: Pflicht bei der Registrierung — ohne die beiden weist die
+  // Server-Action ab, bevor Supabase überhaupt gefragt wird.
+  formData.set("first_name", "Anna");
+  formData.set("last_name", "Müller");
   return formData;
 }
 

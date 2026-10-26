@@ -39,9 +39,19 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/**
+ * PROJ-94: Vor- und Nachname sind bei der Registrierung Pflicht. Sie gehen als
+ * Metadaten der Anmeldung mit und landen über `handle_new_user` im Profil —
+ * geprüft wird hier, serverseitig, nicht im Formular.
+ */
+const nameFeld = (fehlend: string) =>
+  z.string().trim().min(1, fehlend).max(100, "valNameTooLong");
+
 export const registerSchema = z.object({
   email: z.string().min(1, "valEmailRequired").email("valEmailInvalid"),
   password: neuesPasswort,
+  first_name: nameFeld("valFirstNameRequired"),
+  last_name: nameFeld("valLastNameRequired"),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -94,12 +104,10 @@ export const genderOptions: { value: (typeof genderValues)[number]; label: strin
 ];
 
 export const profileSchema = z.object({
-  full_name: z
-    .string()
-    .trim()
-    .max(200, "Name ist zu lang")
-    .optional()
-    .or(z.literal("")),
+  // PROJ-94: Pflicht. Ohne das wäre die Pflicht bei der Registrierung eine
+  // Formalität, die man eine Minute später rückgängig macht.
+  first_name: z.string().trim().min(1, "valFirstNameRequired").max(100, "valNameTooLong"),
+  last_name: z.string().trim().min(1, "valLastNameRequired").max(100, "valNameTooLong"),
   phone: z
     .string()
     .trim()
@@ -127,3 +135,16 @@ export const profileSchema = z.object({
 });
 
 export type ProfileInput = z.infer<typeof profileSchema>;
+
+/**
+ * Dasselbe für die Verwaltung — mit **freiwilligem** Nachnamen (PROJ-94).
+ *
+ * An der Tür kennt man manchmal nur einen Namen. Eine Sperre würde dort die
+ * Lehrkraft aufhalten, nicht die Daten verbessern; der Kunde selbst muss beides
+ * angeben, weil er es bei der Registrierung schon getan hat.
+ */
+export const adminProfileSchema = profileSchema.extend({
+  last_name: z.string().trim().max(100, "valNameTooLong").optional().or(z.literal("")),
+});
+
+export type AdminProfileInput = z.infer<typeof adminProfileSchema>;

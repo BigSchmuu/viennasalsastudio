@@ -150,6 +150,10 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
 
     await page.goto("/registrieren");
     await page.waitForTimeout(1200);
+    // PROJ-94: Vor- und Nachname sind Pflicht — ohne sie kommt das Formular
+    // nicht einmal bis zum Server.
+    await page.getByLabel("Vorname").fill("QA");
+    await page.getByLabel("Nachname").fill("Bestandskonto");
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.waitForTimeout(800);

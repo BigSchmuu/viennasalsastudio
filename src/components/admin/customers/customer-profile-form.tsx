@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { profileSchema, genderOptions, type ProfileInput } from "@/lib/validations/auth";
+import { adminProfileSchema, genderOptions, type AdminProfileInput } from "@/lib/validations/auth";
 import { updateCustomerProfile } from "@/lib/actions/admin/customers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,24 +30,25 @@ export function CustomerProfileForm({
   defaultValues,
 }: {
   customerId: string;
-  defaultValues: ProfileInput;
+  defaultValues: AdminProfileInput;
 }) {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const form = useForm<ProfileInput>({
-    resolver: zodResolver(profileSchema),
+  const form = useForm<AdminProfileInput>({
+    resolver: zodResolver(adminProfileSchema),
     defaultValues,
   });
 
-  async function onSubmit(values: ProfileInput) {
+  async function onSubmit(values: AdminProfileInput) {
     setLoading(true);
     setFormError(null);
     setSaved(false);
     try {
       const formData = new FormData();
-      formData.set("full_name", values.full_name ?? "");
+      formData.set("first_name", values.first_name);
+      formData.set("last_name", values.last_name ?? "");
       formData.set("phone", values.phone ?? "");
       formData.set("birthdate", values.birthdate ?? "");
       formData.set("gender", values.gender ?? "");
@@ -87,19 +88,36 @@ export function CustomerProfileForm({
           </Alert>
         )}
 
-        <FormField
-          control={form.control}
-          name="full_name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Name</FormLabel>
-              <FormControl>
-                <Input {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="first_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Vorname</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="last_name"
+            render={({ field }) => (
+              <FormItem>
+                {/* PROJ-94: Freiwillig — an der Tür kennt man manchmal nur
+                    einen Namen. */}
+                <FormLabel>Nachname</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}

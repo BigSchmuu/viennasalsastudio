@@ -8,7 +8,7 @@ import {
   type FlatrateKursplatz,
 } from "@/components/admin/customers/flatrate-course-manager";
 import { CreditManager, type CreditEntry } from "@/components/admin/customers/credit-manager";
-import type { ProfileInput } from "@/lib/validations/auth";
+import type { AdminProfileInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { heuteInWien } from "@/lib/constants/zeitzone";
@@ -32,7 +32,7 @@ export default async function CustomerDetailPage({
   // geschützt, sondern nur etwas versteckt.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, birthdate, gender, role, referral_code, referred_by, referral_rewarded_at")
+    .select("id, full_name, first_name, last_name, phone, birthdate, gender, role, referral_code, referred_by, referral_rewarded_at")
     .eq("id", id)
     .single();
 
@@ -101,11 +101,12 @@ export default async function CustomerDetailPage({
   const mandate = mandateRes.data;
   const hadMandateBefore = (mandateHistoryRes.count ?? 0) > 0;
 
-  const defaultValues: ProfileInput = {
-    full_name: profile.full_name ?? "",
+  const defaultValues: AdminProfileInput = {
+    first_name: profile.first_name ?? "",
+    last_name: profile.last_name ?? "",
     phone: profile.phone ?? "",
     birthdate: profile.birthdate ?? "",
-    gender: (profile.gender as ProfileInput["gender"]) ?? "",
+    gender: (profile.gender as AdminProfileInput["gender"]) ?? "",
   };
 
   const heute = heuteInWien();

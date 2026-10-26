@@ -159,7 +159,9 @@
 
 | PROJ-93 | Ein Pass für eine Stilrichtung (Bachata-Pass) | Deployed | [PROJ-93](../features/PROJ-93-stil-pass.md) | 2026-10-26 |
 
+| PROJ-94 | Vorname und Nachname getrennt, Pflicht bei der Registrierung | Planned | [PROJ-94](../features/PROJ-94-vorname-nachname.md) | 2026-10-26 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-94
+## Next Available ID: PROJ-95

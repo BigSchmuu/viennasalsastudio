@@ -1810,6 +1810,8 @@ export type Database = {
           birthdate: string | null
           created_at: string
           full_name: string | null
+          first_name: string | null
+          last_name: string | null
           gender: string | null
           id: string
           language: string | null
@@ -1824,6 +1826,8 @@ export type Database = {
           birthdate?: string | null
           created_at?: string
           full_name?: string | null
+          first_name?: string | null
+          last_name?: string | null
           gender?: string | null
           id: string
           language?: string | null
@@ -1838,6 +1842,8 @@ export type Database = {
           birthdate?: string | null
           created_at?: string
           full_name?: string | null
+          first_name?: string | null
+          last_name?: string | null
           gender?: string | null
           id?: string
           language?: string | null

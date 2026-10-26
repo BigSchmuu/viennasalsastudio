@@ -51,6 +51,8 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   const parsed = registerSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
+    first_name: formData.get("first_name"),
+    last_name: formData.get("last_name"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "errInvalidInput" };
@@ -68,6 +70,14 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
     password: parsed.data.password,
     options: {
       emailRedirectTo: `${siteUrl}/profil`,
+      // PROJ-94: Der Name muss hier mit. Das Profil entsteht im Trigger
+      // `handle_new_user`, bevor die Anwendung es sehen kann — ein
+      // nachträgliches Speichern wäre ein zweiter Schritt, der scheitern kann,
+      // und dann gäbe es ein Konto ohne Namen, obwohl er Pflicht ist.
+      data: {
+        first_name: parsed.data.first_name,
+        last_name: parsed.data.last_name,
+      },
     },
   });
 

@@ -68,7 +68,7 @@ export default async function ProfilePage() {
     { data: pricingRow },
     { data: creditRows },
   ] = await Promise.all([
-    supabase.from("profiles").select("full_name, phone, birthdate, gender, referral_code").eq("id", user.id).single(),
+    supabase.from("profiles").select("full_name, first_name, last_name, phone, birthdate, gender, referral_code").eq("id", user.id).single(),
     supabase
       .from("sepa_mandates")
       .select("id, iban, account_holder_name, consented_at")
@@ -448,7 +448,8 @@ export default async function ProfilePage() {
             <div className="max-w-md">
               <ProfileForm
                 defaultValues={{
-                  full_name: profile?.full_name ?? "",
+                  first_name: profile?.first_name ?? "",
+                  last_name: profile?.last_name ?? "",
                   phone: profile?.phone ?? "",
                   birthdate: profile?.birthdate ?? "",
                   gender: (profile?.gender ?? "") as ProfileInput["gender"],

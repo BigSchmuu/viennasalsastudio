@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { teileName } from "@/lib/namen";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { teacherInviteSchema } from "@/lib/validations/admin";
 import type { ActionResult } from "@/lib/actions/types";
@@ -37,9 +38,17 @@ export async function inviteTeacher(formData: FormData): Promise<ActionResult> {
 
   // The new-user trigger always inserts role='customer' with no name —
   // set the real role and name now that the account exists.
+  const geteilt = teileName(parsed.data.full_name);
   const { error: profileError } = await supabase
     .from("profiles")
-    .update({ role: "teacher", full_name: parsed.data.full_name })
+    // PROJ-94: Geteilt geschrieben, nicht als ganzer Name. Der Trigger auf
+    // `profiles` bildet `full_name` aus den Teilen — ein direktes Schreiben
+    // würde bei einem Profil, das schon Teile hat, stillschweigend verworfen.
+    .update({
+      role: "teacher",
+      first_name: geteilt.vorname,
+      last_name: geteilt.nachname || null,
+    })
     .eq("id", data.user.id);
   if (profileError) {
     return { error: "Einladung wurde verschickt, die Lehrer-Rolle konnte aber nicht gesetzt werden." };

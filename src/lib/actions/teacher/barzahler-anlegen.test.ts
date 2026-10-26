@@ -90,7 +90,9 @@ describe("legeBarzahlerAn (PROJ-82)", () => {
     // Die Adresse liegt auf der reservierten Endung — dort kommt nie Post an.
     const adresse = (createUser.mock.calls[0][0] as { email: string }).email;
     expect(adresse).toMatch(/@viennasalsastudio\.invalid$/);
-    expect(profilUpdate.mock.calls[0][0]).toEqual({ full_name: "Herbert K." });
+    // PROJ-94: Ein Feld an der Tür, geteilt gespeichert — `full_name` setzt
+    // der Trigger auf `profiles` aus den beiden Teilen.
+    expect(profilUpdate.mock.calls[0][0]).toEqual({ first_name: "Herbert", last_name: "K." });
     expect(aboInsert.mock.calls[0][0]).toMatchObject({
       course_id: "kurs-1",
       status: "active",

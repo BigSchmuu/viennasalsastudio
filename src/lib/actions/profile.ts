@@ -7,7 +7,8 @@ import type { ActionResult } from "@/lib/actions/auth";
 
 export async function updateProfile(formData: FormData): Promise<ActionResult> {
   const parsed = profileSchema.safeParse({
-    full_name: formData.get("full_name"),
+    first_name: formData.get("first_name"),
+    last_name: formData.get("last_name"),
     phone: formData.get("phone"),
     birthdate: formData.get("birthdate"),
     gender: formData.get("gender"),
@@ -28,7 +29,9 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
   const { error } = await supabase
     .from("profiles")
     .update({
-      full_name: parsed.data.full_name || null,
+      // PROJ-94: `full_name` setzt der Trigger aus diesen beiden.
+      first_name: parsed.data.first_name,
+      last_name: parsed.data.last_name,
       phone: parsed.data.phone || null,
       birthdate: parsed.data.birthdate || null,
       gender: parsed.data.gender || null,

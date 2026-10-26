@@ -75,6 +75,10 @@ test.describe("PROJ-92: Abgebrochene Anfrage", () => {
   test("Auch das Registrieren bleibt im Formular", async ({ page }) => {
     await gehZu(page, "/registrieren");
     await page.waitForTimeout(1200);
+    // PROJ-94: Pflichtfelder, sonst sendet das Formular gar nicht ab und der
+    // Abbruch könnte nie geprüft werden.
+    await page.getByLabel("Vorname").fill("QA");
+    await page.getByLabel("Nachname").fill("Abbruch");
     await page.getByLabel("E-Mail").fill(MAIL);
     await page.getByLabel(/^Passwort$/).fill(PASSWORT);
     const wiederholung = page.getByLabel(/Passwort bestätigen|Passwort wiederholen/);
