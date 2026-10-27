@@ -3,7 +3,11 @@ import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
 import { zweiteStufeErledigen } from "./zweite-stufe";
-import { SELF_CHECKIN_VORLAUF_MINUTEN, SELF_CHECKIN_VORLAUF_STUNDEN } from "@/lib/constants/checkin";
+import {
+  SELF_CHECKIN_NACHTRAG_BIS_STUNDE,
+  SELF_CHECKIN_VORLAUF_MINUTEN,
+  SELF_CHECKIN_VORLAUF_STUNDEN,
+} from "@/lib/constants/checkin";
 
 // The Playwright runner doesn't auto-load .env.local (unlike `next dev`), but
 // the fixture reset below needs SUPABASE_SERVICE_ROLE_KEY.
@@ -269,14 +273,18 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
     await expect(courseCard(page, "E2E25 Pausiert Kurs")).toHaveCount(0);
   });
 
-  test("Rand: Eine beendete Stunde steht nicht mehr unter „Mein Bereich“", async ({ page }) => {
-    // Entscheidung vom 2026-09-10: Das Einchecken hat sein Fenster — von
-    // einigen Stunden vor Beginn (siehe checkin.ts) bis Kursende. Danach ist der Moment vorbei; wer es
-    // vergessen hat, wird vom Lehrer in der Anwesenheitsliste eingetragen.
+  test("Rand: Eine beendete Stunde bleibt bis 23:00 zum Nachtragen stehen", async ({ page }) => {
+    // Entscheidung vom 2026-09-10, zurückgenommen am 2026-10-16:
     //
-    // Vorher stand die beendete Stunde im Stundenplan noch bis Mitternacht mit
-    // einem nicht klickbaren „✓ Eingecheckt". Diese Nachsicht entfällt mit dem
-    // Stundenplan-Knopf.
+    // Ursprünglich endete das Einchecken mit dem Kurs — wer es vergaß, war auf
+    // die Lehrkraft angewiesen. PROJ-90 hat das Fenster bis 23:00 Wiener Zeit
+    // verlängert, weil genau das der häufigste Fall war.
+    //
+    // Dieser Fall prüfte danach weiter die alte Regel und fiel im vollen Lauf
+    // vom 2026-10-26 unter Chromium (17:09 Uhr Wiener Zeit). Die Anwendung tat
+    // dabei genau das, was PROJ-90 von ihr verlangt: Sie zeigte die Karte mit
+    // „Kurs vorbei — Einchecken noch bis 23:00 möglich." Der Test war falsch,
+    // nicht das Produkt.
     await login(page, CUSTOMER_WITH_ABO);
     await gehZu(page, "/mein-bereich");
     await page.waitForTimeout(1500);
@@ -291,7 +299,24 @@ test.describe("PROJ-25: Self-Check-In für Kursanwesenheit (Abo-Kunden)", () => 
     // Der Unterschied lässt sich einfach ausdrücken: In einer Karte steht der
     // Kursname allein, in der Ausblick-Zeile eingebettet in einen Satz. `exact`
     // trifft deshalb nur die Karte.
-    await expect(page.getByText("E2E25 Beendet Kurs", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("E2E25 Beendet Kurs", { exact: true })).toHaveCount(1);
+    // Nicht nur sichtbar, sondern benutzbar: Eine Karte ohne Knopf wäre die
+    // Erinnerung an etwas, das nicht mehr geht.
+    await expect(
+      page.getByText(`Einchecken noch bis ${SELF_CHECKIN_NACHTRAG_BIS_STUNDE}:00`)
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ich bin da" })).toBeVisible();
+
+    // Ohne Verzweigung auf die Uhr, und das ist kein Versehen: Diese Datei
+    // läuft laut `test.skip` oben nur zwischen EARLIEST_HOUR und LATEST_HOUR
+    // (2:00 bis 20:00). Das liegt vollständig **vor** 23:00, der Nachtrag ist
+    // hier also immer offen. Ein `else`-Zweig für „danach" wäre toter Code, der
+    // wie Abdeckung aussieht.
+    //
+    // Dass der Nachtrag um 23:00 wirklich endet, prüft
+    // src/lib/dashboard/naechster-termin.test.ts („springt nach 23 Uhr auf die
+    // Folgewoche") — dort wird „jetzt" übergeben und hängt nicht an der Wanduhr.
+
     // Gegenprobe, damit der Fall nicht aus dem falschen Grund besteht: Die
     // laufende Stunde hat sehr wohl eine Karte.
     await expect(page.getByText("E2E25 Im Fenster Kurs", { exact: true })).toHaveCount(1);

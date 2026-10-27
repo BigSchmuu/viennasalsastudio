@@ -149,3 +149,19 @@ Zurücknehmen nach Kursende weiterhin gesperrt ist.
 - Nur das eigene Abo, nur der heutige Kurstag. Eine Probestunde oder ein Drop-in lässt sich nicht
   selbst nachtragen.
 - Ein Kurs, der bis nach 23 Uhr läuft, bleibt bis zu seinem Ende eincheckbar.
+
+## Nachtrag: Ein Test prüfte noch die alte Regel (2026-10-26)
+
+`tests/PROJ-25-self-checkin-kursanwesenheit.spec.ts` enthielt den Randfall „Eine beendete
+Stunde steht nicht mehr unter ‚Mein Bereich'" — die Regel von vor PROJ-90. Im vollen Lauf
+fiel er unter Chromium (17:09 Uhr, Nachtragsfenster offen) und bestand unter Mobile Safari
+(nach 23:00, Fenster zu). Derselbe Code, zwei Ergebnisse: Der Fall hing an der Wanduhr, ohne
+es zu sagen.
+
+Jetzt prüft er die Regel von PROJ-90 und nennt die Uhrzeit ausdrücklich — vor 23:00 muss die
+Karte samt Hinweis und Knopf da sein, danach verschwunden. Beide Zweige prüfen etwas, keiner
+überspringt sich. Die Gegenprobe (die laufende Stunde hat eine Karte) gilt in beiden.
+
+Die Rechenregel selbst ist weiterhin zeitunabhängig geprüft:
+`src/lib/dashboard/naechster-termin.test.ts` und `tests/PROJ-25-checkin-fenster-db.test.ts`
+bekommen „jetzt" übergeben.
