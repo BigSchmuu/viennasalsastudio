@@ -282,3 +282,42 @@ prüfen — und zwar oft in fremden Suiten. Vor der Änderung:
 Am 2026-09-10 wurde „Wie haben Sie von uns erfahren?" auf „du" umgestellt (die
 einzige siezende Stelle im Kundenbereich). Betroffen waren vier Testdateien,
 davon drei, die mit dem Thema nichts zu tun hatten.
+
+## Grün mit dem Dienstschlüssel, rot für den Kunden (2026-10-26)
+
+PROJ-94 hat `profiles.first_name` und `profiles.last_name` angelegt. Neun
+Datenbankprüfungen dazu waren grün. Trotzdem konnte nach dem Einspielen
+**niemand mehr ein Profil speichern** — nicht in der Kundenverwaltung, nicht
+unter „Mein Profil", und das Einladen einer Lehrkraft blieb auf halbem Weg
+stehen. Die Datenbank antwortete `42501 permission denied for table profiles`,
+das Formular sagte nur „Profil konnte nicht gespeichert werden."
+
+Der Grund lag nicht im neuen Code, sondern in einem alten Sicherheitsfix:
+PROJ-44 hat das Update-Recht auf `profiles` von der Tabellenebene auf eine
+**Spaltenliste** umgestellt. Postgres nimmt neue Spalten in eine solche Liste
+nicht automatisch auf.
+
+Gefunden hat es erst der volle Lauf — über sechs Umwege, weil drei Testdateien
+(PROJ-4, PROJ-31) scheiterten, die mit Namen nichts zu tun haben. PROJ-31 setzt
+das Geburtsdatum über dasselbe Verwaltungsformular; der Schreibfehler nahm ihm
+die Vorbedingung.
+
+**Regeln:**
+
+1. **Eine Datenbankprüfung mit dem Dienstschlüssel beweist nichts über
+   Rechte.** `service_role` umgeht RLS *und* Spaltenrechte. Wo eine Prüfung
+   zeigen soll, dass der Kunde oder die Verwaltung etwas darf, muss sie sich
+   anmelden und mit dem öffentlichen Schlüssel arbeiten — also als Rolle
+   `authenticated`. Für PROJ-94 steht dieser Fall jetzt in
+   `tests/PROJ-94-vorname-nachname-db.test.ts` samt Gegenprobe, dass die Sperre
+   aus PROJ-44 weiter hält.
+2. **Eine neue Spalte auf `profiles` braucht zwei Zeilen.** `alter table add
+   column` *und* `grant update (…) on public.profiles`. Die bestehende Liste
+   steht in `20260825233424_proj44_lock_referral_columns_properly.sql`; welche
+   Tabellen überhaupt spaltenweise vergeben sind, zeigt
+   `grep -rn "grant update (" supabase/migrations/`.
+3. **Ein Schreibfehler auf einer Spalte nimmt die ganze Anweisung mit.** Das
+   Formular schreibt Vorname, Nachname, Telefon, Geburtsdatum und Geschlecht in
+   einem `update`. Gesperrt waren zwei Spalten — nicht speichern ließ sich
+   keine. Wer eine Rechtefrage einkreist, probiert deshalb Spalte für Spalte
+   einzeln.

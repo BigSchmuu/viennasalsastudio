@@ -353,13 +353,18 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     // Save button's click handler is attached, see BUG-1 in QA results —
     // clicking before hydration falls back to a native GET submission.
     await page.waitForTimeout(2000);
-    await page.getByLabel("Name", { exact: true }).fill("QA Test Kundin");
+    // Seit PROJ-94 zwei Felder statt einem, beide Pflicht. Der ganze Name
+    // entsteht daraus in der Datenbank — hier wird deshalb geprüft, was der
+    // Kunde eingibt, nicht was der Trigger daraus macht.
+    await page.getByLabel("Vorname").fill("QA Test");
+    await page.getByLabel("Nachname").fill("Kundin");
     await page.getByLabel("Telefon").fill("+43 660 1234567");
     await page.getByRole("button", { name: "Speichern", exact: true }).click();
 
     await expect(page.getByText("Profil gespeichert.")).toBeVisible();
     await page.reload();
-    await expect(page.getByLabel("Name", { exact: true })).toHaveValue("QA Test Kundin");
+    await expect(page.getByLabel("Vorname")).toHaveValue("QA Test");
+    await expect(page.getByLabel("Nachname")).toHaveValue("Kundin");
   });
 
   // The birthdate field is three selects (Tag/Monat/Jahr) whose year list ends

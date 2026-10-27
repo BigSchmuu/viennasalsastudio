@@ -1,0 +1,25 @@
+-- PROJ-94 Nachtrag: Die beiden neuen Spalten waren nicht beschreibbar.
+--
+-- Gefunden im vollen Testlauf vom 2026-10-26. Jedes Speichern eines Profils
+-- scheiterte mit 42501 „permission denied for table profiles" — in der
+-- Kundenverwaltung, unter „Mein Profil" und beim Einladen einer Lehrkraft.
+-- Nach aussen sichtbar war davon nur „Profil konnte nicht gespeichert
+-- werden."; ein Schreibfehler auf einer einzigen Spalte laesst die ganze
+-- Anweisung scheitern, also auch das Aendern einer Telefonnummer.
+--
+-- Grund: PROJ-44 hat das Update-Recht auf `profiles` von der Tabellenebene auf
+-- eine Spaltenliste umgestellt, um die Empfehlungsspalten gegen Selbstbedienung
+-- zu sperren. Postgres nimmt neue Spalten in eine solche Liste nicht
+-- automatisch auf. `first_name` und `last_name` entstanden danach und blieben
+-- deshalb gesperrt.
+--
+-- Merksatz fuer die naechste Spalte auf `profiles`: anlegen *und* hier
+-- aufnehmen. Sonst scheitert jedes Schreiben, und zwar still.
+--
+-- Nur `authenticated`, nicht `anon` wie die uebrige Liste: Ein Profil aendert
+-- ausschliesslich, wer angemeldet ist. Bei der Registrierung schreibt der
+-- Trigger `handle_new_user` als security definer, nicht der Besucher selbst.
+-- Welche *Zeile* jemand aendern darf, entscheiden unveraendert die
+-- RLS-Richtlinien; dieses Recht sagt nur, welche Spalten ueberhaupt in Frage
+-- kommen.
+grant update (first_name, last_name) on public.profiles to authenticated;

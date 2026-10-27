@@ -132,3 +132,76 @@ describe("PROJ-94: Die Registrierung bringt den Namen mit", () => {
     expect(p.last_name).toHaveLength(100);
   });
 });
+
+describe("PROJ-94: Der Kunde darf seine Namensteile selbst schreiben", () => {
+  // Diese Prüfung gibt es, weil sie gefehlt hat.
+  //
+  // Alle Prüfungen oben benutzen den Dienstschlüssel, und der umgeht
+  // Spaltenrechte vollständig. Dadurch war PROJ-94 scheinbar grün, während in
+  // Wahrheit kein einziges Profil mehr gespeichert werden konnte: PROJ-44 hatte
+  // das Update-Recht auf `profiles` auf eine Spaltenliste umgestellt, und
+  // Postgres nimmt neue Spalten dort nicht automatisch auf (42501, gefunden am
+  // 2026-10-26 im vollen Lauf).
+  //
+  // Deshalb geht dieser Fall den Weg des Kunden: angemeldet, mit dem
+  // öffentlichen Schlüssel, also als Rolle `authenticated`.
+  //
+  // Braucht die Migration 20261026180000_proj94_schreibrecht_namensteile.sql.
+  it("speichert Vor- und Nachnamen als angemeldeter Kunde", async () => {
+    const email = `proj94-rechte-${Date.now()}@viennasalsastudio.test`;
+    const { data, error: anlegen } = await service.auth.admin.createUser({
+      email,
+      password: "CorrectPassword123!",
+      email_confirm: true,
+    });
+    if (anlegen || !data.user) throw new Error(`PROJ-94 Konto: ${anlegen?.message}`);
+    konten.push(data.user.id);
+
+    const kunde = createClient(URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false },
+    });
+    const { error: anmelden } = await kunde.auth.signInWithPassword({
+      email,
+      password: "CorrectPassword123!",
+    });
+    expect(anmelden).toBeNull();
+
+    // Genau das, was `updateProfile` schreibt — in einer Anweisung, denn ein
+    // fehlendes Recht auf einer Spalte lässt die ganze Anweisung scheitern.
+    const { error: schreiben } = await kunde
+      .from("profiles")
+      .update({ first_name: "Dora", last_name: "Dorn", phone: "+43 660 9999999" })
+      .eq("id", data.user.id);
+    expect(schreiben).toBeNull();
+
+    const p = await profil(data.user.id);
+    expect(p.first_name).toBe("Dora");
+    expect(p.last_name).toBe("Dorn");
+    expect(p.full_name).toBe("Dora Dorn");
+  });
+
+  it("lässt den Kunden die Empfehlungsspalten weiterhin nicht anfassen", async () => {
+    // Gegenprobe zur Rechtevergabe oben: Sie darf die Sperre aus PROJ-44 nicht
+    // mit aufgemacht haben. Ohne diesen Fall wäre eine zu weit gefasste
+    // Rechtezeile nicht zu unterscheiden von der richtigen.
+    const email = `proj94-sperre-${Date.now()}@viennasalsastudio.test`;
+    const { data, error: anlegen } = await service.auth.admin.createUser({
+      email,
+      password: "CorrectPassword123!",
+      email_confirm: true,
+    });
+    if (anlegen || !data.user) throw new Error(`PROJ-94 Konto: ${anlegen?.message}`);
+    konten.push(data.user.id);
+
+    const kunde = createClient(URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false },
+    });
+    await kunde.auth.signInWithPassword({ email, password: "CorrectPassword123!" });
+
+    const { error } = await kunde
+      .from("profiles")
+      .update({ referral_rewarded_at: null })
+      .eq("id", data.user.id);
+    expect(error?.code).toBe("42501");
+  });
+});

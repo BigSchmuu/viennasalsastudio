@@ -189,3 +189,41 @@ dieselbe Kette ab, ohne eine Mail zu verschicken.
 - **Für künftige Tests:** Die Testdatenbank lässt keine echte Registrierung über das
   Formular mehr zu (`email_address_invalid` für `.test`-Adressen, danach
   `over_email_send_rate_limit`). Der Weg wird deshalb ohne Mailversand geprüft; siehe oben.
+
+## Nachtrag: Fehler nach dem Ausliefern (2026-10-26)
+
+**BUG-1 — Kein Profil ließ sich mehr speichern. Schwere: Kritisch.**
+
+Gefunden vom vollen Testlauf am Abend des 2026-10-26 (sechs rote Fälle in PROJ-4 und
+PROJ-31, keiner davon über Namen), nicht von den Prüfungen zu PROJ-94 selbst.
+
+- **Was passierte:** Jedes `update` auf `profiles` scheiterte mit
+  `42501 permission denied for table profiles`. Betroffen: die Kundenverwaltung
+  (auch das reine Ändern einer Telefonnummer oder des Geburtsdatums), „Mein Profil"
+  beim Kunden, und das Einladen einer Lehrkraft — dort blieb das Konto als Kunde stehen,
+  obwohl die Einladung schon verschickt war. Sichtbar war nur
+  „Profil konnte nicht gespeichert werden."
+- **Ursache:** PROJ-44 hat das Update-Recht auf `profiles` von der Tabellenebene auf eine
+  Spaltenliste umgestellt, um die Empfehlungsspalten gegen Selbstbedienung zu sperren.
+  Postgres nimmt neue Spalten dort nicht automatisch auf; `first_name` und `last_name`
+  blieben für `authenticated` gesperrt. Das Anlegen bei der Registrierung war nie betroffen,
+  weil `handle_new_user` als `security definer` läuft.
+- **Behoben durch:** `20261026180000_proj94_schreibrecht_namensteile.sql` —
+  `grant update (first_name, last_name) on public.profiles to authenticated;`
+  Bewusst nur `authenticated`, nicht `anon` wie die übrige Liste: Ein Profil ändert
+  ausschließlich, wer angemeldet ist. Welche *Zeile* jemand ändern darf, entscheiden
+  unverändert die RLS-Richtlinien.
+- **Warum es durchkam:** Alle neun Datenbankprüfungen zu PROJ-94 benutzen den
+  Dienstschlüssel, und der umgeht Spaltenrechte vollständig. Sie konnten den Fehler
+  prinzipiell nicht sehen. Ergänzt: zwei Fälle in `tests/PROJ-94-vorname-nachname-db.test.ts`,
+  die sich anmelden und als `authenticated` schreiben — einer prüft, dass es jetzt geht,
+  der andere, dass die Sperre aus PROJ-44 weiter hält. Die Lehre steht in
+  `docs/troubleshooting-tests.md`.
+- **Nachgesehen:** Rechtevergabe in der Testdatenbank Spalte für Spalte geprüft (alle fünf
+  Felder des Formulars schreibbar); PROJ-94-Datenbankprüfungen 11/11, PROJ-2/4/31 64/64,
+  PROJ-25 16/16. In der **Produktion** hat der Betreiber am 2026-10-27 ein Kundenprofil
+  gespeichert — das war der ausstehende Beweis, weil die Produktion von hier aus
+  absichtlich nicht erreichbar ist.
+- **Angepasste Prüfungen:** `tests/PROJ-2-auth-kundenprofil.spec.ts` füllte noch das
+  entfernte Einzelfeld „Name" — das war echte Testschuld aus PROJ-94 und hat mit BUG-1
+  nichts zu tun.
