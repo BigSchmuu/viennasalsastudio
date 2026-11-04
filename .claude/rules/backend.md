@@ -65,3 +65,29 @@ Jedes Mal waren die Tests grün, weil sie sich als Admin angemeldet hatten.
 - Use environment variables for all credentials
 - Validate and sanitize all user input
 - Use parameterized queries (Supabase handles this)
+
+## `returns table` ordnet nach Position, nicht nach Namen
+
+Eine Funktion mit `returns table (...)` gibt ihre Spalten **der Reihenfolge nach**
+heraus. Die Namen im Kopf sind Beschriftungen, kein Abgleich. Fällt eine Zeile aus
+der Auswahlliste oder verschiebt sich eine, legt Postgres die Funktion trotzdem an
+— PL/pgSQL prüft die Struktur erst beim **Aufruf**. Dann kommt:
+
+```
+structure of query does not match function result type
+```
+
+Also kein Fehler beim Einspielen, sondern einer im Betrieb, und zwar bei jedem
+Aufruf. Am 2026-11-04 war dadurch die Barzahler-Liste auf der Lehrerseite
+unbenutzbar: Beim Einbauen einer neuen Spalte in `get_course_cash_payers` war
+`e.subscription_id` aus der Auswahlliste gefallen (PROJ-95).
+
+**Regeln:**
+
+1. **Jede Zeile der Auswahlliste trägt den Namen der Spalte, die sie bedient**, als
+   Kommentar am Zeilenende. Eine verschobene Zeile fällt dann beim Lesen auf.
+   Vorbild: `20261104100000_proj95_fehlende_spalte_in_der_liste.sql`.
+2. **Vor dem Weitergeben die Spalten zählen** — Kopf gegen Auswahlliste, Zahl *und*
+   Reihenfolge. Das ist in zehn Sekunden getan und findet genau diesen Fehler.
+3. **Eine Prüfung, die die Funktion aufruft, ist Pflicht.** Nur der Aufruf bringt
+   den Fehler ans Licht; ein erfolgreiches `create function` sagt darüber nichts.
