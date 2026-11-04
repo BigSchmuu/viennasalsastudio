@@ -27,13 +27,19 @@ export function TermsEn() {
       <section className="space-y-2">
         <h2 className="font-heading text-xl font-semibold">2. Memberships and term</h2>
         <p>
-          Class memberships run in rolling 4-week cycles and renew automatically for a further 4 weeks unless
-          they are paused or cancelled in time through your customer profile.
+          Class memberships run in rolling cycles of four teaching weeks and renew automatically for a further
+          four teaching weeks unless they are paused or cancelled in time through your customer profile. Weeks
+          without classes (studio holidays) do not count and extend the running cycle accordingly.
         </p>
         <p>
-          You can pause or cancel at any time yourself in your customer profile; it takes effect at the end of
-          the 4-week cycle currently running. No reason or proof is required. A pause or cancellation you have
-          already scheduled can be undone in your profile at any point before it takes effect.
+          You pause or cancel yourself in your customer profile; no reason or proof is required. The deciding
+          date is the Sunday of the last class week of the running cycle: a pause or cancellation made up to and
+          including that day takes effect at the end of the running cycle, and after that day at the end of the
+          following cycle. The date that applies to you is shown in your customer profile before you confirm.
+        </p>
+        <p>
+          A pause or cancellation you have already scheduled can be undone in your profile at any point before
+          it takes effect.
         </p>
       </section>
 
@@ -52,7 +58,7 @@ export function TermsEn() {
           Class bookings are made at a distance through this app. For services connected with leisure activities
           where the contract provides for performance on a specific date or within a specific period (§ 18 (1)
           no. 10 FAGG) — which applies to our classes with a fixed weekly slot — there is no statutory 14-day
-          right of withdrawal. Independently of this, you can pause or cancel your membership at any time in
+          right of withdrawal. Independently of this, you can pause or cancel your membership in
           accordance with clause 2.
         </p>
       </section>

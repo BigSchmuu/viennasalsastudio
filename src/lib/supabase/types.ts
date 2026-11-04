@@ -2556,6 +2556,15 @@ export type Database = {
       }
     }
     Functions: {
+      abo_kuendigungsfenster: {
+        Args: { p_subscription_id: string }
+        Returns: {
+          zyklusschluss: string
+          frist: string
+          wirksam_zum: string
+          frist_abgelaufen: boolean
+        }[]
+      }
       add_course_to_flatrate: {
         Args: {
           p_course_id: string
@@ -3084,6 +3093,7 @@ export type Database = {
           referrer_id: string
         }[]
       }
+      ferientage_zwischen: { Args: { p_von: string; p_bis: string }; Returns: number }
       heute_wien: { Args: never; Returns: string }
       is_course_teacher: { Args: { p_course_id: string }; Returns: boolean }
       join_waitlist: {
@@ -3150,6 +3160,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      naechste_faelligkeit: { Args: { p_letzter: string }; Returns: string }
       next_cycle_end: { Args: { p_anchor: string }; Returns: string }
       promote_waitlist_for_course: {
         Args: { p_course_id: string }

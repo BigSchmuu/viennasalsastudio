@@ -21,14 +21,21 @@ export function TermsDe() {
       <section className="space-y-2">
         <h2 className="font-heading text-xl font-semibold">2. Abonnements und Laufzeit</h2>
         <p>
-          Kurs-Abonnements laufen in fortlaufenden 4-Wochen-Zyklen und verlängern sich automatisch um jeweils
-          weitere 4 Wochen, sofern sie nicht rechtzeitig über das Kundenprofil pausiert oder gekündigt werden.
+          Kurs-Abonnements laufen in fortlaufenden Zyklen von vier Unterrichtswochen und verlängern sich
+          automatisch um jeweils weitere vier Unterrichtswochen, sofern sie nicht fristgerecht über das
+          Kundenprofil pausiert oder gekündigt werden. Wochen, in denen kein Unterricht stattfindet
+          (Studioferien), zählen nicht mit und verlängern den laufenden Zyklus entsprechend.
         </p>
         <p>
-          Eine Pausierung oder Kündigung kann jederzeit selbständig im Kundenprofil vorgenommen werden und wird
-          zum Ende des jeweils laufenden 4-Wochen-Zyklus wirksam. Ein Grund oder Nachweis ist dafür nicht
-          erforderlich. Bereits geplante Pausierungen oder Kündigungen können bis zu ihrem Wirksamwerden im
-          Kundenprofil wieder zurückgenommen werden.
+          Pausierung und Kündigung nimmst du selbständig im Kundenprofil vor; ein Grund oder Nachweis ist dafür
+          nicht erforderlich. Maßgeblich ist der Sonntag der letzten Kurswoche des laufenden Zyklus: Eine
+          Pausierung oder Kündigung bis einschließlich dieses Tages wird zum Ende des laufenden Zyklus wirksam,
+          danach zum Ende des darauffolgenden Zyklus. Das für dich maßgebliche Datum wird im Kundenprofil
+          angezeigt, bevor du bestätigst.
+        </p>
+        <p>
+          Bereits geplante Pausierungen oder Kündigungen können bis zu ihrem Wirksamwerden im Kundenprofil
+          wieder zurückgenommen werden.
         </p>
       </section>
 
@@ -48,7 +55,7 @@ export function TermsDe() {
           Freizeitgestaltung, bei denen der Vertrag die Erbringung zu einem bestimmten Termin oder in einem
           bestimmten Zeitraum vorsieht (§ 18 Abs. 1 Z 10 FAGG) — was auf unsere Kurstermine mit fixem
           Wochentermin zutrifft — besteht gesetzlich kein 14-tägiges Rücktrittsrecht. Unabhängig davon kannst du
-          dein Abo jederzeit gemäß Punkt 2 pausieren oder kündigen.
+          dein Abo nach Punkt 2 pausieren oder kündigen.
         </p>
       </section>
 

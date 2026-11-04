@@ -71,15 +71,15 @@ export const FAQ: FaqGruppe[] = [
       {
         frage: { de: "Kann ich mein Abo pausieren?", en: "Can I pause my membership?" },
         antwort: {
-          de: "Ja, selbst und jederzeit in deinem Profil. Die Pause gilt ab dem Ende des laufenden Zyklus — der angefangene ist bereits eingeplant. Bis dahin kannst du sie mit einem Klick wieder zurücknehmen.",
-          en: "Yes, yourself and at any time in your profile. The pause takes effect at the end of the current cycle — the one already running is planned for. Until then you can undo it with one click.",
+          de: "Ja, selbst in deinem Profil. Entscheidend ist der Sonntag der letzten Kurswoche: Bis dahin gilt die Pause ab dem Ende des laufenden Zyklus, danach ab dem Ende des nächsten — der angefangene ist bereits eingeplant. Welches Datum für dich gilt, steht an deinem Abo, bevor du bestätigst. Bis es wirksam wird, kannst du die Pause mit einem Klick zurücknehmen.",
+          en: "Yes, yourself in your profile. What counts is the Sunday of the last class week: up to that day the pause takes effect at the end of the current cycle, after it at the end of the next one — the cycle already running is planned for. The date that applies to you is shown at your membership before you confirm. You can undo the pause with one click until it takes effect.",
         },
       },
       {
         frage: { de: "Wie kündige ich?", en: "How do I cancel?" },
         antwort: {
-          de: "Genauso: in deinem Profil beim jeweiligen Kurs. Auch die Kündigung wird zum Ende des laufenden Zyklus wirksam und lässt sich bis dahin zurücknehmen. Du musst uns dafür nicht schreiben.",
-          en: "The same way: in your profile, at the course in question. Cancelling also takes effect at the end of the current cycle and can be undone until then. There is no need to write to us.",
+          de: "Genauso: in deinem Profil beim jeweiligen Kurs. Für die Kündigung gilt dieselbe Frist wie für die Pause — der Sonntag der letzten Kurswoche. Das Datum, zu dem sie wirksam wird, steht an deinem Abo und lässt sich bis dahin zurücknehmen. Du musst uns dafür nicht schreiben.",
+          en: "The same way: in your profile, at the course in question. Cancelling follows the same deadline as pausing — the Sunday of the last class week. The date it takes effect is shown at your membership, and it can be undone until then. There is no need to write to us.",
         },
       },
       {

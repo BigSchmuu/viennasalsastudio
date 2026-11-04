@@ -225,6 +225,37 @@ export default async function ProfilePage() {
     }
   }
 
+  // PROJ-96: Bis wann kann dieses Abo gekündigt oder pausiert werden, und zu
+  // welchem Datum wirkt es? Beides kommt aus derselben Funktion, die das Datum
+  // beim Kündigen auch setzt — eine zweite Rechnung hier wäre eine zweite
+  // Wahrheit, und das Profil soll nicht erklären, was es selbst gerechnet hat.
+  //
+  // Nur für aktive Abos ohne geplante Änderung gefragt: Steht schon eine
+  // Kündigung an, zeigt die Karte deren Datum, und ein Stichtag daneben wäre
+  // ein zweiter Termin für dieselbe Sache. Das sind ein bis drei Aufrufe.
+  const kuendigungsfenster = new Map<
+    string,
+    { frist: string; wirksamZum: string; fristAbgelaufen: boolean }
+  >();
+  for (const s of subscriptionRows ?? []) {
+    if (s.status !== "active" || s.pending_status) continue;
+    const { data: fenster, error: fensterFehler } = await supabase.rpc("abo_kuendigungsfenster", {
+      p_subscription_id: s.id,
+    });
+    if (fensterFehler || !fenster?.[0]) {
+      // Kein Wurf: Ohne Antwort fehlt nur der Hinweis, die Seite bleibt
+      // benutzbar und das Kündigen funktioniert weiter — das Datum setzt die
+      // Datenbank ohnehin selbst. Protokolliert wird es trotzdem.
+      console.error("Kündigungsfenster nicht lesbar", s.id, fensterFehler);
+      continue;
+    }
+    kuendigungsfenster.set(s.id, {
+      frist: fenster[0].frist,
+      wirksamZum: fenster[0].wirksam_zum,
+      fristAbgelaufen: fenster[0].frist_abgelaufen,
+    });
+  }
+
   // PROJ-88: Angerechnet wird, was im laufenden Zyklus tatsächlich bezahlt
   // wurde — Einzüge ohne Rückbuchung und Barzahlungen. Aus derselben Funktion,
   // die auch die Bestätigung rechnet; zwei Rechnungen würden driften.
@@ -278,6 +309,7 @@ export default async function ProfilePage() {
     upgradeMoeglich: upgradeMoeglichkeiten.get(s.id) ?? false,
     upgradeAngefragt: s.upgrade_requested_at !== null,
     zyklusWirdAbgebucht: zyklusLage.get(s.id) ?? false,
+    kuendigungsfenster: kuendigungsfenster.get(s.id) ?? null,
     // Nur für aktive Kursabos: Bei allen anderen ist die Frage gar nicht
     // gestellt, und ein Grund wäre eine Antwort auf nichts.
     upgradeGrund:

@@ -74,6 +74,13 @@ export type MySubscriptionRow = {
    * „Differenz von 0,00 €" wäre eine Zahl, die nichts erklärt.
    */
   zyklusWirdAbgebucht: boolean;
+  /**
+   * PROJ-96: Bis wann gekündigt oder pausiert werden muss, und zu welchem
+   * Datum es dann wirkt. `null`, wenn die Frage sich nicht stellt (das Abo ist
+   * nicht aktiv oder eine Änderung ist schon geplant) oder die Rechnung nicht
+   * lesbar war — dann fehlt nur der Hinweis, nicht die Möglichkeit.
+   */
+  kuendigungsfenster: { frist: string; wirksamZum: string; fristAbgelaufen: boolean } | null;
 };
 
 export type SubscriptionCourseOption = { id: string; name: string; runs_until?: string | null };
@@ -84,6 +91,22 @@ function formatPrice(price: number): string {
 
 function formatDate(date: string): string {
   return new Date(date + "T00:00:00").toLocaleDateString("de-AT", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+/**
+ * Dasselbe Datum in der Sprache des Kunden (PROJ-96).
+ *
+ * `formatDate` oben schreibt immer österreichisch. Für den Stichtag geht das
+ * nicht: Er steht im englischen Kundenbereich (PROJ-43), und „09.11.2026" liest
+ * dort jemand als 9. November oder als 11. September — bei einer Frist ist das
+ * der Unterschied zwischen rechtzeitig und zu spät.
+ */
+function formatDateInSprache(date: string, locale: string): string {
+  return new Date(date + "T00:00:00").toLocaleDateString(locale === "en" ? "en-GB" : "de-AT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 function pendingHint(row: MySubscriptionRow): string | null {
@@ -248,6 +271,40 @@ export function MySubscriptionsSection({
                 <p className="text-sm font-medium text-primary">{t("courseEnded")}</p>
               )}
               {hint && <p className="text-sm font-medium text-amber-600">{hint}</p>}
+              {/* PROJ-96: Gekündigt werden muss bis zum Sonntag der letzten
+                  Kurswoche. Eine Frist, die man nicht kennt, ist keine Frist —
+                  deshalb steht sie an jedem aktiven Abo und nicht erst im
+                  Dialog. Nach Ablauf nennt dieselbe Zeile das Datum, zu dem es
+                  jetzt noch wirkt: Das ist die Auskunft, die der Kunde vor dem
+                  Klick braucht, nicht danach. */}
+              {canPauseOrCancel && subscription.kuendigungsfenster && (
+                <p
+                  className={
+                    subscription.kuendigungsfenster.fristAbgelaufen
+                      ? "text-sm text-amber-600"
+                      : "text-sm text-muted-foreground"
+                  }
+                  data-testid="kuendigungsfrist"
+                >
+                  {subscription.kuendigungsfenster.fristAbgelaufen
+                    ? t("cancelDeadlinePassed", {
+                        date: formatDateInSprache(
+                          subscription.kuendigungsfenster.wirksamZum,
+                          locale
+                        ),
+                      })
+                    : t("cancelDeadline", {
+                        deadline: formatDateInSprache(
+                          subscription.kuendigungsfenster.frist,
+                          locale
+                        ),
+                        date: formatDateInSprache(
+                          subscription.kuendigungsfenster.wirksamZum,
+                          locale
+                        ),
+                      })}
+                </p>
+              )}
               <div className="flex flex-wrap gap-2 pt-1">
                 {canPauseOrCancel && (
                   <>
@@ -392,7 +449,20 @@ export function MySubscriptionsSection({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("cancelSubConfirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("cancelSubConfirmBody")}</AlertDialogDescription>
+            {/* PROJ-96: Dasselbe Datum wie in der Zeile am Abo. Ohne Datum
+                sagte dieser Text „zum Ende des aktuellen Zyklus" — und nach
+                Ablauf der Frist ist das genau der Zyklus, der **nicht** mehr
+                gemeint ist. Fehlt die Rechnung, bleibt es beim alten Satz. */}
+            <AlertDialogDescription>
+              {kuendigungsZiel?.kuendigungsfenster
+                ? t("cancelSubConfirmBodyDatum", {
+                    date: formatDateInSprache(
+                      kuendigungsZiel.kuendigungsfenster.wirksamZum,
+                      locale
+                    ),
+                  })
+                : t("cancelSubConfirmBody")}
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
           {/* PROJ-80: Freiwillig, und das steht auch so da. Ein Pflichtfeld
