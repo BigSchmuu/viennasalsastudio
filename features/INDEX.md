@@ -161,7 +161,7 @@
 
 | PROJ-94 | Vorname und Nachname getrennt, Pflicht bei der Registrierung | Deployed | [PROJ-94](../features/PROJ-94-vorname-nachname.md) | 2026-10-26 |
 
-| PROJ-95 | Der Pass als Auswahl bei den Barzahlern | Approved | [PROJ-95](../features/PROJ-95-pass-bei-barzahlern.md) | 2026-11-04 |
+| PROJ-95 | Der Pass als Auswahl bei den Barzahlern | Deployed | [PROJ-95](../features/PROJ-95-pass-bei-barzahlern.md) | 2026-11-04 |
 
 <!-- Add features above this line -->
 

@@ -1,6 +1,6 @@
 # PROJ-95: Der Pass als Auswahl bei den Barzahlern
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-28
 **Last Updated:** 2026-11-04
 
@@ -191,6 +191,35 @@ Eintrag überhaupt die Wahrheit sagt.
 
 Die Datenbankprüfungen melden sich **angemeldet** an (Rolle `authenticated`), nicht mit dem
 Dienstschlüssel — sonst wären Rechtefehler unsichtbar. Das ist die Lehre aus PROJ-94.
+
+## Deployment
+
+- **Ausgeliefert:** 2026-11-04
+- **Produktion:** https://app.viennasalsastudio.at
+- **Commits:** `e752e5b` (Funktion), `3e58d54` (Korrektur zu BUG-1), Tag `v1.95.0-PROJ-95`
+- **Migrationen:** `20261028100000_proj95_pass_bei_barzahlern.sql` und
+  `20261104100000_proj95_fehlende_spalte_in_der_liste.sql` — beide **vor** dem Deploy in Test
+  und Produktion eingespielt. Reihenfolge zwingend: Der Code liest die neue Spalte
+  `pass_stil`; läge die Migration nicht vor, fiele die Anzeige stillschweigend auf
+  „Flatrate" zurück.
+- **Nachgesehen (vom Betreiber in der Produktion):** In einem Bachata-Kurs stehen unter
+  „Gast ohne Konto eintragen" drei Einträge zur Wahl — „Nur dieser Kurs", „Bachata Pass",
+  „Flatrate". In einem Salsa-Kurs fehlt der Pass. Damit ist beide Hälften der Regel geprüft:
+  dass er erscheint, wo es ihn gibt, **und** dass er fehlt, wo nicht.
+
+### Für den Betrieb
+
+- Ein Pass entsteht nur, wenn die Stilrichtung des Kurses einen **Passpreis** hat. Fehlt er,
+  fehlt der Eintrag in der Auswahl — das ist kein Fehler, sondern die Antwort darauf, dass es
+  dieses Produkt nicht gibt. Der Preis wird in der Verwaltung an der Stilrichtung gepflegt
+  (PROJ-93).
+- Der **Betrag** bleibt leer und ist eine Entscheidung der Lehrkraft. Die App schlägt den
+  Passpreis bewusst nicht vor; bei Geld entscheidet der Betreiber.
+- Ein Pass-Gast ist in **allen** Kursen seiner Stilrichtung erreichbar — in dem Kurs, in dem
+  er angelegt wurde, direkt in der Liste; in den übrigen eingeklappt hinter „Flatrate und
+  Pässe anzeigen (n)". In Kursen anderer Stilrichtungen erscheint er nicht.
+- Umbenannt, weil dort jetzt beide Sorten stehen: der Spaltenkopf der Liste heißt „Name"
+  statt „Flatrater", die eingeklappte Gruppe „Flatrate und Pässe anzeigen (n)".
 
 ## Nachtrag: BUG-1 — eine verlorene Spalte machte die Liste unbenutzbar (2026-11-04)
 
