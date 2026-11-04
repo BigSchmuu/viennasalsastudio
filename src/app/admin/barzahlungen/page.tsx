@@ -36,7 +36,9 @@ export default async function BarzahlungenPage({
     supabase.from("cash_payments").select("id, entry_id, amount, paid_on, created_at"),
     supabase
       .from("subscriptions")
-      .select("id, customer_id, name, price, course_id, courses(name), profiles(full_name)")
+      // PROJ-95: `dance_styles` mit — sonst stünde an einem Pass das Abzeichen
+      // „Flatrate", weil beide kurslos sind.
+      .select("id, customer_id, name, price, course_id, courses(name), dance_styles(name), profiles(full_name)")
       .eq("status", "active"),
     supabase.from("sepa_mandates").select("customer_id").is("revoked_at", null),
     // PROJ-87: Offene Aufschläge. Sie reisen im nächsten Lastschriftlauf mit —
@@ -95,6 +97,7 @@ export default async function BarzahlungenPage({
       aboId: e.subscription_id,
       aboName: abo?.courses?.name ?? abo?.name ?? "Flatrate",
       istFlatrate: abo?.course_id === null,
+      passStil: abo?.dance_styles?.name ?? null,
       betrag: Number(e.amount_due),
       bezahlt: bezahltJeEintrag.get(e.id) ?? 0,
       letzteZahlung: letzte?.tag ?? null,
@@ -119,6 +122,7 @@ export default async function BarzahlungenPage({
       kundeName: a.profiles?.full_name || "Unbenannter Kunde",
       aboName: a.courses?.name ?? a.name ?? "Flatrate",
       istFlatrate: a.course_id === null,
+      passStil: a.dance_styles?.name ?? null,
       preis: a.price === null ? null : Number(a.price),
       hatMandat: mitMandat.has(a.customer_id),
     }))

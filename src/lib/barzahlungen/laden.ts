@@ -11,6 +11,8 @@ export type Kandidat = {
   aboId: string;
   aboName: string | null;
   istFlatrate: boolean;
+  /** Die Stilrichtung, wenn das Abo ein Pass ist (PROJ-95) — sonst `null`. */
+  passStil: string | null;
   preis: number | null;
 };
 
@@ -22,7 +24,8 @@ export type Kandidat = {
  * IBANs. Die Funktion prüft selbst, ob sie diesen Kurs unterrichtet.
  *
  * Sie liefert zwei Gruppen in einer Antwort — die Teilnehmer dieses Kurses und
- * die übrigen Flatrate-Einträge, die in jedem Kurs erreichbar sind.
+ * die übrigen kurslosen Abos, die in diesem Kurs erreichbar sind: Flatraten
+ * immer, Pässe nur in Kursen ihrer Stilrichtung (PROJ-95).
  *
  * Ein Lesefehler wirft. Eine leere Liste sähe aus wie „niemand zahlt bar" — und
  * genau dann steht die Lehrkraft am Abend da und sammelt nichts ein.
@@ -44,6 +47,7 @@ export async function ladeBarzahler(supabase: Client, courseId: string): Promise
     aboId: z.subscription_id,
     aboName: z.subscription_name,
     istFlatrate: z.ist_flatrate,
+    passStil: z.pass_stil,
     betrag: Number(z.amount_due),
     bezahlt: Number(z.bezahlt ?? 0),
     letzteZahlung: z.letzte_zahlung,
@@ -75,6 +79,7 @@ export async function ladeKandidaten(supabase: Client, courseId: string): Promis
     aboId: k.subscription_id,
     aboName: k.subscription_name,
     istFlatrate: k.ist_flatrate,
+    passStil: k.pass_stil,
     preis: k.price === null ? null : Number(k.price),
   }));
 }

@@ -65,9 +65,21 @@ vi.mock("@/lib/supabase/service", () => ({
   }),
 }));
 
-async function anlegen(name = "Herbert K.", betrag = "50", art?: "kurs" | "flatrate") {
+async function anlegen(name = "Herbert K.", betrag = "50", art?: "kurs" | "flatrate" | "pass") {
   const { legeBarzahlerAn } = await import("./barzahler-anlegen");
   return art ? legeBarzahlerAn("kurs-1", name, betrag, art) : legeBarzahlerAn("kurs-1", name, betrag);
+}
+
+/** Derselbe Kurs, aber mit Stilrichtung und Passpreis (PROJ-95). */
+function kursMitPass(passPreis: number | null = 45) {
+  kurs.mockResolvedValue({
+    data: {
+      name: "Bachata Anfänger",
+      max_participants: null,
+      dance_style_id: "stil-bachata",
+      dance_styles: { name: "Bachata", pass_price: passPreis },
+    },
+  });
 }
 
 describe("legeBarzahlerAn (PROJ-82)", () => {
@@ -219,5 +231,91 @@ describe("legeBarzahlerAn (PROJ-82)", () => {
   it("meldet einen nicht gefundenen Kurs", async () => {
     kurs.mockResolvedValue({ data: null });
     expect(await anlegen()).toEqual({ error: "Der Kurs wurde nicht gefunden." });
+  });
+});
+
+describe("legeBarzahlerAn: der Pass (PROJ-95)", () => {
+  beforeEach(() => {
+    istAdmin = false;
+    zuordnung.mockReset().mockResolvedValue({ data: { course_id: "kurs-1" } });
+    kurs.mockReset();
+    mitgliederZahl.mockReset().mockResolvedValue({ count: 0 });
+    createUser.mockReset().mockResolvedValue({ data: { user: { id: "neu-1" } }, error: null });
+    deleteUser.mockReset().mockResolvedValue({ error: null });
+    profilUpdate.mockReset().mockResolvedValue({ error: null });
+    aboInsert.mockReset().mockResolvedValue({ data: { id: "abo-1" }, error: null });
+    eintragInsert.mockReset().mockResolvedValue({ error: null });
+    platzInsert.mockReset().mockResolvedValue({ error: null });
+    kursMitPass();
+  });
+
+  it("legt ein Abo ohne Kurs mit Stilgrenze an und nennt es nach der Stilrichtung", async () => {
+    await anlegen("Paula Pass", "45", "pass");
+    expect(aboInsert.mock.calls[0][0]).toMatchObject({
+      course_id: null,
+      dance_style_id: "stil-bachata",
+      name: "Bachata Pass",
+      price: 45,
+    });
+  });
+
+  it("legt den Kursplatz daneben an, wie bei der Flatrate", async () => {
+    // Ohne diesen Platz wäre der Gast in keinem Kurs, obwohl er gerade
+    // davorsteht: Das Abo trägt ja keinen Kurs.
+    await anlegen("Paula Pass", "45", "pass");
+    expect(platzInsert.mock.calls[0][0]).toMatchObject({
+      course_id: "kurs-1",
+      subscription_id: "abo-1",
+    });
+  });
+
+  it("macht aus einer Flatrate keinen Pass, auch nicht im Bachata-Kurs", async () => {
+    // Der Fehler, der hier droht: Die Stilrichtung steht am Kurs, und wer sie
+    // unbesehen ans Abo schreibt, verkauft eine Flatrate als Pass — der Kunde
+    // zahlt den Flatrate-Preis und kommt nur noch in Bachata-Kurse.
+    await anlegen("Frida Flat", "120", "flatrate");
+    expect(aboInsert.mock.calls[0][0]).toMatchObject({
+      course_id: null,
+      dance_style_id: null,
+      name: "Flatrate",
+    });
+  });
+
+  it("verweigert den Pass, wenn die Stilrichtung keinen Passpreis hat", async () => {
+    // Die Auswahl zeigt ihn dort nicht an — geprüft wird es hier trotzdem.
+    // Sonst wäre ein verändertes Formular ein Weg zu einem Produkt, das der
+    // Betreiber nicht anbietet.
+    kursMitPass(null);
+    expect(await anlegen("Paula Pass", "45", "pass")).toEqual({
+      error: "Für diesen Kurs gibt es keinen Pass.",
+    });
+    expect(createUser).not.toHaveBeenCalled();
+  });
+
+  it("verweigert den Pass, wenn der Kurs keine Stilrichtung hat", async () => {
+    kurs.mockResolvedValue({
+      data: { name: "Offenes Training", max_participants: null, dance_style_id: null, dance_styles: null },
+    });
+    expect(await anlegen("Paula Pass", "45", "pass")).toEqual({
+      error: "Für diesen Kurs gibt es keinen Pass.",
+    });
+  });
+
+  it("lässt Kursabo und Flatrate unberührt, wenn es keinen Pass gibt", async () => {
+    // Die Prüfung darf nur den Pass treffen. Ein Kurs ohne Stilrichtung ist
+    // für die beiden anderen Arten völlig normal.
+    kurs.mockResolvedValue({
+      data: { name: "Offenes Training", max_participants: null, dance_style_id: null, dance_styles: null },
+    });
+    expect(await anlegen("Kurt Kurs", "50", "kurs")).toEqual({ success: true });
+    expect(await anlegen("Frida Flat", "120", "flatrate")).toEqual({ success: true });
+  });
+
+  it("verweigert den Pass auch der Lehrkraft eines fremden Kurses", async () => {
+    // Die Rechteprüfung steht vor allem anderen und gilt für alle drei Arten.
+    zuordnung.mockResolvedValue({ data: null });
+    expect(await anlegen("Paula Pass", "45", "pass")).toEqual({
+      error: "Dieser Kurs gehört nicht zu deinen Kursen.",
+    });
   });
 });

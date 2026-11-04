@@ -20,19 +20,25 @@ import { teileName } from "@/lib/namen";
  * lib/kunden/offline.ts): Anmelden kann sich damit niemand, und der Versand
  * überspringt sie, statt an jeder Erinnerung zu scheitern.
  *
- * Zwei Arten: ein kursgebundenes Abo — der häufige Fall — oder eine Flatrate.
- * Bei der Flatrate trägt das Abo keinen Kurs; der Kurs steht daneben als
- * Kursplatz (PROJ-50), und weitere kann die Verwaltung nachtragen. Es sind
- * dieselben Schritte mit einem Unterschied in einem davon, deshalb eine
- * Aktion und nicht zwei — sonst stünde das Aufräumen nach einem Fehlschlag
- * zweimal da.
+ * Drei Arten: ein kursgebundenes Abo — der häufige Fall —, eine Flatrate oder
+ * seit PROJ-95 ein Pass für die Stilrichtung dieses Kurses. Flatrate und Pass
+ * tragen **keinen** Kurs am Abo; der Kurs steht daneben als Kursplatz
+ * (PROJ-50), und weitere kann die Verwaltung nachtragen. Der Pass trägt
+ * zusätzlich die Stilgrenze am Abo (`dance_style_id`, PROJ-93).
+ *
+ * Es sind dieselben Schritte mit Unterschieden in zwei davon, deshalb eine
+ * Aktion und nicht drei — sonst stünde das Aufräumen nach einem Fehlschlag
+ * dreimal da.
  *
  * Geschrieben wird mit dem Dienstschlüssel — eine Lehrkraft darf weder Konten
  * anlegen noch Abos schreiben. Die Rechteprüfung steht deshalb **hier** und
  * muss dicht sein: Lehrkraft genau dieses Kurses, oder Verwaltung.
  */
-/** Woran der Gast hängt: an diesem Kurs oder an einer Flatrate. */
-export type GastArt = "kurs" | "flatrate";
+/**
+ * Woran der Gast hängt: an diesem Kurs, an einer Flatrate oder an einem Pass
+ * für die Stilrichtung dieses Kurses.
+ */
+export type GastArt = "kurs" | "flatrate" | "pass";
 
 export async function legeBarzahlerAn(
   courseId: string,
@@ -71,10 +77,22 @@ export async function legeBarzahlerAn(
   // Belegungsanzeige durcheinander, ohne dass jemand sieht, woher.
   const { data: kurs } = await service
     .from("courses")
-    .select("name, max_participants")
+    // PROJ-95: Stilrichtung und Passpreis mit, damit die Pass-Art geprüft
+    // werden kann, ohne eine zweite Abfrage.
+    .select("name, max_participants, dance_style_id, dance_styles(name, pass_price)")
     .eq("id", courseId)
     .maybeSingle();
   if (!kurs) return { error: "Der Kurs wurde nicht gefunden." };
+
+  // PROJ-95: Die Auswahl zeigt den Pass nur dort, wo es ihn gibt. Geprüft wird
+  // er hier trotzdem — die Anzeige ist eine Bitte, die Prüfung ist die Regel.
+  // Ein Pass ohne Stilgrenze wäre stillschweigend eine Flatrate zum Passpreis.
+  const passStil = kurs.dance_style_id && kurs.dance_styles?.pass_price !== null
+    ? kurs.dance_styles
+    : null;
+  if (art === "pass" && !passStil) {
+    return { error: "Für diesen Kurs gibt es keinen Pass." };
+  }
 
   if (kurs.max_participants !== null) {
     const { count } = await service
@@ -119,15 +137,20 @@ export async function legeBarzahlerAn(
     return { error: "Der Kunde konnte nicht angelegt werden." };
   }
 
-  // Bei einer Flatrate trägt das Abo **keinen** Kurs — das ist der Unterschied.
-  const istFlatrate = art === "flatrate";
+  // Flatrate und Pass tragen **keinen** Kurs am Abo — das ist der Unterschied
+  // zum Kursabo. Der Pass trägt stattdessen seine Stilgrenze (PROJ-93/95).
+  const ohneKurs = art !== "kurs";
   const { data: abo, error: aboFehler } = await service
     .from("subscriptions")
     .insert({
       customer_id: kundeId,
-      course_id: istFlatrate ? null : courseId,
+      course_id: ohneKurs ? null : courseId,
+      dance_style_id: art === "pass" ? kurs.dance_style_id : null,
       status: "active",
-      name: istFlatrate ? "Flatrate" : "Barzahler",
+      // Der Name steht später an jedem Barzahler-Eintrag und auf der Rechnung.
+      // „Pass" allein beantwortet nicht, wofür — sobald es zwei Stilrichtungen
+      // mit Pass gibt, ist die Stilrichtung die Information.
+      name: art === "pass" ? `${passStil!.name} Pass` : art === "flatrate" ? "Flatrate" : "Barzahler",
       price: betrag,
       cycle_anchor_date: heuteInWien(),
     })
@@ -139,14 +162,16 @@ export async function legeBarzahlerAn(
     return { error: "Der Kursplatz konnte nicht angelegt werden." };
   }
 
-  // PROJ-85: Der Kurs steht bei einer Flatrate daneben, nicht am Abo.
+  // PROJ-85: Der Kurs steht bei einer Flatrate daneben, nicht am Abo. Seit
+  // PROJ-95 gilt dasselbe für den Pass — beide sind kurslose Abos, und ohne
+  // diesen Platz wäre der Gast in keinem Kurs, obwohl er gerade davorsteht.
   //
   // Direkt eingefügt und nicht über `add_course_to_flatrate`: Jene Funktion
   // gehört dem Selbstbedienungsweg des Kunden — sie liest `auth.uid()` und
   // verlangt eine Tanzrolle, wenn der Kurs danach fragt. Hier legt eine
   // Lehrkraft für jemand anderen an, und nach der Rolle wird an der Tür
   // bewusst nicht gefragt.
-  if (istFlatrate) {
+  if (ohneKurs) {
     const { error: platzFehler } = await service.from("course_memberships").insert({
       customer_id: kundeId,
       course_id: courseId,

@@ -42,7 +42,10 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
 
   const { data: course } = await supabase
     .from("courses")
-    .select("id, name, role_query_enabled, video_set_id, runs_from, runs_until, course_schedule(weekday, course_schedule_pauses(pause_date))")
+    // PROJ-95: `dance_styles` mit, damit die Barzahler-Liste weiß, ob es für
+    // diese Stilrichtung einen Pass gibt. `dance_styles` ist öffentlich lesbar,
+    // der Zugang der Lehrkraft genügt also.
+    .select("id, name, role_query_enabled, video_set_id, runs_from, runs_until, dance_styles(name, pass_price), course_schedule(weekday, course_schedule_pauses(pause_date))")
     .eq("id", courseId)
     .single();
 
@@ -255,7 +258,18 @@ export default async function TeacherCoursePage({ params }: { params: Promise<{ 
       {/* PROJ-81: Hinter der Anwesenheitsliste — erst wird eingecheckt, dann
           kassiert. */}
       {barzahler !== null && (
-        <BarzahlerListe courseId={course.id} zeilen={barzahler} kandidaten={kandidaten} />
+        <BarzahlerListe
+          courseId={course.id}
+          zeilen={barzahler}
+          kandidaten={kandidaten}
+          // Kein Passpreis, keine Stilrichtung, kein Pass zur Wahl — die
+          // Entscheidung liegt beim eingetragenen Preis (PROJ-93).
+          passStil={
+            course.dance_styles && course.dance_styles.pass_price !== null
+              ? { name: course.dance_styles.name }
+              : null
+          }
+        />
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   eintragsZeilen,
   offeneSumme,
+  produktText,
   teileNachKurs,
   zustandText,
   type Eintrag,
@@ -17,6 +18,7 @@ function eintrag(felder: Partial<Eintrag> = {}): Eintrag {
     aboId: "abo-1",
     aboName: "Salsa Mittwoch",
     istFlatrate: false,
+    passStil: null,
     betrag: 89,
     bezahlt: 0,
     letzteZahlung: null,
@@ -133,5 +135,30 @@ describe("offeneSumme", () => {
   it("ist null, wenn alles bezahlt ist", () => {
     const zeilen = eintragsZeilen([eintrag({ bezahlt: 89 })]);
     expect(offeneSumme(zeilen)).toBe(0);
+  });
+});
+
+describe("produktText", () => {
+  it("sagt bei einem Kursabo nichts — der Kurs steht über der Liste", () => {
+    expect(produktText(eintrag())).toBeNull();
+  });
+
+  it("nennt die Flatrate", () => {
+    expect(produktText(eintrag({ istFlatrate: true }))).toBe("Flatrate");
+  });
+
+  it("nennt beim Pass die Stilrichtung", () => {
+    // Der Fall, um den es in PROJ-95 geht: Ein Pass ist in der Datenbank
+    // genauso kurslos wie eine Flatrate — `istFlatrate` ist **auch hier wahr**.
+    // Wer nur darauf schaut, beschriftet einen Bachata-Pass als Flatrate, und
+    // die Lehrkraft sammelt den falschen Betrag ein.
+    expect(produktText(eintrag({ istFlatrate: true, passStil: "Bachata" }))).toBe("Bachata Pass");
+  });
+
+  it("nennt die Stilrichtung auch dann, wenn die Herkunft sie nicht kurslos nennt", () => {
+    // Verteidigung gegen eine Datenquelle, die `istFlatrate` nicht mitliefert:
+    // Steht eine Stilrichtung am Abo, ist es ein Pass. Das ist die stärkere
+    // Aussage und gewinnt.
+    expect(produktText(eintrag({ istFlatrate: false, passStil: "Bachata" }))).toBe("Bachata Pass");
   });
 });

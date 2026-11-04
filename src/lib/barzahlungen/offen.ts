@@ -23,6 +23,16 @@ export type Eintrag = {
   aboId: string;
   aboName: string | null;
   istFlatrate: boolean;
+  /**
+   * Der Name der Stilrichtung, wenn dieses Abo ein Pass ist (PROJ-93), sonst
+   * `null`.
+   *
+   * Nötig, weil `istFlatrate` beide nicht unterscheiden kann: Flatrate und Pass
+   * sind in der Datenbank gleichermaßen „ein Abo ohne Kurs". Wer hier nur
+   * `istFlatrate` liest, beschriftet einen Bachata-Pass als Flatrate — und die
+   * Lehrkraft sammelt den falschen Betrag ein.
+   */
+  passStil: string | null;
   /** Was dieser Mensch in diesem Zyklus zahlen soll. */
   betrag: number;
   /** Was davon schon da ist. */
@@ -84,12 +94,32 @@ export function offeneSumme(zeilen: EintragsZeile[]): number {
 }
 
 /**
+ * Was an einem Eintrag über das Produkt steht — oder `null` bei einem Kursabo,
+ * denn dort ist der Kurs die Antwort und steht ohnehin über der Liste.
+ *
+ * Die Stilrichtung schlägt `istFlatrate`, weil beide kurslos sind: Ein Pass ist
+ * eine Flatrate mit Grenze, und genau die Grenze ist hier die Information.
+ */
+export function produktText(zeile: {
+  istFlatrate: boolean;
+  passStil: string | null;
+}): string | null {
+  if (zeile.passStil) return `${zeile.passStil} Pass`;
+  return zeile.istFlatrate ? "Flatrate" : null;
+}
+
+/**
  * Die beiden Gruppen einer Kursseite.
  *
  * `eigene` sind die Teilnehmer dieses Kurses — die Arbeit des Abends. `fremde`
- * sind Flatrate-Einträge von Leuten, die hier nicht angemeldet sind; sie stehen
- * eingeklappt da, weil ein Flatrater jederzeit vorbeikommen kann, die Liste
- * aber nicht in jedem Kurs um Unbeteiligte wachsen soll.
+ * sind kurslose Abos von Leuten, die hier nicht angemeldet sind: Flatraten und
+ * Pässe dieser Stilrichtung. Sie stehen eingeklappt da, weil so jemand
+ * jederzeit vorbeikommen kann, die Liste aber nicht in jedem Kurs um
+ * Unbeteiligte wachsen soll.
+ *
+ * Welche Pässe überhaupt mitkommen, entscheidet die Datenbank
+ * (`get_course_cash_payers`, PROJ-95) — ein Bachata-Pass erscheint in keinem
+ * Salsa-Kurs.
  */
 export function teileNachKurs(zeilen: EintragsZeile[]): {
   eigene: EintragsZeile[];

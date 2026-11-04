@@ -2905,6 +2905,7 @@ export type Database = {
           letzte_zahlung: string | null
           letzte_zahlung_id: string | null
           note: string | null
+          pass_stil: string | null
           subscription_id: string
           subscription_name: string | null
         }[]
@@ -2915,6 +2916,7 @@ export type Database = {
           customer_id: string
           full_name: string
           ist_flatrate: boolean
+          pass_stil: string | null
           price: number | null
           subscription_id: string
           subscription_name: string | null

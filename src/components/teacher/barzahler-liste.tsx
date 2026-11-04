@@ -14,6 +14,7 @@ import {
 import { legeBarzahlerAn, type GastArt } from "@/lib/actions/teacher/barzahler-anlegen";
 import {
   offeneSumme,
+  produktText,
   teileNachKurs,
   zustandText,
   type EintragsZeile,
@@ -46,18 +47,26 @@ export type BarzahlerAnsicht = EintragsZeile;
  * Seite offen hat. Eine zweite Stelle wäre eine, die man vergisst.
  *
  * Zwei Gruppen: oben die Teilnehmer dieses Kurses — die Arbeit des Abends.
- * Darunter eingeklappt die übrigen Flatrate-Einträge: Ein Flatrater kann in
- * jedem Kurs vorbeikommen, und dann muss hier kassiert werden können, ohne
- * dass diese Leute die Liste jedes Kursabends zuwachsen lassen.
+ * Darunter eingeklappt die übrigen kurslosen Abos: Ein Flatrater oder ein
+ * Pass-Kunde kann vorbeikommen, und dann muss hier kassiert werden können,
+ * ohne dass diese Leute die Liste jedes Kursabends zuwachsen lassen.
  */
 export function BarzahlerListe({
   courseId,
   zeilen: anfangsZeilen,
   kandidaten,
+  passStil,
 }: {
   courseId: string;
   zeilen: BarzahlerAnsicht[];
   kandidaten: Kandidat[];
+  /**
+   * Die Stilrichtung dieses Kurses, **wenn** es für sie einen Pass gibt
+   * (PROJ-95). Sonst `null`, und dann fehlt die Auswahl ganz — nicht
+   * ausgegraut, sondern nicht vorhanden: Ein Angebot, das es nicht gibt, soll
+   * an der Tür auch nicht zu sehen sein.
+   */
+  passStil: { name: string } | null;
 }) {
   const router = useRouter();
   const [zeilen, setZeilen] = useState(anfangsZeilen);
@@ -82,8 +91,9 @@ export function BarzahlerListe({
   const [gastOffen, setGastOffen] = useState(false);
   const [gastName, setGastName] = useState("");
   const [gastBetrag, setGastBetrag] = useState("");
-  // PROJ-85: Kursabo oder Flatrate. Vorbelegt der haeufigere und kleinere
-  // Fall — ein Kursabo betrifft einen Kurs, eine Flatrate alle.
+  // PROJ-85/95: Kursabo, Flatrate oder Pass. Vorbelegt der haeufigere und
+  // kleinere Fall — ein Kursabo betrifft einen Kurs, ein Pass eine
+  // Stilrichtung, eine Flatrate alle.
   const [gastArt, setGastArt] = useState<GastArt>("kurs");
 
   // Nach `router.refresh()` kommen neue Eigenschaften an, aber ein
@@ -247,7 +257,10 @@ export function BarzahlerListe({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="min-w-[160px]">{istFremd ? "Flatrater" : "Name"}</TableHead>
+              {/* Vorher stand hier bei der fremden Gruppe „Flatrater". Seit
+                  PROJ-95 stehen dort auch Pass-Kunden, und das Abzeichen in
+                  der Zeile sagt ohnehin, welches Produkt es ist. */}
+              <TableHead className="min-w-[160px]">Name</TableHead>
               <TableHead>Betrag</TableHead>
               <TableHead>Offen</TableHead>
               <TableHead>Zustand</TableHead>
@@ -261,9 +274,9 @@ export function BarzahlerListe({
                 <TableCell className="font-medium">
                   <div className="flex flex-wrap items-center gap-2">
                     {zeile.kundeName}
-                    {zeile.istFlatrate && (
+                    {produktText(zeile) && (
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                        Flatrate
+                        {produktText(zeile)}
                       </Badge>
                     )}
                   </div>
@@ -487,21 +500,22 @@ export function BarzahlerListe({
           </>
         )}
 
-        {/* Flatrater aus anderen Kursen: eingeklappt, weil sie mit diesem
+        {/* Kurslose Abos aus anderen Kursen: eingeklappt, weil sie mit diesem
             Kursabend nichts zu tun haben — erreichbar, weil sie jederzeit
-            vorbeikommen können. */}
+            vorbeikommen können. Welche Pässe hier auftauchen, entscheidet die
+            Datenbank (PROJ-95): nur die dieser Stilrichtung. */}
         {fremde.length > 0 && (
           <Collapsible>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="w-full justify-start">
                 <ChevronDown className="mr-1 h-4 w-4" />
-                Flatrater anzeigen ({fremde.length})
+                Flatrate und Pässe anzeigen ({fremde.length})
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-2">
               <p className="mb-2 text-xs text-muted-foreground">
-                Flatrate-Barzahler, die für diesen Kurs nicht angemeldet sind. Wer heute hier ist,
-                kann hier bezahlen.
+                Barzahler mit Flatrate oder Pass, die für diesen Kurs nicht angemeldet sind. Wer
+                heute hier ist, kann hier bezahlen.
               </p>
               {tabelle(fremde, true)}
             </CollapsibleContent>
@@ -529,7 +543,7 @@ export function BarzahlerListe({
                   <SelectContent>
                     {kandidaten.map((k) => (
                       <SelectItem key={k.aboId} value={k.aboId}>
-                        {k.kundeName} — {k.istFlatrate ? "Flatrate" : (k.aboName ?? "Kursabo")}
+                        {k.kundeName} — {produktText(k) ?? k.aboName ?? "Kursabo"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -616,6 +630,11 @@ export function BarzahlerListe({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="kurs">Nur dieser Kurs</SelectItem>
+                  {/* PROJ-95: Nur, wenn es für die Stilrichtung dieses Kurses
+                      einen Pass gibt. Benannt nach ihr, nicht einfach „Pass" —
+                      sobald es zwei gibt, ist die Stilrichtung die Antwort auf
+                      „wofür habe ich hier Geld genommen?". */}
+                  {passStil && <SelectItem value="pass">{passStil.name} Pass</SelectItem>}
                   <SelectItem value="flatrate">Flatrate</SelectItem>
                 </SelectContent>
               </Select>
@@ -623,7 +642,9 @@ export function BarzahlerListe({
             <p className="text-xs text-muted-foreground">
               {gastArt === "flatrate"
                 ? "Bekommt eine Flatrate mit diesem Beitrag und einen Platz in diesem Kurs. Weitere Kurse trägt die Verwaltung am Kunden nach."
-                : "Wird ein Teilnehmer dieses Kurses mit diesem Beitrag."}{" "}
+                : gastArt === "pass" && passStil
+                  ? `Bekommt einen Pass für ${passStil.name} mit diesem Beitrag und einen Platz in diesem Kurs. Er gilt für alle ${passStil.name}-Kurse, für andere Stilrichtungen nicht.`
+                  : "Wird ein Teilnehmer dieses Kurses mit diesem Beitrag."}{" "}
               Ohne Konto, ohne E-Mail — und steht danach auf der Barzahler-Liste. Die Verwaltung kann
               später eine Adresse nachtragen.
             </p>

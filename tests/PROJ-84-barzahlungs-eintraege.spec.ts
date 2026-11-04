@@ -268,7 +268,7 @@ test.describe("PROJ-84: Am Kursabend", () => {
     expect(await offen(id)).toBe(0);
   });
 
-  test("Ein Flatrater ohne Kursplatz steht eingeklappt hinter „Flatrater anzeigen“", async ({
+  test("Ein Flatrater ohne Kursplatz steht eingeklappt hinter „Flatrate und Pässe anzeigen“", async ({
     page,
   }) => {
     await leereListe();
@@ -284,7 +284,7 @@ test.describe("PROJ-84: Am Kursabend", () => {
     await expect(karte.getByText(new RegExp(IM_KURS))).toBeVisible();
     await expect(karte.getByText(new RegExp(FLATRATER))).toHaveCount(0);
 
-    await karte.getByRole("button", { name: /Flatrater anzeigen/ }).click();
+    await karte.getByRole("button", { name: /Flatrate und Pässe anzeigen/ }).click();
     await expect(karte.getByText(new RegExp(FLATRATER))).toBeVisible();
 
     // Und dort kann die Lehrkraft kassieren, obwohl er nicht angemeldet ist.
@@ -302,7 +302,7 @@ test.describe("PROJ-84: Am Kursabend", () => {
     await expect(barzahlerKarte(page)).toBeVisible({ timeout: 30000 });
 
     await expect(
-      barzahlerKarte(page).getByRole("button", { name: /Flatrater anzeigen/ })
+      barzahlerKarte(page).getByRole("button", { name: /Flatrate und Pässe anzeigen/ })
     ).toHaveCount(0);
   });
 

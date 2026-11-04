@@ -27,7 +27,7 @@ import {
   schliesseZyklusAb,
   setzeNotiz,
 } from "@/lib/actions/teacher/barzahlung";
-import { offeneSumme, zustandText, type EintragsZeile } from "@/lib/barzahlungen/offen";
+import { offeneSumme, produktText, zustandText, type EintragsZeile } from "@/lib/barzahlungen/offen";
 
 const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
 
@@ -54,6 +54,8 @@ export type AboWahl = {
   kundeName: string;
   aboName: string | null;
   istFlatrate: boolean;
+  /** Die Stilrichtung, wenn das Abo ein Pass ist (PROJ-95) — sonst `null`. */
+  passStil: string | null;
   preis: number | null;
   hatMandat: boolean;
 };
@@ -256,9 +258,12 @@ export function BarzahlungsUebersicht({
                             Baum — der Sentry-Fehler vom 2026-09-27. */}
                         <div className="flex flex-wrap items-center gap-2">
                           {z.aboName}
-                          {z.istFlatrate && (
+                          {/* PROJ-95: Nicht `istFlatrate` — ein Pass ist
+                              ebenfalls kurslos, und „Bachata Pass [Flatrate]"
+                              wäre ein Widerspruch in einer Zeile. */}
+                          {produktText(z) && (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                              Flatrate
+                              {produktText(z)}
                             </Badge>
                           )}
                         </div>
@@ -470,7 +475,7 @@ export function BarzahlungsUebersicht({
                     <SelectContent>
                       {aboWahl.map((a) => (
                         <SelectItem key={a.aboId} value={a.aboId}>
-                          {a.kundeName} — {a.istFlatrate ? "Flatrate" : (a.aboName ?? "Kursabo")}
+                          {a.kundeName} — {produktText(a) ?? a.aboName ?? "Kursabo"}
                         </SelectItem>
                       ))}
                     </SelectContent>
