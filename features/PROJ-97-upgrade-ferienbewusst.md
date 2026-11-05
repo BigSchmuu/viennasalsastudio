@@ -293,5 +293,41 @@ brauchen `revoke ... from public, anon` und `grant execute ... to authenticated`
 
 ## Open Questions
 
-- [ ] **Sollen Ferien auch den Anrechnungszeitraum der offenen Posten (PROJ-37) betreffen?**
-      Nicht geprüft, nur notiert — derselbe Befund könnte dort stecken.
+- [x] **Sollen Ferien auch den Anrechnungszeitraum der offenen Posten (PROJ-37) betreffen?**
+      → **Nein, dort gibt es keinen.** Nachgesehen am 2026-11-05: Ein offener Posten ist eine
+      zurückgebuchte Rechnung, gefiltert über `bounced_at` und `settled_at`. Keine
+      Zyklusrechnung, kein Fenster, nichts zu ändern. Der Verdacht kam aus der Erwähnung von
+      PROJ-37 in der PROJ-91-Migration — die betrifft aber nur, wo ein offener Betrag
+      __landet__, nicht wie gerechnet wird. (2026-11-05)
+
+### Was die Durchsicht sonst ergab
+
+Gesucht wurde im ganzen Projekt nach festen Zyklusfenstern. Übrig sind genau zwei Stellen,
+und beide sind in Ordnung:
+
+| Stelle | Stand |
+| --- | --- |
+| `cash_payment_nicht_doppelt` (PROJ-81) | 28 Tage, mit Begründung starr — siehe Out of Scope |
+| Der SEPA-Lauf (`istFaellig` in `src/lib/actions/admin/sepa-collections.ts`) | rechnet seit PROJ-70 ferienbewusst |
+
+Die Barzahler-Liste leitet seit PROJ-84 gar nichts mehr ab („Betrag minus Gezahltes, zwei
+Zahlen“) — die dritte Stelle, an der früher ein Zyklus gerechnet wurde, gibt es also nicht
+mehr.
+
+- [x] **Ein veralteter Kommentar in der Datenbank.** `flatrate_upgrade_angerechnet` sagte in
+      ihrem `comment on function` noch „Barzahlungen der letzten 28 Tage“ — der Rumpf summiert
+      nur die Aufstellung und rechnet damit richtig, aber die Funktion beschrieb sich selbst
+      falsch. → **Behoben** mit `20261105140000_proj97_kommentar_angerechnet.sql`. (2026-11-05)
+
+## Nachtrag: Der Kommentar, der die eigene Funktion falsch beschrieb (2026-11-05)
+
+Nur eine Zeile, und trotzdem die Art Falle, auf die diese Spezifikation selbst zurückgeht: Wer
+eine Funktion liest, statt sie zu testen, glaubt ihrem Kommentar.
+
+Dafür gibt es **keinen Test** und kann keinen geben — ein Kommentar ist kein Verhalten. Was
+ihn trotzdem belegt, ist die Durchsicht selbst: Es war das einzige
+„28 Tage“ in allen lebenden `comment on`-Anweisungen des Projekts.
+
+Zwei Zeilen fehlen in dieser Migration mit Absicht: `comment on function` setzt die Rechte
+nicht zurück, anders als `create or replace function`. Das steht auch im Kopf der Migration,
+damit die fehlenden `revoke`/`grant` nicht wie ein Versehen aussehen.
