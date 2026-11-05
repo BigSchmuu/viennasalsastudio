@@ -1,6 +1,6 @@
 # PROJ-98: Zahlungszyklen bei den Barzahlern — Archiv und Abschluss mit Datum
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-05
 **Last Updated:** 2026-11-05
 
@@ -429,3 +429,39 @@ Regel.
 **Urteil: produktionsreif.** Zwei Dinge gehören in dieser Reihenfolge ausgeliefert — erst die
 Migration, dann der Code. Die Seite „Barzahlungen" liest das Archiv und bricht ohne die
 Tabellen ab.
+
+## Deployment (2026-11-06)
+
+Ausgeliefert nach https://app.viennasalsastudio.at
+
+| | |
+| --- | --- |
+| Commit | `0462175` feat(PROJ-98, PROJ-99) |
+| Tag | `v1.98.0-PROJ-98` |
+| Migration | `20261105160000_proj98_barzahlung_zyklen.sql` — vom Betreiber **vor** dem Push in der Produktion eingespielt |
+| Build | „Compiled successfully in 12.5s“, 66 statische Seiten, keine Warnung |
+| Deployment | `dpl_CwxK1JAJpvgx6wSZEbx357dXEAmY`, rund 60 Sekunden nach dem Push live |
+
+Ein Commit für PROJ-98 und PROJ-99, weil dieselben Dateien beides tragen
+(`types.ts`, `laden.ts`, die Übersicht, die Lehrerliste). Ein getrennter Commit hätte
+`main` in einem Zustand hinterlassen, zu dem keine eingespielte Datenbank passt.
+
+**Nach dem Deployment geprüft:** die öffentlichen Seiten (Start, Kurse, `/en`) antworten mit
+200, `/admin/barzahlungen` und `/admin/kunden` leiten einen anonymen Aufruf auf die Anmeldung —
+die Route existiert also und bewacht sich. Was ein anonymer Aufruf **nicht** zeigen kann, ist
+das Archiv selbst: dafür braucht es die Anmeldung als Verwaltung. Dieser Klick bleibt beim
+Betreiber.
+
+## Für den Betrieb
+
+- **Der erste Abschluss ist der, der zählt.** Das Enddatum bestimmt, welche Zahlungen noch zum
+  alten Zyklus gehören. Ein zu früh gewähltes Datum lässt bereits bezahlte Einträge in der
+  Liste stehen; ein zu spätes nimmt Zahlungen mit, die zum neuen Zyklus gehören sollten.
+  Beides ist über „Zurücknehmen" reparierbar, solange danach nichts eingetragen wurde.
+- **Zurücknehmen hat ein Zeitfenster.** Sobald nach dem Abschluss eine Zahlung oder ein
+  Eintrag dazukommt, verweigert die Funktion die Rücknahme mit Begründung. Das ist Absicht:
+  Sie würde sonst neuere Angaben überschreiben.
+- **Der Hinweis „Aus dem Zyklus bis … offen"** erscheint auch bei jemandem, der nur wegen
+  einer späten Zahlung in der Liste geblieben ist. Gerechnet ist das richtig, am häufigen Fall
+  ist es womöglich lauter als nötig — siehe „Offene Frage aus der Umsetzung". Das entscheidet
+  sich am ersten echten Abschluss besser als an jedem Test.

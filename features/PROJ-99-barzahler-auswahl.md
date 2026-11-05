@@ -1,6 +1,6 @@
 # PROJ-99: Die Auswahl beim Eintragen — gedeckte Abos und die Zahler des vorigen Zyklus
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-05
 **Last Updated:** 2026-11-05
 
@@ -271,3 +271,28 @@ Aussage; der Schaden war die zweite Person.
 
 **Keine Befunde. Urteil: produktionsreif.** Abhängigkeit: PROJ-98s Migration muss zuerst
 eingespielt sein, weil die Auswahl den Betrag aus dem Archiv liest.
+
+## Deployment (2026-11-06)
+
+Ausgeliefert nach https://app.viennasalsastudio.at
+
+| | |
+| --- | --- |
+| Commit | `0462175` feat(PROJ-98, PROJ-99) |
+| Tag | `v1.99.0-PROJ-99` |
+| Migration | `20261105180000_proj99_barzahler_auswahl.sql` — vom Betreiber **vor** dem Push in der Produktion eingespielt, nach der von PROJ-98 |
+| Build | „Compiled successfully in 12.5s“, keine Warnung |
+| Deployment | `dpl_CwxK1JAJpvgx6wSZEbx357dXEAmY`, gemeinsam mit PROJ-98 |
+
+Gemeinsamer Commit mit PROJ-98 — Begründung dort.
+
+## Für den Betrieb
+
+- **Die Gruppe „Im vorigen Zyklus" erscheint erst nach dem ersten Abschluss.** Vorher gibt es
+  kein Archiv, aus dem sie sich speisen könnte, und sie fehlt dann ganz statt leer zu sein.
+- **Der vorbelegte Betrag ist ein Vorschlag, kein Beschluss.** Er kommt aus dem letzten
+  Zyklus und steht im Feld, damit der häufige Fall ein Tippen weniger kostet. Ändert sich der
+  Preis, muss er überschrieben werden.
+- **Bekannte Grenze:** `deckt_abo_kurs` gibt je Kunde **ein** deckendes Abo zurück (das
+  älteste). Wer zwei kursfreie Abos hat, die denselben Kurs decken, erscheint mit dem älteren.
+  In der Praxis gibt es diesen Fall nicht; falls doch, ist es eine Zeile in der Funktion.
