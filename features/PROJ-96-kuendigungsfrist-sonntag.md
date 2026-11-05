@@ -1,6 +1,6 @@
 # PROJ-96: Kündigungsfrist bis Sonntag, und der Stichtag im Profil
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-04
 **Last Updated:** 2026-11-05
 
@@ -271,6 +271,37 @@ Anker, kein Fixture fällt also in den Fall „ohne Anker“.
 
 Produktionsreif. Keine Fehler der Schwere Kritisch oder Hoch. Die Migration muss **vor** dem
 Ausliefern in der Produktion liegen: Das Profil liest die neue Funktion bei jedem Aufruf.
+
+## Deployment (2026-11-05)
+
+Ausgeliefert nach https://app.viennasalsastudio.at
+
+| | |
+| --- | --- |
+| Commit | `77dd997` feat(PROJ-96) |
+| Tag | `v1.96.0-PROJ-96` |
+| Migration | `20261104160000_proj96_kuendigungsfrist.sql` — vom Betreiber **vor** dem Push in der Produktion eingespielt |
+| Build | `npm run build` Code 0 |
+
+Die Reihenfolge war hier nicht beliebig: Das Profil ruft `abo_kuendigungsfenster` bei jedem
+Aufruf. Wäre der Code vor der Migration ausgeliefert worden, hätte jeder Kunde sein Abo ohne
+Stichtag gesehen, und Kündigen hätte kein Datum geschrieben — lautlos, weil der Lesefehler
+nur in der Serverkonsole landet.
+
+## Für den Betrieb
+
+- **Ferien vor dem Zyklus eintragen.** Ein schon gespeichertes Kündigungsdatum wandert nicht
+  mehr mit, wenn Ferien nachträglich dazukommen — der Einzug schon. Beides kann dann um Tage
+  auseinanderliegen. So gewollt: Ein zugesagtes Datum nachträglich zu verschieben wäre der
+  größere Schaden. Aber es heißt, Schließungen gehören in den Kalender, bevor der Zyklus
+  läuft.
+- **Die Frist bindet dich nicht.** In der Verwaltung setzt du das Wirksamkeitsdatum weiter
+  selbst; dieser Weg ruft die Funktion nicht. Nur der Kunde ist an den Sonntag gebunden.
+- **Endet ein Zyklus an einem Sonntag, bleibt kein Vorlauf.** Du erfährst an diesem Tag, dass
+  jemand geht. Bewusst entschieden (Decision Log), damit der Wortlaut „Sonntag der letzten
+  Kurswoche" hält.
+- **Erster Beleg in der Produktion:** An einem aktiven Abo im Profil steht „Kündigung oder
+  Pause bis … — wirkt dann zum …". Fehlt die Zeile, hat die Funktion nicht geantwortet.
 
 ## Tech Design (Solution Architect)
 

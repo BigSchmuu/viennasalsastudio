@@ -163,7 +163,7 @@
 
 | PROJ-95 | Der Pass als Auswahl bei den Barzahlern | Deployed | [PROJ-95](../features/PROJ-95-pass-bei-barzahlern.md) | 2026-11-04 |
 
-| PROJ-96 | Kündigungsfrist bis Sonntag, und der Stichtag im Profil | Approved | [PROJ-96](../features/PROJ-96-kuendigungsfrist-sonntag.md) | 2026-11-05 |
+| PROJ-96 | Kündigungsfrist bis Sonntag, und der Stichtag im Profil | Deployed | [PROJ-96](../features/PROJ-96-kuendigungsfrist-sonntag.md) | 2026-11-05 |
 
 <!-- Add features above this line -->
 
