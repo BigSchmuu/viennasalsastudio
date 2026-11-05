@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { angemeldetAls } from "./anmeldung";
+import { naechsteFaelligkeit } from "@/lib/sepa/faelligkeit";
 
 /**
  * PROJ-87: Upgrade auf die Flatrate.
@@ -965,10 +966,26 @@ describe("PROJ-88: Mehrere Kursabos", () => {
     expect(Number(data), "Ein Entwurf wurde angerechnet").toBe(0);
   });
 
-  it("lässt einen Einzug außerhalb des Fensters liegen", async () => {
-    // Die bekannte Ungenauigkeit: Ferien verlängern einen Zyklus, aber die
-    // Anrechnung schaut 28 Tage zurück. Zu Lasten des Kunden und sichtbar.
+  it("lässt einen Einzug liegen, dessen Zyklus vorbei ist", async () => {
+    // Seit PROJ-97 entscheidet nicht mehr ein starres 28-Tage-Fenster, sondern
+    // die nächste Fälligkeit: angerechnet wird, was heute noch abdeckt. 40 Tage
+    // sind draußen — solange keine Ferien dazwischen liegen. Genau das wird
+    // hier geprüft, statt es anzunehmen: Mit einer langen Schließung in diesem
+    // Zeitraum wäre der Einzug zu Recht angerechnet, und der Fehlschlag hätte
+    // nichts mit der Anrechnung zu tun.
     await zuruecksetzen();
+    const { data: ferienzeiten } = await service
+      .from("studio_holidays")
+      .select("starts_on, ends_on");
+    const ferien = (ferienzeiten ?? []).map((f) => ({ von: f.starts_on, bis: f.ends_on }));
+    const tag40 = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Vienna" }).format(
+      new Date(Date.now() - 40 * 86_400_000)
+    );
+    expect(
+      naechsteFaelligkeit(tag40, ferien) <= heute(),
+      "Ferien verlängern diesen Zyklus bis heute — die Prüfung wäre ohne Aussage"
+    ).toBe(true);
+
     await einzug(aboId, KURSPREIS, -40);
     const { data } = await alsKunde.rpc("flatrate_upgrade_angerechnet", {
       p_customer_id: kundeId,

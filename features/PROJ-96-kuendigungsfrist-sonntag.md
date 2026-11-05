@@ -408,9 +408,11 @@ Keine neuen Pakete.
       war: Eine gesonderte rechtliche Prüfung für Bestandskunden ist nicht geplant, die AGB
       werden mit der Änderung angepasst. Festgehalten, weil die Frage gestellt und bewusst
       beantwortet wurde — nicht übersehen. (2026-11-04)
-- [ ] **Soll PROJ-91 (`flatrate_upgrade_zyklus_wird_abgebucht`) auf dieselbe Rechnung
-      umgestellt werden?** Dort steckt dasselbe 28-Tage-Fenster. Nicht Teil dieser
-      Spezifikation, aber derselbe Befund.
+- [x] **Soll PROJ-91 (`flatrate_upgrade_zyklus_wird_abgebucht`) auf dieselbe Rechnung
+      umgestellt werden?** → **Ja**, Entscheidung des Betreibers. Als **PROJ-97** aufgenommen.
+      Die Recherche dort fand zwei weitere Stellen: dasselbe Fenster in der Anrechnung
+      (`flatrate_upgrade_anrechnung`, Lastschrift und Barzahlung) und einen Randtag, an dem
+      derselbe Zyklus zweimal kassiert wird. (2026-11-05)
 - [ ] **Soll der Verwaltungsweg einen eigenen Test bekommen?** Dass der Betreiber nicht an
       die Frist gebunden ist, steht heute nur im Code: Die Verwaltung schreibt direkt, statt
       die Funktion zu rufen. Stellt eine spätere Änderung sie auf die Funktion um, wäre der
