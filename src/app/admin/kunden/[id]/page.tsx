@@ -8,6 +8,8 @@ import {
   type FlatrateKursplatz,
 } from "@/components/admin/customers/flatrate-course-manager";
 import { CreditManager, type CreditEntry } from "@/components/admin/customers/credit-manager";
+import { BarzahlungsArchiv } from "@/components/admin/customers/barzahlungs-archiv";
+import { ladeArchiv, type ArchivZeile } from "@/lib/barzahlungen/laden";
 import type { AdminProfileInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -161,6 +163,17 @@ export default async function CustomerDetailPage({
     werber = data;
   }
 
+  // PROJ-98: In welchen Zyklen stand dieser Mensch auf der Barzahler-Liste?
+  // Ein Lesefehler nimmt nicht die ganze Akte mit — Profil, Abos und Mandat
+  // sind davon unberührt —, bleibt aber sichtbar: `null` heißt „nicht
+  // lesbar" und wird im Abschnitt gesagt, nicht verschwiegen.
+  let barzahlungen: ArchivZeile[] | null = null;
+  try {
+    barzahlungen = await ladeArchiv(supabase, id);
+  } catch (fehler) {
+    console.error("Kundenakte: Barzahlungs-Archiv", id, fehler);
+  }
+
   const creditEntries: CreditEntry[] = (creditsRes.data ?? []).map((c) => ({
     id: c.id,
     amount: Number(c.amount),
@@ -260,6 +273,10 @@ export default async function CustomerDetailPage({
           </div>
         )}
       </div>
+
+      {/* PROJ-98: Nur, wenn er je auf einer Barzahler-Liste stand — sonst
+          erscheint der Abschnitt überhaupt nicht. */}
+      <BarzahlungsArchiv zeilen={barzahlungen} />
 
       <div className="space-y-3">
         <h3 className="font-heading text-lg font-semibold">Guthaben und Empfehlung</h3>

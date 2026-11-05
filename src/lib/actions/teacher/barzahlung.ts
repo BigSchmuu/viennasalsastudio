@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminOrTeacher } from "@/lib/auth/require-admin-or-teacher";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { betragAusEingabe } from "@/lib/kunden/offline";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import type { ActionResult } from "@/lib/actions/types";
 
 /**
@@ -149,30 +151,164 @@ export async function entferneEintrag(entryId: string, courseId: string): Promis
   return { success: true };
 }
 
-export type ZyklusAbgeschlossen = { error: string } | { success: true; entfernt: number };
+export type ZyklusAbgeschlossen =
+  | { error: string }
+  | { success: true; abgeschrieben: number; entfernt: number; geblieben: number };
+
+/** „JJJJ-MM-TT" und ein Tag, den es wirklich gibt. */
+function istTag(wert: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(wert)) return false;
+  const datum = new Date(`${wert}T12:00:00Z`);
+  return !Number.isNaN(datum.getTime()) && datum.toISOString().slice(0, 10) === wert;
+}
 
 /**
- * Die ganze Liste leeren — der neue Zahlungszyklus beginnt.
+ * Den laufenden Zyklus abschließen (PROJ-98).
  *
- * Nur die Verwaltung: Eine Lehrkraft, die ihren eigenen Eintrag entfernen darf,
- * soll nicht versehentlich die Liste aller Kurse leeren.
+ * Mit dem Tag, an dem der Zyklus wirklich endete — nicht mit dem Tag, an dem
+ * der Betreiber dazu kommt. Davon hängt ab, wer die Liste verlässt: nur wer
+ * bis einschließlich Enddatum voll bezahlt hat. Wer danach gezahlt hat, bleibt
+ * stehen, und sein Geld zählt für den neuen Zyklus — der Anlass der ganzen
+ * Änderung.
+ *
+ * Die Grenzen stehen hier **und** in der Datenbank: Eine Oberfläche ist keine
+ * Zusicherung.
  */
-export async function schliesseZyklusAb(): Promise<ZyklusAbgeschlossen> {
-  await requireAdminOrTeacher();
-  const supabase = await createClient();
+export async function schliesseZyklusAb(enddatum: string): Promise<ZyklusAbgeschlossen> {
+  if (!istTag(enddatum)) {
+    return { error: "Bitte ein Enddatum auswählen." };
+  }
+  if (enddatum > heuteInWien()) {
+    return { error: "Dieser Zyklus läuft noch — das Enddatum darf nicht in der Zukunft liegen." };
+  }
 
-  const { data, error } = await supabase.rpc("close_cash_cycle");
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase.rpc("close_cash_cycle", { p_ends_on: enddatum });
 
   if (error) {
+    if (error.message.includes("end date in future")) {
+      return { error: "Dieser Zyklus läuft noch — das Enddatum darf nicht in der Zukunft liegen." };
+    }
+    if (error.message.includes("end date before cycle start")) {
+      return {
+        error: "Das Enddatum liegt vor dem Anfang des laufenden Zyklus. Bitte einen späteren Tag wählen.",
+      };
+    }
     if (error.message.includes("not authorized")) {
       return { error: "Nur die Verwaltung kann den Zyklus abschließen." };
     }
-    console.error("Zyklus nicht abgeschlossen", error);
+    console.error("Zyklus nicht abgeschlossen", enddatum, error);
+    return { error: "Der Zyklus konnte nicht abgeschlossen werden." };
+  }
+
+  // `returns table` liefert eine Liste — eine Zeile, aber eben eine Liste.
+  const ergebnis = (data ?? [])[0];
+  if (!ergebnis) {
+    console.error("Zyklus abgeschlossen, aber ohne Antwort", enddatum);
     return { error: "Der Zyklus konnte nicht abgeschlossen werden." };
   }
 
   revalidatePath("/admin/barzahlungen");
-  return { success: true, entfernt: Number(data ?? 0) };
+  return {
+    success: true,
+    abgeschrieben: Number(ergebnis.abgeschrieben),
+    entfernt: Number(ergebnis.entfernt),
+    geblieben: Number(ergebnis.geblieben),
+  };
+}
+
+export type ZyklusZurueckgenommen = { error: string } | { success: true; zurueck: number };
+
+/**
+ * Den letzten Abschluss zurücknehmen (PROJ-98).
+ *
+ * Fängt den Fehlgriff — falsches Datum, zu früh gedrückt. Nur solange seither
+ * nichts kassiert und kein Eintrag angelegt wurde: Das zweite ist keine
+ * Vorsicht, sondern Notwendigkeit, denn eine neue Zeile für dasselbe Abo stünde
+ * der Wiederherstellung im Weg.
+ */
+export async function nimmZyklusZurueck(): Promise<ZyklusZurueckgenommen> {
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase.rpc("undo_cash_cycle");
+
+  if (error) {
+    if (error.message.includes("payment since close")) {
+      return {
+        error: "Seit dem Abschluss wurde eine Zahlung erfasst — der Abschluss bleibt bestehen.",
+      };
+    }
+    if (error.message.includes("entry since close")) {
+      return {
+        error: "Seit dem Abschluss wurde ein Eintrag angelegt — der Abschluss bleibt bestehen.",
+      };
+    }
+    if (error.message.includes("no cycle")) {
+      return { error: "Es gibt keinen abgeschlossenen Zyklus." };
+    }
+    if (error.message.includes("not authorized")) {
+      return { error: "Nur die Verwaltung kann einen Abschluss zurücknehmen." };
+    }
+    console.error("Zyklus nicht zurückgenommen", error);
+    return { error: "Der Abschluss konnte nicht zurückgenommen werden." };
+  }
+
+  revalidatePath("/admin/barzahlungen");
+  return { success: true, zurueck: Number(data ?? 0) };
+}
+
+/** Eine Zeile der Abschluss-Vorschau. */
+export type VorschauZeile = {
+  aboId: string;
+  kundeId: string;
+  kundeName: string;
+  betrag: number;
+  bezahltBis: number;
+  offen: number;
+  geht: boolean;
+  spaetBetrag: number;
+  spaetTag: string | null;
+};
+
+export type Vorschau = { error: string } | { success: true; zeilen: VorschauZeile[] };
+
+/**
+ * Was ein Abschluss mit diesem Enddatum täte (PROJ-98) — und ändert nichts.
+ *
+ * Der Dialog braucht zwei Dinge: die Zahlen (wie viele gehen, wie viele
+ * bleiben) und die Zahlungen **nach** dem Enddatum, mit Namen und Tag. Das
+ * zweite federt den einen Preis dieser Lösung ab: Wer zu spät für den alten
+ * Zyklus zahlt, wird dem neuen zugerechnet. Steht jemand dort falsch, bekommt
+ * er ein anderes Enddatum — bevor etwas passiert.
+ */
+export async function ladeZyklusVorschau(enddatum: string): Promise<Vorschau> {
+  if (!istTag(enddatum)) {
+    return { error: "Bitte ein Enddatum auswählen." };
+  }
+
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase.rpc("get_cash_cycle_preview", { p_ends_on: enddatum });
+
+  if (error) {
+    // Hier wird ein Fehler gemeldet und nicht geschwiegen: Eine leere Vorschau
+    // sähe aus wie „nichts passiert", und darauf hin würde gedrückt.
+    console.error("Vorschau nicht lesbar", enddatum, error);
+    return { error: "Die Vorschau konnte nicht geladen werden." };
+  }
+
+  return {
+    success: true,
+    zeilen: (data ?? []).map((z) => ({
+      aboId: z.subscription_id,
+      kundeId: z.customer_id,
+      kundeName: z.full_name || "Unbenannter Kunde",
+      betrag: Number(z.amount_due),
+      bezahltBis: Number(z.bezahlt_bis),
+      offen: Number(z.offen),
+      geht: z.geht,
+      spaetBetrag: Number(z.spaet_betrag),
+      spaetTag: z.spaet_tag,
+    })),
+  };
 }
 
 export type BarzahlungErfasst =

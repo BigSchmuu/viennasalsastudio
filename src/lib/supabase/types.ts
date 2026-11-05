@@ -180,6 +180,60 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_cycle_entries: {
+        Row: {
+          amount_due: number
+          created_at: string
+          customer_id: string
+          cycle_id: string
+          id: string
+          note: string | null
+          subscription_id: string
+        }
+        Insert: {
+          amount_due: number
+          created_at?: string
+          customer_id: string
+          cycle_id: string
+          id?: string
+          note?: string | null
+          subscription_id: string
+        }
+        Update: {
+          amount_due?: number
+          created_at?: string
+          customer_id?: string
+          cycle_id?: string
+          id?: string
+          note?: string | null
+          subscription_id?: string
+        }
+        Relationships: []
+      }
+      cash_cycles: {
+        Row: {
+          closed_at: string
+          closed_by: string | null
+          ends_on: string
+          id: string
+          starts_on: string
+        }
+        Insert: {
+          closed_at?: string
+          closed_by?: string | null
+          ends_on: string
+          id?: string
+          starts_on: string
+        }
+        Update: {
+          closed_at?: string
+          closed_by?: string | null
+          ends_on?: string
+          id?: string
+          starts_on?: string
+        }
+        Relationships: []
+      }
       cash_entries: {
         Row: {
           amount_due: number
@@ -2915,8 +2969,12 @@ export type Database = {
           letzte_zahlung_id: string | null
           note: string | null
           pass_stil: string | null
+          /** PROJ-98: offener Rest aus dem juengsten abgeschlossenen Zyklus. */
+          rest_vorher: number
           subscription_id: string
           subscription_name: string | null
+          /** PROJ-98: bis wann dieser vorige Zyklus ging. */
+          vorher_bis: string | null
         }[]
       }
       get_course_cash_candidates: {
@@ -2929,6 +2987,8 @@ export type Database = {
           price: number | null
           subscription_id: string
           subscription_name: string | null
+          /** PROJ-99: Betrag aus dem vorigen Zyklus, null wenn er dort nicht stand. */
+          voriger_betrag: number | null
         }[]
       }
       add_cash_entry: {
@@ -2971,8 +3031,64 @@ export type Database = {
         Returns: boolean
       }
       close_cash_cycle: {
+        Args: { p_ends_on: string }
+        Returns: {
+          abgeschrieben: number
+          entfernt: number
+          geblieben: number
+          zyklus_id: string
+        }[]
+      }
+      undo_cash_cycle: {
         Args: Record<string, never>
         Returns: number
+      }
+      get_cash_cycle_preview: {
+        Args: { p_ends_on: string }
+        Returns: {
+          amount_due: number
+          bezahlt_bis: number
+          customer_id: string
+          full_name: string
+          geht: boolean
+          offen: number
+          spaet_betrag: number
+          spaet_tag: string | null
+          subscription_id: string
+        }[]
+      }
+      get_cash_cycles: {
+        Args: Record<string, never>
+        Returns: {
+          closed_at: string
+          closed_by_name: string | null
+          cycle_id: string
+          eingesammelt: number
+          eintraege: number
+          ends_on: string
+          geschuldet: number
+          kann_zurueck: boolean
+          offen: number
+          starts_on: string
+        }[]
+      }
+      get_cash_archive_entries: {
+        Args: { p_customer_id?: string | null }
+        Returns: {
+          amount_due: number
+          archiv_id: string
+          cycle_id: string
+          customer_id: string
+          ends_on: string
+          full_name: string
+          gezahlt: number
+          ist_flatrate: boolean
+          note: string | null
+          pass_stil: string | null
+          starts_on: string
+          subscription_id: string
+          subscription_name: string | null
+        }[]
       }
       get_course_dance_roles: {
         Args: { p_course_ids: string[] }

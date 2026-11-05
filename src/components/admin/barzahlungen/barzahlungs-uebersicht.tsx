@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Undo2 } from "lucide-react";
+import { CalendarCheck, ChevronDown, Plus, Trash2, Undo2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,22 +12,35 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import {
   aendereEintrag,
   entferneEintrag,
   erfasseBarzahlung,
+  ladeZyklusVorschau,
   legeEintragAn,
   nimmBarzahlungZurueck,
+  nimmZyklusZurueck,
   schliesseZyklusAb,
   setzeNotiz,
+  type VorschauZeile,
 } from "@/lib/actions/teacher/barzahlung";
-import { offeneSumme, produktText, zustandText, type EintragsZeile } from "@/lib/barzahlungen/offen";
+import {
+  offeneSumme,
+  produktText,
+  restText,
+  zustandText,
+  type EintragsZeile,
+} from "@/lib/barzahlungen/offen";
+import type { ArchivZeile, ZyklusZeile } from "@/lib/barzahlungen/laden";
 
 const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
 
@@ -58,6 +71,12 @@ export type AboWahl = {
   passStil: string | null;
   preis: number | null;
   hatMandat: boolean;
+  /**
+   * Was dieses Abo im vorigen Zyklus schuldete (PROJ-99) — `null`, wenn es
+   * dort nicht auf der Liste stand. Zugleich der Vorschlag für den Betrag und
+   * das Merkmal für die Gruppe „Im vorigen Zyklus".
+   */
+  vorigerBetrag: number | null;
 };
 
 function datum(wert: string): string {
@@ -85,12 +104,30 @@ export function BarzahlungsUebersicht({
   aufschlaege,
   eingesammelt,
   zeitraumText,
+  zyklen,
+  archiv,
+  zyklusStart,
+  heute,
 }: {
   zeilen: EintragsZeile[];
   aboWahl: AboWahl[];
   aufschlaege: OffenerAufschlag[];
   eingesammelt: EingesammeltZeile[];
   zeitraumText: string;
+  /** Die abgeschlossenen Zyklen, der jüngste zuerst (PROJ-98). */
+  zyklen: ZyklusZeile[];
+  /** Die Abschriften aller Zyklen — gruppiert wird hier, geladen wird einmal. */
+  archiv: ArchivZeile[];
+  /** Der erste Tag des laufenden Zyklus; `null`, solange keiner abgeschlossen wurde. */
+  zyklusStart: string | null;
+  /**
+   * Der heutige Wiener Kalendertag, vom Server.
+   *
+   * Nicht aus dem Browser: Dessen Uhr steht anderswo in einer anderen
+   * Zeitzone, und von diesem Tag hängt ab, welches Enddatum der Dialog
+   * vorschlägt und welches er abweist.
+   */
+  heute: string;
 }) {
   const router = useRouter();
   const [fehler, setFehler] = useState<string | null>(null);
@@ -111,10 +148,62 @@ export function BarzahlungsUebersicht({
   const [tutGerade, setTutGerade] = useState(false);
   const [fragtAb, setFragtAb] = useState(false);
 
+  // PROJ-98: Der Abschluss-Dialog. Das Enddatum ist mit heute vorbelegt — der
+  // häufige Fall bleibt ein Druck —, Vergangenheit ist erlaubt und genau der
+  // Zweck der Übung.
+  const [enddatum, setEnddatum] = useState(heute);
+  const [vorschau, setVorschau] = useState<VorschauZeile[] | null>(null);
+  const [vorschauFehler, setVorschauFehler] = useState<string | null>(null);
+  const [vorschauLaeuft, setVorschauLaeuft] = useState(false);
+  const [fragtZurueck, setFragtZurueck] = useState(false);
+
   const offene = zeilen.filter((z) => z.istOffen);
   const summeOffen = offeneSumme(zeilen);
   const summeEingesammelt = eingesammelt.reduce((s, z) => s + z.betrag, 0);
   const gewaehlt = aboWahl.find((a) => a.aboId === gewaehltesAbo);
+
+  // PROJ-99: Wer im vorigen Zyklus auf der Liste stand, steht oben — mit dem
+  // Betrag von damals. Kein Sammelknopf: Wer aufgehört hat, soll auffallen.
+  const vorige = aboWahl.filter((a) => a.vorigerBetrag !== null);
+  const uebrige = aboWahl.filter((a) => a.vorigerBetrag === null);
+
+  const zukunft = enddatum > heute;
+  const gehen = vorschau?.filter((z) => z.geht) ?? [];
+  const bleiben = vorschau?.filter((z) => !z.geht) ?? [];
+  // Der Preis dieser Lösung, benannt statt versteckt: Wer nach dem Enddatum
+  // gezahlt hat, wird dem neuen Zyklus zugerechnet. Hier steht er mit Namen
+  // und Tag, damit das Enddatum notfalls ein anderes wird.
+  const spaete = vorschau?.filter((z) => z.spaetBetrag > 0.005) ?? [];
+
+  /**
+   * Die Vorschau zum gewählten Enddatum — sie ändert nichts.
+   *
+   * Sie wird bei jeder Änderung des Datums neu geholt, und eine Antwort, die
+   * zu einem älteren Datum gehört, wird verworfen: Sonst entschiede die
+   * Reihenfolge der Antworten, welche Zahlen über dem Knopf stehen.
+   */
+  useEffect(() => {
+    if (!fragtAb || zukunft) {
+      setVorschau(null);
+      return;
+    }
+    let verworfen = false;
+    setVorschauLaeuft(true);
+    setVorschauFehler(null);
+    void ladeZyklusVorschau(enddatum).then((ergebnis) => {
+      if (verworfen) return;
+      if ("error" in ergebnis) {
+        setVorschau(null);
+        setVorschauFehler(ergebnis.error);
+      } else {
+        setVorschau(ergebnis.zeilen);
+      }
+      setVorschauLaeuft(false);
+    });
+    return () => {
+      verworfen = true;
+    };
+  }, [fragtAb, enddatum, zukunft]);
 
   async function tun(id: string, aufgabe: () => Promise<{ error: string } | unknown>) {
     setLaufendeId(id);
@@ -160,14 +249,38 @@ export function BarzahlungsUebersicht({
     setTutGerade(true);
     setFehler(null);
     try {
-      const ergebnis = await schliesseZyklusAb();
+      const ergebnis = await schliesseZyklusAb(enddatum);
       if ("error" in ergebnis) {
         setFehler(ergebnis.error);
         return;
       }
       setFragtAb(false);
+      setVorschau(null);
       setHinweis(
-        `${ergebnis.entfernt} ${ergebnis.entfernt === 1 ? "Eintrag" : "Einträge"} entfernt. Die erfassten Zahlungen stehen weiterhin unter „Eingesammelt“.`
+        `Zyklus bis ${datum(enddatum)} abgeschlossen: ${ergebnis.abgeschrieben} ` +
+          `${ergebnis.abgeschrieben === 1 ? "Eintrag" : "Einträge"} archiviert, ` +
+          `${ergebnis.entfernt} von der Liste genommen, ${ergebnis.geblieben} stehen geblieben.`
+      );
+      router.refresh();
+    } finally {
+      setTutGerade(false);
+    }
+  }
+
+  /** Den letzten Abschluss zurücknehmen (PROJ-98). */
+  async function zurueckNehmen() {
+    setTutGerade(true);
+    setFehler(null);
+    try {
+      const ergebnis = await nimmZyklusZurueck();
+      if ("error" in ergebnis) {
+        setFehler(ergebnis.error);
+        return;
+      }
+      setFragtZurueck(false);
+      setHinweis(
+        `Der Abschluss ist zurückgenommen. ${ergebnis.zurueck} ` +
+          `${ergebnis.zurueck === 1 ? "Eintrag steht" : "Einträge stehen"} wieder auf der Liste.`
       );
       router.refresh();
     } finally {
@@ -222,7 +335,8 @@ export function BarzahlungsUebersicht({
             </Badge>
           </CardTitle>
           <CardDescription>
-            Der laufende Zahlungszyklus. {offene.length} offen, Summe{" "}
+            Der laufende Zahlungszyklus{zyklusStart ? ` seit ${datum(zyklusStart)}` : ""}.{" "}
+            {offene.length} offen, Summe{" "}
             <span className="tabular-nums">{EUR.format(summeOffen)}</span>.
           </CardDescription>
         </CardHeader>
@@ -316,7 +430,15 @@ export function BarzahlungsUebersicht({
                         {z.istOffen ? EUR.format(z.offen) : "—"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {zustandText(z)}
+                        <div>{zustandText(z)}</div>
+                        {/* PROJ-98: Der Rest aus dem vorigen Zyklus steht
+                            daneben, nicht im Betrag. Eine Zahl aus zwei Zyklen
+                            ist beim Kassieren nicht mehr zu trennen. */}
+                        {restText(z) && (
+                          <div className="text-xs text-amber-700 dark:text-amber-500">
+                            {restText(z)}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {notizZeile === z.eintragId ? (
@@ -465,19 +587,39 @@ export function BarzahlungsUebersicht({
                     onValueChange={(wert) => {
                       setGewaehltesAbo(wert);
                       const wahl = aboWahl.find((a) => a.aboId === wert);
-                      // Der Preis des Abos als Vorschlag — überschreibbar.
-                      setEintragsBetrag(wahl?.preis ? String(wahl.preis) : "");
+                      // PROJ-99: Der Betrag des vorigen Zyklus schlägt den
+                      // Preis des Abos — er ist die genauere Antwort auf „was
+                      // zahlt dieser Mensch hier". Beides bleibt ein Vorschlag.
+                      const vorschlag = wahl?.vorigerBetrag ?? wahl?.preis ?? null;
+                      setEintragsBetrag(vorschlag ? String(vorschlag) : "");
                     }}
                   >
                     <SelectTrigger id="barzahlung-abo" aria-label="Kunde und Abo auswählen">
                       <SelectValue placeholder="Auswählen…" />
                     </SelectTrigger>
                     <SelectContent>
-                      {aboWahl.map((a) => (
-                        <SelectItem key={a.aboId} value={a.aboId}>
-                          {a.kundeName} — {produktText(a) ?? a.aboName ?? "Kursabo"}
-                        </SelectItem>
-                      ))}
+                      {/* PROJ-99: Die Zahler des vorigen Zyklus oben. Die
+                          Gruppe fehlt ganz, wenn es keinen gibt — ein leerer
+                          Abschnitt sieht aus wie ein Fehler. */}
+                      {vorige.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel>Im vorigen Zyklus</SelectLabel>
+                          {vorige.map((a) => (
+                            <SelectItem key={a.aboId} value={a.aboId}>
+                              {a.kundeName} — {produktText(a) ?? a.aboName ?? "Kursabo"} (
+                              {EUR.format(a.vorigerBetrag ?? 0)})
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                      <SelectGroup>
+                        {vorige.length > 0 && <SelectLabel>Alle anderen</SelectLabel>}
+                        {uebrige.map((a) => (
+                          <SelectItem key={a.aboId} value={a.aboId}>
+                            {a.kundeName} — {produktText(a) ?? a.aboName ?? "Kursabo"}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </div>
@@ -537,44 +679,273 @@ export function BarzahlungsUebersicht({
                 <Plus className="mr-1 h-4 w-4" />
                 Barzahler eintragen
               </Button>
-              {zeilen.length > 0 && (
-                <Button variant="ghost" size="sm" onClick={() => setFragtAb(true)}>
-                  Zyklus abschließen
-                </Button>
-              )}
+              {/* Auch bei leerer Liste erlaubt: Ein Zyklus ohne Einträge ist
+                  eine Aussage über den Zeitraum und kein Fehler. */}
+              <Button variant="ghost" size="sm" onClick={() => setFragtAb(true)}>
+                <CalendarCheck className="mr-1 h-4 w-4" />
+                Zyklus abschließen
+              </Button>
             </div>
           )}
 
-          {/* Die Bestätigung sagt vorher, was verschwindet — und was bleibt. */}
+          {/* PROJ-98: Der Abschluss sagt vorher, was er tut — und zwar für das
+              gewählte Enddatum, nicht für heute. */}
           {fragtAb && (
             <Alert>
               <AlertDescription className="space-y-3">
-                <p>
-                  Die ganze Liste wird geleert: {zeilen.length}{" "}
-                  {zeilen.length === 1 ? "Eintrag" : "Einträge"}, davon {offene.length} noch offen
-                  über <span className="tabular-nums">{EUR.format(summeOffen)}</span>. Die erfassten
-                  Zahlungen bleiben unter „Eingesammelt“ stehen.
-                </p>
+                <div className="space-y-1">
+                  <Label htmlFor="zyklus-ende">Der Zyklus endete am</Label>
+                  <Input
+                    id="zyklus-ende"
+                    type="date"
+                    value={enddatum}
+                    max={heute}
+                    onChange={(e) => setEnddatum(e.target.value)}
+                    className="w-44"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Vorbelegt mit heute. Wähle den Tag, an dem der Zyklus wirklich endete — wer
+                    danach gezahlt hat, bleibt auf der Liste, und sein Geld zählt für den neuen
+                    Zyklus.
+                  </p>
+                </div>
+
+                {zukunft ? (
+                  <p className="text-sm">
+                    Dieser Zyklus läuft noch — bitte einen Tag bis heute wählen.
+                  </p>
+                ) : vorschauFehler ? (
+                  <p className="text-sm">{vorschauFehler}</p>
+                ) : vorschauLaeuft || vorschau === null ? (
+                  <p className="text-sm text-muted-foreground">Wird geprüft…</p>
+                ) : (
+                  <div className="space-y-2 text-sm">
+                    <p>
+                      <span className="font-medium tabular-nums">{gehen.length}</span>{" "}
+                      {gehen.length === 1 ? "Eintrag verlässt" : "Einträge verlassen"} die Liste,{" "}
+                      <span className="font-medium tabular-nums">{bleiben.length}</span>{" "}
+                      {bleiben.length === 1 ? "bleibt" : "bleiben"} stehen. Ins Archiv kommt die
+                      ganze Liste ({vorschau.length}).
+                    </p>
+                    {spaete.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="font-medium">Nach dem {datum(enddatum)} wurde gezahlt:</p>
+                        <ul>
+                          {spaete.map((z) => (
+                            <li key={z.aboId}>
+                              {z.kundeName}:{" "}
+                              <span className="tabular-nums">{EUR.format(z.spaetBetrag)}</span>
+                              {z.spaetTag && ` am ${datum(z.spaetTag)}`}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-xs text-muted-foreground">
+                          Dieses Geld zählt für den neuen Zyklus. Gehört es noch zum alten, wähle
+                          ein späteres Enddatum.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* „Jetzt abschließen" und nicht noch einmal „Zyklus
+                    abschließen": Zwei Knöpfe mit demselben Namen sind für
+                    Tastatur und Vorlesesoftware zwei gleich aussehende
+                    Angebote — und für einen Test nicht unterscheidbar. */}
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="destructive"
-                    disabled={tutGerade}
+                    disabled={tutGerade || zukunft || vorschauLaeuft}
                     onClick={() => void abschliessen()}
                   >
-                    {tutGerade ? "Wird geleert…" : "Liste leeren"}
+                    {tutGerade ? "Wird abgeschlossen…" : "Jetzt abschließen"}
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     disabled={tutGerade}
-                    onClick={() => setFragtAb(false)}
+                    onClick={() => {
+                      setFragtAb(false);
+                      setFehler(null);
+                    }}
                   >
                     Abbrechen
                   </Button>
                 </div>
               </AlertDescription>
             </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* PROJ-98: Das Archiv. Jeder abgeschlossene Zyklus ist ein Nachweis —
+          aufschlagbar, aber nicht änderbar. Zurücknehmen geht nur beim
+          jüngsten und nur, solange seither nichts passiert ist. */}
+      <Card role="region" aria-labelledby="barzahlungen-archiv">
+        <CardHeader>
+          <CardTitle id="barzahlungen-archiv" className="font-heading text-lg">
+            Abgeschlossene Zyklen
+            <Badge variant="outline" className="ml-2 align-middle">
+              {zyklen.length}
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            Die Abschrift jeder Liste im Moment des Abschließens — mit dem Betrag, der damals
+            galt.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {zyklen.length === 0 ? (
+            // Keine leere Tabelle: Die sähe aus wie ein Fehler.
+            <p className="text-sm text-muted-foreground">
+              Es wurde noch kein Zyklus abgeschlossen. Sobald du einen abschließt, steht seine
+              Liste hier als Nachweis.
+            </p>
+          ) : (
+            zyklen.map((y) => {
+              const zeilenDesZyklus = archiv.filter((a) => a.zyklusId === y.zyklusId);
+              return (
+                <Collapsible key={y.zyklusId} className="rounded-md border">
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="h-auto w-full justify-start py-2 text-left">
+                      <ChevronDown className="mr-2 h-4 w-4 shrink-0" />
+                      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span className="font-medium tabular-nums">
+                          {datum(y.von)} – {datum(y.bis)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {y.eintraege} {y.eintraege === 1 ? "Eintrag" : "Einträge"}
+                        </span>
+                        <span className="text-xs tabular-nums">
+                          Eingesammelt {EUR.format(y.eingesammelt)} von {EUR.format(y.geschuldet)}
+                        </span>
+                        {y.offen > 0.005 && (
+                          <span className="text-xs tabular-nums text-amber-700 dark:text-amber-500">
+                            Offen geblieben {EUR.format(y.offen)}
+                          </span>
+                        )}
+                      </span>
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 px-3 pb-3">
+                    <p className="text-xs text-muted-foreground">
+                      Abgeschlossen am{" "}
+                      {new Date(y.abgeschlossenAm).toLocaleDateString("de-AT", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                      {y.abgeschlossenVon ? ` von ${y.abgeschlossenVon}` : ""}.
+                    </p>
+
+                    {zeilenDesZyklus.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        In diesem Zyklus stand niemand auf der Liste.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Kunde</TableHead>
+                              <TableHead>Abo</TableHead>
+                              <TableHead>Geschuldet</TableHead>
+                              <TableHead>Gezahlt</TableHead>
+                              <TableHead>Offen</TableHead>
+                              <TableHead>Notiz</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {zeilenDesZyklus.map((a) => {
+                              const offen = Math.round((a.betrag - a.gezahlt) * 100) / 100;
+                              return (
+                                <TableRow key={a.zeileId}>
+                                  <TableCell className="font-medium">
+                                    <Link
+                                      href={`/admin/kunden/${a.kundeId}`}
+                                      className="hover:underline"
+                                    >
+                                      {a.kundeName}
+                                    </Link>
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {a.aboName}
+                                      {produktText(a) && (
+                                        <Badge
+                                          variant="outline"
+                                          className="px-1.5 py-0 text-[10px]"
+                                        >
+                                          {produktText(a)}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="whitespace-nowrap tabular-nums">
+                                    {EUR.format(a.betrag)}
+                                  </TableCell>
+                                  <TableCell className="whitespace-nowrap tabular-nums">
+                                    {EUR.format(a.gezahlt)}
+                                  </TableCell>
+                                  <TableCell className="whitespace-nowrap tabular-nums font-medium">
+                                    {offen > 0.005 ? EUR.format(offen) : "—"}
+                                  </TableCell>
+                                  <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">
+                                    {a.notiz ?? "—"}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+
+                    {/* Nur am jüngsten, und nur solange seither nichts
+                        kassiert und kein Eintrag angelegt wurde. */}
+                    {y.kannZurueck &&
+                      (fragtZurueck ? (
+                        <div className="space-y-2 rounded-md border p-3 text-sm">
+                          <p>
+                            Die Liste steht danach wieder wie vor dem Abschluss, und dieser Zyklus
+                            verschwindet aus dem Archiv.
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={tutGerade}
+                              onClick={() => void zurueckNehmen()}
+                            >
+                              {tutGerade ? "Wird zurückgenommen…" : "Ja, zurücknehmen"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={tutGerade}
+                              onClick={() => setFragtZurueck(false)}
+                            >
+                              Abbrechen
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setFragtZurueck(true);
+                            setFehler(null);
+                          }}
+                        >
+                          <Undo2 className="mr-1 h-3.5 w-3.5" />
+                          Abschluss zurücknehmen
+                        </Button>
+                      ))}
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })
           )}
         </CardContent>
       </Card>

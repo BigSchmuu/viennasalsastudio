@@ -1,12 +1,21 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolvePeriod } from "@/lib/analytics/period";
 import { eintragsZeilen, type Eintrag } from "@/lib/barzahlungen/offen";
+import { ladeArchiv, ladeZyklen } from "@/lib/barzahlungen/laden";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import { PeriodFilter } from "@/components/admin/analytics/period-filter";
 import {
   BarzahlungsUebersicht,
   type EingesammeltZeile,
   type AboWahl,
 } from "@/components/admin/barzahlungen/barzahlungs-uebersicht";
+
+/** Der Tag nach einem gegebenen — fuer den Anfang des laufenden Zyklus. */
+function tagDanach(tag: string): string {
+  const d = new Date(`${tag}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 /**
  * Barzahlungen in der Verwaltung (PROJ-84).
@@ -18,6 +27,11 @@ import {
  * Hier wird direkt gelesen und nicht über die Funktion der Lehreransicht: Die
  * Verwaltung darf Abos und Mandate sehen, und die Frage ist eine andere — nicht
  * „wer gehört zu diesem Kurs", sondern „wer steht überhaupt auf der Liste".
+ *
+ * PROJ-98: Dazu das Archiv der abgeschlossenen Zyklen. Es kommt aus der
+ * Datenbank, auch das Gezahlte je Zyklus — gerechnet wird hier nur die eine
+ * Grenze „gehört diese Zahlung zum laufenden Zyklus", und deren Datum liefert
+ * ebenfalls die Datenbank (siehe `barzahlung_bezahlt_laufend`).
  */
 export default async function BarzahlungenPage({
   searchParams,
@@ -73,6 +87,37 @@ export default async function BarzahlungenPage({
     throw new Error("Die Barzahlungen konnten nicht geladen werden");
   }
 
+  // PROJ-98: Die abgeschlossenen Zyklen und ihre Abschriften. Beide werfen bei
+  // einem Lesefehler — ein leeres Archiv heißt „noch nichts abgeschlossen",
+  // ein kaputtes sieht genauso aus und bedeutet etwas völlig anderes.
+  const [zyklen, archiv] = await Promise.all([ladeZyklen(supabase), ladeArchiv(supabase)]);
+
+  // Der laufende Zyklus beginnt am Tag nach dem letzten Abschluss. Ohne
+  // Abschluss gibt es keine Grenze: Dann gehört jede Zahlung zum laufenden
+  // Zyklus.
+  const letzterZyklus = zyklen[0] ?? null;
+  const zyklusStart = letzterZyklus ? tagDanach(letzterZyklus.bis) : null;
+
+  // Was aus dem jüngsten abgeschlossenen Zyklus je Abo offen blieb. Die Zahlen
+  // kommen fertig aus der Datenbank; hier wird nur die Differenz gebildet.
+  const restVorher = new Map<string, number>();
+  if (letzterZyklus) {
+    for (const zeile of archiv) {
+      if (zeile.zyklusId !== letzterZyklus.zyklusId) continue;
+      const offen = Math.round((zeile.betrag - zeile.gezahlt) * 100) / 100;
+      if (offen > 0.005) restVorher.set(zeile.aboId, offen);
+    }
+  }
+
+  // Was ein Abo im vorigen Zyklus schuldete — der Vorschlag für den Betrag und
+  // das Merkmal der Gruppe „Im vorigen Zyklus" (PROJ-99).
+  const vorigerBetrag = new Map<string, number>();
+  if (letzterZyklus) {
+    for (const zeile of archiv) {
+      if (zeile.zyklusId === letzterZyklus.zyklusId) vorigerBetrag.set(zeile.aboId, zeile.betrag);
+    }
+  }
+
   const abos = new Map((aboRes.data ?? []).map((a) => [a.id, a]));
   const mitMandat = new Set((mandatRes.data ?? []).map((m) => m.customer_id));
 
@@ -80,6 +125,10 @@ export default async function BarzahlungenPage({
   const letzteJeEintrag = new Map<string, { tag: string; id: string; erfasst: string }>();
   for (const z of zahlungRes.data ?? []) {
     if (!z.entry_id) continue;
+    // PROJ-98: Nur Zahlungen des laufenden Zyklus. Ein Eintrag, der einen
+    // Abschluss überlebt hat, stünde sonst mit dem Geld von letztem Monat als
+    // bezahlt da — und niemand sammelte etwas ein.
+    if (zyklusStart && z.paid_on < zyklusStart) continue;
     bezahltJeEintrag.set(z.entry_id, (bezahltJeEintrag.get(z.entry_id) ?? 0) + Number(z.amount));
     const bisher = letzteJeEintrag.get(z.entry_id);
     if (!bisher || z.created_at > bisher.erfasst) {
@@ -105,6 +154,8 @@ export default async function BarzahlungenPage({
       letzteZahlungId: letzte?.id ?? null,
       // In der Verwaltung gibt es keinen „eigenen Kurs" — die Liste ist eine.
       eigenerKurs: true,
+      restVorher: restVorher.get(e.subscription_id) ?? 0,
+      vorherBis: letzterZyklus?.bis ?? null,
     };
   });
 
@@ -125,6 +176,8 @@ export default async function BarzahlungenPage({
       passStil: a.dance_styles?.name ?? null,
       preis: a.price === null ? null : Number(a.price),
       hatMandat: mitMandat.has(a.customer_id),
+      // PROJ-99: null heißt „stand im vorigen Zyklus nicht auf der Liste".
+      vorigerBetrag: vorigerBetrag.get(a.id) ?? null,
     }))
     .sort((a, b) => a.kundeName.localeCompare(b.kundeName, "de"));
 
@@ -178,6 +231,8 @@ export default async function BarzahlungenPage({
       <div>
         <h2 className="font-heading text-xl font-bold">Barzahlungen</h2>
         <p className="text-sm text-muted-foreground">
+          {/* Seit wann der laufende Zyklus läuft, steht an der Liste selbst —
+              dort, wo es gebraucht wird, und nur einmal. */}
           Die Liste des laufenden Zahlungszyklus — von Hand geführt
         </p>
       </div>
@@ -192,6 +247,10 @@ export default async function BarzahlungenPage({
         aufschlaege={offeneAufschlaege}
         eingesammelt={eingesammelt}
         zeitraumText={`Im Zeitraum ${spanne(period.from)} bis ${spanne(period.to)} eingesammelt.`}
+        zyklen={zyklen}
+        archiv={archiv}
+        zyklusStart={zyklusStart}
+        heute={heuteInWien()}
       />
     </div>
   );

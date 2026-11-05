@@ -15,6 +15,7 @@ import { legeBarzahlerAn, type GastArt } from "@/lib/actions/teacher/barzahler-a
 import {
   offeneSumme,
   produktText,
+  restText,
   teileNachKurs,
   zustandText,
   type EintragsZeile,
@@ -29,7 +30,9 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -50,6 +53,14 @@ export type BarzahlerAnsicht = EintragsZeile;
  * Darunter eingeklappt die übrigen kurslosen Abos: Ein Flatrater oder ein
  * Pass-Kunde kann vorbeikommen, und dann muss hier kassiert werden können,
  * ohne dass diese Leute die Liste jedes Kursabends zuwachsen lassen.
+ *
+ * PROJ-98: Am Eintrag steht „Für diesen Zyklus bezahlt" und, wenn es einen
+ * gibt, der offene Rest aus dem vorigen — als eigene Angabe, damit am
+ * Kursabend keine Zahl dasteht, die zwei Zyklen vermischt.
+ *
+ * PROJ-99: Die Auswahl beim Eintragen führt auch Pass- und Flatrate-Kunden
+ * ohne eingetragenen Kursplatz. Vorher blieb der Lehrkraft nur „Gast anlegen"
+ * — und damit stand derselbe Mensch danach zweimal im System.
  */
 export function BarzahlerListe({
   courseId,
@@ -108,6 +119,12 @@ export function BarzahlerListe({
   const { eigene, fremde } = teileNachKurs(zeilen);
   const summe = offeneSumme(eigene);
 
+  // PROJ-99: Wer im vorigen Zyklus auf der Liste stand, steht oben. Die Gruppe
+  // fügt niemanden hinzu, den die Deckungsregel aussortiert hat — sie sortiert
+  // nur die Auswahl, die es ohnehin gibt.
+  const vorige = kandidaten.filter((k) => k.vorigerBetrag !== null);
+  const uebrige = kandidaten.filter((k) => k.vorigerBetrag === null);
+
   /**
    * Erfassen — ohne Betrag den gesamten offenen Rest, mit Betrag genau diesen.
    *
@@ -160,7 +177,7 @@ export function BarzahlerListe({
   async function eintragen() {
     const kandidat = kandidaten.find((k) => k.aboId === gewaehltesAbo);
     if (!kandidat) {
-      setFehler("Bitte einen Teilnehmer auswählen.");
+      setFehler("Bitte einen Kunden auswählen.");
       return;
     }
     setTutGerade(true);
@@ -322,7 +339,17 @@ export function BarzahlerListe({
                 <TableCell className="whitespace-nowrap tabular-nums font-medium">
                   {zeile.istOffen ? EUR.format(zeile.offen) : "—"}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{zustandText(zeile)}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  <div>{zustandText(zeile)}</div>
+                  {/* PROJ-98: Der Rest aus dem vorigen Zyklus — eigene Angabe,
+                      nicht im Betrag dieses Zyklus. Sonst steht am Kursabend
+                      eine Zahl da, die zwei Monate vermischt. */}
+                  {restText(zeile) && (
+                    <div className="text-xs text-amber-700 dark:text-amber-500">
+                      {restText(zeile)}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {notizZeile === zeile.eintragId ? (
                     <div className="flex items-center gap-1">
@@ -527,25 +554,46 @@ export function BarzahlerListe({
           <div className="space-y-3 rounded-md border p-3">
             <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
               <div className="space-y-1">
-                <Label htmlFor="barzahler-abo">Teilnehmer</Label>
+                {/* PROJ-99: Nicht mehr „Teilnehmer" — in der Auswahl stehen
+                    jetzt auch Flatraten und Pässe ohne eingetragenen
+                    Kursplatz. Wer sie weiter „Teilnehmer" nennt, schickt die
+                    Lehrkraft wieder in die Gastanlage. */}
+                <Label htmlFor="barzahler-abo">Kunde und Abo</Label>
                 <Select
                   value={gewaehltesAbo}
                   onValueChange={(wert) => {
                     setGewaehltesAbo(wert);
                     const kandidat = kandidaten.find((k) => k.aboId === wert);
-                    // Der Preis des Abos als Vorschlag — überschreibbar.
-                    setEintragsBetrag(kandidat?.preis ? String(kandidat.preis) : "");
+                    // PROJ-99: Der Betrag des vorigen Zyklus schlägt den Preis
+                    // des Abos. Beides bleibt ein Vorschlag — ein vorbelegtes
+                    // Feld ist ein Rat, und der muss stimmen können.
+                    const vorschlag = kandidat?.vorigerBetrag ?? kandidat?.preis ?? null;
+                    setEintragsBetrag(vorschlag ? String(vorschlag) : "");
                   }}
                 >
-                  <SelectTrigger id="barzahler-abo" aria-label="Teilnehmer auswählen">
+                  <SelectTrigger id="barzahler-abo" aria-label="Kunde und Abo auswählen">
                     <SelectValue placeholder="Auswählen…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {kandidaten.map((k) => (
-                      <SelectItem key={k.aboId} value={k.aboId}>
-                        {k.kundeName} — {produktText(k) ?? k.aboName ?? "Kursabo"}
-                      </SelectItem>
-                    ))}
+                    {vorige.length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Im vorigen Zyklus</SelectLabel>
+                        {vorige.map((k) => (
+                          <SelectItem key={k.aboId} value={k.aboId}>
+                            {k.kundeName} — {produktText(k) ?? k.aboName ?? "Kursabo"} (
+                            {EUR.format(k.vorigerBetrag ?? 0)})
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
+                    <SelectGroup>
+                      {vorige.length > 0 && <SelectLabel>Alle anderen</SelectLabel>}
+                      {uebrige.map((k) => (
+                        <SelectItem key={k.aboId} value={k.aboId}>
+                          {k.kundeName} — {produktText(k) ?? k.aboName ?? "Kursabo"}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>

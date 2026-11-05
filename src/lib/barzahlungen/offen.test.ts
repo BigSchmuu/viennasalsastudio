@@ -3,6 +3,7 @@ import {
   eintragsZeilen,
   offeneSumme,
   produktText,
+  restText,
   teileNachKurs,
   zustandText,
   type Eintrag,
@@ -25,6 +26,8 @@ function eintrag(felder: Partial<Eintrag> = {}): Eintrag {
     letzteZahlungId: null,
     notiz: null,
     eigenerKurs: true,
+    restVorher: 0,
+    vorherBis: null,
     ...felder,
   };
 }
@@ -90,13 +93,53 @@ describe("zustandText", () => {
     expect(gesagt).toContain(EUR.format(89));
   });
 
-  it("nennt den Tag der letzten Zahlung", () => {
-    expect(text({ bezahlt: 89, letzteZahlung: "2026-10-14" })).toBe("Bezahlt am 14.10.2026");
+  it("nennt den Tag der letzten Zahlung — und den Zyklus dazu", () => {
+    // PROJ-98: Der Zusatz „Für diesen Zyklus" ist nötig, weil derselbe Eintrag
+    // gleichzeitig einen offenen Rest aus dem vorigen haben kann.
+    expect(text({ bezahlt: 89, letzteZahlung: "2026-10-14" })).toBe(
+      "Für diesen Zyklus bezahlt am 14.10.2026"
+    );
   });
 
-  it("sagt auch ohne Tag, dass bezahlt ist", () => {
+  it("sagt auch ohne Tag, dass für diesen Zyklus bezahlt ist", () => {
     // Kommt vor, wenn die Zahlung über den Dienstschlüssel angelegt wurde.
-    expect(text({ bezahlt: 89 })).toBe("Bezahlt");
+    expect(text({ bezahlt: 89 })).toBe("Für diesen Zyklus bezahlt");
+  });
+
+  it("widerspricht sich nicht, wenn aus dem vorigen Zyklus etwas offen ist", () => {
+    // Die beiden Angaben stehen nebeneinander: bezahlt für jetzt, offen von
+    // damals. Deshalb darf der Zustandstext nicht einfach „Bezahlt" sagen.
+    const zeile = eintragsZeilen([
+      eintrag({ bezahlt: 89, letzteZahlung: "2026-11-04", restVorher: 45, vorherBis: "2026-10-31" }),
+    ])[0];
+    expect(zustandText(zeile)).toContain("Für diesen Zyklus bezahlt");
+    expect(restText(zeile)).toBe(`Aus dem Zyklus bis 31.10.2026 offen: ${EUR.format(45)}`);
+  });
+});
+
+describe("restText", () => {
+  it("schweigt, wenn aus dem vorigen Zyklus nichts offen ist", () => {
+    expect(restText({ restVorher: 0, vorherBis: "2026-10-31" })).toBeNull();
+  });
+
+  it("schweigt auch bei einem halben Cent", () => {
+    // Dieselbe Toleranz wie bei „offen": Eine Rundung soll nicht als Schuld
+    // am Eintrag stehen.
+    expect(restText({ restVorher: 0.004, vorherBis: "2026-10-31" })).toBeNull();
+  });
+
+  it("nennt den Zeitraum, damit der Betrag nicht in der Luft hängt", () => {
+    expect(restText({ restVorher: 12.5, vorherBis: "2026-09-30" })).toBe(
+      `Aus dem Zyklus bis 30.09.2026 offen: ${EUR.format(12.5)}`
+    );
+  });
+
+  it("nennt den Betrag auch ohne Zeitraum", () => {
+    // Sollte nicht vorkommen — ein Rest ohne Zyklus gibt es nicht. Der Satz
+    // bleibt trotzdem lesbar, statt „bis null" zu sagen.
+    expect(restText({ restVorher: 20, vorherBis: null })).toBe(
+      `Aus dem Zyklus offen: ${EUR.format(20)}`
+    );
   });
 });
 

@@ -205,7 +205,9 @@ test.describe("PROJ-84: Am Kursabend", () => {
     await expect(karte.getByText(/steht niemand auf der Barzahler-Liste/)).toBeVisible();
 
     await karte.getByRole("button", { name: /^Barzahler eintragen/ }).click();
-    await karte.getByRole("combobox", { name: "Teilnehmer auswählen" }).click();
+    // PROJ-99: Die Auswahl heißt nicht mehr „Teilnehmer" — in ihr stehen jetzt
+    // auch Pass- und Flatrate-Kunden ohne eingetragenen Kursplatz.
+    await karte.getByRole("combobox", { name: "Kunde und Abo auswählen" }).click();
     await page.getByRole("option", { name: new RegExp(IM_KURS) }).click();
     // Der Preis des Abos ist vorbelegt — hier mit Komma überschrieben.
     await page.locator("#barzahler-eintrags-betrag").fill("75,50");
@@ -421,12 +423,20 @@ test.describe("PROJ-84: In der Verwaltung", () => {
     expect(await offen(eintraege![0].id)).toBe(0);
   });
 
-  test("„Zyklus abschließen“ leert die Liste und nennt vorher, was verschwindet", async ({
-    page,
-  }) => {
+  test("„Zyklus abschließen“ nimmt nur die Bezahlten von der Liste", async ({ page }) => {
+    // Geändert mit PROJ-98: Vorher leerte dieser Knopf die ganze Liste. Jetzt
+    // wählt der Betreiber ein Enddatum, und es verlässt genau, wer bis dahin
+    // voll bezahlt hat.
     await leereListe();
     await eintragAnlegen(kursAboId, kursKundeId, BEITRAG);
-    await eintragAnlegen(flatAboId, flatKundeId, 120);
+    const bezahltId = await eintragAnlegen(flatAboId, flatKundeId, 120);
+    await service.from("cash_payments").insert({
+      subscription_id: flatAboId,
+      customer_id: flatKundeId,
+      entry_id: bezahltId,
+      amount: 120,
+      paid_on: wienerDatum(0),
+    });
 
     await anmelden(page, ADMIN);
     await gehZu(page, "/admin/barzahlungen");
@@ -434,11 +444,15 @@ test.describe("PROJ-84: In der Verwaltung", () => {
 
     const karte = listenKarte(page);
     await karte.getByRole("button", { name: "Zyklus abschließen" }).click();
-    // Die Bestätigung sagt, wie viel offen bleibt — 89 + 120. Im Hinweisfeld
-    // gesucht: Dieselbe Summe steht auch oben in der Beschreibung der Karte.
+
+    // Das Enddatum ist mit heute vorbelegt — der häufige Fall bleibt ein Druck.
+    await expect(karte.locator("#zyklus-ende")).toHaveValue(wienerDatum(0));
+
+    // Die Vorschau sagt vorher, was passiert.
     const bestaetigung = karte.getByRole("alert");
-    await expect(bestaetigung).toContainText("209,00");
-    await expect(bestaetigung).toContainText("2 Einträge");
+    await expect(bestaetigung).toContainText(/verlässt die Liste|verlassen die Liste/, {
+      timeout: 15000,
+    });
 
     // Abbrechen ändert nichts.
     await bestaetigung.getByRole("button", { name: "Abbrechen" }).click();
@@ -449,14 +463,27 @@ test.describe("PROJ-84: In der Verwaltung", () => {
     expect(nochDa).toBe(2);
 
     await karte.getByRole("button", { name: "Zyklus abschließen" }).click();
-    await karte.getByRole("button", { name: "Liste leeren" }).click();
-    await page.waitForTimeout(2500);
+    await expect(karte.getByRole("button", { name: "Jetzt abschließen" })).toBeEnabled({
+      timeout: 15000,
+    });
+    await karte.getByRole("button", { name: "Jetzt abschließen" }).click();
+    await page.waitForTimeout(3000);
 
-    const { count } = await service
+    // Der bezahlte Eintrag ist weg, der offene steht noch da.
+    const { data: geblieben } = await service
       .from("cash_entries")
-      .select("id", { count: "exact", head: true })
+      .select("customer_id")
       .in("customer_id", [kursKundeId, flatKundeId]);
-    expect(count).toBe(0);
+    expect((geblieben ?? []).map((e) => e.customer_id)).toEqual([kursKundeId]);
+
+    // Und die Liste von damals steht im Archiv.
+    await expect(page.getByRole("region", { name: /Abgeschlossene Zyklen/ })).toContainText(
+      "Eingesammelt",
+      { timeout: 15000 }
+    );
+
+    // Der Zyklus ist globaler Zustand — er darf diesen Lauf nicht überleben.
+    await service.from("cash_cycles").delete().not("id", "is", null);
   });
 
   test("Eine zurückgenommene Zahlung macht den Betrag wieder offen", async ({ page }) => {

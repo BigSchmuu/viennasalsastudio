@@ -165,8 +165,10 @@
 
 | PROJ-96 | Kündigungsfrist bis Sonntag, und der Stichtag im Profil | Deployed | [PROJ-96](../features/PROJ-96-kuendigungsfrist-sonntag.md) | 2026-11-05 |
 | PROJ-97 | Die Upgrade-Differenz rechnet mit Unterrichtswochen | Deployed | [PROJ-97](../features/PROJ-97-upgrade-ferienbewusst.md) | 2026-11-05 |
+| PROJ-98 | Zahlungszyklen bei den Barzahlern — Archiv und Abschluss mit Datum | Approved | [PROJ-98](../features/PROJ-98-barzahlung-zyklen.md) | 2026-11-05 |
+| PROJ-99 | Die Auswahl beim Eintragen — gedeckte Abos und die Zahler des vorigen Zyklus | Approved | [PROJ-99](../features/PROJ-99-barzahler-auswahl.md) | 2026-11-05 |
 
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-98
+## Next Available ID: PROJ-100

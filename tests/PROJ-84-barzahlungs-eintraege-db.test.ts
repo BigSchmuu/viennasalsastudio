@@ -256,21 +256,48 @@ describe("PROJ-84: Einträge führen", () => {
     expect(geblieben!.entry_id).toBeNull();
   });
 
-  it("leert mit „Zyklus abschließen“ die ganze Liste — nur für die Verwaltung", async () => {
-    await eintragAnlegen(aboId, BEITRAG);
-    await eintragAnlegen(flatrateId, 120);
+  it("schließt den Zyklus ab — nur für die Verwaltung, und nur die Bezahlten gehen", async () => {
+    // PROJ-98 hat diese Prüfung geändert: Vorher leerte „Zyklus abschließen"
+    // die ganze Liste. Jetzt verlässt sie genau, wer bis einschließlich
+    // Enddatum voll bezahlt hat — der offene Eintrag bleibt stehen.
+    const offenId = await eintragAnlegen(aboId, BEITRAG);
+    const bezahltId = await eintragAnlegen(flatrateId, 120);
+    await alsAdmin.rpc("record_cash_payment", { p_entry_id: bezahltId, p_amount: 120 });
 
-    const { error: lehrerFehler } = await alsLehrer.rpc("close_cash_cycle");
-    expect(lehrerFehler, "Eine Lehrkraft konnte die ganze Liste leeren").not.toBeNull();
+    const ende = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Vienna" }).format(new Date());
 
-    const { data: anzahl, error } = await alsAdmin.rpc("close_cash_cycle");
+    const { error: lehrerFehler } = await alsLehrer.rpc("close_cash_cycle", { p_ends_on: ende });
+    expect(lehrerFehler, "Eine Lehrkraft konnte den Zyklus abschließen").not.toBeNull();
+
+    const { data, error } = await alsAdmin.rpc("close_cash_cycle", { p_ends_on: ende });
     expect(error, `Abschließen scheiterte: ${error?.message}`).toBeNull();
-    expect(Number(anzahl)).toBeGreaterThanOrEqual(2);
+    const ergebnis = (data ?? [])[0] as Record<string, unknown>;
+    expect(Number(ergebnis.entfernt)).toBeGreaterThanOrEqual(1);
+    expect(Number(ergebnis.geblieben)).toBeGreaterThanOrEqual(1);
 
-    const { count } = await service
+    const { count: bezahltNoch } = await service
       .from("cash_entries")
-      .select("id", { count: "exact", head: true });
-    expect(count).toBe(0);
+      .select("id", { count: "exact", head: true })
+      .eq("id", bezahltId);
+    expect(bezahltNoch, "Der bezahlte Eintrag steht noch auf der Liste").toBe(0);
+
+    const { count: offenNoch } = await service
+      .from("cash_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("id", offenId);
+    expect(offenNoch, "Der offene Eintrag ist mitgelöscht worden").toBe(1);
+
+    // Und die Liste von damals steht als Abschrift im Archiv — beide Zeilen.
+    const { data: abschrift } = await service
+      .from("cash_cycle_entries")
+      .select("subscription_id")
+      .in("subscription_id", [aboId, flatrateId]);
+    expect((abschrift ?? []).length).toBe(2);
+
+    // Aufräumen: Der Zyklus ist globaler Zustand. Bliebe er stehen, würde er
+    // in den folgenden Prüfungen still entscheiden, welche Zahlung zum
+    // laufenden Zyklus gehört.
+    await service.from("cash_cycles").delete().not("id", "is", null);
   });
 });
 

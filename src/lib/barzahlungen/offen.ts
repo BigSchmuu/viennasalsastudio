@@ -9,6 +9,11 @@
  * die der Betreiber selbst entscheiden will, und brauchte dafür eine
  * Soll-Tabelle, eine Sicht, einen Stichtag und einen täglichen Lauf. Hier
  * rechnet nichts mehr: Betrag minus Gezahltes, zwei Zahlen.
+ *
+ * PROJ-98: Dazu kommt der Zyklus — aber nur als Zeitraum, nicht als Rechnung.
+ * „Bezahlt“ heißt ab jetzt „in diesem Zyklus bezahlt“; was aus dem vorigen
+ * offen blieb, steht als eigene Angabe **daneben** und nie im Betrag. Eine Zahl
+ * aus zwei Zyklen ist beim Kassieren nicht mehr auseinanderzunehmen.
  */
 
 const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
@@ -42,6 +47,17 @@ export type Eintrag = {
   notiz: string | null;
   /** Die jüngste Zahlung — nur sie lässt sich mit einem Druck zurücknehmen. */
   letzteZahlungId: string | null;
+  /**
+   * Was dieses Abo aus dem jüngsten abgeschlossenen Zyklus noch offen hat
+   * (PROJ-98); 0, wenn es dort nicht stand oder voll bezahlt hat.
+   *
+   * Steht neben dem Betrag dieses Zyklus, nicht darin — Entscheidung des
+   * Betreibers. Wer die beiden addiert, kann sie beim Kassieren nicht mehr
+   * trennen.
+   */
+  restVorher: number;
+  /** Bis wann jener vorige Zyklus ging; `null`, solange keiner abgeschlossen ist. */
+  vorherBis: string | null;
   /**
    * Gehört dieser Eintrag zu einem Teilnehmer dieses Kurses?
    *
@@ -77,10 +93,21 @@ export function eintragsZeilen(eintraege: Eintrag[]): EintragsZeile[] {
     );
 }
 
-/** Was am Eintrag über den Zustand steht. */
+/**
+ * Was am Eintrag über den Zustand steht.
+ *
+ * PROJ-98: „Für diesen Zyklus bezahlt" statt „Bezahlt". Der Zusatz ist keine
+ * Höflichkeit — ein Eintrag kann gleichzeitig für diesen Zyklus bezahlt sein
+ * und aus dem vorigen etwas offen haben. Ohne ihn liest die Lehrkraft
+ * „Bezahlt" und daneben einen offenen Betrag, und das sieht aus wie ein
+ * Widerspruch. Ohne abgeschlossenen Zyklus stimmt der Satz auch: Dann ist
+ * alles der laufende Zyklus.
+ */
 export function zustandText(zeile: EintragsZeile): string {
   if (!zeile.istOffen) {
-    return zeile.letzteZahlung ? `Bezahlt am ${datumKurz(zeile.letzteZahlung)}` : "Bezahlt";
+    return zeile.letzteZahlung
+      ? `Für diesen Zyklus bezahlt am ${datumKurz(zeile.letzteZahlung)}`
+      : "Für diesen Zyklus bezahlt";
   }
   if (!zeile.teilweise) return "Offen";
   // Der bezahlte Teil gehört dazu: Sonst sieht die Lehrkraft nur den Rest und
@@ -106,6 +133,19 @@ export function produktText(zeile: {
 }): string | null {
   if (zeile.passStil) return `${zeile.passStil} Pass`;
   return zeile.istFlatrate ? "Flatrate" : null;
+}
+
+/**
+ * Der offene Rest aus dem vorigen Zyklus — oder `null`, wenn es keinen gibt.
+ *
+ * An **einer** Stelle, weil beide Ansichten ihn brauchen: die Verwaltung beim
+ * Abschließen, die Lehrkraft am Kursabend. Der Zeitraum steht im Satz, damit
+ * „offen" nicht in der Luft hängt: Es ist nicht der Betrag von heute.
+ */
+export function restText(zeile: { restVorher: number; vorherBis: string | null }): string | null {
+  if (zeile.restVorher <= CENT) return null;
+  const bis = zeile.vorherBis ? ` bis ${datumKurz(zeile.vorherBis)}` : "";
+  return `Aus dem Zyklus${bis} offen: ${EUR.format(zeile.restVorher)}`;
 }
 
 /**
