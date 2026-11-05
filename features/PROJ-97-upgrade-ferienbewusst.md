@@ -1,6 +1,6 @@
 # PROJ-97: Die Upgrade-Differenz rechnet mit Unterrichtswochen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-05
 **Last Updated:** 2026-11-05
 
@@ -208,6 +208,30 @@ Produktionsreif. Keine Fehler der Schwere Kritisch oder Hoch. Anders als bei PRO
 hier nichts, wenn der Code vor der Migration draußen ist — die Funktionen existieren und
 rechnen nur anders. Ausgeliefert werden sollte beides trotzdem zusammen, damit Anzeige und
 Bestätigung dieselbe Zahl nennen.
+
+## Deployment (2026-11-05)
+
+Ausgeliefert nach https://app.viennasalsastudio.at
+
+| | |
+| --- | --- |
+| Commit | `99aeb62` feat(PROJ-97) |
+| Tag | `v1.97.0-PROJ-97` |
+| Migration | `20261105100000_proj97_upgrade_ferienbewusst.sql` — vom Betreiber vor dem Push in der Produktion eingespielt |
+| Build | „Compiled successfully in 11.1s“, ohne Warnung |
+
+## Für den Betrieb
+
+- **Zu merken ist die Änderung erst nach der nächsten Schließung.** Ohne Ferien in den letzten
+  vier Wochen rechnet die neue Fassung genau wie die alte — bis auf den Randtag aus Befund 2.
+- **Der Betrag bleibt dein letztes Wort.** Die Zahl beim Bestätigen ist ein Vorschlag; ein von
+  Hand eingegebener Betrag gilt unverändert, die Null eingeschlossen (PROJ-88).
+- **Ferien gehören in den Kalender, bevor der Zyklus läuft.** Anders als beim
+  Kündigungsdatum (PROJ-96) rechnet das Upgrade bei jedem Aufruf neu — nachgetragene Ferien
+  ändern den Vorschlag also noch. Festgeschrieben wird er erst beim Bestätigen.
+- **Der Doppelschutz bei Barzahlungen bleibt bei 28 Tagen.** Eine zweite Barzahlung im selben,
+  durch Ferien verlängerten Zyklus wird also nicht abgewiesen. Bewusst so: Das Netz soll den
+  Doppelklick fangen, nicht eine Zahlung, die ein Kunde ein paar Tage zu früh bringt.
 
 ## Tech Design
 
