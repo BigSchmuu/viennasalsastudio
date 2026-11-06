@@ -168,7 +168,7 @@
 | PROJ-98 | Zahlungszyklen bei den Barzahlern — Archiv und Abschluss mit Datum | Deployed | [PROJ-98](../features/PROJ-98-barzahlung-zyklen.md) | 2026-11-06 |
 | PROJ-99 | Die Auswahl beim Eintragen — gedeckte Abos und die Zahler des vorigen Zyklus | Deployed | [PROJ-99](../features/PROJ-99-barzahler-auswahl.md) | 2026-11-06 |
 
-| PROJ-100 | Der Rückweg aus der Kundenakte führt dorthin, wo man herkam | Approved | [PROJ-100](../features/PROJ-100-rueckweg-kundenakte.md) | 2026-11-06 |
+| PROJ-100 | Der Rückweg aus der Kundenakte führt dorthin, wo man herkam | Deployed | [PROJ-100](../features/PROJ-100-rueckweg-kundenakte.md) | 2026-11-06 |
 
 <!-- Add features above this line -->
 

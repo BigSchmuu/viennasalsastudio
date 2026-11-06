@@ -1,6 +1,6 @@
 # PROJ-100: Der Rückweg aus der Kundenakte führt dorthin, wo man herkam
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -340,3 +340,37 @@ Ursachen wiederkehren:
 **Urteil: produktionsreif.** Keine Migration, keine Datenbankänderung, keine
 Rechte angefasst — PROJ-100 ist reiner Anwendungscode. Ausliefern kann in
 jeder Reihenfolge erfolgen.
+
+## Deployment (2026-11-06)
+
+Ausgeliefert nach https://app.viennasalsastudio.at
+
+| | |
+| --- | --- |
+| Commit | `b9d2b54` feat(PROJ-100) |
+| Tag | `v1.100.0-PROJ-100` |
+| Migration | keine — PROJ-100 ist reiner Anwendungscode |
+| Build | „Compiled successfully in 12,8s“, ohne Warnung |
+| Deployment | `dpl_FToiXkxQ6HvWPZ7SKqBYzDnC6jU4`, rund 105 Sekunden nach dem Push live |
+
+Davor im selben Push: `17b4099` fix(PROJ-79) — das Ankerdatum des
+Kündigungstests, das mit dem Kalender verdorben war. Eigener Commit, weil die
+Ursache mit PROJ-100 nichts zu tun hat.
+
+**Nach dem Deployment geprüft:** Start, `/en` und der Kurskatalog antworten mit
+200; `/admin/kunden`, `/admin/kuendigungen` und `/checkin` leiten einen
+anonymen Aufruf auf die Anmeldung — die Seiten existieren also und bewachen
+sich. Den Rückweg selbst kann ein anonymer Aufruf nicht sehen; dieser Klick
+bleibt beim Betreiber.
+
+## Für den Betrieb
+
+- **Der erste Klick, der es zeigt:** in der Anwesenheitsliste eines Kurses auf
+  einen Namen, dann oben links lesen. Dort steht jetzt der Kurs statt „Kunden“.
+- **Wenn dort doch „← Zurück zu Kunden“ steht**, kam der Klick von einer Stelle
+  ohne Eintrag in der Namenstabelle (`src/lib/navigation/herkunft.ts`). Das ist
+  kein Fehler, sondern der gewollte Rückfall — eine Zeile in der Tabelle, und
+  die Stelle hat ihren Namen.
+- **Gefilterte Listen kommen gefiltert zurück.** Wer die Kundenliste durchsucht
+  hat, findet die Suche wieder; wer aus einem Dialog kam, findet die Seite, aber
+  nicht den offenen Dialog.
