@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Check, X, FileText, Cake } from "lucide-react";
 import { markAttendance } from "@/lib/actions/teacher/attendance";
 import { ladeStaffel } from "@/lib/actions/teacher/staffel-laden";
@@ -24,6 +23,7 @@ import {
   gueltigerTermin,
   teileZeilen,
 } from "@/lib/teacher/einmal-gaeste";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 export type MatrixCell = {
   status: "present" | "absent" | null;
@@ -386,9 +386,9 @@ export function AttendanceMatrix({
                   <TableCell className="sticky left-0 z-10 bg-background font-medium whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       {isAdmin ? (
-                        <Link href={`/admin/kunden/${row.customerId}`} className="hover:underline">
+                        <KundenLink kundeId={row.customerId}>
                           {row.fullName}
-                        </Link>
+                        </KundenLink>
                       ) : (
                         row.fullName
                       )}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import {
   ausschreiben,
@@ -27,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 export type KursOption = {
   id: string;
@@ -236,9 +236,9 @@ export function GasttaenzerManager({
               {teilnehmer.map((t) => (
                 <TableRow key={t.customerId}>
                   <TableCell className="font-medium">
-                    <Link href={`/admin/kunden/${t.customerId}`} className="hover:underline">
+                    <KundenLink kundeId={t.customerId}>
                       {t.name}
-                    </Link>
+                    </KundenLink>
                     {t.ausgeschlossenAm ? (
                       <Badge variant="outline" className="ml-2">
                         Ausgeschlossen

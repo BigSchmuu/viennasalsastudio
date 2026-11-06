@@ -18,13 +18,25 @@ import { nameWeichtAb } from "@/lib/sepa/kontoinhaber";
 import { ZweiteStufeVerwaltung } from "@/components/admin/customers/zweite-stufe-verwaltung";
 import { zweiteStufeEingerichtet } from "@/lib/auth/zweite-stufe-admin";
 import { getViewer } from "@/lib/auth/viewer";
+import {
+  KUNDENLISTE,
+  STANDARD_TEXT,
+  kursIdAusHerkunft,
+  loeseHerkunftAuf,
+} from "@/lib/navigation/herkunft";
 
 export default async function CustomerDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  // PROJ-100: `von` sagt, aus welcher Seite der Klick kam. Mehrfach angegeben
+  // (`?von=a&von=b`) liefert Next ein Feld — dann zaehlt das erste.
+  searchParams: Promise<{ von?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { von: vonRoh } = await searchParams;
+  const von = Array.isArray(vonRoh) ? vonRoh[0] : vonRoh;
   const supabase = await createClient();
 
   // Ohne Rollenfilter: Eine Lehrkraft mit Abo war hier nicht erreichbar, auch
@@ -183,12 +195,40 @@ export default async function CustomerDetailPage({
   }));
   const creditBalance = creditEntries.reduce((summe, e) => summe + e.amount, 0);
 
+  // PROJ-100: Der Rückweg nennt die Seite, aus der der Klick kam. Kommt er aus
+  // einer Anwesenheitsliste, wird der Kursname hier nachgesehen — er reist
+  // absichtlich nicht in der Adresse mit, damit er nicht lügen kann. Ist der
+  // Kurs nicht lesbar, bleibt der Rückweg bei der Art der Seite.
+  const kursId = kursIdAusHerkunft(von);
+  let kursName: string | null = null;
+  if (kursId) {
+    const { data: herkunftsKurs } = await supabase
+      .from("courses")
+      .select("name")
+      .eq("id", kursId)
+      .maybeSingle();
+    kursName = herkunftsKurs?.name ?? null;
+  }
+  const herkunft = loeseHerkunftAuf(von, kursName);
+
   return (
     <div className="space-y-8">
       <div>
-        <Button variant="link" className="px-0" asChild>
-          <Link href="/admin/kunden">← Zurück zu Kunden</Link>
-        </Button>
+        <div className="flex flex-wrap items-baseline gap-x-4">
+          <Button variant="link" className="px-0" asChild>
+            <Link href={herkunft?.pfad ?? KUNDENLISTE} className="max-w-full truncate">
+              {`← Zurück ${herkunft?.text ?? STANDARD_TEXT}`}
+            </Link>
+          </Button>
+          {/* Der gewohnte Weg bleibt daneben stehen — aber nur, wenn er nicht
+              dasselbe Ziel wie der Rückweg ist. Zwei Links mit gleichem Ziel
+              sind für Tastatur und Screenreader nicht unterscheidbar. */}
+          {herkunft && !herkunft.istKundenliste && (
+            <Button variant="link" className="px-0 text-muted-foreground" asChild>
+              <Link href={KUNDENLISTE}>Alle Kunden</Link>
+            </Button>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-heading text-xl font-bold">{profile.full_name || "Unbenannt"}</h2>
           {/* Wer hier keine Kundenrolle hat, steht trotzdem in dieser Akte —

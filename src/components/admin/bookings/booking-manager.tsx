@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import {
   bestaetigeBuchungenStapel,
   confirmDropinBooking,
@@ -54,6 +53,7 @@ import {
   vorschlagFuer,
 } from "@/lib/bookings/stapel";
 import { toast } from "sonner";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 const ALL_TYPES = "__all__";
 const ALLE_STATUS = "__alle__";
@@ -441,9 +441,9 @@ export function BookingManager({
                 )}
               </TableCell>
               <TableCell className="font-medium">
-                <Link href={`/admin/kunden/${booking.customerId}`} className="hover:underline">
+                <KundenLink kundeId={booking.customerId}>
                   {booking.customerName}
-                </Link>
+                </KundenLink>
               </TableCell>
               <TableCell>{booking.courseName}</TableCell>
               <TableCell>{bookingTypeLabel[booking.type as keyof typeof bookingTypeLabel] ?? booking.type}</TableCell>

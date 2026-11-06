@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -34,6 +33,7 @@ import {
   type PositionsErgebnis,
 } from "@/components/admin/sepa/positions-dialoge";
 import { freigabeHindernis, istAenderbar, positionenSumme } from "@/lib/sepa/laeufe";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 export type CollectionItemRow = {
   id: string;
@@ -282,9 +282,9 @@ export function CollectionRunDetail({
             {items.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">
-                  <Link href={`/admin/kunden/${item.customerId}`} className="hover:underline">
+                  <KundenLink kundeId={item.customerId}>
                     {item.customerName}
-                  </Link>
+                  </KundenLink>
                 </TableCell>
                 <TableCell>{item.bezug}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatPrice(item.amount)}</TableCell>

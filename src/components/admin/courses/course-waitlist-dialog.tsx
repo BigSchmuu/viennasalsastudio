@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { removeWaitlistEntry } from "@/lib/actions/admin/waitlist";
 import { desiredPlanLabel } from "@/lib/constants/booking";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 export type WaitlistEntryRow = {
   id: string;
@@ -79,9 +79,9 @@ export function CourseWaitlistDialog({
                 <TableRow key={entry.id}>
                   <TableCell>{index + 1}</TableCell>
                   <TableCell>
-                    <Link href={`/admin/kunden/${entry.customerId}`} className="hover:underline">
+                    <KundenLink kundeId={entry.customerId}>
                       {entry.customerName}
-                    </Link>
+                    </KundenLink>
                   </TableCell>
                   <TableCell>{desiredPlanLabel(entry.desiredPlan)}</TableCell>
                   <TableCell>{new Date(entry.chosenDate).toLocaleDateString("de-AT")}</TableCell>

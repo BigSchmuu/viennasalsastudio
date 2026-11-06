@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { laufzeit, type Kuendigung } from "@/lib/admin/kuendigungen";
 import { grundLabel, zaehleGruende } from "@/lib/subscriptions/kuendigungsgrund";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 function datum(wert: string | null): string {
   if (!wert) return "—";
@@ -70,9 +70,9 @@ function Abschnitt({
                 {kuendigungen.map((k) => (
                   <TableRow key={k.aboId}>
                     <TableCell className="font-medium">
-                      <Link href={`/admin/kunden/${k.kundeId}`} className="hover:underline">
+                      <KundenLink kundeId={k.kundeId}>
                         {k.kundeName}
-                      </Link>
+                      </KundenLink>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{k.aboName}</TableCell>
                     <TableCell className="whitespace-nowrap tabular-nums">

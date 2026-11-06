@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { SortableHeader } from "@/components/admin/sortable-header";
 import { subscriptionStatusColor } from "@/lib/constants/subscription-status";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 export type CustomerStatus = "active" | "paused" | "cancelled" | "none";
 
@@ -148,9 +148,9 @@ export function CustomerList({
             {customers.map((customer) => (
               <TableRow key={customer.id}>
                 <TableCell className="font-medium">
-                  <Link href={`/admin/kunden/${customer.id}`} className="hover:underline">
+                  <KundenLink kundeId={customer.id}>
                     {customer.name}
-                  </Link>
+                  </KundenLink>
                   {customer.rolle && (
                     <Badge variant="secondary" className="ml-2 font-normal">
                       {ROLLEN_BESCHRIFTUNG[customer.rolle] ?? customer.rolle}

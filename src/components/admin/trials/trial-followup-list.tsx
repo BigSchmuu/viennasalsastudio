@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -14,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { SortableHeader } from "@/components/admin/sortable-header";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 export type TrialFollowupStatus = "offen" | "kontaktiert" | "konvertiert";
 
@@ -204,9 +204,9 @@ export function TrialFollowupList({ rows, initialStatus }: { rows: TrialFollowup
               {rows.map((row) => (
                 <TableRow key={row.bookingId} className={row.overdue ? "bg-destructive/5" : undefined}>
                   <TableCell className="font-medium">
-                    <Link href={`/admin/kunden/${row.customerId}`} className="hover:underline">
+                    <KundenLink kundeId={row.customerId}>
                       {row.customerName}
-                    </Link>
+                    </KundenLink>
                   </TableCell>
                   <TableCell>{row.courseName}</TableCell>
                   <TableCell>{formatDate(row.chosenDate)}</TableCell>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,6 +14,7 @@ import {
   declineFlatrateUpgrade,
 } from "@/lib/actions/admin/flatrate-upgrade";
 import { nichtAngerechnet, vorgeschlageneDifferenz } from "@/lib/flatrate/upgrade-differenz";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
 
@@ -166,9 +166,9 @@ export function UpgradeAnfragen({
               <li key={a.aboId} className="rounded-md border p-3 space-y-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="font-medium">
-                    <Link href={`/admin/kunden/${a.kundeId}`} className="hover:underline">
+                    <KundenLink kundeId={a.kundeId}>
                       {a.kundeName}
-                    </Link>
+                    </KundenLink>
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {a.kursName ?? "Kursabo"} ·{" "}

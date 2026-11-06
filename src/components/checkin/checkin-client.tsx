@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import Link from "next/link";
 import {
   checkinGast,
   checkinTicket,
@@ -19,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QrScanner } from "@/components/checkin/qr-scanner";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 type ScanResult =
   | { type: "success"; customerName: string; paymentMethod: string }
@@ -179,10 +179,13 @@ export function CheckinClient({ events, isAdmin }: { events: CheckinEventRow[]; 
             <div key={r.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
               <div>
                 <p className="font-medium">
-                  {isAdmin ? (
-                    <Link href={`/admin/kunden/${r.customerId}`} className="hover:underline">
+                  {/* PROJ-100: Ein Gast ohne Konto hat keine Akte. Vorher
+                      entstand hier ein Link auf „/admin/kunden/null“ — er
+                      sah aus wie einer und führte ins Leere. */}
+                  {isAdmin && r.customerId ? (
+                    <KundenLink kundeId={r.customerId}>
                       {r.customerName}
-                    </Link>
+                    </KundenLink>
                   ) : (
                     r.customerName
                   )}

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Check, X } from "lucide-react";
 import type { EinmalGast } from "@/lib/teacher/einmal-gaeste";
 import type { DanceRole } from "@/components/teacher/attendance-matrix";
@@ -8,6 +7,7 @@ import { danceRoleLabel } from "@/lib/constants/booking";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 function formatDatum(datum: string): string {
   return new Date(datum).toLocaleDateString("de-AT", {
@@ -79,9 +79,9 @@ export function EinmalGaesteListe({
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {isAdmin ? (
-                          <Link href={`/admin/kunden/${gast.customerId}`} className="hover:underline">
+                          <KundenLink kundeId={gast.customerId}>
                             {gast.fullName}
-                          </Link>
+                          </KundenLink>
                         ) : (
                           gast.fullName
                         )}

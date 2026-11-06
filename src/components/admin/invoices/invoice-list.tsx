@@ -14,6 +14,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { SortableHeader } from "@/components/admin/sortable-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CUSTOM_RANGE, rangeFromSelection, recentMonths, recentYears, selectionFromRange } from "@/lib/invoices";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 /** Rechnung, Storno oder Gutschrift — seit PROJ-46 steht in dieser Liste beides. */
 export type BelegArt = "rechnung" | "storno" | "gutschrift";
@@ -238,9 +239,9 @@ export function InvoiceList({
                 </TableCell>
                 <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
                 <TableCell>
-                  <Link href={`/admin/kunden/${invoice.customerId}`} className="hover:underline">
+                  <KundenLink kundeId={invoice.customerId}>
                     {invoice.customerName}
-                  </Link>
+                  </KundenLink>
                 </TableCell>
                 <TableCell>{formatEUR(invoice.grossAmount)}</TableCell>
                 <TableCell>

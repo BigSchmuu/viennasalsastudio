@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 export type OpenItemRow = {
   id: string;
@@ -120,9 +121,9 @@ export function OpenItemsList({ items, showSettled }: { items: OpenItemRow[]; sh
             {items.map((item) => (
               <TableRow key={item.id} className={item.settledAt ? "opacity-60" : undefined}>
                 <TableCell>
-                  <Link href={`/admin/kunden/${item.customerId}`} className="hover:underline">
+                  <KundenLink kundeId={item.customerId}>
                     {item.customerName}
-                  </Link>
+                  </KundenLink>
                   {item.settledAt && (
                     <Badge variant="secondary" className="ml-2">
                       Erledigt

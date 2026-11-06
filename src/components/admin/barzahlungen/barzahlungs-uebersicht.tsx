@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarCheck, ChevronDown, Plus, Trash2, Undo2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -41,6 +40,7 @@ import {
   type EintragsZeile,
 } from "@/lib/barzahlungen/offen";
 import type { ArchivZeile, ZyklusZeile } from "@/lib/barzahlungen/laden";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 const EUR = new Intl.NumberFormat("de-AT", { style: "currency", currency: "EUR" });
 
@@ -362,9 +362,9 @@ export function BarzahlungsUebersicht({
                   {zeilen.map((z) => (
                     <TableRow key={z.eintragId}>
                       <TableCell className="font-medium">
-                        <Link href={`/admin/kunden/${z.kundeId}`} className="hover:underline">
+                        <KundenLink kundeId={z.kundeId}>
                           {z.kundeName}
-                        </Link>
+                        </KundenLink>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {/* Ein Blockelement, kein Absatz-Element: Das Badge ist
@@ -861,12 +861,9 @@ export function BarzahlungsUebersicht({
                               return (
                                 <TableRow key={a.zeileId}>
                                   <TableCell className="font-medium">
-                                    <Link
-                                      href={`/admin/kunden/${a.kundeId}`}
-                                      className="hover:underline"
-                                    >
+                                    <KundenLink kundeId={a.kundeId}>
                                       {a.kundeName}
-                                    </Link>
+                                    </KundenLink>
                                   </TableCell>
                                   <TableCell className="text-muted-foreground">
                                     <div className="flex flex-wrap items-center gap-2">
@@ -986,9 +983,9 @@ export function BarzahlungsUebersicht({
                     {eingesammelt.map((z) => (
                       <TableRow key={z.id}>
                         <TableCell className="font-medium">
-                          <Link href={`/admin/kunden/${z.kundeId}`} className="hover:underline">
+                          <KundenLink kundeId={z.kundeId}>
                             {z.kundeName}
-                          </Link>
+                          </KundenLink>
                         </TableCell>
                         <TableCell className="whitespace-nowrap tabular-nums">
                           {datum(z.tag)}

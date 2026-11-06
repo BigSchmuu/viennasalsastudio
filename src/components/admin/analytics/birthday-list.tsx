@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Cake } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 export type BirthdayRow = {
   customerId: string;
@@ -26,9 +26,9 @@ export function BirthdayList({ rows }: { rows: BirthdayRow[] }) {
           <ul className="space-y-2">
             {rows.map((row) => (
               <li key={row.customerId} className="flex items-center justify-between text-sm">
-                <Link href={`/admin/kunden/${row.customerId}`} className="hover:underline">
+                <KundenLink kundeId={row.customerId}>
                   {row.name}
-                </Link>
+                </KundenLink>
                 <span className="text-muted-foreground whitespace-nowrap">
                   {row.daysUntil === 0 ? "Heute" : row.monthDay}
                 </span>

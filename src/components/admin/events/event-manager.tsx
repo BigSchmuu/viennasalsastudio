@@ -54,6 +54,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { KundenLink } from "@/components/admin/customers/kunden-link";
 
 export type EventRow = {
   id: string;
@@ -731,9 +732,9 @@ function GuestListDialog({
                     {guests.map((g) => (
                       <TableRow key={g.id}>
                         <TableCell>
-                          <Link href={`/admin/kunden/${g.customerId}`} className="hover:underline">
+                          <KundenLink kundeId={g.customerId}>
                             {g.customerName}
-                          </Link>
+                          </KundenLink>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {g.ticketart ?? "Ticket"}
