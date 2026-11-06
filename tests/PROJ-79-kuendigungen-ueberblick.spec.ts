@@ -32,6 +32,26 @@ function wienerDatum(versatzTage = 0): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Vienna" }).format(ziel);
 }
 
+/**
+ * Ein Ankerdatum, das von `bis` genau vier ganze Monate entfernt liegt.
+ *
+ * Hier stand ein festes „2026-06-07“ mit dem Kommentar „sind es vier Monate“.
+ * Das war an dem Tag wahr, an dem es geschrieben wurde, und am 06.11.2026
+ * falsch — die Seite zeigte „5 Monate“, der Test meldete einen Fehler, den
+ * niemand verursacht hatte. Ein Test, der mit dem Kalender verdirbt, kostet
+ * später genau die Zeit, die er sparen sollte.
+ */
+function vierMonateVor(bis: string): string {
+  const [jahr, monat, tag] = bis.split("-").map(Number);
+  const verschoben = monat - 4;
+  const zieljahr = verschoben >= 1 ? jahr : jahr - 1;
+  const zielmonat = verschoben >= 1 ? verschoben : verschoben + 12;
+  // Höchstens der 28.: So gibt es den Tag in jedem Monat, und der Monat gilt
+  // als voll (die Anwendung zählt einen Monat erst, wenn der Tag erreicht ist).
+  const zieltag = Math.min(tag, 28);
+  return `${zieljahr}-${String(zielmonat).padStart(2, "0")}-${String(zieltag).padStart(2, "0")}`;
+}
+
 /** Erster Tag des laufenden Monats — der Zeitraum, mit dem die Seite öffnet. */
 function monatsErster(): string {
   return `${wienerDatum(0).slice(0, 7)}-01`;
@@ -82,6 +102,9 @@ test.beforeAll(async () => {
   }
 
   // Angekündigt: läuft noch, Stichtag in zehn Tagen, seit vier Monaten dabei.
+  // Beide Daten aus **einem** Aufruf, sonst könnten sie über Mitternacht
+  // auseinanderlaufen.
+  const stichtag = wienerDatum(10);
   const { data: offen, error: offenFehler } = await service
     .from("subscriptions")
     .insert({
@@ -89,9 +112,9 @@ test.beforeAll(async () => {
       status: "active",
       name: "E2E79 Flatrate",
       price: 80,
-      cycle_anchor_date: "2026-06-07",
+      cycle_anchor_date: vierMonateVor(stichtag),
       pending_status: "cancelled",
-      pending_effective_date: wienerDatum(10),
+      pending_effective_date: stichtag,
     })
     .select("id")
     .single();
@@ -161,7 +184,8 @@ test.describe("PROJ-79: Überblick der Kündigungen", () => {
 
     const zeile = angekuendigt(page).getByRole("row", { name: new RegExp(NAMEN.offen) });
     await expect(zeile).toBeVisible();
-    // Vom 07.06.2026 bis heute+10 sind es vier Monate.
+    // Der Anker liegt genau vier Monate vor dem Stichtag — siehe
+    // `vierMonateVor`. Diese Zahl stimmt damit an jedem Tag des Jahres.
     await expect(zeile).toContainText("4 Monate");
     // Und sie steht nicht in der falschen Liste.
     await expect(beendet(page).getByText(NAMEN.offen)).toHaveCount(0);
