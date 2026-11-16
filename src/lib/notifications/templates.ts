@@ -186,6 +186,24 @@ export type ZahlungserinnerungDetails = { invoiceNumber: string; grossAmount: nu
 /** Jemand hat versucht, sich mit einer bereits vergebenen Adresse zu registrieren. */
 export type KontoExistiertDetails = { attemptedAt: string };
 /** PROJ-87: Entscheidung über eine Upgrade-Anfrage. */
+/**
+ * PROJ-102: Der Studierendenpreis läuft aus.
+ *
+ * Alles, was der Text braucht, steht schon in der Warteschlangenzeile — der
+ * Lauf kennt alten Preis, neuen Preis und Datum im selben Augenblick. Nichts
+ * nachzulesen heißt: nichts, was sich bis zum Versand ändern kann.
+ */
+export type StudentenpreisEndetDetails = {
+  /** Name des Abos. */
+  abo: string;
+  /** Der Beitrag heute. */
+  alt: number;
+  /** Der Beitrag ab dem Stichtag. */
+  neu: number;
+  /** Ab wann der neue Beitrag gilt (ISO-Datum). */
+  datum: string;
+};
+
 export type AboUpgradeDetails = {
   entscheidung: "bestaetigt" | "abgelehnt";
   /** Name des Abos — beim abgelehnten Fall das, was unverändert weiterläuft. */
@@ -242,7 +260,9 @@ export function resolveTemplateKey(
     | "kursausfall"
     | "kursumwandlung"
     | "konto_existiert"
-    | "abo_upgrade",
+    | "abo_upgrade"
+    | "studentenpreis_endet"
+    | "studentenpreis_endet",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
@@ -258,8 +278,11 @@ export function resolveTemplateKey(
     | GuthabenDetails
     | NewsletterDetails
     | KontoExistiertDetails
+    | StudentenpreisEndetDetails
 ): TemplateKey | null {
   switch (eventType) {
+    case "studentenpreis_endet":
+      return "studentenpreis_endet";
     case "buchungsstatus":
       return (details as BuchungsstatusDetails).newStatus === "confirmed"
         ? "buchungsstatus_bestaetigt"
@@ -522,12 +545,14 @@ export function buildNotificationContent(
     | "kursausfall"
     | "kursumwandlung"
     | "konto_existiert"
-    | "abo_upgrade",
+    | "abo_upgrade"
+    | "studentenpreis_endet",
   details:
     | BuchungsstatusDetails
     | WartelisteDetails
     | AboKuendigungDetails
     | AboUpgradeDetails
+    | StudentenpreisEndetDetails
     | KursstartErinnerungDetails
     | SepaAnkuendigungDetails
     | ZahlungserinnerungDetails
@@ -562,6 +587,26 @@ export function buildNotificationContent(
       const key: TemplateKey = d.newStatus === "paused" ? "abo_pausiert" : "abo_gekuendigt";
       return {
         ...renderTemplate(key, { abo: d.subscriptionName, datum: formatDate(d.effectiveDate) }, override, "", locale),
+        url: "/profil",
+      };
+    }
+    case "studentenpreis_endet": {
+      const d = details as StudentenpreisEndetDetails;
+      return {
+        ...renderTemplate(
+          "studentenpreis_endet",
+          {
+            abo: d.abo,
+            alt: formatPrice(d.alt),
+            neu: formatPrice(d.neu),
+            datum: formatDate(d.datum),
+          },
+          override,
+          "",
+          locale
+        ),
+        // Dorthin, wo man etwas tun kann: Das Abo steht im eigenen Bereich,
+        // und von dort führt der Weg zum Kündigen.
         url: "/profil",
       };
     }
@@ -823,6 +868,14 @@ export function buildPreviewContent(key: TemplateKey, fields: TemplateFields): N
       return buildNotificationContent(
         "abo_upgrade",
         { entscheidung: "abgelehnt", abo: "Salsa Mittwoch" },
+        fields
+      );
+    case "studentenpreis_endet":
+      // PROJ-102: Dieselben Beispielwerte wie im Register, damit die Vorschau
+      // zeigt, was der Kunde später liest.
+      return buildNotificationContent(
+        "studentenpreis_endet",
+        { abo: "Salsa Mittwoch", alt: 45, neu: 60, datum: "2026-12-14" },
         fields
       );
     case "kursstart_erinnerung":

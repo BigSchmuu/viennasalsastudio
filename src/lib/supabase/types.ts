@@ -2225,9 +2225,14 @@ export type Database = {
           id: string
           name: string | null
           pending_effective_date: string | null
+          pending_price: number | null
+          pending_price_date: string | null
+          pending_price_old: number | null
           pending_status: string | null
           price: number | null
+          price_notice_sent_at: string | null
           status: string
+          student_price: boolean
           upgrade_requested_at: string | null
         }
         Insert: {
@@ -2242,9 +2247,14 @@ export type Database = {
           id?: string
           name?: string | null
           pending_effective_date?: string | null
+          pending_price?: number | null
+          pending_price_date?: string | null
+          pending_price_old?: number | null
           pending_status?: string | null
           price?: number | null
+          price_notice_sent_at?: string | null
           status?: string
+          student_price?: boolean
           upgrade_requested_at?: string | null
         }
         Update: {
@@ -2259,9 +2269,14 @@ export type Database = {
           id?: string
           name?: string | null
           pending_effective_date?: string | null
+          pending_price?: number | null
+          pending_price_date?: string | null
+          pending_price_old?: number | null
           pending_status?: string | null
           price?: number | null
+          price_notice_sent_at?: string | null
           status?: string
+          student_price?: boolean
           upgrade_requested_at?: string | null
         }
         Relationships: [
@@ -2610,6 +2625,10 @@ export type Database = {
       }
     }
     Functions: {
+      abo_normalpreis: {
+        Args: { p_subscription_id: string }
+        Returns: number
+      }
       abo_kuendigungsfenster: {
         Args: { p_subscription_id: string }
         Returns: {
@@ -3498,6 +3517,20 @@ export type Database = {
           status: string
           upgrade_requested_at: string | null
         }
+      }
+      studentenpreis_auskunft: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          moeglich: boolean
+          grund: string
+        }[]
+      }
+      studentenpreis_erlaubt: {
+        Args: {
+          p_customer_id: string
+          p_stichtag?: string
+        }
+        Returns: boolean
       }
       withdraw_flatrate_upgrade: {
         Args: { p_subscription_id: string }

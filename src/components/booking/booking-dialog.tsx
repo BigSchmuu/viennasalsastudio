@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createBooking, rebookBooking } from "@/lib/actions/booking";
 import { checkCouponCode, type CouponCheckResult } from "@/lib/actions/coupons";
 import { joinWaitlist } from "@/lib/actions/waitlist";
+import { StudentenpreisWahl } from "@/components/booking/studentenpreis-wahl";
 import {
   referralSourceOptions,
   danceRoleOptions,
@@ -434,16 +435,11 @@ export function BookingDialog({
                     value={desiredPlan}
                     onChange={setDesiredPlan}
                   />
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="wants-student-price-regular"
-                      checked={wantsStudentPrice}
-                      onCheckedChange={(checked) => setWantsStudentPrice(checked === true)}
-                    />
-                    <Label htmlFor="wants-student-price-regular" className="font-normal">
-                      {t("studentPrice")}
-                    </Label>
-                  </div>
+                  <StudentenpreisWahl
+                    id="wants-student-price-regular"
+                    checked={wantsStudentPrice}
+                    onChange={setWantsStudentPrice}
+                  />
                 </div>
                 {!course.isFull && !roleImbalance && (
                   <>
@@ -556,16 +552,11 @@ export function BookingDialog({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="wants-student-price"
-                    checked={wantsStudentPrice}
-                    onCheckedChange={(checked) => setWantsStudentPrice(checked === true)}
-                  />
-                  <Label htmlFor="wants-student-price" className="font-normal">
-                    {t("studentPrice")}
-                  </Label>
-                </div>
+                <StudentenpreisWahl
+                  id="wants-student-price"
+                  checked={wantsStudentPrice}
+                  onChange={setWantsStudentPrice}
+                />
                 <p className="text-sm font-medium">{t("dropinOnSite", { price: formatPrice(dropinPrice, locale) })}</p>
               </>
             )}

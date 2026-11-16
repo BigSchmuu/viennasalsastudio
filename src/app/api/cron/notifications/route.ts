@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { runDailyChecks, runFollowupChecks, runEveningChecks, drainPendingQueue } from "@/lib/notifications/dispatch";
 import { vollzieheFaelligeAenderungen } from "@/lib/subscriptions/faellige-aenderungen";
+import { fuehreStudentenpreisLaufDurch } from "@/lib/subscriptions/studentenpreis";
 import { vollzieheFaelligeUmwandlungen } from "@/lib/courses/umwandlungen";
 import { ergaenzeSerienTermine } from "@/lib/events/termine-nachlegen";
 import { raeumeVerwaisteBilder } from "@/lib/events/bilder-aufraeumen";
@@ -103,9 +104,49 @@ export async function GET(request: NextRequest) {
     ? { verwaist: 0 }
     : lauf.nimm(await fuehreSchrittAus("verwaiste-bilder", { verwaist: 0 }, () => raeumeVerwaisteBilder(service)));
 
+  // PROJ-102: Der Studierendenpreis endet mit 28 — angekuendigt, nicht
+  // ueberraschend. Derselbe Lauf wie der Abo-Vollzug, und **nach** ihm: Wird
+  // heute eine Kuendigung wirksam, hat das Abo danach `status = 'cancelled'`,
+  // und die Umstellung laesst es in Ruhe. Umgekehrt haette sie den Preis einer
+  // Kuendigung erhoeht, die am selben Tag greift.
+  //
+  // Nur im Morgenlauf: Ein Stichtag gehoert an den Tagesanfang, und eine
+  // Ankuendigung zweimal taeglich zu pruefen bringt nichts.
+  // Die Zahlen bekommen hier einen eigenen Namen: Die Kursumwandlung meldet
+  // ebenfalls `angekuendigt`, und die flache Antwort haette den einen Wert mit
+  // dem anderen ueberschrieben -- eine Zahl waere stillschweigend
+  // verschwunden. Aufgefallen ist das dem Test der Route.
+  const studentenpreis = isEveningRun
+    ? {
+        studentenpreisAngekuendigt: 0,
+        studentenpreisUmgestellt: 0,
+        studentenpreisUebersprungen: 0,
+        studentenpreisOhneGeburtsdatum: 0,
+      }
+    : lauf.nimm(
+        await fuehreSchrittAus(
+          "studentenpreis",
+          {
+            studentenpreisAngekuendigt: 0,
+            studentenpreisUmgestellt: 0,
+            studentenpreisUebersprungen: 0,
+            studentenpreisOhneGeburtsdatum: 0,
+          },
+          async () => {
+            const e = await fuehreStudentenpreisLaufDurch(service);
+            return {
+              studentenpreisAngekuendigt: e.angekuendigt,
+              studentenpreisUmgestellt: e.umgestellt,
+              studentenpreisUebersprungen: e.uebersprungen,
+              studentenpreisOhneGeburtsdatum: e.ohneGeburtsdatum,
+            };
+          }
+        )
+      );
+
   const drained = lauf.nimm(await fuehreSchrittAus("warteschlange", { processed: 0 }, () => drainPendingQueue(service)));
 
-  const ergebnis = { ...checks, ...vollzug, ...umwandlung, ...serien, ...bilder, ...drained };
+  const ergebnis = { ...checks, ...vollzug, ...umwandlung, ...serien, ...bilder, ...studentenpreis, ...drained };
 
   // Ein halb gelungener Lauf darf nicht wie ein gelungener aussehen: Vercel
   // zeigt in der Cron-Uebersicht nur den Statuscode.

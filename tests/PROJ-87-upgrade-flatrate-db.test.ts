@@ -92,7 +92,16 @@ async function kontoAnlegen(mail: string, name: string): Promise<string> {
     email_confirm: true,
   });
   if (error || !data.user) throw new Error(`PROJ-87 Konto ${mail}: ${error?.message}`);
-  await service.from("profiles").update({ full_name: name }).eq("id", data.user.id);
+  // PROJ-101: Der Studierendentarif hat eine Altersgrenze, und ohne
+  // hinterlegtes Geburtsdatum gilt er nicht — `confirm_flatrate_upgrade`
+  // rechnet dann mit dem Normalpreis. Gerechnet statt eingetippt, damit dieses
+  // Konto nicht in drei Jahren 28 wird.
+  const vor25Jahren = new Date();
+  vor25Jahren.setFullYear(vor25Jahren.getFullYear() - 25);
+  await service
+    .from("profiles")
+    .update({ full_name: name, birthdate: vor25Jahren.toISOString().slice(0, 10) })
+    .eq("id", data.user.id);
   return data.user.id;
 }
 

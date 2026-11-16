@@ -20,6 +20,16 @@ function addDays(date: Date, days: number): Date {
 // The birthdate form field rejects any date in the future, so a birthdate
 // used to simulate "birthday in N days" must keep month/day from `addDays`
 // but fall back to a birth YEAR safely in the past.
+/**
+ * Ein Geburtsdatum mit dem Tag und Monat von `monthDayDate`, Jahrgang 1998.
+ *
+ * PROJ-101: Hier stand für „Geburtstag heute" `formatLocalDate(today)` — also
+ * das heutige Datum **samt Jahr**, ein Neugeborener. Seit das Formular ein
+ * plausibles Geburtsdatum verlangt (mindestens zehn Jahre), wird das abgelehnt;
+ * der Kunde bekam gar kein Datum, und der Test suchte ihn im Widget umsonst.
+ * Ein Geburtstag ist Tag und Monat, nicht das Jahr — dieser Helfer sagt genau
+ * das und gilt deshalb jetzt für alle Fälle.
+ */
 function birthdateStringForMonthDay(monthDayDate: Date): string {
   const month = String(monthDayDate.getMonth() + 1).padStart(2, "0");
   const day = String(monthDayDate.getDate()).padStart(2, "0");
@@ -109,7 +119,7 @@ test.describe("PROJ-31: Geburtstags-Erinnerung", () => {
   test("AC1: Kunde mit Geburtstag heute erscheint im Dashboard-Widget mit Name und 'Heute'", async ({ page }) => {
     await login(page);
     const today = new Date();
-    await setCustomerBirthdate(page, "E2E30 Kunde A", formatLocalDate(today));
+    await setCustomerBirthdate(page, "E2E30 Kunde A", birthdateStringForMonthDay(today));
 
     await page.goto("/admin");
     // Exact match: the empty-state line "Keine Geburtstage in den nächsten
@@ -126,7 +136,7 @@ test.describe("PROJ-31: Geburtstags-Erinnerung", () => {
     await login(page);
     const today = new Date();
     const in4Days = addDays(today, 4);
-    await setCustomerBirthdate(page, "E2E30 Kunde A", formatLocalDate(today));
+    await setCustomerBirthdate(page, "E2E30 Kunde A", birthdateStringForMonthDay(today));
     await setCustomerBirthdate(page, "E2E30 Kunde B", birthdateStringForMonthDay(in4Days));
 
     await page.goto("/admin");
@@ -160,7 +170,7 @@ test.describe("PROJ-31: Geburtstags-Erinnerung", () => {
 
   test("AC3: Geburtstags-Icon erscheint in der Anwesenheitsliste für einen Kursteilnehmer mit Geburtstag heute", async ({ page }) => {
     await login(page);
-    await setCustomerBirthdate(page, "E2E30 Kunde A", formatLocalDate(new Date()));
+    await setCustomerBirthdate(page, "E2E30 Kunde A", birthdateStringForMonthDay(new Date()));
 
     await page.goto("/admin/kurse");
     await page

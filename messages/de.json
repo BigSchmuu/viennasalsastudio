@@ -256,7 +256,13 @@
     "btnPending": "Anfrage läuft",
     "btnWaitlist": "Auf der Warteliste",
     "btnEnrolled": "Du bist in diesem Kurs",
-    "btnBook": "Buchen"
+    "btnBook": "Buchen",
+    "studentPriceTooOld": "Der Studierendenpreis gilt bis einschließlich 27 Jahre.",
+    "studentPriceNoBirthdate": "Trag dein Geburtsdatum im Profil ein, um den Studierendenpreis zu wählen.",
+    "studentPriceSignedOut": "Melde dich an, um den Studierendenpreis zu wählen.",
+    "studentPriceUnknown": "Der Studierendenpreis lässt sich gerade nicht prüfen.",
+    "studentPriceToProfile": "Zum Profil",
+    "studentPriceToLogin": "Anmelden"
   },
   "profile": {
     "heading": "Mein Profil",
@@ -370,7 +376,8 @@
       "pass": "Du hast einen {style}-Pass. Für Kurse anderer Stilrichtungen buche einzelne Kurse — oder schreib uns, wenn du auf die Flatrate wechseln möchtest.",
       "pending": "Solange eine Pause oder Kündigung aussteht, lässt sich nicht upgraden. Nimm sie zurück, wenn du stattdessen auf die Flatrate wechseln möchtest.",
       "preis": "Ein Upgrade auf die Flatrate ist derzeit nicht buchbar. Melde dich bei uns — wir richten es ein."
-    }
+    },
+    "priceChangeNotice": "Ab {date} kostet dieses Abo {neu} statt {alt} je Zyklus — der Studierendenpreis gilt bis einschließlich 27 Jahre. Kündigst du vor {date}, wird der neue Beitrag nie abgebucht."
   },
   "notifications": {
     "event": "Ereignis",
@@ -484,7 +491,13 @@
     "errSessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich neu an und versuche es noch einmal.",
     "errPasswordChangeFailed": "Das Passwort konnte nicht geändert werden. Bitte versuche es noch einmal.",
     "errReauthNeeded": "Für diese Änderung verlangt der Anmeldedienst eine zusätzliche Bestätigung. Bitte wende dich an das Studio.",
-    "errConnectionLost": "Die Verbindung ist abgebrochen. Bitte versuch es noch einmal."
+    "errConnectionLost": "Die Verbindung ist abgebrochen. Bitte versuch es noch einmal.",
+    "valBirthdateRequired": "Bitte gib dein Geburtsdatum an.",
+    "valBirthdateInvalid": "Bitte wähle Tag, Monat und Jahr aus.",
+    "valBirthdateFuture": "Das Geburtsdatum darf nicht in der Zukunft liegen.",
+    "valBirthdateImplausible": "Bitte prüfe das Geburtsdatum.",
+    "birthdate": "Geburtsdatum",
+    "birthdateHint": "Wir brauchen es für ermäßigte Preise und Geburtstagsgrüße."
   },
   "legal": {
     "termsTitle": "Allgemeine Geschäftsbedingungen",

@@ -53,6 +53,7 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
     password: formData.get("password"),
     first_name: formData.get("first_name"),
     last_name: formData.get("last_name"),
+    birthdate: formData.get("birthdate"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "errInvalidInput" };
@@ -77,6 +78,9 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
       data: {
         first_name: parsed.data.first_name,
         last_name: parsed.data.last_name,
+        // PROJ-101: Aus demselben Grund wie der Name — das Profil entsteht im
+        // Trigger, bevor die Anwendung es sehen kann.
+        birthdate: parsed.data.birthdate,
       },
     },
   });

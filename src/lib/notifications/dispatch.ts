@@ -131,6 +131,24 @@ export async function resolveContent(service: ServiceClient, row: QueueRow): Pro
       const key = resolveTemplateKey("abo_kuendigung", details);
       return buildNotificationContent("abo_kuendigung", details, key ? await fetchOverride(service, key, locale) : undefined, locale);
     }
+    case "studentenpreis_endet": {
+      // PROJ-102: Alles steht in der Warteschlangenzeile — der Lauf kennt
+      // alten Preis, neuen Preis und Datum im selben Augenblick. Nichts
+      // nachzulesen heisst: nichts, was sich bis zum Versand ändern kann.
+      const details = {
+        abo: (payload.abo as string) ?? "Dein Abo",
+        alt: Number(payload.alt ?? 0),
+        neu: Number(payload.neu ?? 0),
+        datum: (payload.datum as string) ?? "",
+      };
+      const key = resolveTemplateKey("studentenpreis_endet", details);
+      return buildNotificationContent(
+        "studentenpreis_endet",
+        details,
+        key ? await fetchOverride(service, key, locale) : undefined,
+        locale
+      );
+    }
     case "abo_upgrade": {
       // PROJ-87: Alles, was der Text braucht, steht schon in der
       // Warteschlangenzeile — die Funktion, die sie einreiht, weiss den Preis
@@ -485,6 +503,18 @@ export async function processQueueRow(service: ServiceClient, row: QueueRow): Pr
       // PROJ-38: operationally necessary — someone who switched notifications
       // off would otherwise turn up to a locked door. Same reasoning as
       // sepa_ankuendigung and zahlungserinnerung.
+      const emailResult = await trySendEmail(service, row.customer_id, content);
+      emailStatus = emailResult.status;
+      if (emailResult.error) errors.push(`E-Mail: ${emailResult.error}`);
+      pushStatus = await sendPushToCustomer(service, row.customer_id, {
+        title: content.pushTitle,
+        body: content.pushBody,
+        url: content.url,
+      });
+    } else if (row.event_type === "studentenpreis_endet") {
+      // PROJ-102: eine angekündigte Preiserhöhung. Wie bei der
+      // SEPA-Ankündigung darf niemand das abschalten können — die Nachricht
+      // ist die Grundlage dafür, dass der Kunde noch kündigen kann.
       const emailResult = await trySendEmail(service, row.customer_id, content);
       emailStatus = emailResult.status;
       if (emailResult.error) errors.push(`E-Mail: ${emailResult.error}`);

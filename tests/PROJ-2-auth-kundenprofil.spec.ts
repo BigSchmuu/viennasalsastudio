@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ladeTestUmgebung } from "./env";
@@ -16,6 +16,28 @@ const UNCONFIRMED_EMAIL = "qa-proj2-unconfirmed@viennasalsastudio.test";
 // Separate account for the birthdate test so it doesn't race the profile-save
 // test against the same `profiles` row when tests run in parallel.
 const CONFIRMED_EMAIL_2 = "qa-proj2-c@viennasalsastudio.test";
+
+const MONATSNAMEN = [
+  "Januar", "Februar", "März", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Dezember",
+];
+
+/**
+ * Das Geburtsdatum im Formular wählen — drei Felder statt eines Datumsfelds.
+ *
+ * PROJ-101: Seit das Geburtsdatum Pflicht ist, kommt kein Formular ohne es
+ * durch. Jahr zuerst, dann Monat, dann Tag: Ein kurzer Monat würde einen
+ * vorher gewählten 31. abschneiden.
+ */
+async function waehleGeburtsdatum(page: Page, iso: string) {
+  const [jahr, monat, tag] = iso.split("-").map(Number);
+  await page.getByLabel("Jahr", { exact: true }).click();
+  await page.getByRole("option", { name: String(jahr), exact: true }).click();
+  await page.getByLabel("Monat", { exact: true }).click();
+  await page.getByRole("option", { name: MONATSNAMEN[monat - 1], exact: true }).click();
+  await page.getByLabel("Tag", { exact: true }).click();
+  await page.getByRole("option", { name: String(tag), exact: true }).click();
+}
 
 test.describe("PROJ-2: Auth & Kundenprofil", () => {
   test("nicht eingeloggter Besucher wird von /profil zu /login umgeleitet und nach Login zurückgeleitet", async ({
@@ -154,6 +176,8 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     // nicht einmal bis zum Server.
     await page.getByLabel("Vorname").fill("QA");
     await page.getByLabel("Nachname").fill("Bestandskonto");
+    // PROJ-101: Pflichtfeld — ohne es kommt das Formular nicht bis zum Server.
+    await waehleGeburtsdatum(page, "1995-06-15");
     await page.getByLabel("E-Mail").fill(CONFIRMED_EMAIL);
     await page.getByLabel("Passwort").fill(CONFIRMED_PASSWORD);
     await page.waitForTimeout(800);
@@ -358,6 +382,11 @@ test.describe("PROJ-2: Auth & Kundenprofil", () => {
     // Kunde eingibt, nicht was der Trigger daraus macht.
     await page.getByLabel("Vorname").fill("QA Test");
     await page.getByLabel("Nachname").fill("Kundin");
+    // PROJ-101: Das Profil speichert nicht mehr ohne Geburtsdatum. Das
+    // Fixture-Konto hatte keines — gesetzt wird es hier über das Formular,
+    // also auf demselben Weg wie ein Kunde es täte.
+    const geburtsfeld = page.getByLabel("Jahr", { exact: true });
+    if (await geburtsfeld.count()) await waehleGeburtsdatum(page, "1995-06-15");
     await page.getByLabel("Telefon").fill("+43 660 1234567");
     await page.getByRole("button", { name: "Speichern", exact: true }).click();
 

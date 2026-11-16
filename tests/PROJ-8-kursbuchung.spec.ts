@@ -57,7 +57,17 @@ test.beforeAll(async () => {
   const { data: course } = await service.from("courses").select("id").eq("name", COURSE_NAME).single();
   if (!customerId || !course) throw new Error("PROJ-8 fixture customer/course not found");
 
-  await service.from("profiles").update({ referral_source: null }).eq("id", customerId);
+  // PROJ-101: Der Studierendenpreis setzt ein Geburtsdatum unter 28 voraus.
+  // Ohne diese Zeile gäbe es das Kästchen „Ich bin Student(in)“ gar nicht mehr
+  // — und die Prüfungen unten prüfen genau, was es tut. Ein festes Jahr wäre
+  // irgendwann 28; deshalb gerechnet.
+  const vor25Jahren = new Date();
+  vor25Jahren.setFullYear(vor25Jahren.getFullYear() - 25);
+  const geburtsdatum = vor25Jahren.toISOString().slice(0, 10);
+  await service
+    .from("profiles")
+    .update({ referral_source: null, birthdate: geburtsdatum })
+    .eq("id", customerId);
   await service.from("course_bookings").delete().eq("customer_id", customerId).eq("course_id", course.id);
   // PROJ-52: Seit jeder Kunde nur **eine** Probestunde bekommt, blockiert eine
   // Probestunde in einem *anderen* Kurs die Geschichte dieser Suite — die

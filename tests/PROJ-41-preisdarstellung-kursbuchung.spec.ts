@@ -70,6 +70,18 @@ async function resetCourses() {
 
 test.beforeAll(async () => {
   await resetPricing();
+
+  // PROJ-101: Der Studierendenpreis setzt ein Geburtsdatum unter 28 voraus.
+  // Ohne diese Zeile gäbe es das Kästchen „Ich bin Student(in)“ gar nicht mehr
+  // — und die Prüfungen unten prüfen genau, was es tut. Ein festes Jahr wäre
+  // irgendwann 28; deshalb gerechnet.
+  const vor25Jahren = new Date();
+  vor25Jahren.setFullYear(vor25Jahren.getFullYear() - 25);
+  const geburtsdatum = vor25Jahren.toISOString().slice(0, 10);
+  const { data: liste } = await service.auth.admin.listUsers({ perPage: 200 });
+  const kundeId = liste?.users.find((u) => u.email === CUSTOMER.email)?.id;
+  if (!kundeId) throw new Error(`PROJ-41: Fixture-Konto ${CUSTOMER.email} fehlt`);
+  await service.from("profiles").update({ birthdate: geburtsdatum }).eq("id", kundeId);
 });
 
 // Vor *jedem* Test, nicht nur vor dem ersten. Zwei Gründe: eine abgeschickte

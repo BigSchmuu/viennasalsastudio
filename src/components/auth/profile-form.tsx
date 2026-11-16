@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BirthdateField } from "@/components/form/birthdate-field";
+import { AuthFormMessage } from "@/components/auth/auth-form-message";
 import { useTranslations } from "next-intl";
 import { mitVerbindung, VERBINDUNG_ABGEBROCHEN } from "@/lib/auth/verbindung";
 import {
@@ -24,7 +25,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
 
 export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) {
@@ -105,7 +105,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
                 <FormControl>
                   <Input autoComplete="given-name" {...field} />
                 </FormControl>
-                <FormMessage />
+                <AuthFormMessage />
               </FormItem>
             )}
           />
@@ -118,7 +118,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
                 <FormControl>
                   <Input autoComplete="family-name" {...field} />
                 </FormControl>
-                <FormMessage />
+                <AuthFormMessage />
               </FormItem>
             )}
           />
@@ -133,7 +133,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
               <FormControl>
                 <Input type="tel" autoComplete="tel" {...field} />
               </FormControl>
-              <FormMessage />
+              <AuthFormMessage />
             </FormItem>
           )}
         />
@@ -147,7 +147,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
               <FormControl>
                 <BirthdateField value={field.value ?? ""} onChange={field.onChange} />
               </FormControl>
-              <FormMessage />
+              <AuthFormMessage />
             </FormItem>
           )}
         />
@@ -177,7 +177,7 @@ export function ProfileForm({ defaultValues }: { defaultValues: ProfileInput }) 
                   ))}
                 </SelectContent>
               </Select>
-              <FormMessage />
+              <AuthFormMessage />
             </FormItem>
           )}
         />

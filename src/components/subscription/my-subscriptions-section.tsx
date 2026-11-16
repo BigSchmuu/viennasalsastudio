@@ -81,6 +81,14 @@ export type MySubscriptionRow = {
    * lesbar war — dann fehlt nur der Hinweis, nicht die Möglichkeit.
    */
   kuendigungsfenster: { frist: string; wirksamZum: string; fristAbgelaufen: boolean } | null;
+  /**
+   * PROJ-102: Eine angekündigte Preisumstellung — `null`, wenn keine ansteht.
+   *
+   * Der Studierendenpreis endet mit 28. Die Nachricht dazu geht per Mail
+   * hinaus; hier steht sie noch einmal, weil eine Mail im Spam landen kann und
+   * das Abo selbst nicht lügt.
+   */
+  preisUmstellung: { alt: number; neu: number; datum: string } | null;
 };
 
 export type SubscriptionCourseOption = { id: string; name: string; runs_until?: string | null };
@@ -271,6 +279,17 @@ export function MySubscriptionsSection({
                 <p className="text-sm font-medium text-primary">{t("courseEnded")}</p>
               )}
               {hint && <p className="text-sm font-medium text-amber-600">{hint}</p>}
+              {/* PROJ-102: Die Preisumstellung steht über dem Kündigen-Knopf,
+                  weil genau der die Antwort darauf ist. */}
+              {subscription.preisUmstellung && (
+                <p className="text-sm font-medium text-amber-600" data-testid="preisumstellung">
+                  {t("priceChangeNotice", {
+                    date: formatDateInSprache(subscription.preisUmstellung.datum, locale),
+                    alt: formatPrice(subscription.preisUmstellung.alt),
+                    neu: formatPrice(subscription.preisUmstellung.neu),
+                  })}
+                </p>
+              )}
               {/* PROJ-96: Gekündigt werden muss bis zum Sonntag der letzten
                   Kurswoche. Eine Frist, die man nicht kennt, ist keine Frist —
                   deshalb steht sie an jedem aktiven Abo und nicht erst im

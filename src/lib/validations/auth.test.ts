@@ -6,8 +6,29 @@ import {
   resetPasswordSchema,
   changePasswordSchema,
   profileSchema,
+  adminProfileSchema,
 } from "./auth";
 import de from "../../../messages/de.json";
+import en from "../../../messages/en.json";
+
+/**
+ * PROJ-101: Ein plausibles Geburtsdatum, das in jedem Lauf gültig bleibt.
+ * Ein festes Datum würde irgendwann an der Mindestalter-Grenze scheitern.
+ */
+const GEBURTSDATUM = "1995-06-15";
+
+/** Der jüngste erlaubte Tag: genau heute vor zehn Jahren. */
+function juengsterErlaubterTag(): string {
+  const heute = heuteAlsText();
+  return `${Number(heute.slice(0, 4)) - 10}${heute.slice(4)}`;
+}
+
+function heuteAlsText(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate()
+  ).padStart(2, "0")}`;
+}
 
 describe("loginSchema", () => {
   it("accepts a valid email/password", () => {
@@ -59,6 +80,7 @@ describe("registerSchema", () => {
       password: "Passwort1",
       first_name: "  Anna ",
       last_name: " Müller  ",
+      birthdate: GEBURTSDATUM,
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -71,27 +93,27 @@ describe("registerSchema", () => {
   // Supabase-Dashboard stehen, sonst sagt die App "passt" und der Dienst
   // weist ab -- siehe den Kommentar in auth.ts.
   it("nimmt ein Passwort an, das alle drei Zeichenklassen und 8 Zeichen hat", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "Passwort1" });
+    const result = registerSchema.safeParse({ birthdate: GEBURTSDATUM, email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "Passwort1" });
     expect(result.success).toBe(true);
   });
 
   it("lehnt sieben Zeichen ab, auch wenn alle Klassen vorkommen", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "Passw1r" });
+    const result = registerSchema.safeParse({ birthdate: GEBURTSDATUM, email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "Passw1r" });
     expect(result.success).toBe(false);
   });
 
   it("lehnt ein Passwort ohne Ziffer ab", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "Passwortt" });
+    const result = registerSchema.safeParse({ birthdate: GEBURTSDATUM, email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "Passwortt" });
     expect(result.success).toBe(false);
   });
 
   it("lehnt ein Passwort ohne Großbuchstaben ab", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "passwort1" });
+    const result = registerSchema.safeParse({ birthdate: GEBURTSDATUM, email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "passwort1" });
     expect(result.success).toBe(false);
   });
 
   it("lehnt ein Passwort ohne Kleinbuchstaben ab", () => {
-    const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "PASSWORT1" });
+    const result = registerSchema.safeParse({ birthdate: GEBURTSDATUM, email: "a@b.com", first_name: "Anna", last_name: "Müller", password: "PASSWORT1" });
     expect(result.success).toBe(false);
   });
 
@@ -101,7 +123,7 @@ describe("registerSchema", () => {
     // Ziffer, Groß- oder Kleinbuchstabe — führt auf dieselbe vollständige
     // Anforderung, nie auf eine Meldung, die nur die Länge nennt.
     for (const password of ["Passw1r", "Passwortt", "passwort1", "PASSWORT1"]) {
-      const result = registerSchema.safeParse({ email: "a@b.com", first_name: "Anna", last_name: "Müller", password });
+      const result = registerSchema.safeParse({ birthdate: GEBURTSDATUM, email: "a@b.com", first_name: "Anna", last_name: "Müller", password });
       expect(result.success, password).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].message, password).toBe("passwordHint");
@@ -182,13 +204,14 @@ describe("changePasswordSchema (PROJ-73)", () => {
 describe("profileSchema", () => {
   // PROJ-94: Der Name ist Pflicht, alles andere bleibt freiwillig. Deshalb
   // steht er in jedem dieser Fälle dabei.
-  const name = { first_name: "Anna", last_name: "Müller" };
+  const name = { first_name: "Anna", last_name: "Müller", birthdate: GEBURTSDATUM };
 
-  it("accepts all-empty optional fields", () => {
+  // PROJ-101: Das Geburtsdatum steht nicht mehr in dieser Liste — es ist
+  // Pflicht geworden. Telefon und Geschlecht bleiben freiwillig.
+  it("nimmt leere freiwillige Felder an", () => {
     const result = profileSchema.safeParse({
       ...name,
       phone: "",
-      birthdate: "",
       gender: "",
     });
     expect(result.success).toBe(true);
@@ -197,7 +220,7 @@ describe("profileSchema", () => {
   // PROJ-94: Sonst wäre die Pflicht bei der Registrierung eine Formalität,
   // die man eine Minute später rückgängig macht.
   it("verlangt Vor- und Nachnamen", () => {
-    expect(profileSchema.safeParse({ phone: "", birthdate: "", gender: "" }).success).toBe(false);
+    expect(profileSchema.safeParse({ phone: "", birthdate: GEBURTSDATUM, gender: "" }).success).toBe(false);
     expect(profileSchema.safeParse({ ...name, first_name: "  " }).success).toBe(false);
     expect(profileSchema.safeParse({ ...name, last_name: "" }).success).toBe(false);
   });
@@ -210,18 +233,126 @@ describe("profileSchema", () => {
   // Regression guard: the check used to compare a UTC-parsed date against the
   // current instant, so in a UTC+X timezone today's date counted as future
   // during the first X hours of the day.
-  it("accepts today as a birthdate regardless of the hour", () => {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-      now.getDate()
-    ).padStart(2, "0")}`;
-    const result = profileSchema.safeParse({ ...name, birthdate: today });
+  //
+  // PROJ-101: Geprüft wird das jetzt am **jüngsten erlaubten** Tag statt an
+  // heute — heute ist seit der Mindestalter-Grenze kein gültiges Geburtsdatum
+  // mehr. Die Grenze, um die es hier geht, ist dieselbe.
+  it("nimmt den jüngsten erlaubten Tag an, unabhängig von der Stunde", () => {
+    const result = profileSchema.safeParse({ ...name, birthdate: juengsterErlaubterTag() });
     expect(result.success).toBe(true);
   });
 
   it("rejects a birthdate in the future", () => {
     const futureYear = new Date().getFullYear() + 1;
-    const result = profileSchema.safeParse({ birthdate: `${futureYear}-01-01` });
+    const result = profileSchema.safeParse({ ...name, birthdate: `${futureYear}-01-01` });
     expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PROJ-101: Das Geburtsdatum als Pflichtangabe
+// ---------------------------------------------------------------------------
+
+describe("PROJ-101: Geburtsdatum bei der Registrierung", () => {
+  const konto = {
+    email: "a@b.com",
+    password: "Passwort1",
+    first_name: "Anna",
+    last_name: "Müller",
+  };
+
+  it("verlangt es", () => {
+    expect(registerSchema.safeParse(konto).success).toBe(false);
+    expect(registerSchema.safeParse({ ...konto, birthdate: "" }).success).toBe(false);
+    expect(registerSchema.safeParse({ ...konto, birthdate: "   " }).success).toBe(false);
+  });
+
+  it("nimmt ein gültiges Datum an", () => {
+    expect(registerSchema.safeParse({ ...konto, birthdate: GEBURTSDATUM }).success).toBe(true);
+    expect(registerSchema.safeParse({ ...konto, birthdate: juengsterErlaubterTag() }).success).toBe(true);
+  });
+
+  it("weist ab, was kein Datum ist", () => {
+    for (const krumm of ["15.06.1995", "1995-6-15", "1995", "gestern"]) {
+      expect(
+        registerSchema.safeParse({ ...konto, birthdate: krumm }).success,
+        `${krumm} wurde angenommen`
+      ).toBe(false);
+    }
+  });
+
+  it("weist Zukunft und Unsinn ab", () => {
+    const naechstesJahr = new Date().getFullYear() + 1;
+    expect(registerSchema.safeParse({ ...konto, birthdate: `${naechstesJahr}-01-01` }).success).toBe(false);
+    // Zu alt für einen Menschen …
+    expect(registerSchema.safeParse({ ...konto, birthdate: "1899-12-31" }).success).toBe(false);
+    // … und zu jung für einen Tanzkurs: heute ist kein Geburtsdatum.
+    expect(registerSchema.safeParse({ ...konto, birthdate: heuteAlsText() }).success).toBe(false);
+  });
+
+  it("nennt den Schlüssel auch, wenn gar nichts ankommt", () => {
+    // Die Formulare haben neben `onSubmit` eine `action`; dann kommt die
+    // FormData aus dem DOM, und ein fehlendes Feld ist `null`, nicht "".
+    // Zod meldete dafür „Invalid input: expected string, received null" — eine
+    // technische Zeile in einer Sprache, die der Kunde nicht gewählt hat.
+    for (const nichts of [null, undefined]) {
+      const result = registerSchema.safeParse({ ...konto, birthdate: nichts });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toBe("valBirthdateRequired");
+      }
+    }
+  });
+
+  it("nennt den Grund als Schlüssel, den beide Sprachen kennen", () => {
+    const fehlt = registerSchema.safeParse({ ...konto, birthdate: "" });
+    expect(fehlt.success).toBe(false);
+    if (!fehlt.success) {
+      const schluessel = fehlt.error.issues[0]?.message ?? "";
+      expect(schluessel).toBe("valBirthdateRequired");
+      // Ohne Übersetzung stünde der Schlüssel selbst unter dem Feld.
+      expect(de.auth).toHaveProperty(schluessel);
+      expect(en.auth).toHaveProperty(schluessel);
+    }
+  });
+
+  it("hat für jede Meldung beide Sprachen", () => {
+    for (const schluessel of [
+      "valBirthdateRequired",
+      "valBirthdateInvalid",
+      "valBirthdateFuture",
+      "valBirthdateImplausible",
+    ]) {
+      expect(de.auth, `de fehlt ${schluessel}`).toHaveProperty(schluessel);
+      expect(en.auth, `en fehlt ${schluessel}`).toHaveProperty(schluessel);
+    }
+  });
+});
+
+describe("PROJ-101: In der Verwaltung bleibt es freiwillig", () => {
+  // An der Tür kennt man ein Geburtsdatum manchmal nicht. Eine Sperre würde
+  // dort den Betreiber aufhalten, nicht die Daten verbessern.
+  const kunde = { first_name: "Anna", last_name: "Müller" };
+
+  it("nimmt einen Kunden ohne Geburtsdatum an", () => {
+    expect(adminProfileSchema.safeParse({ ...kunde, birthdate: "" }).success).toBe(true);
+    expect(adminProfileSchema.safeParse(kunde).success).toBe(true);
+  });
+
+  it("prüft aber, was dasteht", () => {
+    const naechstesJahr = new Date().getFullYear() + 1;
+    expect(adminProfileSchema.safeParse({ ...kunde, birthdate: `${naechstesJahr}-01-01` }).success).toBe(false);
+    expect(adminProfileSchema.safeParse({ ...kunde, birthdate: "1899-12-31" }).success).toBe(false);
+    expect(adminProfileSchema.safeParse({ ...kunde, birthdate: GEBURTSDATUM }).success).toBe(true);
+  });
+
+  it("antwortet dort mit ganzen Sätzen, nicht mit Schlüsseln", () => {
+    // Der Verwaltungsbereich ist einsprachig deutsch und übersetzt nichts.
+    const naechstesJahr = new Date().getFullYear() + 1;
+    const result = adminProfileSchema.safeParse({ ...kunde, birthdate: `${naechstesJahr}-01-01` });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toContain("Zukunft");
+    }
   });
 });

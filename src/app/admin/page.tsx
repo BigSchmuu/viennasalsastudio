@@ -10,6 +10,11 @@ import { BirthdayList, type BirthdayRow } from "@/components/admin/analytics/bir
 import { HeutigeKurseListe } from "@/components/admin/analytics/heutige-kurse-liste";
 import { ladeHeutigeKurse, type HeutigerKursEintrag } from "@/lib/dashboard/heutige-kurse-laden";
 import { UpgradeAnfragen, type UpgradeAnfrage } from "@/components/admin/analytics/upgrade-anfragen";
+import {
+  StudentenpreisListe,
+  type OffeneZeile,
+  type UmstellungsZeile,
+} from "@/components/admin/analytics/studentenpreis-liste";
 import { readStudioPricing } from "@/lib/pricing";
 import { heuteInWien, heuteAlsDatumInWien } from "@/lib/constants/zeitzone";
 
@@ -75,7 +80,7 @@ export default async function AdminDashboardPage({
   const [anfrageRes, preisRes] = await Promise.all([
     supabase
       .from("subscriptions")
-      .select("id, customer_id, price, upgrade_requested_at, courses(name), profiles(full_name)")
+      .select("id, customer_id, price, upgrade_requested_at, courses(name), profiles(full_name, birthdate)")
       .not("upgrade_requested_at", "is", null)
       .eq("status", "active")
       .order("upgrade_requested_at", { ascending: true }),
@@ -117,6 +122,10 @@ export default async function AdminDashboardPage({
       aboId: a.id,
       kundeId: a.customer_id,
       kundeName: a.profiles?.full_name || "Unbenannter Kunde",
+      // PROJ-101: Der Studierendentarif hat eine Altersgrenze. Ohne diese
+      // Angabe wäre der Knopf ein Versprechen, das die Datenbank still
+      // einkassiert.
+      kundeGeburtsdatum: a.profiles?.birthdate ?? null,
       kursName: a.courses?.name ?? null,
       bisher: a.price,
       angefragtAm: a.upgrade_requested_at as string,
@@ -216,6 +225,50 @@ export default async function AdminDashboardPage({
 
   // Der Wiener Kalendertag, nicht der des Servers (UTC bei Vercel).
   const today = heuteAlsDatumInWien();
+
+  // PROJ-102: Angekündigte Preisumstellungen und die Fälle, die sich nicht
+  // beurteilen lassen. Zwei schmale Abfragen — ohne sie stünde beides nirgends.
+  const [umstellungenRes, ohneDatumRes] = await Promise.all([
+    supabase
+      .from("subscriptions")
+      .select("id, customer_id, name, pending_price, pending_price_old, pending_price_date, profiles(full_name)")
+      .not("pending_price_date", "is", null)
+      .order("pending_price_date", { ascending: true }),
+    supabase
+      .from("subscriptions")
+      .select("id, customer_id, name, price, profiles(full_name, birthdate)")
+      .eq("status", "active")
+      .eq("student_price", true),
+  ]);
+  if (umstellungenRes.error) {
+    console.error("Dashboard: angekündigte Umstellungen", umstellungenRes.error);
+  }
+  if (ohneDatumRes.error) {
+    console.error("Dashboard: Studierendenabos", ohneDatumRes.error);
+  }
+
+  const umstellungen: UmstellungsZeile[] = (umstellungenRes.data ?? []).map((s) => ({
+    aboId: s.id,
+    kundeId: s.customer_id,
+    kundeName: s.profiles?.full_name || "Unbenannter Kunde",
+    aboName: s.name ?? "Abo",
+    alt: s.pending_price_old === null ? null : Number(s.pending_price_old),
+    neu: s.pending_price === null ? null : Number(s.pending_price),
+    datum: s.pending_price_date!,
+  }));
+
+  // Gefiltert wird hier und nicht in der Abfrage: PostgREST kann über eine
+  // eingebettete Tabelle nicht auf „ist leer" filtern, ohne die Zeile ganz
+  // wegzulassen — und genau die Zeilen sind gesucht.
+  const ohneGeburtsdatum: OffeneZeile[] = (ohneDatumRes.data ?? [])
+    .filter((s) => !s.profiles?.birthdate)
+    .map((s) => ({
+      aboId: s.id,
+      kundeId: s.customer_id,
+      kundeName: s.profiles?.full_name || "Unbenannter Kunde",
+      aboName: s.name ?? "Abo",
+      preis: s.price === null ? null : Number(s.price),
+    }));
   const birthdayRows: BirthdayRow[] = (birthdatesRes.data ?? [])
     .map((p) => ({
       customerId: p.id,
@@ -239,10 +292,15 @@ export default async function AdminDashboardPage({
 
       {/* PROJ-87: Vor den Kennzahlen, weil hier etwas zu entscheiden ist —
           und weil der Kunde wartet. Ohne offene Anfrage erscheint nichts. */}
+      {/* PROJ-102: Vor den Kennzahlen, aus demselben Grund wie die
+          Upgrade-Anfragen — hier ist etwas zu wissen, nicht nur zu lesen. */}
+      <StudentenpreisListe angekuendigt={umstellungen} ohneGeburtsdatum={ohneGeburtsdatum} />
+
       <UpgradeAnfragen
         anfragen={upgradeAnfragen}
         flatrateNormal={flatratePreise.normal}
         flatrateStudent={flatratePreise.student}
+        heute={heuteInWien()}
       />
 
       <PeriodFilter from={period.from} to={period.to} isCustom={isCustom} />

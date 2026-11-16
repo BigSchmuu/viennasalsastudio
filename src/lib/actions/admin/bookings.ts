@@ -31,7 +31,7 @@ export async function confirmRegularBooking(
 
   const { data: booking } = await supabase
     .from("course_bookings")
-    .select("id, customer_id, type, status, course_id, desired_plan, chosen_date, courses(dance_style_id)")
+    .select("id, customer_id, type, status, course_id, desired_plan, chosen_date, wants_student_price, courses(dance_style_id)")
     .eq("id", bookingId)
     .single();
 
@@ -60,6 +60,10 @@ export async function confirmRegularBooking(
       dance_style_id:
         booking.desired_plan === "style_pass" ? (booking.courses?.dance_style_id ?? null) : null,
       cycle_anchor_date: booking.chosen_date,
+      // PROJ-102: Das Abo merkt sich, dass es zum Studierendenpreis läuft —
+      // sonst wüsste später niemand, dass dieser Rabatt mit 28 endet. Das
+      // Kennzeichen an der Anfrage ist seit PROJ-101 altersgeprüft.
+      student_price: booking.wants_student_price ?? false,
     })
     .select("id")
     .single();
@@ -233,7 +237,7 @@ export async function bestaetigeBuchungenStapel(
 
   const { data: buchungen, error: leseFehler } = await supabase
     .from("course_bookings")
-    .select("id, customer_id, type, status, course_id, desired_plan, chosen_date, profiles(full_name), courses(dance_style_id)")
+    .select("id, customer_id, type, status, course_id, desired_plan, chosen_date, wants_student_price, profiles(full_name), courses(dance_style_id)")
     .in("id", eintraege.map((e) => e.buchungId));
 
   if (leseFehler) return { error: "Die Buchungen konnten nicht gelesen werden." };
@@ -273,6 +277,8 @@ export async function bestaetigeBuchungenStapel(
           dance_style_id:
             buchung.desired_plan === "style_pass" ? (buchung.courses?.dance_style_id ?? null) : null,
           cycle_anchor_date: buchung.chosen_date,
+          // PROJ-102: wie oben — derselbe Vermerk beim stapelweisen Bestätigen.
+          student_price: buchung.wants_student_price ?? false,
         })
         .select("id")
         .single();

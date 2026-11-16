@@ -508,3 +508,27 @@ describe("ticketStorniertInhalt (PROJ-59)", () => {
     expect(ticketStorniertInhalt(basis).url).toBe("/profil#tickets");
   });
 });
+
+describe("PROJ-102: Die Ankündigung zum Studierendenpreis", () => {
+  const details = { abo: "Salsa Mittwoch", alt: 45, neu: 60, datum: "2026-12-14" };
+
+  it("nennt beide Beträge und das Datum", () => {
+    const inhalt = buildNotificationContent("studentenpreis_endet", details);
+    for (const stueck of ["45,00", "60,00", "14.12.2026"]) {
+      expect(inhalt.emailHtml, stueck).toContain(stueck);
+    }
+    expect(inhalt.subject).toContain("14.12.2026");
+  });
+
+  it("nennt die Möglichkeit zu kündigen — in beiden Sprachen", () => {
+    // Eine Preiserhöhung ohne Ausweg wäre eine Mitteilung, keine Entscheidung.
+    expect(buildNotificationContent("studentenpreis_endet", details, undefined, "de").emailHtml)
+      .toMatch(/kündigen/i);
+    expect(buildNotificationContent("studentenpreis_endet", details, undefined, "en").emailHtml)
+      .toMatch(/cancel/i);
+  });
+
+  it("führt dorthin, wo man etwas tun kann", () => {
+    expect(buildNotificationContent("studentenpreis_endet", details).url).toBe("/profil");
+  });
+});

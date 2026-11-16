@@ -7,6 +7,7 @@ const runEveningChecks = vi.fn();
 const drainPendingQueue = vi.fn();
 const vollzieheFaelligeAenderungen = vi.fn();
 const vollzieheFaelligeUmwandlungen = vi.fn();
+const fuehreStudentenpreisLaufDurch = vi.fn();
 const ergaenzeSerienTermine = vi.fn();
 const raeumeVerwaisteBilder = vi.fn();
 
@@ -15,6 +16,9 @@ vi.mock("@/lib/supabase/service", () => ({
 }));
 vi.mock("@/lib/subscriptions/faellige-aenderungen", () => ({
   vollzieheFaelligeAenderungen: (...args: unknown[]) => vollzieheFaelligeAenderungen(...args),
+}));
+vi.mock("@/lib/subscriptions/studentenpreis", () => ({
+  fuehreStudentenpreisLaufDurch: (...args: unknown[]) => fuehreStudentenpreisLaufDurch(...args),
 }));
 vi.mock("@/lib/courses/umwandlungen", () => ({
   vollzieheFaelligeUmwandlungen: (...args: unknown[]) => vollzieheFaelligeUmwandlungen(...args),
@@ -43,6 +47,9 @@ describe("GET /api/cron/notifications", () => {
       .mockReset()
       .mockResolvedValue({ vollzogen: 2, gekuendigt: 1, freigewordeneKurse: [] });
     vollzieheFaelligeUmwandlungen.mockReset().mockResolvedValue({ angekuendigt: 1, umgewandelt: 1 });
+    fuehreStudentenpreisLaufDurch
+      .mockReset()
+      .mockResolvedValue({ angekuendigt: 0, umgestellt: 0, uebersprungen: 0, ohneGeburtsdatum: 0 });
     ergaenzeSerienTermine.mockReset().mockResolvedValue({ serien: 2, termine: 3 });
     raeumeVerwaisteBilder.mockReset().mockResolvedValue({ verwaist: 1 });
     process.env.CRON_SECRET = "test-secret";
@@ -86,6 +93,8 @@ describe("GET /api/cron/notifications", () => {
     expect(ergaenzeSerienTermine).toHaveBeenCalledTimes(1);
     // PROJ-55: Der Morgenlauf raeumt Bilddateien ohne Eintrag weg.
     expect(raeumeVerwaisteBilder).toHaveBeenCalledTimes(1);
+    // PROJ-102: Der Morgenlauf prueft den Studierendenpreis.
+    expect(fuehreStudentenpreisLaufDurch).toHaveBeenCalledTimes(1);
     expect(body).toEqual({
       reminders: 2,
       effective: 1,
@@ -98,6 +107,13 @@ describe("GET /api/cron/notifications", () => {
       serien: 2,
       termine: 3,
       verwaist: 1,
+      // PROJ-102: eigene Namen, weil die Kursumwandlung ebenfalls
+      // `angekuendigt` meldet — flach gemischt haette der eine Wert den
+      // anderen verdeckt.
+      studentenpreisAngekuendigt: 0,
+      studentenpreisUmgestellt: 0,
+      studentenpreisUebersprungen: 0,
+      studentenpreisOhneGeburtsdatum: 0,
       processed: 3,
     });
   });
@@ -164,6 +180,9 @@ describe("GET /api/cron/notifications", () => {
     // zweimal taeglich nachlegen braucht es dafuer nicht.
     expect(ergaenzeSerienTermine).not.toHaveBeenCalled();
     expect(raeumeVerwaisteBilder).not.toHaveBeenCalled();
+    // PROJ-102: Ein Stichtag gehoert an den Tagesanfang — der Abendlauf
+    // kuendigt nichts an und stellt nichts um.
+    expect(fuehreStudentenpreisLaufDurch).not.toHaveBeenCalled();
     expect(body).toEqual({
       evening: 4,
       vollzogen: 0,
@@ -173,6 +192,10 @@ describe("GET /api/cron/notifications", () => {
       serien: 0,
       termine: 0,
       verwaist: 0,
+      studentenpreisAngekuendigt: 0,
+      studentenpreisUmgestellt: 0,
+      studentenpreisUebersprungen: 0,
+      studentenpreisOhneGeburtsdatum: 0,
       processed: 3,
     });
   });

@@ -34,6 +34,9 @@ function formular(email: string) {
   // Server-Action ab, bevor Supabase überhaupt gefragt wird.
   formData.set("first_name", "Anna");
   formData.set("last_name", "Müller");
+  // PROJ-101: Pflichtfeld. Ohne es käme die Registrierung nicht bis zu
+  // Supabase — die Prüfung sitzt im Schema.
+  formData.set("birthdate", "1995-06-15");
   return formData;
 }
 
@@ -85,7 +88,7 @@ describe("signUp", () => {
   // Supabases Mailversand, und der ist in der Testdatenbank gedrosselt
   // (`over_email_send_rate_limit`). Ein Nachweis, der an einer Mailquote hängt,
   // ist kein Nachweis.
-  it("gibt Vor- und Nachnamen als Metadaten der Anmeldung mit", async () => {
+  it("gibt Namen und Geburtsdatum als Metadaten der Anmeldung mit", async () => {
     const { signUp } = await import("./auth");
     await signUp(formular("neu@example.test"));
 
@@ -93,7 +96,13 @@ describe("signUp", () => {
     const aufruf = supabaseSignUp.mock.calls[0][0] as {
       options?: { data?: Record<string, string> };
     };
-    expect(aufruf.options?.data).toEqual({ first_name: "Anna", last_name: "Müller" });
+    // Das Profil entsteht im Trigger `handle_new_user`, bevor die Anwendung es
+    // sehen kann — alles, was dort hineingehört, muss hier mitgehen.
+    expect(aufruf.options?.data).toEqual({
+      first_name: "Anna",
+      last_name: "Müller",
+      birthdate: "1995-06-15",
+    });
   });
 
   it("weist ohne Namen ab, bevor Supabase überhaupt gefragt wird", async () => {

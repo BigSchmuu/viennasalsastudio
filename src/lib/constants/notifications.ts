@@ -68,4 +68,5 @@ export const notificationEventTypeLabel: Record<string, string> = {
   ticket_storniert: "Ticket storniert",
   gasttaenzer_einladung: "Gasttänzer-Einladung",
   abo_upgrade: "Upgrade auf Flatrate",
+  studentenpreis_endet: "Studierendenpreis endet",
 };

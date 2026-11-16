@@ -14,6 +14,7 @@ import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { TermsConsent } from "@/components/booking/terms-consent";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { StudentenpreisWahl } from "@/components/booking/studentenpreis-wahl";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -229,17 +230,13 @@ export function TicketPurchaseDialog({
             </div>
           ) : null}
 
+          {/* PROJ-101: derselbe Rabatt, dieselbe Grenze — dasselbe Bauteil. */}
           {kostenlos ? null : (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="ticket-student-price"
-                checked={wantsStudentPrice}
-                onCheckedChange={(checked) => setWantsStudentPrice(checked === true)}
-              />
-              <Label htmlFor="ticket-student-price" className="font-normal">
-                {t("studentPrice")}
-              </Label>
-            </div>
+            <StudentenpreisWahl
+              id="ticket-student-price"
+              checked={wantsStudentPrice}
+              onChange={setWantsStudentPrice}
+            />
           )}
 
           <p className="text-lg font-semibold">{kostenlos ? t("free") : formatPrice(preis, locale)}</p>

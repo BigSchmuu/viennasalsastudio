@@ -32,6 +32,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { alterText } from "@/lib/alter";
 import { formatPrice } from "@/lib/pricing";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -76,6 +77,8 @@ export type AdminBookingRow = {
   coursePrice: number | null;
   /** PROJ-41: erklärt dem Betreiber, warum der Preis der ermäßigte ist. */
   wantsStudentPrice: boolean;
+  /** PROJ-101: für das Alter neben dem Kennzeichen. `null` = nicht hinterlegt. */
+  kundeGeburtsdatum: string | null;
   /** PROJ-42: `null` bei Buchungen von vor der Einführung der Zustimmung. */
   termsAcceptedAt: string | null;
   termsVersion: string | null;
@@ -91,6 +94,7 @@ export function BookingManager({
   initialType,
   initialStatus,
   gesamtzahl,
+  heute,
 }: {
   bookings: AdminBookingRow[];
   initialType: string;
@@ -98,6 +102,8 @@ export function BookingManager({
   initialStatus: string;
   /** Alle Buchungen ohne Filter, für den Hinweis unter der Liste. */
   gesamtzahl: number;
+  /** Wiener Kalendertag vom Server — der Rechner des Betreibers kann falsch stehen. */
+  heute: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -451,7 +457,8 @@ export function BookingManager({
               <TableCell className="text-sm text-muted-foreground">
                 {booking.desiredPlan && desiredPlanLabel(booking.desiredPlan)}
                 {booking.price !== null && ` ${formatPrice(booking.price)}`}
-                {booking.wantsStudentPrice && " (Studierendenpreis)"}
+                {booking.wantsStudentPrice &&
+                  ` (Studierendenpreis, ${alterText(booking.kundeGeburtsdatum, heute)})`}
                 {booking.note && ` — ${booking.note}`}
               </TableCell>
               <TableCell className="text-sm text-muted-foreground whitespace-nowrap">

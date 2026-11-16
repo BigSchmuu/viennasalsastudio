@@ -20,7 +20,8 @@ export type TemplateKey =
   | "kursumwandlung"
   | "empfehlung_gutgeschrieben"
   | "guthaben_gutgeschrieben"
-  | "konto_existiert";
+  | "konto_existiert"
+  | "studentenpreis_endet";
 
 export type TemplateFields = {
   emailSubject: string;
@@ -301,6 +302,28 @@ export const TEMPLATE_REGISTRY: TemplateMeta[] = [
         "On {datum} someone tried to register again with this email address. An account with this address already exists, so we did not create a second one. If that was you, simply log in; if you have forgotten your password, reset it via “Forgot password”. If it wasn't you, you can ignore this message: without access to your inbox, nobody can reach your account.",
       pushTitle: "Account already exists",
       pushBody: "Someone tried to register again with your address.",
+    },
+  },
+  {
+    key: "studentenpreis_endet",
+    eventGroupLabel: "Abo-Kündigung",
+    variantLabel: "Studierendenpreis endet",
+    placeholders: ["abo", "alt", "neu", "datum"],
+    boldPlaceholder: "datum",
+    samples: { abo: "Salsa Mittwoch", alt: "45,00 €", neu: "60,00 €", datum: "14.12.2026" },
+    defaults: {
+      emailSubject: "Dein Beitrag ändert sich ab {datum}",
+      emailBody:
+        "Der Studierendenpreis gilt bis einschließlich 27 Jahre. Ab {datum} läuft {abo} deshalb zum normalen Beitrag: statt {alt} dann {neu} je Zyklus. Bis dahin ändert sich nichts. Wenn du nicht weitermachen willst, kannst du dein Abo in deinem Bereich kündigen — kündigst du vor {datum}, wird der neue Beitrag nie abgebucht.",
+      pushTitle: "Beitrag ändert sich ab {datum}",
+      pushBody: "{abo}: statt {alt} dann {neu} je Zyklus. Kündigen ist bis dahin möglich.",
+    },
+    defaultsEn: {
+      emailSubject: "Your rate changes on {datum}",
+      emailBody:
+        "The student rate applies up to and including age 27. From {datum}, {abo} will therefore run at the standard rate: {neu} per cycle instead of {alt}. Nothing changes before then. If you would rather not continue, you can cancel in your own area — cancel before {datum} and the new rate will never be collected.",
+      pushTitle: "Your rate changes on {datum}",
+      pushBody: "{abo}: {neu} per cycle instead of {alt}. You can cancel until then.",
     },
   },
   {

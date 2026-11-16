@@ -85,7 +85,7 @@ export default async function ProfilePage() {
     supabase
       .from("subscriptions")
       .select(
-        "id, name, price, status, pending_status, pending_effective_date, upgrade_requested_at, course_id, dance_style_id, dance_styles(name), courses(name, runs_until)"
+        "id, name, price, status, pending_status, pending_effective_date, pending_price, pending_price_old, pending_price_date, upgrade_requested_at, course_id, dance_style_id, dance_styles(name), courses(name, runs_until)"
       )
       .eq("customer_id", user.id)
       .order("created_at", { ascending: true }),
@@ -303,6 +303,16 @@ export default async function ProfilePage() {
       Boolean(s.courses?.runs_until && s.courses.runs_until < heute),
     danceRole: rolleJeAbo.get(s.id) ?? null,
     price: s.price,
+    // PROJ-102: Alle drei Angaben oder keine — eine halbe Ankündigung wäre
+    // schlimmer als keine.
+    preisUmstellung:
+      s.pending_price !== null && s.pending_price_old !== null && s.pending_price_date !== null
+        ? {
+            alt: Number(s.pending_price_old),
+            neu: Number(s.pending_price),
+            datum: s.pending_price_date,
+          }
+        : null,
     status: s.status,
     pendingStatus: s.pending_status,
     pendingEffectiveDate: s.pending_effective_date,

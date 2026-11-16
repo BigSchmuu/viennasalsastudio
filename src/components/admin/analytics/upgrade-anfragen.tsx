@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpCircle } from "lucide-react";
+import { STUDIERENDEN_HOECHSTALTER, alterAm, alterText } from "@/lib/alter";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,10 +34,24 @@ export type AnrechnungsZeile = {
   art: "lastschrift" | "barzahlung";
 };
 
+/**
+ * PROJ-101: Darf für diesen Kunden der Studierendentarif gewählt werden?
+ *
+ * Dieselbe Grenze wie in `studentenpreis_erlaubt`, hier nur fürs Anzeigen.
+ * Entschieden wird in der Datenbank — diese Zeile bestimmt, ob der Knopf
+ * überhaupt etwas verspricht.
+ */
+function studierendenTarifMoeglich(a: { kundeGeburtsdatum: string | null }, heute: string): boolean {
+  const jahre = alterAm(a.kundeGeburtsdatum, heute);
+  return jahre !== null && jahre <= STUDIERENDEN_HOECHSTALTER;
+}
+
 export type UpgradeAnfrage = {
   aboId: string;
   kundeId: string;
   kundeName: string;
+  /** PROJ-101: für die Altersgrenze des Studierendentarifs. */
+  kundeGeburtsdatum: string | null;
   kursName: string | null;
   bisher: number | null;
   angefragtAm: string;
@@ -65,10 +80,13 @@ export function UpgradeAnfragen({
   anfragen,
   flatrateNormal,
   flatrateStudent,
+  heute,
 }: {
   anfragen: UpgradeAnfrage[];
   flatrateNormal: number | null;
   flatrateStudent: number | null;
+  /** Wiener Kalendertag vom Server — der Rechner des Betreibers kann falsch stehen. */
+  heute: string;
 }) {
   const router = useRouter();
   const [fehler, setFehler] = useState<string | null>(null);
@@ -245,21 +263,33 @@ export function UpgradeAnfragen({
                       ? "…"
                       : `Normal ${flatrateNormal === null ? "" : EUR.format(flatrateNormal)} (+${differenz(a, flatrateNormal)})`}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={laeuft || flatrateStudent === null}
-                    onClick={() =>
-                      void tun(a.aboId, () =>
-                        confirmFlatrateUpgrade(a.aboId, true, mitgegebenerBetrag(a))
-                      )
-                    }
-                    aria-label={`Upgrade von ${a.kundeName} zum Studierendentarif bestätigen`}
-                  >
-                    {laeuft
-                      ? "…"
-                      : `Studierende ${flatrateStudent === null ? "—" : EUR.format(flatrateStudent)} (+${differenz(a, flatrateStudent)})`}
-                  </Button>
+                  {/* PROJ-101: Der Studierendentarif hat eine Altersgrenze.
+                      Die Datenbank würde den Normalpreis daraus machen — ein
+                      Knopf, der etwas anderes tut als er sagt, ist schlechter
+                      als keiner. Also steht hier der Grund. */}
+                  {studierendenTarifMoeglich(a, heute) ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={laeuft || flatrateStudent === null}
+                      onClick={() =>
+                        void tun(a.aboId, () =>
+                          confirmFlatrateUpgrade(a.aboId, true, mitgegebenerBetrag(a))
+                        )
+                      }
+                      aria-label={`Upgrade von ${a.kundeName} zum Studierendentarif bestätigen`}
+                    >
+                      {laeuft
+                        ? "…"
+                        : `Studierende ${flatrateStudent === null ? "—" : EUR.format(flatrateStudent)} (+${differenz(a, flatrateStudent)})`}
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {a.kundeGeburtsdatum === null
+                        ? "Kein Geburtsdatum — kein Studierendentarif"
+                        : `${alterText(a.kundeGeburtsdatum, heute)} — kein Studierendentarif`}
+                    </span>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"

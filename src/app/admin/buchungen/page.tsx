@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { BookingManager, type AdminBookingRow } from "@/components/admin/bookings/booking-manager";
+import { heuteInWien } from "@/lib/constants/zeitzone";
 import { PricingForm } from "@/components/admin/bookings/pricing-form";
 import { readStudioPricing } from "@/lib/pricing";
 import { bookingTypeValues, bookingStatusValues } from "@/lib/constants/booking";
-import { heuteInWien } from "@/lib/constants/zeitzone";
 
 const SORTABLE_COLUMNS = ["customer_name", "course_name", "chosen_date"] as const;
 
@@ -23,7 +23,7 @@ export default async function BuchungenPage({
   let query = supabase
     .from("course_bookings")
     .select(
-      "id, customer_id, type, status, chosen_date, desired_plan, note, price, wants_student_price, terms_accepted_at, terms_version, courses(name, price), profiles(full_name), coupons(code, discount_type, discount_amount, max_redemptions, redemption_count, expires_at, active)"
+      "id, customer_id, type, status, chosen_date, desired_plan, note, price, wants_student_price, terms_accepted_at, terms_version, courses(name, price), profiles(full_name, birthdate), coupons(code, discount_type, discount_amount, max_redemptions, redemption_count, expires_at, active)"
     );
 
   // PostgREST sortiert über eine eingebettete Tabelle nur mit der Schreibweise
@@ -90,6 +90,10 @@ export default async function BuchungenPage({
       price: b.price,
       coursePrice: b.courses?.price ?? null,
       wantsStudentPrice: b.wants_student_price ?? false,
+      // PROJ-101: Nur zum Anzeigen. Ob der Preis ermäßigt sein darf, hat die
+      // Datenbank beim Einfügen entschieden; hier soll der Betreiber einen
+      // Grenzfall sehen, bevor er bestätigt.
+      kundeGeburtsdatum: b.profiles?.birthdate ?? null,
       termsAcceptedAt: b.terms_accepted_at,
       termsVersion: b.terms_version,
       coupon: couponStillValid
@@ -114,6 +118,7 @@ export default async function BuchungenPage({
         initialType={isValidType ? params.type! : ""}
         initialStatus={statusFilter}
         gesamtzahl={gesamtRes.count ?? bookings.length}
+        heute={heuteInWien()}
       />
     </div>
   );

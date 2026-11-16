@@ -19,6 +19,7 @@ import {
   FormLabel,
 } from "@/components/ui/form";
 import { AuthFormMessage } from "@/components/auth/auth-form-message";
+import { BirthdateField } from "@/components/form/birthdate-field";
 import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { fehlertext } from "@/lib/auth/fehler";
 import { mitVerbindung } from "@/lib/auth/verbindung";
@@ -31,7 +32,7 @@ export function RegisterForm() {
 
   const form = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { email: "", password: "", first_name: "", last_name: "" },
+    defaultValues: { email: "", password: "", first_name: "", last_name: "", birthdate: "" },
   });
 
   // Ein Weg für beide Auslöser, onSubmit und `action` — Begründung am Formular.
@@ -63,6 +64,11 @@ export function RegisterForm() {
     formData.set("password", values.password);
     formData.set("first_name", values.first_name);
     formData.set("last_name", values.last_name);
+    // PROJ-101: Pflichtfeld. Dieser Weg baut die FormData selbst — ohne diese
+    // Zeile fehlte das Geburtsdatum, und die Registrierung scheiterte an der
+    // eigenen Prüfung. Der Weg über `action` nimmt es aus dem verborgenen Feld
+    // im Geburtsdatumsfeld.
+    formData.set("birthdate", values.birthdate);
     await absenden(formData);
   }
 
@@ -128,6 +134,24 @@ export function RegisterForm() {
             )}
           />
         </div>
+
+        {/* PROJ-101: Pflichtfeld. Ohne Geburtsdatum kann die Altersgrenze für
+            den Studierendenpreis nicht greifen — und eine Grenze, die nur die
+            trifft, die etwas angegeben haben, wäre die falsche Richtung. */}
+        <FormField
+          control={form.control}
+          name="birthdate"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("birthdate")}</FormLabel>
+              <FormControl>
+                <BirthdateField value={field.value ?? ""} onChange={field.onChange} />
+              </FormControl>
+              <FormDescription>{t("birthdateHint")}</FormDescription>
+              <AuthFormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}

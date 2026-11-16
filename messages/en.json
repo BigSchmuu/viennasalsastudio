@@ -256,7 +256,13 @@
     "btnPending": "Request pending",
     "btnWaitlist": "On the waiting list",
     "btnEnrolled": "You're in this course",
-    "btnBook": "Book"
+    "btnBook": "Book",
+    "studentPriceTooOld": "The student rate applies up to and including age 27.",
+    "studentPriceNoBirthdate": "Add your date of birth in your profile to choose the student rate.",
+    "studentPriceSignedOut": "Sign in to choose the student rate.",
+    "studentPriceUnknown": "The student rate can't be checked right now.",
+    "studentPriceToProfile": "Go to profile",
+    "studentPriceToLogin": "Sign in"
   },
   "profile": {
     "heading": "My profile",
@@ -370,7 +376,8 @@
       "pass": "You have a {style} pass. For courses of other styles, book them individually — or write to us if you would like to switch to the flat rate.",
       "pending": "While a pause or cancellation is pending, upgrading is not possible. Withdraw it if you would rather switch to the flat rate.",
       "preis": "Upgrading to the flat rate is currently unavailable. Get in touch — we will set it up."
-    }
+    },
+    "priceChangeNotice": "From {date} this subscription costs {neu} instead of {alt} per cycle — the student rate applies up to and including age 27. Cancel before {date} and the new rate will never be collected."
   },
   "notifications": {
     "event": "Event",
@@ -484,7 +491,13 @@
     "errSessionExpired": "Your session has expired. Please sign in again and retry.",
     "errPasswordChangeFailed": "The password could not be changed. Please try again.",
     "errReauthNeeded": "The sign-in service requires an extra confirmation for this change. Please contact the studio.",
-    "errConnectionLost": "The connection was interrupted. Please try again."
+    "errConnectionLost": "The connection was interrupted. Please try again.",
+    "valBirthdateRequired": "Please enter your date of birth.",
+    "valBirthdateInvalid": "Please select day, month and year.",
+    "valBirthdateFuture": "Your date of birth cannot be in the future.",
+    "valBirthdateImplausible": "Please check your date of birth.",
+    "birthdate": "Date of birth",
+    "birthdateHint": "We need it for discounted rates and birthday greetings."
   },
   "legal": {
     "termsTitle": "Terms and Conditions",

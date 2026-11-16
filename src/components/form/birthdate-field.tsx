@@ -51,10 +51,16 @@ export function BirthdateField({
   value,
   onChange,
   idPrefix = "birthdate",
+  name = "birthdate",
 }: {
   value: string;
   onChange: (value: string) => void;
   idPrefix?: string;
+  /**
+   * Name des verborgenen Feldes, mit dem der Wert im DOM steht — siehe unten.
+   * Nur zu ändern, wenn ein Formular das Feld anders nennt.
+   */
+  name?: string;
 }) {
   const t = useTranslations("profile");
   const locale = useLocale();
@@ -91,6 +97,22 @@ export function BirthdateField({
 
   return (
     <div className="flex gap-2">
+      {/*
+        PROJ-101: Alle drei Formulare, die dieses Feld benutzen, haben neben
+        `onSubmit` eine `action` — und dann schickt React die FormData aus dem
+        **DOM**. Drei Auswahlfelder von Radix hinterlassen dort kein Feld mit
+        Namen, das Geburtsdatum fehlte in der Anfrage also.
+
+        Vor PROJ-101 ging es auf diesem Weg stillschweigend verloren (das Feld
+        war freiwillig, `undefined` ging durch). Seit es Pflicht ist, scheitert
+        das Speichern stattdessen mit „Invalid input: expected string, received
+        null" — gefunden hat das der Registrierungstest aus PROJ-2.
+
+        Dieses verborgene Feld schließt die Lücke an einer Stelle für alle drei
+        Formulare.
+      */}
+      <input type="hidden" name={name} value={value} />
+
       <Select value={day ? String(day) : ""} onValueChange={(v) => update({ day: Number(v), month, year })}>
         <SelectTrigger id={`${idPrefix}-day`} aria-label={t("day")} className="w-24">
           <SelectValue placeholder={t("day")} />

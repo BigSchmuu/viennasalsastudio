@@ -170,7 +170,10 @@
 
 | PROJ-100 | Der Rückweg aus der Kundenakte führt dorthin, wo man herkam | Deployed | [PROJ-100](../features/PROJ-100-rueckweg-kundenakte.md) | 2026-11-06 |
 
+| PROJ-101 | Geburtsdatum als Pflichtfeld, Studierendenpreis nur bis 27 | Approved | [PROJ-101](../features/PROJ-101-geburtsdatum-studentenpreis.md) | 2026-11-16 |
+| PROJ-102 | Der Studierendenpreis endet mit 28 — angekündigt, nicht überraschend | Approved | [PROJ-102](../features/PROJ-102-studentenpreis-endet.md) | 2026-11-16 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-101
+## Next Available ID: PROJ-103

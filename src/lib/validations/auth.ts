@@ -47,11 +47,70 @@ export type LoginInput = z.infer<typeof loginSchema>;
 const nameFeld = (fehlend: string) =>
   z.string().trim().min(1, fehlend).max(100, "valNameTooLong");
 
+/**
+ * PROJ-101: Das Geburtsdatum ist Pflicht — bei der Registrierung und im Profil.
+ *
+ * Ohne es kann die Altersgrenze für den Studierendenpreis nicht greifen, und
+ * eine Grenze, die nur die trifft, die etwas angegeben haben, wäre die falsche
+ * Richtung.
+ *
+ * Verglichen werden Kalendertage als Zeichenketten. `new Date("2026-08-23")`
+ * ist UTC-Mitternacht, `new Date()` der aktuelle Augenblick — in Wien machte
+ * das zwischen 00:00 und 02:00 aus *heute* ein Datum „in der Zukunft“.
+ */
+const GEBURTSDATUM_FRUEHESTENS = "1900-01-01";
+/** Jünger als das ist kein Tippfehler, der durchgehen soll. */
+const GEBURTSDATUM_MINDESTALTER = 10;
+
+function heuteAlsText(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate()
+  ).padStart(2, "0")}`;
+}
+
+function vorJahren(jahre: number): string {
+  const heute = heuteAlsText();
+  const [jahr, rest] = [Number(heute.slice(0, 4)), heute.slice(4)];
+  return `${jahr - jahre}${rest}`;
+}
+
+const geburtsdatumPflicht = z
+  // `error` deckt auch den Fall ab, dass gar nichts ankommt: Zod meldete sonst
+  // „Invalid input: expected string, received null" — eine technische Zeile in
+  // einer Sprache, die der Kunde nicht gewählt hat.
+  .string({ error: "valBirthdateRequired" })
+  .trim()
+  .min(1, "valBirthdateRequired")
+  .refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "valBirthdateInvalid")
+  .refine((value) => value <= heuteAlsText(), "valBirthdateFuture")
+  .refine(
+    (value) => value >= GEBURTSDATUM_FRUEHESTENS && value <= vorJahren(GEBURTSDATUM_MINDESTALTER),
+    "valBirthdateImplausible"
+  );
+
+/**
+ * Dasselbe Feld freiwillig — für die Verwaltung. An der Tür kennt man ein
+ * Geburtsdatum manchmal nicht, und eine Sperre würde dort den Betreiber
+ * aufhalten, nicht die Daten verbessern.
+ */
+const geburtsdatumFreiwillig = z
+  .string({ error: "Bitte das Geburtsdatum prüfen" })
+  .trim()
+  .optional()
+  .or(z.literal(""))
+  .refine((value) => !value || value <= heuteAlsText(), "Geburtsdatum darf nicht in der Zukunft liegen")
+  .refine(
+    (value) => !value || (value >= GEBURTSDATUM_FRUEHESTENS && value <= vorJahren(GEBURTSDATUM_MINDESTALTER)),
+    "Bitte das Geburtsdatum prüfen"
+  );
+
 export const registerSchema = z.object({
   email: z.string().min(1, "valEmailRequired").email("valEmailInvalid"),
   password: neuesPasswort,
   first_name: nameFeld("valFirstNameRequired"),
   last_name: nameFeld("valLastNameRequired"),
+  birthdate: geburtsdatumPflicht,
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -114,23 +173,7 @@ export const profileSchema = z.object({
     .max(50, "Telefonnummer ist zu lang")
     .optional()
     .or(z.literal("")),
-  birthdate: z
-    .string()
-    .optional()
-    .or(z.literal(""))
-    .refine((value) => {
-      if (!value) return true;
-      // Compare calendar days, not instants: `new Date("2026-08-23")` is
-      // parsed as UTC midnight, while `new Date()` is the current instant.
-      // In a UTC+2 timezone that made *today* count as "in the future"
-      // between 00:00 and 02:00 local time. ISO date strings compare
-      // correctly as plain strings.
-      const now = new Date();
-      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-        now.getDate()
-      ).padStart(2, "0")}`;
-      return value <= today;
-    }, "Geburtsdatum darf nicht in der Zukunft liegen"),
+  birthdate: geburtsdatumPflicht,
   gender: z.enum(genderValues).optional().or(z.literal("")),
 });
 
@@ -145,6 +188,10 @@ export type ProfileInput = z.infer<typeof profileSchema>;
  */
 export const adminProfileSchema = profileSchema.extend({
   last_name: z.string().trim().max(100, "valNameTooLong").optional().or(z.literal("")),
+  // PROJ-101: und mit **freiwilligem** Geburtsdatum, aus demselben Grund.
+  // Fehlt es, kann für diesen Kunden kein Studierendenpreis entstehen — das
+  // steht in der Akte, statt den Betreiber am Speichern zu hindern.
+  birthdate: geburtsdatumFreiwillig,
 });
 
 export type AdminProfileInput = z.infer<typeof adminProfileSchema>;
