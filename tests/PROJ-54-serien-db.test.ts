@@ -258,6 +258,15 @@ describe("Zugriff auf Serien (PROJ-54)", () => {
   });
 });
 
+/** Der Zeitzonenversatz Wiens zu diesem Zeitpunkt — „+01:00" oder „+02:00". */
+function wienerVersatz(zeitpunkt: Date): string {
+  const name =
+    new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Vienna", timeZoneName: "longOffset" })
+      .formatToParts(zeitpunkt)
+      .find((teil) => teil.type === "timeZoneName")?.value ?? "GMT+01:00";
+  return name.replace("GMT", "") || "+01:00";
+}
+
 /**
  * Ein Zeitpunkt, der sicher **heute** liegt (Wiener Kalendertag).
  *
@@ -265,11 +274,40 @@ describe("Zugriff auf Serien (PROJ-54)", () => {
  * nächsten Tag, und eine Prüfung mit dem Namen „am Veranstaltungstag" misst
  * dann das Gegenteil dessen, was sie soll. Am 2026-09-16 um 23:20 ist genau
  * das passiert.
+ *
+ * Der Versatz wird nachgesehen und nicht geraten. Fest auf „+02:00" lag dieser
+ * Zeitpunkt im Winter auf 22:59 Ortszeit — von da an war der Termin vorbei,
+ * und schon der Ticketkauf scheiterte mit „event not open". Aufgefallen im
+ * Regressionslauf am 2026-11-16 um 23:14.
  */
 function heuteSpaet(): string {
-  const heute = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
-  return new Date(`${heute}T23:59:00+02:00`).toISOString();
+  const jetzt = new Date();
+  const heute = jetzt.toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
+  return new Date(`${heute}T23:59:00${wienerVersatz(jetzt)}`).toISOString();
 }
+
+/**
+ * Ein Zeitpunkt, der heute liegt und **noch kommt** — oder `null`, wenn von
+ * heute nichts mehr übrig ist.
+ *
+ * Nur eine Prüfung braucht das: „nach einer Verlegung stornieren" verlangt
+ * einen Termin, der heute ist und noch nicht begonnen hat. In der letzten
+ * Minute des Tages gibt es so einen Termin nicht, und dann kann sie nicht
+ * laufen — lieber ausgelassen als mit einer falschen Erwartung grün.
+ */
+function heuteNochOffen(): string | null {
+  const jetzt = Date.now();
+  const gleich = new Date(jetzt + 2 * 60 * 1000);
+  const tagJetzt = new Date(jetzt).toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
+  const tagGleich = gleich.toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
+  if (tagJetzt !== tagGleich) return null;
+
+  // So spät wie möglich, aber noch kommend.
+  const spaet = heuteSpaet();
+  return Date.parse(spaet) > jetzt ? spaet : gleich.toISOString();
+}
+
+const HEUTE_NOCH_OFFEN = heuteNochOffen();
 
 describe("cancel_event_ticket nach einer Verlegung (PROJ-54)", () => {
   async function stornieren(ticketId: string) {
@@ -278,14 +316,24 @@ describe("cancel_event_ticket nach einer Verlegung (PROJ-54)", () => {
   }
 
   it("sperrt das Stornieren am Veranstaltungstag", async () => {
-    const eventId = await eventAnlegen({ starts_at: heuteSpaet(), ends_at: heuteSpaet() });
+    // Gekauft, solange der Termin noch in der Ferne liegt, danach auf heute
+    // gezogen. Andersherum scheiterte in der letzten Stunde des Tages schon
+    // der Kauf — und die Prüfung meldete einen Fehler, der mit der Frist
+    // nichts zu tun hat.
+    const eventId = await eventAnlegen();
     const ticketId = await ticketKaufen(eventId);
+    const heute = heuteSpaet();
+    await service.from("events").update({ starts_at: heute, ends_at: heute }).eq("id", eventId);
+
     const { error } = await stornieren(ticketId);
     expect(error?.message).toContain("cancellation deadline passed");
   });
 
-  it("lässt nach einer Verlegung ohne Frist stornieren", async () => {
-    const eventId = await eventAnlegen({ starts_at: heuteSpaet(), ends_at: heuteSpaet() });
+  it.skipIf(HEUTE_NOCH_OFFEN === null)("lässt nach einer Verlegung ohne Frist stornieren", async () => {
+    const eventId = await eventAnlegen({
+      starts_at: HEUTE_NOCH_OFFEN!,
+      ends_at: HEUTE_NOCH_OFFEN!,
+    });
     const ticketId = await ticketKaufen(eventId);
     await service.from("events").update({ moved_at: new Date().toISOString() }).eq("id", eventId);
 
