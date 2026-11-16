@@ -16,26 +16,55 @@ import {
 } from "@/lib/sepa/laeufe";
 import { heuteInWien } from "@/lib/constants/zeitzone";
 import { ladeFerien } from "@/lib/scheduling/ferien";
-import { istFaellig } from "@/lib/sepa/faelligkeit";
+import {
+  auslassGrund,
+  auslassText,
+  istDatenfehler,
+  type AuslassArt,
+} from "@/lib/sepa/ausgelassen";
+import {
+  AusgelasseneAbos,
+  type AusgelassenesAbo,
+} from "@/components/admin/sepa/ausgelassene-abos";
 
 /**
- * Was dieser Lauf übersehen hat.
+ * Was dieser Lauf übersehen hat — in zwei Listen.
  *
- * Dieselbe Regel wie beim Anlegen — aktives Abo oder SEPA-Ticket, gültiges
- * Mandat, nicht schon eingezogen —, abzüglich dessen, was im Lauf bereits
- * steht. Eine zweite, eigene Regel würde irgendwann von der ersten abweichen,
- * und dann wäre unklar, welche stimmt.
+ * **Ausgelassen** sind die Abos, die der Lauf hätte einziehen können und aus
+ * einem benennbaren Grund nicht eingezogen hat. Sie stehen namentlich oben auf
+ * der Seite (PROJ-103); vorher gab es dort nur eine Zahl und zwei
+ * Möglichkeiten, und genau das war der Anlass.
+ *
+ * **Offen** ist, was dem Lauf fehlt und sich von Hand nachtragen lässt — der
+ * Inhalt des Dialogs „Position hinzufügen“, unverändert seit PROJ-47.
+ *
+ * Beide Listen kommen aus einem Durchgang und aus derselben Regel wie das
+ * Anlegen des Laufs (`auslassGrund`). Bis PROJ-103 stand diese Regel zweimal
+ * im Code — einmal zählend, einmal erklärend. Seit der Hinweis Namen nennt,
+ * wäre eine Abweichung keine Unschönheit mehr, sondern eine Falschaussage
+ * über Geld.
  */
-async function offenePositionen(
+
+/**
+ * Gründe, bei denen ein Nachtragen von Hand sinnvoll sein kann — etwa nach
+ * einer Rücklastschrift. Ein gekündigtes Abo und eines ohne Preis stehen
+ * deshalb **nicht** im Dialog: Sie haben in der Zeile oben ihren eigenen Weg,
+ * mit dem Grund daneben.
+ */
+const NACHTRAGBAR = new Set<AuslassArt>(["beginnt_spaeter", "zyklus_offen", "zyklus_vorgemerkt"]);
+
+type Luecken = { offene: OffenePosition[]; ausgelassen: AusgelassenesAbo[] };
+
+async function laufLuecken(
   supabase: Awaited<ReturnType<typeof createClient>>,
   runId: string,
   dueDate: string
-): Promise<OffenePosition[]> {
+): Promise<Luecken> {
   const [abosRes, ticketsRes, eingezogenRes, imLaufRes, mandateRes, profileRes, frühereRes, ferien] =
     await Promise.all([
     supabase
       .from("subscriptions")
-      .select("id, customer_id, name, price, pending_effective_date, cycle_anchor_date")
+      .select("id, customer_id, name, price, pending_effective_date, pending_status, cycle_anchor_date")
       .eq("status", "active"),
     supabase
       .from("tickets")
@@ -74,36 +103,45 @@ async function offenePositionen(
     einzuegeJeAbo.set(abo, bisher);
   }
 
-  const abos: OffenePosition[] = (abosRes.data ?? [])
-    .filter((s) => s.price !== null && mitMandat.has(s.customer_id) && !imLauf.has(s.id))
-    .filter((s) => !s.pending_effective_date || s.pending_effective_date > dueDate)
-    .map((s) => {
-      // PROJ-70: Nicht ausfiltern, sondern kennzeichnen. Der automatische Lauf
-      // lässt diese Abos aus; von Hand soll der Betreiber sie trotzdem
-      // eintragen können — etwa nach einer Rücklastschrift. Ohne den Satz
-      // daneben wäre das aber genau der Doppeleinzug, den wir loswerden wollen.
-      const einzuege = einzuegeJeAbo.get(s.id) ?? [];
-      const faellig = istFaellig(dueDate, einzuege, ferien);
-      // PROJ-71: Beginnt das Abo erst später, ist das der wichtigere Grund —
-      // er steht deshalb vor dem Zyklus-Hinweis.
-      const beginntSpaeter = s.cycle_anchor_date > dueDate;
-      // Der nächstliegende Einzug erklärt die Sperre am besten.
-      const naechster = einzuege
-        .slice()
-        .sort((a, b) => Math.abs(Date.parse(a) - Date.parse(dueDate)) - Math.abs(Date.parse(b) - Date.parse(dueDate)))[0];
-      return {
+  const offeneAbos: OffenePosition[] = [];
+  const ausgelassen: AusgelassenesAbo[] = [];
+
+  for (const s of abosRes.data ?? []) {
+    // Ohne gültiges Mandat ist das ein Barzahler — er gehört in keine der
+    // beiden Listen (PROJ-103, bewusst entschieden).
+    if (!mitMandat.has(s.customer_id) || imLauf.has(s.id)) continue;
+
+    const kundenname = nameJeKunde.get(s.customer_id) ?? "Unbenannt";
+    const bezeichnung = s.name ?? "Abo";
+    const grund = auslassGrund(s, dueDate, einzuegeJeAbo.get(s.id), ferien);
+
+    if (grund) {
+      ausgelassen.push({
+        aboId: s.id,
+        kundeId: s.customer_id,
+        kundenname,
+        bezeichnung,
+        preis: s.price === null ? null : Number(s.price),
+        grundText: auslassText(grund),
+        datenfehler: istDatenfehler(grund),
+      });
+    }
+
+    if (s.price !== null && (!grund || NACHTRAGBAR.has(grund.art))) {
+      offeneAbos.push({
         id: s.id,
-        art: "abo" as const,
-        kundenname: nameJeKunde.get(s.customer_id) ?? "Unbenannt",
-        bezeichnung: s.name ?? "Abo",
+        art: "abo",
+        kundenname,
+        bezeichnung,
         vorschlagsbetrag: Number(s.price),
-        hinweis: beginntSpaeter
-          ? `Beginnt erst am ${new Date(s.cycle_anchor_date).toLocaleDateString("de-AT")}.`
-          : faellig
-            ? undefined
-            : `Einzug am ${new Date(naechster).toLocaleDateString("de-AT")} — keine vier Wochen Abstand.`,
-      };
-    });
+        // PROJ-70: Nicht ausfiltern, sondern kennzeichnen. Von Hand soll der
+        // Betreiber ein ausgelassenes Abo eintragen können — ohne den Satz
+        // daneben wäre das aber genau der Doppeleinzug, den wir loswerden
+        // wollen.
+        hinweis: grund ? auslassText(grund) : undefined,
+      });
+    }
+  }
 
   const tickets: OffenePosition[] = (ticketsRes.data ?? [])
     .filter((t) => mitMandat.has(t.customer_id) && !schonEingezogen.has(t.id) && !imLauf.has(t.id))
@@ -115,19 +153,21 @@ async function offenePositionen(
       vorschlagsbetrag: Number(t.price),
     }));
 
-  return [...abos, ...tickets].sort((a, b) => a.kundenname.localeCompare(b.kundenname, "de-AT"));
+  const nachNamen = (a: { kundenname: string }, b: { kundenname: string }) =>
+    a.kundenname.localeCompare(b.kundenname, "de-AT");
+
+  return {
+    offene: [...offeneAbos, ...tickets].sort(nachNamen),
+    ausgelassen: ausgelassen.sort(nachNamen),
+  };
 }
 
 export default async function LastschriftDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ uebersprungen?: string }>;
 }) {
   const { id } = await params;
-  const { uebersprungen } = await searchParams;
-  const uebersprungeneAbos = Number(uebersprungen) > 0 ? Number(uebersprungen) : 0;
   const supabase = await createClient();
 
   const { data: run } = await supabase
@@ -161,7 +201,11 @@ export default async function LastschriftDetailPage({
   }));
 
   const entwurf = run.released_at === null;
-  const offene = entwurf ? await offenePositionen(supabase, id, run.due_date) : [];
+  // Nach der Freigabe ist am Lauf nichts mehr zu entscheiden — dann gibt es
+  // weder den Dialog noch den Hinweis auf ausgelassene Abos.
+  const { offene, ausgelassen } = entwurf
+    ? await laufLuecken(supabase, id, run.due_date)
+    : { offene: [], ausgelassen: [] };
 
   // Der Name des Freigebenden steht in den Anmeldedaten, nicht im Profil.
   let freigegebenVon: string | null = null;
@@ -193,18 +237,11 @@ export default async function LastschriftDetailPage({
       </div>
 
       {/* PROJ-70: Ein Lauf mit weniger Positionen als erwartet sieht aus wie
-          ein Fehler, wenn niemand sagt, warum. */}
-      {uebersprungeneAbos > 0 && (
-        <div className="rounded-card border border-border bg-muted/50 px-4 py-3 text-sm">
-          <span className="font-medium">
-            {uebersprungeneAbos} {uebersprungeneAbos === 1 ? "Abo" : "Abos"} nicht aufgenommen.
-          </span>{" "}
-          Entweder liegt der letzte Einzug noch keine vier Wochen zurück — Ferienwochen zählen dabei
-          nicht mit — oder das Abo beginnt erst nach diesem Fälligkeitstag. Unter „Offene Positionen“
-          stehen sie mit dem jeweiligen Grund; wer trotzdem einziehen will, trägt sie dort von Hand
-          ein.
-        </div>
-      )}
+          ein Fehler, wenn niemand sagt, warum.
+          PROJ-103: Und eine Zahl ohne Namen lässt sich nicht beurteilen. Der
+          Kasten rechnet sich aus dem Lauf, nicht aus der Adresse — er ist
+          nach dem Neuladen und an jedem älteren Entwurf noch da. */}
+      <AusgelasseneAbos runId={run.id} abos={ausgelassen} />
       <CollectionRunDetail
         runId={run.id}
         items={items}

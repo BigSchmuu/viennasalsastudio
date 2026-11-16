@@ -102,8 +102,12 @@ export function CollectionRunList({ runs, initialStatus }: { runs: CollectionRun
       setDuplicateWarning(null);
       // PROJ-70: Übersprungene Abos gehören gesagt. Ein Lauf, der still
       // weniger Positionen hat als erwartet, sieht aus wie ein Fehler.
-      const hinweis = result.uebersprungen > 0 ? `?uebersprungen=${result.uebersprungen}` : "";
-      router.push(`/admin/lastschriften/${result.runId}${hinweis}`);
+      //
+      // PROJ-103: Die Zahl reist nicht mehr in der Adresse mit. Sie überlebte
+      // kein Neuladen und fehlte an jedem Entwurf, den man später wieder
+      // öffnete; die Seite des Laufs rechnet sie jetzt selbst aus — und nennt
+      // die Abos beim Namen.
+      router.push(`/admin/lastschriften/${result.runId}`);
     } finally {
       setLoading(false);
     }

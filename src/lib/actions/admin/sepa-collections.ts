@@ -3,18 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { ladeFerien } from "@/lib/scheduling/ferien";
-import { istFaellig } from "@/lib/sepa/faelligkeit";
 import { enqueueNotification } from "@/lib/notifications/dispatch";
 import { collectionRunSchema } from "@/lib/validations/sepa";
 import { generateSepaDirectDebitXml, type SepaXmlItem } from "@/lib/sepa/xml";
 import { POSITION_BETRAG_MAX } from "@/lib/sepa/laeufe";
+import {
+  auslassGrund,
+  auslassZusammenfassung,
+  type AuslassGrund,
+} from "@/lib/sepa/ausgelassen";
 import type { ActionResult } from "@/lib/actions/types";
 
 import { sepaKennung } from "@/lib/sepa/kennungen";
 type CreateRunResult =
   | { error: string }
   | { duplicate: true; existingCount: number }
-  | { success: true; runId: string; itemCount: number; uebersprungen: number };
+  | { success: true; runId: string; itemCount: number };
 
 export async function createCollectionRun(formData: FormData): Promise<CreateRunResult> {
   const parsed = collectionRunSchema.safeParse({
@@ -42,7 +46,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   const [subscriptionsRes, ticketsRes, collectedTicketIdsRes, letzteEinzuegeRes, mandatesRes, ferien] = await Promise.all([
     supabase
       .from("subscriptions")
-      .select("id, customer_id, name, price, pending_effective_date, cycle_anchor_date")
+      .select("id, customer_id, name, price, pending_effective_date, pending_status, cycle_anchor_date")
       .eq("status", "active"),
     supabase
       .from("tickets")
@@ -85,25 +89,21 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     einzuegeJeAbo.set(abo, bisher);
   }
 
-  let uebersprungen = 0;
+  // PROJ-103: Was dieser Lauf auslässt, und warum. Die Regel steht in
+  // `auslassGrund` — einmal, für das Anlegen hier und für den Hinweis auf der
+  // Seite des Entwurfs. Zwei Kopien würden auseinanderlaufen, und seit der
+  // Hinweis die Abos namentlich nennt, wäre das eine Falschaussage über Geld.
+  const ausgelassen: AuslassGrund[] = [];
 
   const subscriptionItems = (subscriptionsRes.data ?? [])
-    .filter((s) => s.price !== null && mandateByCustomer.has(s.customer_id))
-    .filter((s) => !s.pending_effective_date || s.pending_effective_date > dueDate)
+    // Ohne gültiges Mandat ist das ein Barzahler. Er gehört nicht in einen
+    // Lastschriftlauf und auch nicht unter die ausgelassenen Abos: Dort stünde
+    // er bei jedem Lauf und gäbe nichts zu beurteilen.
+    .filter((s) => mandateByCustomer.has(s.customer_id))
     .filter((s) => {
-      // PROJ-71: Das Spiegelbild der Zeile darüber. Eine Kündigung, die zum
-      // Fälligkeitstag wirkt, nimmt das Abo aus dem Lauf — ein Beginn nach
-      // diesem Tag muss es genauso draußen halten. Sonst zahlt jemand im
-      // September für einen Kurs, den er ab Dezember besucht.
-      if (s.cycle_anchor_date <= dueDate) return true;
-      uebersprungen += 1;
-      return false;
-    })
-    .filter((s) => {
-      // PROJ-70: Vier Wochen Abstand, verlängert um Ferientage — in einer
-      // Woche ohne Unterricht läuft kein Zyklus weiter.
-      if (istFaellig(dueDate, einzuegeJeAbo.get(s.id), ferien)) return true;
-      uebersprungen += 1;
+      const grund = auslassGrund(s, dueDate, einzuegeJeAbo.get(s.id), ferien);
+      if (!grund) return true;
+      ausgelassen.push(grund);
       return false;
     })
     .map((s) => {
@@ -137,10 +137,14 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   const items = [...subscriptionItems, ...ticketItems];
 
   if (items.length === 0) {
+    // PROJ-103: Hier entsteht kein Lauf, also gibt es auch keine Seite, auf der
+    // die Abos namentlich stehen könnten. Wenigstens der Grund soll stimmen —
+    // bis hierher behauptete dieser Satz immer „bereits eingezogen“, auch wenn
+    // das Abo gekündigt war oder keinen Preis hatte.
     return {
       error:
-        uebersprungen > 0
-          ? `Keine offenen Beiträge: ${uebersprungen} ${uebersprungen === 1 ? "Abo wurde" : "Abos wurden"} in diesem Zyklus bereits eingezogen.`
+        ausgelassen.length > 0
+          ? `Keine offenen Beiträge für diesen Fälligkeitstag: ${auslassZusammenfassung(ausgelassen)}.`
           : "Keine Kunden für diesen Lauf gefunden.",
     };
   }
@@ -278,7 +282,9 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   );
 
   revalidatePath("/admin/lastschriften");
-  return { success: true, runId: run.id, itemCount: items.length, uebersprungen };
+  // Wie viele ausgelassen wurden, steht nicht mehr in der Antwort: Die Seite
+  // des Laufs rechnet es selbst und nennt die Abos dabei beim Namen (PROJ-103).
+  return { success: true, runId: run.id, itemCount: items.length };
 }
 
 type RunXmlResult = { error: string } | { success: true; xml: string; filename: string };

@@ -125,6 +125,12 @@ export function kursIdAusHerkunft(von: string | null | undefined): string | null
   return UUID.test(teile[1]) ? teile[1] : null;
 }
 
+/** `/admin/lastschriften/<uuid>` — die Seite eines einzelnen Laufs. */
+function einzelnerLauf(pfad: string): boolean {
+  const teile = pfad.split("/").filter(Boolean);
+  return teile.length === 3 && teile[0] === "admin" && teile[1] === "lastschriften" && UUID.test(teile[2]);
+}
+
 /**
  * Macht aus `?von=` einen Rückweg mit Namen — oder null, wenn es keinen geben
  * soll. Null heißt für die Akte: zeig den Standard, so wie vor PROJ-100.
@@ -157,6 +163,13 @@ export function loeseHerkunftAuf(
   if (kursIdAusHerkunft(pfad)) {
     const text = kursName ? `zur Anwesenheit: ${kuerze(kursName)}` : "zur Anwesenheitsliste";
     return { pfad, text, istKundenliste: false };
+  }
+
+  // PROJ-103: Ein einzelner Lastschriftlauf heißt nicht „die Lastschriften“.
+  // Von dort führen jetzt Links in die Kundenakte — auch aus dem Hinweis auf
+  // die ausgelassenen Abos —, und der Rückweg soll sagen, wohin er führt.
+  if (einzelnerLauf(nur)) {
+    return { pfad, text: "zum Lastschriftlauf", istKundenliste: false };
   }
 
   const treffer = SORTIERT.find((eintrag) =>

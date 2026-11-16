@@ -45,6 +45,15 @@ describe("loeseHerkunftAuf — der Name des Rückwegs", () => {
     expect(herkunft?.text).toBe("zu den Buchungen");
   });
 
+  it("nennt einen einzelnen Lastschriftlauf nicht „die Lastschriften“ (PROJ-103)", () => {
+    const lauf = "/admin/lastschriften/3f1a7c2e-5b4d-4a19-9c8e-0d6b2f4a1e77";
+    expect(loeseHerkunftAuf(lauf)?.text).toBe("zum Lastschriftlauf");
+    expect(loeseHerkunftAuf(lauf)?.pfad).toBe(lauf);
+    // Die Liste bleibt die Liste, und eine Kennung, die keine ist, erbt sie.
+    expect(loeseHerkunftAuf("/admin/lastschriften")?.text).toBe("zu den Lastschriften");
+    expect(loeseHerkunftAuf("/admin/lastschriften/4711")?.text).toBe("zu den Lastschriften");
+  });
+
   it("findet das längere Muster, nicht das kürzere", () => {
     // /admin/lastschriften darf nicht beim Eintrag /admin hängenbleiben.
     expect(loeseHerkunftAuf("/admin/lastschriften/abc")?.text).toBe("zu den Lastschriften");
