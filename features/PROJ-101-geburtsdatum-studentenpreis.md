@@ -1,6 +1,6 @@
 # PROJ-101: Geburtsdatum als Pflichtfeld, Studierendenpreis nur bis 27
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-16
 **Last Updated:** 2026-11-16
 
@@ -325,3 +325,35 @@ fest (`null` muss den Schlüssel nennen, nicht Zods englische Typmeldung).
 Ohne `studentenpreis_auskunft` zeigt der Buchungsdialog „lässt sich gerade nicht
 prüfen" — unschön, aber kein Schaden; ohne die Trigger gilt die Altersgrenze
 nicht.
+
+## Deployment (2026-11-16)
+
+Ausgeliefert nach https://app.viennasalsastudio.at
+
+| | |
+| --- | --- |
+| Commit | `4988e00` feat(PROJ-101, PROJ-102) |
+| Tag | `v1.101.0-PROJ-101` |
+| Migration | `20261116100000_proj101_studentenpreis_alter.sql` — vom Betreiber **vor** dem Push in der Produktion eingespielt, vor der von PROJ-102 |
+| Build | „Compiled successfully in 17,4s", ohne Warnung |
+| Deployment | `dpl_3W8RyAMC7acMppZ4CXQPqoiRRpqt`, rund 75 Sekunden nach dem Push live |
+
+**Nach dem Deployment geprüft** — und hier ließ sich mehr als sonst von außen
+belegen, weil die Registrierung öffentlich ist: Die Seite `/registrieren`
+antwortet mit 200, trägt die Beschriftung „Geburtsdatum", den Hinweis „Wir
+brauchen es für ermäßigte Preise und Geburtstagsgrüße." und — der Befund dieser
+Runde — das verborgene Feld `name="birthdate"`. Auf `/en/registrieren` steht
+derselbe Hinweis auf Englisch. Start, `/en` und der Kurskatalog antworten mit
+200, `/profil` und `/admin` leiten einen anonymen Aufruf auf die Anmeldung.
+
+## Für den Betrieb
+
+- **Bestandskunden werden nicht ausgesperrt.** Sie kommen überall hin wie
+  bisher; gefragt wird beim nächsten Speichern ihres Profils — und wenn sie den
+  Studierendenpreis wählen wollen.
+- **Wer den Rabatt trotzdem bekommen soll** (Zweitstudium, Absprache), bekommt
+  ihn über den Preis in der Bestätigung. Das geht wie vorher; die Altersregel
+  greift nur dort, wo das Kennzeichen automatisch zum Preis führt.
+- **In der Kundenakte bleibt das Geburtsdatum freiwillig.** Fehlt es, kann für
+  diesen Kunden kein Studierendenpreis entstehen — und das Abo erscheint in der
+  Liste „Ohne Geburtsdatum" auf dem Dashboard.

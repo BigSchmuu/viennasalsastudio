@@ -1,6 +1,6 @@
 # PROJ-102: Der Studierendenpreis endet mit 28 — angekündigt, nicht überraschend
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-16
 **Last Updated:** 2026-11-16
 
@@ -322,3 +322,34 @@ die von PROJ-102, dann der Code. Der erste Tageslauf nach dem Ausliefern
 kündigt an, was ansteht — und er verschickt dabei echte Mails. Wer das zuerst
 sehen will, ohne dass etwas hinausgeht, schaut vorher in die Verwaltung: Die
 Karte „Studierendenpreis" zeigt, welche Abos in Frage kommen.
+
+## Deployment (2026-11-16)
+
+Ausgeliefert nach https://app.viennasalsastudio.at
+
+| | |
+| --- | --- |
+| Commit | `4988e00` feat(PROJ-101, PROJ-102) |
+| Tag | `v1.102.0-PROJ-102` |
+| Migration | `20261116120000_proj102_studentenpreis_endet.sql` — vom Betreiber **vor** dem Push eingespielt, **nach** der von PROJ-101 |
+| Build | „Compiled successfully in 17,4s" |
+| Deployment | `dpl_3W8RyAMC7acMppZ4CXQPqoiRRpqt`, gemeinsam mit PROJ-101 |
+
+Gemeinsamer Commit mit PROJ-101 — Begründung dort.
+
+## Für den Betrieb
+
+- **Der erste Tageslauf nach dem Ausliefern verschickt echte Mails.** Er läuft
+  morgens um 6 Uhr (UTC) und kündigt jede Umstellung an, die ansteht. Wer vorher
+  sehen will, wen es trifft: Verwaltung → Dashboard → Karte
+  „Studierendenpreis". Dort stehen die angekündigten Umstellungen und die Abos,
+  die sich nicht beurteilen lassen.
+- **Der Vorlauf ist eher größer als vier Wochen.** Liegt das nächste Zyklusende
+  näher als 28 Tage, geht die Ankündigung einen Zyklus weiter — beim ersten Lauf
+  bekommen die meisten also sechs bis acht Wochen. Zu früh ist hier billiger
+  als zu spät.
+- **Drei Wege, eine Umstellung zu verhindern:** Der Kunde kündigt (dann zahlt er
+  den neuen Beitrag nie), der Kunde pausiert, oder du setzt den Preis von Hand —
+  deine Zahl wird nie überschrieben.
+- **Was nicht passiert:** keine Nachbelastung für die Vergangenheit, keine
+  Umstellung ohne Ankündigung, und nichts bei einem Kunden ohne Geburtsdatum.
