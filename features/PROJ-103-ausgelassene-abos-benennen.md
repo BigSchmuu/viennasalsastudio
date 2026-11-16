@@ -1,8 +1,8 @@
 # PROJ-103: Der Lastschriftlauf sagt, welches Abo er ausgelassen hat — und warum
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-16
-**Last Updated:** 2026-11-16
+**Last Updated:** 2026-11-17
 
 ## Dependencies
 - Requires: PROJ-47 (Lastschriftlauf als Entwurf) — der Hinweis gehört an den Entwurf
@@ -433,5 +433,48 @@ Keine Migration, keine Änderung an Zugriffsregeln, keine neue Abfrage — die S
 Daten, die sie für den Dialog ohnehin lädt. Nichts an der Auswahl der Abos hat sich geändert:
 Was ein Lauf einzieht, ist vor und nach dieser Änderung dasselbe.
 
-## Deployment
-_To be added by /deploy_
+## Deployment (2026-11-17)
+
+| | |
+| --- | --- |
+| Produktion | https://app.viennasalsastudio.at |
+| Commits | `feat(PROJ-103)`, `fix(PROJ-54)` (Testreparatur, eigener Commit), `deploy(PROJ-103)` |
+| Tag | `v1.103.0-PROJ-103` |
+| Migration | **keine** |
+
+### Vor dem Ausliefern
+
+- `npm run build` ohne Beanstandung, `eslint .` leer, `tsc --noEmit` leer
+- Einheiten- und Datenbanksuite: 1595 bestanden, 2 übersprungen, 120 Dateien
+- PROJ-103 im Browser: 7/7 auf Chromium, 7/7 auf Mobile Safari
+- Regression: PROJ-70, PROJ-47, PROJ-100 — 27/27; PROJ-7 — 15/15
+- Keine neuen Umgebungsvariablen, keine Änderung an Zugriffsregeln
+
+## Für den Betrieb
+
+**Es ändert sich nichts daran, wer abgebucht wird.** Diese Änderung macht sichtbar, was der
+Lauf ohnehin tat — sie entscheidet nicht neu. Wer vor der Änderung in einem Lauf stand, steht
+auch danach darin.
+
+**Was du jetzt am Entwurf siehst.** Oben steht, welche Abos der Lauf ausgelassen hat, mit
+Kunde, Abo, Grund und Betrag. Vier der fünf Gründe sind richtig so und brauchen nur einen
+Blick:
+
+| Grund | Was zu tun ist |
+| --- | --- |
+| Einzug im selben Zyklus | nichts — der Tag, ab dem es wieder geht, steht daneben |
+| Beginnt erst später | nichts — das Abo läuft noch nicht |
+| Gekündigt oder Pause ab … | nichts |
+| **Kein Preis am Abo hinterlegt** | **Preis nachtragen**, sonst fehlt es in jedem Lauf |
+
+Der letzte steht in Warnfarbe. Er ist der Grund, aus dem diese Änderung mehr geworden ist als
+eine Namensanzeige: Ein Abo ohne Preis fiel bisher lautlos aus **jedem** Lauf.
+
+**„Trotzdem aufnehmen" ist für die Ausnahme**, etwa nach einer Rücklastschrift. Es fragt nach
+und zeigt den Grund noch einmal — ein Abo aufzunehmen, das der Lauf aus gutem Grund
+ausgelassen hat, ist der Doppeleinzug, den PROJ-70 verhindern soll. Bei einem Abo ohne Preis
+ist das Feld leer; der dort eingetragene Betrag gilt nur für diesen Lauf, das Abo bleibt ohne
+Preis.
+
+**Barzahler stehen nicht in der Liste.** Wer kein SEPA-Mandat hat, gehört nicht in einen
+Lastschriftlauf; er stünde sonst bei jedem Lauf da und gäbe nichts zu beurteilen.
