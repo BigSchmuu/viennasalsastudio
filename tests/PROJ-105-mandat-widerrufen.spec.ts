@@ -42,9 +42,10 @@ const abos: Record<string, string> = {};
 const INHABER: Record<string, string> = {
   bleibt: `${KENNUNG} Bleibt Gueltig`,
   widerruft: `${KENNUNG} Widerruft`,
+  barzahler: `${KENNUNG} Nie Ein Mandat`,
 };
 
-async function legeKundenAn(rolle: string) {
+async function legeKundenAn(rolle: string, mitMandat = true) {
   const mail = `${KENNUNG.toLowerCase()}-${rolle}@viennasalsastudio.test`;
   const { data: konto, error: kontoFehler } = await svc.auth.admin.createUser({
     email: mail,
@@ -56,13 +57,15 @@ async function legeKundenAn(rolle: string) {
 
   await svc.from("profiles").update({ full_name: INHABER[rolle] }).eq("id", konto.user.id);
 
-  const { error: mandatFehler } = await svc.from("sepa_mandates").insert({
-    customer_id: konto.user.id,
-    iban: "AT611904300234573201",
-    account_holder_name: INHABER[rolle],
-    mandate_reference: `${KENNUNG}-${rolle}`.slice(0, 35),
-  });
-  if (mandatFehler) throw new Error(`PROJ-105 Mandat ${rolle}: ${mandatFehler.message}`);
+  if (mitMandat) {
+    const { error: mandatFehler } = await svc.from("sepa_mandates").insert({
+      customer_id: konto.user.id,
+      iban: "AT611904300234573201",
+      account_holder_name: INHABER[rolle],
+      mandate_reference: `${KENNUNG}-${rolle}`.slice(0, 35),
+    });
+    if (mandatFehler) throw new Error(`PROJ-105 Mandat ${rolle}: ${mandatFehler.message}`);
+  }
 
   const { data: abo, error: aboFehler } = await svc
     .from("subscriptions")
@@ -108,11 +111,18 @@ test.beforeAll(async () => {
 
   await legeKundenAn("bleibt");
   await legeKundenAn("widerruft");
+  // Der echte Barzahler: nie ein Mandat erteilt. Er ist die Gegenprobe zur
+  // Trennlinie — er darf in keiner der drei Listen stehen.
+  await legeKundenAn("barzahler", false);
 });
 
 test.afterAll(async () => {
   await loescheLauf();
   for (const rolle of Object.keys(kunden)) {
+    if (abos[rolle]) {
+      // Erst die Barzahlungs-Einträge: Sie hängen am Abo.
+      await svc.from("cash_entries").delete().eq("subscription_id", abos[rolle]);
+    }
     if (abos[rolle]) await svc.from("subscriptions").delete().eq("id", abos[rolle]);
     await svc.from("sepa_mandates").delete().eq("customer_id", kunden[rolle]);
     await svc.auth.admin.deleteUser(kunden[rolle]).catch(() => {});
@@ -233,5 +243,46 @@ test.describe("PROJ-105: Kein Einzug gegen einen Widerruf", () => {
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "1. SEPA-XML herunterladen" }).click();
     expect(await (await download).path()).toBeTruthy();
+  });
+
+  test("Das Abo steht nun unter Mandat widerrufen, Beitrag offen", async ({ page }) => {
+    // Genau die Lage vom 2026-11-17: Die Position ist aus dem Lauf heraus, das
+    // Mandat ist widerrufen, und der Beitrag ist trotzdem offen. Vorher
+    // verschwand das Abo hier aus **beiden** Listen.
+    await anmelden(page);
+    await gehZu(page, `/admin/lastschriften/${await laufId()}`);
+
+    const liste = page.getByTestId("ohne-mandat-abos");
+    const zeile = liste.locator("li").filter({ hasText: INHABER.widerruft });
+    await expect(zeile).toBeVisible({ timeout: 30_000 });
+    await expect(zeile).toContainText("Das SEPA-Mandat ist widerrufen");
+    await expect(zeile).toContainText("49,00");
+
+    // Die Gegenprobe: Der echte Barzahler kommt auf dieser Seite überhaupt
+    // nicht vor — in keiner Liste und in keiner Position. Geprüft über die
+    // ganze Seite und nicht je Liste: `not.toContainText` scheitert, wenn das
+    // Element fehlt, und die Liste der ausgelassenen Abos fehlt hier zu Recht.
+    await expect(page.getByText(INHABER.barzahler)).toHaveCount(0);
+  });
+
+  test("Der Betrag lässt sich auf die Barzahlungsliste setzen", async ({ page }) => {
+    await anmelden(page);
+    await gehZu(page, `/admin/lastschriften/${await laufId()}`);
+    const zeile = page
+      .getByTestId("ohne-mandat-abos")
+      .locator("li")
+      .filter({ hasText: INHABER.widerruft });
+    await zeile.getByRole("button", { name: "Auf die Barzahlungsliste" }).click();
+
+    // Vorbelegt mit dem Beitrag des Abos — ein Rat, keine Festlegung.
+    await expect(page.locator("#barzahlung-betrag")).toHaveValue("49,00");
+    await page.getByRole("button", { name: "Auf die Liste setzen" }).click();
+
+    await expect(zeile).toContainText("Steht auf der Barzahlungsliste", { timeout: 30_000 });
+    const { count } = await svc
+      .from("cash_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("subscription_id", abos.widerruft);
+    expect(count).toBe(1);
   });
 });

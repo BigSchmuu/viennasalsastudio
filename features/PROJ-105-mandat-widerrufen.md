@@ -120,22 +120,22 @@ ist.
 
 ### Die Liste
 
-- [ ] Angenommen ein aktives Abo hätte an diesem Fälligkeitstag einen Beitrag offen und sein Mandat wurde widerrufen, wenn der Betreiber den Entwurf öffnet, dann steht es unter „Mandat widerrufen, Beitrag offen" mit Kundenname, Bezeichnung und Betrag
-- [ ] Angenommen dieses Abo wurde früher schon eingezogen, wenn die Zeile erscheint, dann nennt sie das Datum des letzten Einzugs
+- [x] Angenommen ein aktives Abo hätte an diesem Fälligkeitstag einen Beitrag offen und sein Mandat wurde widerrufen, wenn der Betreiber den Entwurf öffnet, dann steht es unter „Mandat widerrufen, Beitrag offen" mit Kundenname, Bezeichnung und Betrag
+- [x] Angenommen dieses Abo wurde früher schon eingezogen, wenn die Zeile erscheint, dann nennt sie das Datum des letzten Einzugs
 - [ ] Angenommen dieses Abo ist zusätzlich gekündigt und das Enddatum liegt in der Zukunft, wenn die Zeile erscheint, dann nennt sie das Enddatum und dass ab diesem Tag kein Einzug mehr möglich ist
-- [ ] Angenommen der Kunde hat nie ein SEPA-Mandat erteilt, wenn der Entwurf geöffnet wird, dann steht sein Abo in keiner der drei Listen
+- [x] Angenommen der Kunde hat nie ein SEPA-Mandat erteilt, wenn der Entwurf geöffnet wird, dann steht sein Abo in keiner der drei Listen
 - [ ] Angenommen das alte Mandat wurde durch ein neues ersetzt, wenn der Entwurf geöffnet wird, dann steht das Abo nicht in dieser Liste, sondern wird normal eingezogen
-- [ ] Angenommen ein Abo mit widerrufenem Mandat wurde im selben Zyklus schon eingezogen, wenn der Entwurf geöffnet wird, dann steht es nicht in dieser Liste
-- [ ] Angenommen ein Abo mit widerrufenem Mandat ist zum Fälligkeitstag gekündigt oder pausiert, wenn der Entwurf geöffnet wird, dann steht es nicht in dieser Liste
-- [ ] Angenommen ein Abo mit widerrufenem Mandat hat keinen Preis hinterlegt, wenn der Entwurf geöffnet wird, dann steht es mit „—" als Betrag in dieser Liste und der fehlende Preis wird als Datenfehler benannt
-- [ ] Angenommen es gibt kein solches Abo, wenn der Entwurf geöffnet wird, dann erscheint die Liste nicht
-- [ ] Angenommen die Mandate lassen sich nicht lesen, wenn der Entwurf geöffnet wird, dann erscheint ein Fehler und nicht eine leere Liste
+- [x] Angenommen ein Abo mit widerrufenem Mandat wurde im selben Zyklus schon eingezogen, wenn der Entwurf geöffnet wird, dann steht es nicht in dieser Liste
+- [x] Angenommen ein Abo mit widerrufenem Mandat ist zum Fälligkeitstag gekündigt oder pausiert, wenn der Entwurf geöffnet wird, dann steht es nicht in dieser Liste
+- [~] Angenommen ein Abo mit widerrufenem Mandat hat keinen Preis hinterlegt, wenn der Entwurf geöffnet wird, dann steht es mit „—" als Betrag in dieser Liste und der fehlende Preis wird benannt — **gebaut, aber nicht durch einen Test belegt**: Dafür bräuchte der Browsertest einen vierten Kunden. Die Regel dahinter (ein Abo ohne Preis gehört in die Liste) ist durch einen Einheitentest gedeckt
+- [x] Angenommen es gibt kein solches Abo, wenn der Entwurf geöffnet wird, dann erscheint die Liste nicht
+- [x] Angenommen die Mandate lassen sich nicht lesen, wenn der Entwurf geöffnet wird, dann erscheint ein Fehler und nicht eine leere Liste
 
 ### Der Weg zur Barzahlung
 
-- [ ] Angenommen eine Zeile dieser Liste ist zu sehen, wenn der Betreiber „Auf die Barzahlungsliste" wählt und den vorgeschlagenen Betrag bestätigt, dann entsteht ein Eintrag in der Barzahlungsliste für dieses Abo
-- [ ] Angenommen der Betrag ist vorbelegt, wenn der Betreiber ihn ändert, dann gilt der geänderte Betrag
-- [ ] Angenommen für dieses Abo steht schon ein Eintrag auf der Barzahlungsliste, wenn der Entwurf geöffnet wird, dann sagt die Zeile das und bietet es nicht erneut an
+- [x] Angenommen eine Zeile dieser Liste ist zu sehen, wenn der Betreiber „Auf die Barzahlungsliste" wählt und den vorgeschlagenen Betrag bestätigt, dann entsteht ein Eintrag in der Barzahlungsliste für dieses Abo
+- [x] Angenommen der Betrag ist vorbelegt, wenn der Betreiber ihn ändert, dann gilt der geänderte Betrag
+- [x] Angenommen für dieses Abo steht schon ein Eintrag auf der Barzahlungsliste, wenn der Entwurf geöffnet wird, dann sagt die Zeile das und bietet es nicht erneut an
 - [ ] Angenommen der Betreiber versucht ein Abo ohne gültiges Mandat über „Trotzdem aufnehmen" in den Lauf zu holen, wenn er bestätigt, dann lehnt die App es mit der bestehenden Meldung ab
 
 ### Die Sperre beim Einzug
@@ -147,11 +147,29 @@ ist.
 - [x] Angenommen zu einer Position ist das Mandat widerrufen, wenn der Betreiber den Upload bestätigen will, dann wird auch das verweigert und der Lauf bleibt Entwurf — beim Bauen ergänzt: Die Bestätigung macht aus Positionen Rechnungen, und eine Rechnung über eine Lastschrift gegen einen Widerruf wäre der schlechtere Zustand von beiden
 - [x] Angenommen eine Position ist durch Guthaben auf 0 € gedeckt, wenn ihr Mandat widerrufen ist, dann sperrt das nicht — sie steht in keiner Bankdatei und bucht nichts ab
 
-## Umsetzung — die Sperre beim Einzug (2026-11-17)
+## Umsetzung (2026-11-17)
 
-Der zweite, schwerere Fund des Tages ist geschlossen. Die **dritte Liste** („Mandat
-widerrufen, Beitrag offen") steht noch offen — sie verhindert einen Verlust, die Sperre
-verhindert einen unerlaubten Einzug, und letzteres wog schwerer.
+Beide Teile sind gebaut: zuerst die Sperre (sie verhindert einen unerlaubten Einzug), danach
+die Liste (sie verhindert einen Verlust).
+
+### Die dritte Liste
+
+| Teil | Wo |
+|---|---|
+| Wer in die Liste gehört, und der Satz dazu | `src/lib/sepa/ohne-mandat.ts` |
+| Beschaffung und Darstellung | `src/app/admin/lastschriften/[id]/page.tsx`, `src/components/admin/sepa/ohne-mandat-abos.tsx` |
+| Weg zur Barzahlungsliste | bestehende Aktion `legeEintragAn` (PROJ-84), keine zweite |
+| Tests | `ohne-mandat.test.ts` (11), zwei weitere in `tests/PROJ-105-mandat-widerrufen.spec.ts` |
+
+Die Liste steht **über** den ausgelassenen Abos: Dort entgeht Geld, hier wird nur eine Regel
+erklärt. Die Frist in der Zeile ist bewusst neutral formuliert („Ab dem … wird ohnehin nicht
+mehr eingezogen") — bei einer Kündigung endet das Abo, bei einer Pause nicht, und ein Satz,
+der nur für einen der beiden Fälle stimmt, wäre eine Falschaussage über Geld.
+
+Geprüft wird die Trennlinie in beide Richtungen: Das Abo mit widerrufenem Mandat steht in der
+Liste, der echte Barzahler kommt auf der Seite überhaupt nicht vor.
+
+### Die Sperre beim Einzug
 
 | Teil | Wo |
 |---|---|

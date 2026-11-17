@@ -177,7 +177,7 @@
 
 | PROJ-104 | Lastschriftdatei im Format ISO-2019 (pain.008.001.08) | Deployed | [PROJ-104](../features/PROJ-104-sepa-iso-2019.md) | 2026-11-17 |
 
-| PROJ-105 | Ein widerrufenes Mandat bleibt sichtbar — und zieht nicht mehr ein | Planned | [PROJ-105](../features/PROJ-105-mandat-widerrufen.md) | 2026-11-17 |
+| PROJ-105 | Ein widerrufenes Mandat bleibt sichtbar — und zieht nicht mehr ein | In Progress | [PROJ-105](../features/PROJ-105-mandat-widerrufen.md) | 2026-11-17 |
 | PROJ-106 | Verwerfen warnt vor Kündigungsdaten, denen die Abbuchung fehlt | Roadmap | — | 2026-11-17 |
 
 | PROJ-107 | Ein gemeinsamer Zahlungszyklus für alle, eingetragen statt gerechnet | In Progress | [PROJ-107](../features/PROJ-107-gemeinsame-zyklen.md) | 2026-11-17 |

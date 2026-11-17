@@ -25,6 +25,8 @@ import {
   type Zyklus,
 } from "@/lib/sepa/ausgelassen";
 import { ladeZyklus, einzuegeJeAbo } from "@/lib/sepa/zyklus";
+import { beitragOffenOhneMandat, ohneMandatText } from "@/lib/sepa/ohne-mandat";
+import { OhneMandatAbos, type OhneMandatAbo } from "@/components/admin/sepa/ohne-mandat-abos";
 import {
   AusgelasseneAbos,
   type AusgelassenesAbo,
@@ -63,7 +65,12 @@ const NACHTRAGBAR = new Set<AuslassArt>([
   "zyklus_eingezogen",
 ]);
 
-type Luecken = { offene: OffenePosition[]; ausgelassen: AusgelassenesAbo[] };
+type Luecken = {
+  offene: OffenePosition[];
+  ausgelassen: AusgelassenesAbo[];
+  /** PROJ-105: Mandat widerrufen, Beitrag offen — fiel vorher aus beiden Listen. */
+  ohneMandat: OhneMandatAbo[];
+};
 
 async function laufLuecken(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -71,8 +78,18 @@ async function laufLuecken(
   dueDate: string,
   zyklus: Zyklus | null
 ): Promise<Luecken> {
-  const [abosRes, ticketsRes, eingezogenRes, imLaufRes, mandateRes, profileRes, frühereRes, ferien] =
-    await Promise.all([
+  const [
+    abosRes,
+    ticketsRes,
+    eingezogenRes,
+    imLaufRes,
+    mandateRes,
+    widerrufenRes,
+    barzahlungRes,
+    profileRes,
+    frühereRes,
+    ferien,
+  ] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("id, customer_id, name, price, pending_effective_date, pending_status, cycle_anchor_date")
@@ -85,6 +102,13 @@ async function laufLuecken(
     supabase.from("sepa_collection_items").select("event_ticket_id").not("event_ticket_id", "is", null),
     supabase.from("sepa_collection_items").select("subscription_id, event_ticket_id").eq("run_id", runId),
     supabase.from("sepa_mandates").select("customer_id").is("revoked_at", null),
+    // PROJ-105: Wer **einmal** ein Mandat hatte. Das ist die Trennlinie zum
+    // echten Barzahler, der nie eines erteilt hat und deshalb nicht bei jedem
+    // Lauf in dieser Liste stehen soll.
+    supabase.from("sepa_mandates").select("customer_id").not("revoked_at", "is", null),
+    // PROJ-105: Was schon auf der Barzahlungsliste steht — damit nicht zweimal
+    // kassiert wird.
+    supabase.from("cash_entries").select("subscription_id"),
     supabase.from("profiles").select("id, full_name"),
     // PROJ-70: Dieselbe Sperre wie beim Anlegen. Ohne sie böte diese Liste
     // genau die Abos wieder an, die der Lauf gerade übersprungen hat — und
@@ -97,7 +121,22 @@ async function laufLuecken(
     ladeFerien(supabase),
   ]);
 
+  // Ein Lesefehler darf nicht als „hatte nie ein Mandat" durchgehen — dann
+  // verschwände das Abo wieder aus allen drei Listen, also genau der Fehler,
+  // den diese Liste beseitigt.
+  if (mandateRes.error || widerrufenRes.error || barzahlungRes.error) {
+    console.error(
+      "PROJ-105: Mandate oder Barzahlungsliste nicht lesbar",
+      mandateRes.error ?? widerrufenRes.error ?? barzahlungRes.error
+    );
+    throw new Error("Die SEPA-Mandate konnten nicht geprüft werden");
+  }
+
   const mitMandat = new Set((mandateRes.data ?? []).map((m) => m.customer_id));
+  const hatteMandat = new Set((widerrufenRes.data ?? []).map((m) => m.customer_id));
+  const aufBarzahlungsliste = new Set(
+    (barzahlungRes.data ?? []).map((e) => e.subscription_id).filter(Boolean)
+  );
   const nameJeKunde = new Map((profileRes.data ?? []).map((p) => [p.id, p.full_name ?? "Unbenannt"]));
   const schonEingezogen = new Set((eingezogenRes.data ?? []).map((i) => i.event_ticket_id));
   const imLauf = new Set(
@@ -108,15 +147,34 @@ async function laufLuecken(
 
   const offeneAbos: OffenePosition[] = [];
   const ausgelassen: AusgelassenesAbo[] = [];
+  const ohneMandat: OhneMandatAbo[] = [];
 
   for (const s of abosRes.data ?? []) {
-    // Ohne gültiges Mandat ist das ein Barzahler — er gehört in keine der
-    // beiden Listen (PROJ-103, bewusst entschieden).
-    if (!mitMandat.has(s.customer_id) || imLauf.has(s.id)) continue;
+    if (imLauf.has(s.id)) continue;
 
     const kundenname = nameJeKunde.get(s.customer_id) ?? "Unbenannt";
     const bezeichnung = s.name ?? "Abo";
     const grund = auslassGrund(s, dueDate, einzuege.get(s.id), ferien, zyklus);
+
+    // PROJ-103 hat alle ohne gültiges Mandat übergangen: Ein echter Barzahler
+    // stünde bei jedem Lauf da und gäbe nichts zu beurteilen. Für ein
+    // **widerrufenes** Mandat war das falsch — da ist ein Beitrag offen, und
+    // zwar einmalig (PROJ-105).
+    if (!mitMandat.has(s.customer_id)) {
+      if (beitragOffenOhneMandat(false, hatteMandat.has(s.customer_id), grund)) {
+        const tage = (einzuege.get(s.id) ?? []).map((e) => e.faellig).sort();
+        ohneMandat.push({
+          aboId: s.id,
+          kundeId: s.customer_id,
+          kundenname,
+          bezeichnung,
+          preis: s.price === null ? null : Number(s.price),
+          text: ohneMandatText(tage[tage.length - 1] ?? null, s.pending_effective_date),
+          schonAufListe: aufBarzahlungsliste.has(s.id),
+        });
+      }
+      continue;
+    }
 
     if (grund) {
       ausgelassen.push({
@@ -162,6 +220,7 @@ async function laufLuecken(
   return {
     offene: [...offeneAbos, ...tickets].sort(nachNamen),
     ausgelassen: ausgelassen.sort(nachNamen),
+    ohneMandat: ohneMandat.sort(nachNamen),
   };
 }
 
@@ -229,9 +288,9 @@ export default async function LastschriftDetailPage({
   // Sonst beurteilte die Seite einen Entwurf nach einem Zeitraum, für den er
   // nie gedacht war.
   const zyklus = entwurf ? await ladeZyklus(supabase, run.cycle_id) : null;
-  const { offene, ausgelassen } = entwurf
+  const { offene, ausgelassen, ohneMandat } = entwurf
     ? await laufLuecken(supabase, id, run.due_date, zyklus)
-    : { offene: [], ausgelassen: [] };
+    : { offene: [], ausgelassen: [], ohneMandat: [] };
 
   // Der Name des Freigebenden steht in den Anmeldedaten, nicht im Profil.
   let freigegebenVon: string | null = null;
@@ -281,6 +340,9 @@ export default async function LastschriftDetailPage({
           </AlertDescription>
         </Alert>
       )}
+      {/* PROJ-105: Vor den ausgelassenen Abos, weil hier Geld entgeht und
+          nicht nur eine Regel erklärt wird. */}
+      <OhneMandatAbos abos={ohneMandat} />
       <AusgelasseneAbos runId={run.id} abos={ausgelassen} />
       <CollectionRunDetail
         runId={run.id}
