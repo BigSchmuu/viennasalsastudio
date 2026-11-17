@@ -10,7 +10,8 @@
 - Requires: PROJ-96 (Kündigungsfrist bis Sonntag) — die Frist, die bleibt, aber ein Datum für alle wird
 - Requires: PROJ-98 (Zahlungszyklen bei den Barzahlern) — das Vorbild: ein Zyklus als Datensatz mit erstem und letztem Tag
 - Requires: PROJ-51 (Kurszeitraum und Ferien) — die Schließungen, die künftig beim Anlegen eines Zyklus berücksichtigt werden, nicht beim Rechnen
-- Berührt: PROJ-91 / PROJ-97 (Upgrade-Differenz), PROJ-102 (Studierendenpreis endet mit 28), PROJ-10 (Rechnungsarchiv), PROJ-103 (die Gründe im Lauf), AGB (`terms-de.tsx`, `terms-en.tsx`)
+- Berührt: PROJ-91 / PROJ-97 (Upgrade-Differenz), PROJ-102 (Studierendenpreis endet mit 28), PROJ-10 (Rechnungsarchiv), PROJ-103 (die Gründe im Lauf)
+- Berührt die AGB in beiden Sprachen (`terms-de.tsx`, `terms-en.tsx`): Der Fristsatz, den PROJ-96 dort verankert hat, wird in Stufe 2 wieder gestrichen. Der ursprüngliche Satz — Kündigung „wird zum Ende des jeweils laufenden 4-Wochen-Zyklus wirksam" — stimmt dann wieder, mit dem Zyklus des Studios statt dem des einzelnen Abos
 - Löst ab: PROJ-106 (Warnung beim Verwerfen) — unnötig, sobald das Zyklusende eine eingetragene Tatsache ist und nicht aus einem Lauf gerechnet wird
 
 ## Anlass
@@ -123,8 +124,10 @@ Abbuchung statt am Zyklus des Studios.
 
 ### Stufe 2 — der Rest
 
-- [ ] Angenommen ein Kunde kündigt innerhalb der Frist, wenn er bestätigt, dann wirkt die Kündigung zum Ende des laufenden Zyklus, und dieses Datum steht in der Tabelle der Zyklen
-- [ ] Angenommen ein Kunde kündigt nach der Frist, wenn er bestätigt, dann wirkt sie zum Ende des nächsten Zyklus
+- [ ] Angenommen ein Kunde kündigt an einem Tag innerhalb des laufenden Zyklus, wenn er bestätigt, dann wirkt die Kündigung zum Ende genau dieses Zyklus, und dieses Datum steht in der Tabelle der Zyklen
+- [ ] Angenommen ein Kunde kündigt am letzten Tag des Zyklus, wenn er bestätigt, dann wirkt sie noch zum Ende dieses Zyklus
+- [ ] Angenommen im Profil wird die Kündigung angeboten, wenn der Kunde sie öffnet, dann ist von keiner Frist mehr die Rede — genannt wird der letzte Tag des laufenden Zyklus
+- [ ] Angenommen der Betreiber hat für den neuen Zyklus schon einen Lauf angelegt, wenn ein Kunde danach noch rechtzeitig kündigt, dann steht seine Position noch im Entwurf und muss entfernt werden — die Verwaltung weist im Entwurf darauf hin
 - [ ] Angenommen der Betreiber verschiebt ein künftiges Zyklusende, wenn ein Kunde danach kündigt, dann nennt das Profil das verschobene Datum
 - [ ] Angenommen ein Kunde wird im nächsten Zyklus zu alt für den Studierendenpreis, wenn die Ankündigung erzeugt wird, dann nennt sie denselben Zyklusbeginn, den die Zyklusliste nennt
 - [ ] Angenommen für ein Abo wird eine Upgrade-Differenz berechnet, wenn der Zyklus schon abgebucht ist, dann richtet sich die Rechnung nach dem eingetragenen Zyklus
@@ -147,12 +150,16 @@ Abbuchung statt am Zyklus des Studios.
    Rechnung ebenfalls den 28.12. Alte und neue Fassung fallen zusammen, es gibt also kein
    Fenster mit zwei Wahrheiten. Das ist Glück und wird vom Test festgehalten, nicht
    vorausgesetzt.
-5. **Ein Abo ohne Mandat** — bleibt ein Barzahler und kommt in keinen Lauf (siehe
+5. **Kündigung nach dem Anlegen des Laufs** — ohne Frist kann sie bis zum letzten Tag des
+   Zyklus eingehen, also auch noch, wenn der Lauf für den Folgezyklus schon als Entwurf
+   steht. Die Position muss dann entfernt werden; der Entwurf weist darauf hin. Deshalb die
+   Regel: Lauf am ersten Tag des Zyklus anlegen, nicht vorher.
+6. **Ein Abo ohne Mandat** — bleibt ein Barzahler und kommt in keinen Lauf (siehe
    PROJ-105).
-6. **Ein Zyklus wird angelegt, der in der Vergangenheit liegt** — erlaubt, solange er nicht
+7. **Ein Zyklus wird angelegt, der in der Vergangenheit liegt** — erlaubt, solange er nicht
    mit einem Zyklus kollidiert, in dem schon eingezogen wurde. Für das Nachtragen der
    Historie.
-7. **Eine Kündigung, die vor dem 30.11.2026 gespeichert wurde** — ihr Datum bleibt stehen,
+8. **Eine Kündigung, die vor dem 30.11.2026 gespeichert wurde** — ihr Datum bleibt stehen,
    auch wenn es nicht auf eine Zyklusgrenze fällt. Dem Kunden wurde dieses Datum genannt.
 
 ## Technical Requirements
@@ -173,15 +180,11 @@ Abbuchung statt am Zyklus des Studios.
 - [ ] Was wird aus `next_cycle_end`? Nach Stufe 2 hat es keine Aufrufer mehr. Vorschlag:
       stehen lassen und den Kommentar auf „ohne Aufrufer" setzen, wie PROJ-96 es schon
       einmal getan hat.
-- [ ] **Die Frist fällt jetzt mit dem Zyklusende zusammen.** Alle Zyklen beginnen montags und
-      enden sonntags, also ist „letzter Sonntag am oder vor dem Zyklusende" genau der letzte
-      Tag des Zyklus — und damit hat der Betreiber **null Tage** Vorlauf. Genau das war der
-      Anlass von PROJ-96 („Es erfährt am Tag des Zyklusendes, dass ein Platz frei wird — zu
-      spät"). Vorschlag: Frist eine Woche vor Zyklusende, also am Sonntag der vorletzten
-      Kurswoche. Entscheidung offen, gehört in Stufe 2.
-- [ ] Soll die Kündigungsfrist weiter der letzte Sonntag sein, wenn sie ohnehin für alle
-      gilt? Vorschlag: ja, unverändert — ein bekannter Mechanismus, und PROJ-96 hat ihn
-      gerade erst in den AGB verankert.
+- [x] Die Frist fiel mit dem Zyklusende zusammen, weil alle Zyklen montags beginnen und
+      sonntags enden — null Tage Vorlauf, genau das Problem, das PROJ-96 lösen sollte.
+      Vorgeschlagen war eine Woche vorher. → **Entschieden: keine Frist. Eine Kündigung bis
+      zum letzten Tag des Zyklus wirkt zum Ende dieses Zyklus.** Der Fristbegriff aus
+      PROJ-96 entfällt damit ganz (2026-11-17).
 - [ ] Sollen vergangene Läufe rückwirkend einem Zyklus zugeordnet werden? Vorschlag: nein,
       erst ab dem 30.11.2026 — ein nachträglich erfundener Zyklus wäre eine Behauptung über
       einen Zeitraum, für den niemand so abgerechnet hat.
@@ -205,6 +208,8 @@ Abbuchung statt am Zyklus des Studios.
 | Zwei Stufen, Stufe 1 vor dem 30.11.2026 | Nur Tabelle, Formular und die neue Sperre sind für den Umstieg nötig. Alles andere unter Zeitdruck an Geldcode zu bauen wäre das größere Risiko | 2026-11-17 |
 | Ein Zyklus, in dem eingezogen wurde, ist unveränderlich | Sonst ändert sich im Nachhinein, wofür jemand bezahlt hat | 2026-11-17 |
 | Kündigungen von vor dem Umstieg behalten ihr Datum | Dem Kunden wurde dieses Datum genannt | 2026-11-17 |
+| Keine Kündigungsfrist mehr — Kündigung bis zum letzten Tag des Zyklus | Betreiberentscheidung 2026-11-17, nach dem Hinweis, dass damit null Tage Vorlauf bleiben: die kundenfreundliche und einfachst erklärbare Regel. Der Fristbegriff aus PROJ-96 entfällt, die Sonntagsrechnung wird nicht ersetzt, sondern gestrichen | 2026-11-17 |
+| Ein Lauf wird am ersten Tag des Zyklus oder später angelegt, nicht vorher | Folgt zwingend aus der Entscheidung oben: Wer am 8.1. einen Lauf für den Zyklus ab 11.1. freigibt, hat eine Kündigung vom 10.1. nicht mehr darin | 2026-11-17 |
 | Die Rechnung nennt den Leistungszeitraum | Heute steht in der Position nur der Aboname. Bei einem Mitgliedsbeitrag ist der Zeitraum die Angabe, auf die es ankommt | 2026-11-17 |
 
 ### Technical Decisions
