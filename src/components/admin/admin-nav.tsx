@@ -22,6 +22,7 @@ import {
   Bell,
   TicketPercent,
   CalendarOff,
+  CalendarRange,
   Tags,
   HeartHandshake,
   type LucideIcon,
@@ -76,6 +77,10 @@ const groups: NavGroup[] = [
       { href: "/admin/newsletter", label: "Newsletter", icon: Mail },
       { href: "/admin/benachrichtigungen", label: "Benachrichtigungen", icon: Bell },
       { href: "/admin/gutscheine", label: "Gutscheine", icon: TicketPercent },
+      // PROJ-107: Vor den Lastschriften, weil der Lauf am Zyklus hängt — und
+      // nicht unter ihnen, weil am Zyklus auch Kündigungsfristen und
+      // Preisankündigungen hängen.
+      { href: "/admin/zyklen", label: "Zahlungszyklen", icon: CalendarRange },
       { href: "/admin/lastschriften", label: "Lastschriften", icon: CreditCard },
       { href: "/admin/rechnungen", label: "Rechnungen", icon: FileText },
       { href: "/admin/offene-posten", label: "Offene Posten", icon: ReceiptEuro },

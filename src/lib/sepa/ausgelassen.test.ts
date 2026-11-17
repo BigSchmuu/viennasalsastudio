@@ -145,7 +145,7 @@ describe("PROJ-103: Der Grund als Satz", () => {
 
   it("unterscheidet die Pause von der Kündigung", () => {
     expect(auslassText({ art: "aenderung_wirkt", was: "paused", ab: "2026-12-01" })).toContain(
-      "Pause ab 1.12.2026"
+      "Pause ab 01.12.2026"
     );
   });
 
@@ -157,7 +157,7 @@ describe("PROJ-103: Der Grund als Satz", () => {
 
   it("nennt beim Beginn das Datum", () => {
     expect(auslassText({ art: "beginnt_spaeter", beginn: "2026-12-01" })).toBe(
-      "Beginnt erst am 1.12.2026 — nach diesem Fälligkeitstag."
+      "Beginnt erst am 01.12.2026 — nach diesem Fälligkeitstag."
     );
   });
 
@@ -170,7 +170,7 @@ describe("PROJ-103: Der Grund als Satz", () => {
     // Dieselbe Wortwahl wie im Dialog „Position hinzufügen“ — der E2E-Test von
     // PROJ-70 prüft genau diesen Satzteil.
     expect(text).toMatch(/Einzug am .* keine vier Wochen Abstand/);
-    expect(text).toContain("wieder möglich ab 5.12.2026");
+    expect(text).toContain("wieder möglich ab 05.12.2026");
   });
 
   it("sagt beim künftigen Einzug nicht „zuletzt“", () => {
@@ -329,7 +329,7 @@ describe("PROJ-107: Ein Einzug je Abo je Zyklus", () => {
       zyklusBis: "2027-01-10",
     });
     expect(text).toBe(
-      "In diesem Zyklus schon eingezogen am 30.11.2026 — der Zyklus läuft bis 10.1.2027."
+      "In diesem Zyklus schon eingezogen am 30.11.2026 — der Zyklus läuft bis 10.01.2027."
     );
   });
 

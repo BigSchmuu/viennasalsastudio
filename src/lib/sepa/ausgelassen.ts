@@ -185,8 +185,21 @@ function zyklusGrund(
   return { art: "zyklus_offen", letzterEinzug: faelligkeitsdatum, wiederAb: naechsteNachNeu };
 }
 
+/**
+ * Ein Datum, wie es der Rest der Anwendung schreibt.
+ *
+ * Zweistellig mit Jahr, also wie `formatDate` — ohne die Polsterung stand in
+ * derselben Zeile „am 6.3.2034", während die Tabelle daneben „06.03.2034"
+ * zeigte. Zwei Schreibweisen für dasselbe Datum sind an einer Stelle, an der
+ * es um Geld geht, keine Kleinigkeit.
+ */
 function tag(datum: string): string {
-  return new Date(`${datum}T00:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC" });
+  return new Date(`${datum}T00:00:00Z`).toLocaleDateString("de-AT", {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 /**

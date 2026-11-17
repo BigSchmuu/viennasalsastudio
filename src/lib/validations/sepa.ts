@@ -39,3 +39,28 @@ export const collectionRunSchema = z.object({
 });
 
 export type CollectionRunInput = z.infer<typeof collectionRunSchema>;
+
+/**
+ * Ein Zahlungszyklus (PROJ-107).
+ *
+ * Geprüft wird hier nur, was der Betreiber falsch tippen kann. Überschneidung
+ * und Unveränderlichkeit prüft die Datenbank — eine Prüfung im Formular wäre
+ * wirkungslos, sobald ein Zyklus einmal anders entsteht.
+ */
+export const zyklusSchema = z
+  .object({
+    starts_on: z
+      .string()
+      .min(1, "Erster Tag ist erforderlich")
+      .refine((v) => !Number.isNaN(new Date(v).getTime()), "Ungültiges Datum"),
+    ends_on: z
+      .string()
+      .min(1, "Letzter Tag ist erforderlich")
+      .refine((v) => !Number.isNaN(new Date(v).getTime()), "Ungültiges Datum"),
+  })
+  .refine((werte) => werte.ends_on >= werte.starts_on, {
+    message: "Der letzte Tag liegt vor dem ersten.",
+    path: ["ends_on"],
+  });
+
+export type ZyklusInput = z.infer<typeof zyklusSchema>;
