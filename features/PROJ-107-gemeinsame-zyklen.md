@@ -45,8 +45,10 @@ verschwindet, sobald der Zyklus eingetragen wird.
 
 ## Die Regel in einem Absatz
 
-Ein **Zyklus** ist ein Datensatz: erster Tag, letzter Tag, lückenlos an den Vorgänger
-anschließend, angelegt von der Verwaltung im Voraus. Vier Wochen sind nur noch der
+Ein **Zyklus** ist ein Datensatz: erster Tag, letzter Tag, angelegt von der Verwaltung im
+Voraus. **Kein Tag gehört zu zwei Zyklen** — das verbietet die Datenbank. Lückenlosigkeit ist
+dagegen Vorbelegung und Warnung im Formular, nicht Verbot (Korrektur vom 2026-11-17, siehe
+Decision Log). Vier Wochen sind nur noch der
 **Vorschlag** beim Anlegen; wer schließt, verschiebt das Ende beim Anlegen von Hand. Alles
 andere wird daraus abgeleitet: Ein Lauf zieht je Abo **einmal je Zyklus** ein. Eine
 Kündigung wirkt zum Ende des Zyklus, in dem sie eingeht, mit Frist am letzten Sonntag
@@ -110,16 +112,18 @@ Abbuchung statt am Zyklus des Studios.
 
 ### Stufe 1 — was der Umstieg am 30.11.2026 braucht
 
-- [ ] Angenommen es gibt noch keinen Zyklus, wenn der Betreiber einen anlegt, dann gibt er ersten und letzten Tag ein und die Liste zeigt ihn an
-- [ ] Angenommen ein Zyklus ist angelegt, wenn der Betreiber den nächsten anlegt, dann sind erster Tag (Tag nach dem Vorgänger) und letzter Tag (vier Wochen später) vorgeschlagen und beide änderbar
-- [ ] Angenommen für den Zeitraum sind Schließungen eingetragen, wenn der Betreiber das Formular öffnet, dann enthält der vorgeschlagene letzte Tag diese Schließtage und die Rechnung dazu ist sichtbar
-- [ ] Angenommen der Betreiber ändert das vorgeschlagene Ende, wenn er speichert, dann gilt sein Datum
-- [ ] Angenommen ein Zyklus würde sich mit einem bestehenden überschneiden oder eine Lücke lassen, wenn der Betreiber speichert, dann wird es abgelehnt und der Grund genannt
-- [ ] Angenommen in einem Zyklus wurde schon eingezogen, wenn der Betreiber ihn ändern oder löschen will, dann wird es abgelehnt
-- [ ] Angenommen ein Abo wurde in diesem Zyklus noch nicht eingezogen, wenn der Betreiber einen Lauf mit einem Fälligkeitstag in diesem Zyklus anlegt, dann ist das Abo darin
-- [ ] Angenommen ein Abo wurde in diesem Zyklus schon eingezogen, wenn der Betreiber einen zweiten Lauf im selben Zyklus anlegt, dann steht das Abo unter „Nicht aufgenommen" mit dem Grund „In diesem Zyklus schon eingezogen am [Datum]"
-- [ ] Angenommen ein Abo wurde im **vorigen** Zyklus eingezogen, wenn ein Lauf im neuen Zyklus angelegt wird, dann ist das Abo darin — unabhängig davon, wie viele Tage dazwischen liegen
-- [ ] Angenommen für den Fälligkeitstag ist kein Zyklus eingetragen, wenn ein Lauf angelegt wird, dann gilt die bisherige Vier-Wochen-Regel und der Betreiber wird darauf hingewiesen
+- [x] Angenommen es gibt noch keinen Zyklus, wenn der Betreiber einen anlegt, dann gibt er ersten und letzten Tag ein und die Liste zeigt ihn an
+- [x] Angenommen ein Zyklus ist angelegt, wenn der Betreiber den nächsten anlegt, dann sind erster Tag (Tag nach dem Vorgänger) und letzter Tag (vier Wochen später) vorgeschlagen und beide änderbar
+- [x] Angenommen für den Zeitraum sind Schließungen eingetragen, wenn der Betreiber das Formular öffnet, dann enthält der vorgeschlagene letzte Tag diese Schließtage und die Rechnung dazu ist sichtbar
+- [x] Angenommen der Betreiber ändert das vorgeschlagene Ende, wenn er speichert, dann gilt sein Datum
+- [x] Angenommen ein Zyklus würde sich mit einem bestehenden überschneiden, wenn der Betreiber speichert, dann wird es abgelehnt und der Grund genannt — E2E + DB-Test, sechs Lagen der Überschneidung
+- [x] Angenommen der Beginn lässt eine Lücke zum letzten Zyklus, wenn der Betreiber das Feld ausfüllt, dann wird die Lücke in Tagen benannt, bevor er speichert, und das Anlegen bleibt möglich — E2E
+- [x] Angenommen das Ende liegt vor dem Beginn, wenn der Betreiber speichert, dann nennt die Meldung diese Ursache und nicht eine andere — DB-Test
+- [x] Angenommen in einem Zyklus wurde schon eingezogen, wenn der Betreiber ihn ändern oder löschen will, dann wird es abgelehnt
+- [x] Angenommen ein Abo wurde in diesem Zyklus noch nicht eingezogen, wenn der Betreiber einen Lauf mit einem Fälligkeitstag in diesem Zyklus anlegt, dann ist das Abo darin
+- [x] Angenommen ein Abo wurde in diesem Zyklus schon eingezogen, wenn der Betreiber einen zweiten Lauf im selben Zyklus anlegt, dann steht das Abo unter „Nicht aufgenommen" mit dem Grund „In diesem Zyklus schon eingezogen am [Datum]"
+- [x] Angenommen ein Abo wurde im **vorigen** Zyklus eingezogen, wenn ein Lauf im neuen Zyklus angelegt wird, dann ist das Abo darin — unabhängig davon, wie viele Tage dazwischen liegen
+- [x] Angenommen für den Fälligkeitstag ist kein Zyklus eingetragen, wenn ein Lauf angelegt wird, dann gilt die bisherige Vier-Wochen-Regel und der Betreiber wird darauf hingewiesen
 - [ ] Angenommen ein Abo beginnt erst in einem späteren Zyklus, wenn ein Lauf angelegt wird, dann steht es unter „Nicht aufgenommen" mit diesem Grund
 
 ### Stufe 2 — der Rest
@@ -185,6 +189,11 @@ Abbuchung statt am Zyklus des Studios.
       Vorgeschlagen war eine Woche vorher. → **Entschieden: keine Frist. Eine Kündigung bis
       zum letzten Tag des Zyklus wirkt zum Ende dieses Zyklus.** Der Fristbegriff aus
       PROJ-96 entfällt damit ganz (2026-11-17).
+- [ ] `src/lib/supabase/types.ts` ist für `billing_cycles` und `cycle_id` **von Hand**
+      ergänzt, weil der MCP-Zugang zum Neugenerieren die ganze Sitzung abgewiesen wurde. Beim
+      nächsten echten Generieren prüfen, insbesondere ob der Verweis vom Lauf auf den Zyklus
+      als Objekt und nicht als Liste typisiert wird; die Handfassung trägt diese Verknüpfung
+      nicht, der Browsertest fragt deshalb getrennt ab.
 - [ ] Sollen vergangene Läufe rückwirkend einem Zyklus zugeordnet werden? Vorschlag: nein,
       erst ab dem 30.11.2026 — ein nachträglich erfundener Zyklus wäre eine Behauptung über
       einen Zeitraum, für den niemand so abgerechnet hat.
@@ -210,6 +219,9 @@ Abbuchung statt am Zyklus des Studios.
 | Kündigungen von vor dem Umstieg behalten ihr Datum | Dem Kunden wurde dieses Datum genannt | 2026-11-17 |
 | Keine Kündigungsfrist mehr — Kündigung bis zum letzten Tag des Zyklus | Betreiberentscheidung 2026-11-17, nach dem Hinweis, dass damit null Tage Vorlauf bleiben: die kundenfreundliche und einfachst erklärbare Regel. Der Fristbegriff aus PROJ-96 entfällt, die Sonntagsrechnung wird nicht ersetzt, sondern gestrichen | 2026-11-17 |
 | Ein Lauf wird am ersten Tag des Zyklus oder später angelegt, nicht vorher | Folgt zwingend aus der Entscheidung oben: Wer am 8.1. einen Lauf für den Zyklus ab 11.1. freigibt, hat eine Kündigung vom 10.1. nicht mehr darin | 2026-11-17 |
+| Lückenlosigkeit ist Vorschlag und Warnung, nicht Datenbankregel | Als Datenbankregel machte sie das Feature unprüfbar: Die echte Kette beginnt am 30.11.2026, ein Test für 2032 hätte achtzig Zyklen dazwischen gebraucht. Eine Regel, die Tests verhindert, schützt kein Geld. Die Überschneidung bleibt verboten — sie gäbe der Frage „zu welchem Zyklus gehört dieser Lauf" zwei Antworten | 2026-11-17 |
+| Vierter Zustand „nicht abgerechnet" für einen vergangenen Zyklus ohne Lauf | Beim Bauen fiel auf, dass dieser Fall als „künftig" beschriftet war. Es ist aber genau die Lage, die dieses Vorhaben ausgelöst hat: ein Zeitraum, für den niemand eingezogen hat | 2026-11-17 |
+| Datumsschreibweise der Auslassgründe angeglichen, zweistellig mit Jahr | In derselben Zeile stand „am 6.3.2034", in der Tabelle daneben „06.03.2034". Zwei Schreibweisen für dasselbe Datum sind bei Geld keine Kleinigkeit | 2026-11-17 |
 | Die Rechnung nennt den Leistungszeitraum | Heute steht in der Position nur der Aboname. Bei einem Mitgliedsbeitrag ist der Zeitraum die Angabe, auf die es ankommt | 2026-11-17 |
 
 ### Technical Decisions
@@ -217,7 +229,7 @@ Abbuchung statt am Zyklus des Studios.
 | Decision | Rationale | Date |
 |----------|-----------|------|
 | Zyklen als eigene Liste, kein Datum am Abo | Ein Datum je Abo müsste bei jedem Wechsel für jeden Kunden fortgeschrieben werden, und einzelne Schreibvorgänge können scheitern; eine Liste gilt für alle gleichzeitig, auch für künftige Abos | 2026-11-17 |
-| Lückenlosigkeit und Eindeutigkeit des Endes in der Datenbank | Vorbild PROJ-98; eine Prüfung nur im Formular ist wirkungslos, sobald Zyklen aus Skript, Import oder Reparatur entstehen | 2026-11-17 |
+| Nur die Überschneidung in der Datenbank, Lückenlosigkeit im Formular | Die erste Fassung verlangte eine lückenlose Kette und machte das Feature unprüfbar (siehe Produktentscheidung). Was niemals wahr sein darf, bleibt in der Datenbank; was normalerweise gelten soll, wird vorbelegt und gewarnt | 2026-11-17 (korrigiert) |
 | Der Lauf verweist auf den Zyklus, statt ihn aus dem Fälligkeitstag abzuleiten | Ein um einen Tag verschobener Bankeinzug soll den gemeinten Zyklus nicht wechseln | 2026-11-17 |
 | Am Abo wird kein Zyklus und kein „bezahlt bis" gespeichert | Jede zweite Wahrheit über Geld ist das Problem, das dieses Vorhaben beseitigt; die Antwort steht in den Positionen der Läufe | 2026-11-17 |
 | Entwürfe zählen weiterhin als Einzug | Zwei Entwürfe zum selben Zyklus wären zwei Abbuchungen, sobald beide bestätigt werden (unverändert aus PROJ-70) | 2026-11-17 |
@@ -229,6 +241,29 @@ Abbuchung statt am Zyklus des Studios.
 
 ---
 <!-- Sections below are added by subsequent skills -->
+
+## Umsetzung — Stufe 1 (2026-11-17)
+
+Vollständig: Fundament, Regel, Oberfläche, Tests.
+
+| Teil | Wo |
+|---|---|
+| Tabelle, Trigger, `cycle_id` am Lauf | `supabase/migrations/20261117140000_proj107_zahlungszyklen.sql` |
+| Korrektur: nur Überschneidung verboten | `supabase/migrations/20261117170000_proj107_nur_ueberschneidung_verboten.sql` |
+| Die Regel „ein Einzug je Abo je Zyklus" | `src/lib/sepa/ausgelassen.ts` (`zyklus_eingezogen`) |
+| Zyklus lesen, Einzüge je Abo | `src/lib/sepa/zyklus.ts` |
+| Vorschlagsrechnung, offengelegt | `src/lib/sepa/zyklus-vorschlag.ts` |
+| Aktionen | `src/lib/actions/admin/zyklen.ts` |
+| Seite und Formular | `src/app/admin/zyklen/page.tsx`, `src/components/admin/zyklen/zyklen-manager.tsx` |
+| Lauf hängt am Zyklus | `src/lib/actions/admin/sepa-collections.ts`, `src/app/admin/lastschriften/[id]/page.tsx` |
+| Tests | `ausgelassen.test.ts` (+11), `zyklus-vorschlag.test.ts` (10), `tests/PROJ-107-zyklen-db.test.ts` (11), `tests/PROJ-107-zyklen.spec.ts` (10) |
+
+**Noch nicht in der Produktion.** Beide Migrationen liegen auf dem Testprojekt; die Produktion
+spielt der Betreiber ein.
+
+**Für den Betrieb:** Der erste Zyklus (30.11.2026–10.01.2027) wird über `/admin/zyklen`
+eingetragen, nicht einmigriert. Damit der Vorschlag stimmt, muss die zweiwöchige
+Weihnachtspause unter „Ferien" stehen.
 
 ## Tech Design (Solution Architect)
 
