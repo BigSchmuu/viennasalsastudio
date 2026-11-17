@@ -6,6 +6,7 @@ import { ladeFerien } from "@/lib/scheduling/ferien";
 import { enqueueNotification } from "@/lib/notifications/dispatch";
 import { collectionRunSchema } from "@/lib/validations/sepa";
 import { generateSepaDirectDebitXml, type SepaXmlItem } from "@/lib/sepa/xml";
+import { leseGlaeubigerAdresse } from "@/lib/sepa/glaeubiger-adresse";
 import { POSITION_BETRAG_MAX } from "@/lib/sepa/laeufe";
 import {
   auslassGrund,
@@ -304,6 +305,22 @@ export async function generateRunXml(runId: string): Promise<RunXmlResult> {
     };
   }
 
+  // PROJ-104: Die strukturierte Adresse des Studios. Sie ist empfohlen, nicht
+  // Pflicht — fehlt sie ganz, entsteht die Datei ohne sie. Eine **halbe**
+  // Adresse bricht hier ab: Sie stillschweigend weglassen hieße, dass der
+  // Betreiber sie eingetragen hat und sie trotzdem nicht in der Datei steht.
+  const adresse = leseGlaeubigerAdresse({
+    strasse: process.env.SEPA_CREDITOR_STREET,
+    hausnummer: process.env.SEPA_CREDITOR_BUILDING,
+    top: process.env.SEPA_CREDITOR_ROOM,
+    plz: process.env.SEPA_CREDITOR_POSTCODE,
+    ort: process.env.SEPA_CREDITOR_TOWN,
+    land: process.env.SEPA_CREDITOR_COUNTRY,
+  });
+  if ("fehler" in adresse) {
+    return { error: adresse.fehler };
+  }
+
   const { data: run, error: runError } = await supabase
     .from("sepa_collection_runs")
     .select("id, due_date")
@@ -383,6 +400,7 @@ export async function generateRunXml(runId: string): Promise<RunXmlResult> {
     creditorIban,
     creditorBic,
     creditorId,
+    creditorAddress: adresse.adresse,
     items,
   });
 

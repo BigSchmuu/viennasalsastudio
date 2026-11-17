@@ -63,6 +63,15 @@ export default defineConfig({
       SEPA_CREDITOR_NAME: process.env.SEPA_CREDITOR_NAME ?? 'Vienna Salsa Studio Test',
       SEPA_CREDITOR_IBAN: process.env.SEPA_CREDITOR_IBAN ?? 'AT611904300234573201',
       SEPA_CREDITOR_ID: process.env.SEPA_CREDITOR_ID ?? 'AT12ZZZ00000000001',
+      // PROJ-104: Die strukturierte Gläubigeradresse für das Format ISO-2019.
+      // Mit Vorgabewerten, damit die Prüfung auf jedem Rechner dieselbe Datei
+      // bekommt und nicht von einer lokalen .env abhängt.
+      SEPA_CREDITOR_STREET: process.env.SEPA_CREDITOR_STREET ?? 'Teststraße',
+      SEPA_CREDITOR_BUILDING: process.env.SEPA_CREDITOR_BUILDING ?? '1',
+      SEPA_CREDITOR_ROOM: process.env.SEPA_CREDITOR_ROOM ?? 'Top 2',
+      SEPA_CREDITOR_POSTCODE: process.env.SEPA_CREDITOR_POSTCODE ?? '1010',
+      SEPA_CREDITOR_TOWN: process.env.SEPA_CREDITOR_TOWN ?? 'Wien',
+      SEPA_CREDITOR_COUNTRY: process.env.SEPA_CREDITOR_COUNTRY ?? 'AT',
       CRON_SECRET: process.env.CRON_SECRET ?? 'test-cron-secret',
     },
   },

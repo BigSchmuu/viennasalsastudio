@@ -175,7 +175,9 @@
 
 | PROJ-103 | Der Lastschriftlauf nennt die ausgelassenen Abos mit Grund | Deployed | [PROJ-103](../features/PROJ-103-ausgelassene-abos-benennen.md) | 2026-11-17 |
 
+| PROJ-104 | Lastschriftdatei im Format ISO-2019 (pain.008.001.08) | Approved | [PROJ-104](../features/PROJ-104-sepa-iso-2019.md) | 2026-11-17 |
+
 <!-- Add features above this line -->
 
 
-## Next Available ID: PROJ-104
+## Next Available ID: PROJ-105

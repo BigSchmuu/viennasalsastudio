@@ -25,7 +25,7 @@ const baseInput = {
 describe("generateSepaDirectDebitXml", () => {
   it("produces a well-formed pain.008 document with correct header totals", () => {
     const xml = generateSepaDirectDebitXml({ ...baseInput, items: [baseItem] });
-    expect(xml).toContain('xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02"');
+    expect(xml).toContain('xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.08"');
     expect(xml).toContain("<NbOfTxs>1</NbOfTxs>");
     expect(xml).toContain("<CtrlSum>45.00</CtrlSum>");
     expect(xml).toContain("<ReqdColltnDt>2026-09-15</ReqdColltnDt>");
@@ -120,5 +120,165 @@ describe("Längengrenzen der Kennungen (pain.008)", () => {
     expect(() =>
       generateSepaDirectDebitXml({ ...baseInput, messageId: `VSS-${echteUuid(1)}`, items: [baseItem] })
     ).toThrow(/MsgId ist 40 Zeichen/);
+  });
+});
+
+/**
+ * PROJ-104: Die Umstellung auf ISO-2019.
+ *
+ * Geprüft wird am geparsten Dokument und nicht an Textstellen: Bei einer Datei,
+ * die eine Bank gegen ein Schema hält, zählt die Reihenfolge der Elemente, und
+ * ein `toContain` sieht sie nicht.
+ */
+function parse(xml: string): Document {
+  const dokument = new DOMParser().parseFromString(xml, "application/xml");
+  const fehler = dokument.getElementsByTagName("parsererror");
+  if (fehler.length > 0) {
+    throw new Error(`XML nicht wohlgeformt: ${fehler[0].textContent}`);
+  }
+  return dokument;
+}
+
+/** Die Namen der direkten Kindelemente, in Dokumentreihenfolge. */
+function kinder(element: Element): string[] {
+  return [...element.children].map((kind) => kind.localName ?? kind.nodeName);
+}
+
+const adresse = {
+  strasse: "Beispielgasse",
+  hausnummer: "1a",
+  top: "Top 6",
+  plz: "1010",
+  ort: "Wien",
+  land: "AT",
+};
+
+describe("PROJ-104: pain.008.001.08 und die strukturierte Adresse", () => {
+  it("trägt den Namensraum der neuen Version und nirgends mehr den alten", () => {
+    const xml = generateSepaDirectDebitXml({ ...baseInput, items: [baseItem] });
+    expect(xml).toContain('xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.08"');
+    expect(xml).not.toContain("pain.008.001.02");
+    // Und das Dokument ist wohlgeformt.
+    expect(parse(xml).documentElement.localName).toBe("Document");
+  });
+
+  it("schreibt die Adresse des Gläubigers in der Reihenfolge des Schemas", () => {
+    const xml = generateSepaDirectDebitXml({
+      ...baseInput,
+      creditorAddress: adresse,
+      items: [baseItem],
+    });
+    const cdtr = parse(xml).getElementsByTagName("Cdtr")[0];
+    expect(kinder(cdtr)).toEqual(["Nm", "PstlAdr"]);
+
+    const pstlAdr = cdtr.getElementsByTagName("PstlAdr")[0];
+    // StrtNm, BldgNb, Room, PstCd, TwnNm, Ctry — Elemente 2.25, 2.26, 2.30,
+    // 2.31, 2.32, 2.36. Die Nummer im Haus steht vor der Postleitzahl, nicht
+    // dahinter; das Schema lässt da keine Wahl.
+    expect(kinder(pstlAdr)).toEqual(["StrtNm", "BldgNb", "Room", "PstCd", "TwnNm", "Ctry"]);
+    expect(pstlAdr.getElementsByTagName("Room")[0].textContent).toBe("Top 6");
+    expect(pstlAdr.getElementsByTagName("TwnNm")[0].textContent).toBe("Wien");
+    expect(pstlAdr.getElementsByTagName("Ctry")[0].textContent).toBe("AT");
+  });
+
+  it("schreibt niemals eine AdrLine — die Richtlinie verbietet sie", () => {
+    const xml = generateSepaDirectDebitXml({
+      ...baseInput,
+      creditorAddress: adresse,
+      items: [baseItem],
+    });
+    expect(xml).not.toContain("AdrLine");
+    expect(parse(xml).getElementsByTagName("AdrLine")).toHaveLength(0);
+  });
+
+  it("kommt mit Ort und Land allein aus", () => {
+    const xml = generateSepaDirectDebitXml({
+      ...baseInput,
+      creditorAddress: { ort: "Graz", land: "AT" },
+      items: [baseItem],
+    });
+    const pstlAdr = parse(xml).getElementsByTagName("PstlAdr")[0];
+    expect(kinder(pstlAdr)).toEqual(["TwnNm", "Ctry"]);
+  });
+
+  it("lässt die Adresse ganz weg, wenn keine konfiguriert ist", () => {
+    for (const ohne of [{}, { creditorAddress: null }, { creditorAddress: undefined }]) {
+      const xml = generateSepaDirectDebitXml({ ...baseInput, ...ohne, items: [baseItem] });
+      expect(parse(xml).getElementsByTagName("PstlAdr")).toHaveLength(0);
+    }
+  });
+
+  it("schreibt dem Zahlungspflichtigen keine Adresse — die braucht es im EWR nicht", () => {
+    const xml = generateSepaDirectDebitXml({
+      ...baseInput,
+      creditorAddress: adresse,
+      items: [baseItem],
+    });
+    const dbtr = parse(xml).getElementsByTagName("Dbtr")[0];
+    expect(kinder(dbtr)).toEqual(["Nm"]);
+  });
+
+  it("kürzt einen Namen auf die 70 Zeichen der Richtlinie", () => {
+    const langerName = "Maximiliane Friederike von Hohenbergen-Schwarzenstein-Lichtenfels-Waldau";
+    expect(langerName.length).toBeGreaterThan(70);
+    const xml = generateSepaDirectDebitXml({
+      ...baseInput,
+      items: [{ ...baseItem, accountHolderName: langerName }],
+    });
+    const name = parse(xml).getElementsByTagName("Dbtr")[0].getElementsByTagName("Nm")[0];
+    expect(name.textContent).toBe(langerName.slice(0, 70));
+    expect(name.textContent).toHaveLength(70);
+  });
+
+  it("kürzt den Verwendungszweck auf 140 Zeichen", () => {
+    const lang = "Beitrag ".repeat(30);
+    expect(lang.length).toBeGreaterThan(140);
+    const xml = generateSepaDirectDebitXml({
+      ...baseInput,
+      items: [{ ...baseItem, remittanceInfo: lang }],
+    });
+    expect(parse(xml).getElementsByTagName("Ustrd")[0].textContent).toHaveLength(140);
+  });
+
+  it("lässt Umlaute stehen — erlaubt ist der national gebräuchliche Zeichensatz", () => {
+    const xml = generateSepaDirectDebitXml({
+      ...baseInput,
+      creditorAddress: { ...adresse, strasse: "Währinger Straße", ort: "Wien" },
+      items: [{ ...baseItem, accountHolderName: "Jürgen Müller-Lüdenscheid" }],
+    });
+    const dokument = parse(xml);
+    expect(dokument.getElementsByTagName("Dbtr")[0].textContent).toContain("Jürgen Müller");
+    expect(dokument.getElementsByTagName("StrtNm")[0].textContent).toBe("Währinger Straße");
+  });
+
+  it("behält die Reihenfolge der Blockelemente, mit und ohne Adresse", () => {
+    for (const adressfall of [{ creditorAddress: adresse }, {}]) {
+      const xml = generateSepaDirectDebitXml({ ...baseInput, ...adressfall, items: [baseItem] });
+      const pmtInf = parse(xml).getElementsByTagName("PmtInf")[0];
+      expect(kinder(pmtInf)).toEqual([
+        "PmtInfId",
+        "PmtMtd",
+        "NbOfTxs",
+        "CtrlSum",
+        "PmtTpInf",
+        "ReqdColltnDt",
+        "Cdtr",
+        "CdtrAcct",
+        "CdtrAgt",
+        "ChrgBr",
+        "CdtrSchmeId",
+        "DrctDbtTxInf",
+      ]);
+      const tx = pmtInf.getElementsByTagName("DrctDbtTxInf")[0];
+      expect(kinder(tx)).toEqual([
+        "PmtId",
+        "InstdAmt",
+        "DrctDbtTx",
+        "DbtrAgt",
+        "Dbtr",
+        "DbtrAcct",
+        "RmtInf",
+      ]);
+    }
   });
 });
