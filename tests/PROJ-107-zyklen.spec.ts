@@ -220,6 +220,26 @@ test.describe("PROJ-107: Zahlungszyklen verwalten", () => {
     await expect(page.getByTestId("zyklus-rechnung")).toContainText("vier Kurswochen wären der");
   });
 
+  test("lässt das Ende dem Beginn folgen", async ({ page }) => {
+    // Gemeldet am 2026-11-17: Vorgeschlagen war „heute bis in vier Wochen",
+    // weil noch kein Zyklus eingetragen war. Wer den Beginn überschrieb,
+    // behielt das alte Ende — bei einem Abrechnungszeitraum eine Falle.
+    await anmelden(page);
+    await gehZu(page, "/admin/zyklen");
+    await page.locator("#zyklus-von").fill("2034-07-03");
+    // Vier Kurswochen: 28 Tage einschließlich des ersten.
+    await expect(page.locator("#zyklus-bis")).toHaveValue("2034-07-30");
+    await expect(page.getByTestId("zyklus-rechnung")).toContainText("30.07.2034");
+  });
+
+  test("sagt es, wenn das Ende vom Vorschlag abweicht", async ({ page }) => {
+    await anmelden(page);
+    await gehZu(page, "/admin/zyklen");
+    await page.locator("#zyklus-von").fill("2034-07-03");
+    await page.locator("#zyklus-bis").fill("2034-08-13");
+    await expect(page.getByTestId("zyklus-rechnung")).toContainText("Dein Ende weicht davon ab");
+  });
+
   test("legt einen Zyklus an und zeigt ihn mit Dauer und Zustand", async ({ page }) => {
     test.slow();
     await anmelden(page);

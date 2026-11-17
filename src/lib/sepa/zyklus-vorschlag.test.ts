@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { zyklusVorschlag, luecke } from "./zyklus-vorschlag";
+import { zyklusVorschlag, endeZu, luecke } from "./zyklus-vorschlag";
 
 const KEINE_FERIEN: { von: string; bis: string }[] = [];
 
@@ -69,5 +69,42 @@ describe("PROJ-107: Die Lücke wird benannt, nicht verboten", () => {
 
   it("nennt null, wenn es keinen Vorgänger gibt", () => {
     expect(luecke(null, "2026-11-30")).toBe(0);
+  });
+});
+
+describe("PROJ-107: Das Ende folgt dem gewählten Beginn", () => {
+  /**
+   * Der Fall aus dem Betrieb, 2026-11-17: Das Formular schlug 17.11. bis
+   * 14.12. vor (heute plus vier Wochen, weil noch kein Zyklus eingetragen
+   * war). Wer den Beginn auf den 30.11. setzte, behielt den 14.12. als Ende —
+   * ein Zeitraum, der weder vier Kurswochen lang war noch die Weihnachtspause
+   * enthielt.
+   */
+  it("rechnet das Ende zum Beginn, den der Betreiber eintippt", () => {
+    expect(endeZu("2026-11-30", WEIHNACHTEN)).toEqual({
+      bis: "2027-01-10",
+      ohneSchliesstage: "2026-12-27",
+      schliesstage: 14,
+    });
+  });
+
+  it("nennt null Schließtage, wo die Pause nicht hineinfällt", () => {
+    // Genau der gemeldete Vorschlag: Zwischen 17.11. und 15.12. liegt die
+    // Weihnachtspause nicht. Null Schließtage sind hier also richtig und
+    // sagen nichts darüber, ob Ferien eingetragen sind.
+    expect(endeZu("2026-11-17", WEIHNACHTEN)).toEqual({
+      bis: "2026-12-14",
+      ohneSchliesstage: "2026-12-14",
+      schliesstage: 0,
+    });
+  });
+
+  it("liefert dasselbe wie der Vorschlag für den Anschlusszyklus", () => {
+    const vorschlag = zyklusVorschlag("2026-11-29", WEIHNACHTEN, "egal");
+    const direkt = endeZu("2026-11-30", WEIHNACHTEN);
+    expect({ bis: vorschlag.bis, schliesstage: vorschlag.schliesstage }).toEqual({
+      bis: direkt.bis,
+      schliesstage: direkt.schliesstage,
+    });
   });
 });

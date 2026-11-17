@@ -27,9 +27,7 @@ function tageZwischen(von: string, bis: string): number {
   return Math.round((Date.parse(`${bis}T00:00:00Z`) - Date.parse(`${von}T00:00:00Z`)) / TAG_MS);
 }
 
-export type ZyklusVorschlag = {
-  /** Erster Tag: der Tag nach dem letzten Zyklus, sonst der genannte Starttag. */
-  von: string;
+export type ZyklusEnde = {
   /** Letzter Tag, Schließtage mitgerechnet. */
   bis: string;
   /** Wo das Ende ohne Schließungen läge — für die offengelegte Rechnung. */
@@ -37,6 +35,30 @@ export type ZyklusVorschlag = {
   /** Wie viele Schließtage im Zeitraum liegen. */
   schliesstage: number;
 };
+
+export type ZyklusVorschlag = ZyklusEnde & {
+  /** Erster Tag: der Tag nach dem letzten Zyklus, sonst der genannte Starttag. */
+  von: string;
+};
+
+/**
+ * Vier Kurswochen ab `von` — das vorgeschlagene Ende samt offengelegter
+ * Rechnung.
+ *
+ * Eigene Funktion, weil das Formular sie bei **jeder** Änderung des ersten
+ * Tages neu braucht. Ohne das blieb am 2026-11-17 ein Ende stehen, das nicht
+ * mehr zum Beginn passte — bei einem Abrechnungszeitraum keine
+ * Unbequemlichkeit, sondern eine Falle.
+ */
+export function endeZu(
+  von: string,
+  ferien: Ferienzeitraum[],
+  zyklusTage: number = ZYKLUS_TAGE
+): ZyklusEnde {
+  const ohneSchliesstage = tagePlus(von, zyklusTage - 1);
+  const bis = tagePlus(naechsteFaelligkeit(von, ferien, zyklusTage), -1);
+  return { bis, ohneSchliesstage, schliesstage: tageZwischen(ohneSchliesstage, bis) };
+}
 
 /**
  * Vorschlag für den Zyklus nach `letztesEnde`.
@@ -58,14 +80,7 @@ export function zyklusVorschlag(
   zyklusTage: number = ZYKLUS_TAGE
 ): ZyklusVorschlag {
   const von = letztesEnde ? tagePlus(letztesEnde, 1) : fallback;
-  const ohneSchliesstage = tagePlus(von, zyklusTage - 1);
-  const bis = tagePlus(naechsteFaelligkeit(von, ferien, zyklusTage), -1);
-  return {
-    von,
-    bis,
-    ohneSchliesstage,
-    schliesstage: tageZwischen(ohneSchliesstage, bis),
-  };
+  return { von, ...endeZu(von, ferien, zyklusTage) };
 }
 
 /**

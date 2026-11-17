@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { legeZyklusAn, aendereZyklus, entferneZyklus } from "@/lib/actions/admin/zyklen";
-import { luecke } from "@/lib/sepa/zyklus-vorschlag";
+import { endeZu, luecke } from "@/lib/sepa/zyklus-vorschlag";
+import type { Ferienzeitraum } from "@/lib/scheduling/dates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -88,11 +89,13 @@ export function ZyklenManager({
   vorschlag,
   letztesEnde,
   vorlaufTage,
+  ferien,
 }: {
   zyklen: ZyklusZeile[];
   vorschlag: Vorschlag;
   letztesEnde: string | null;
   vorlaufTage: number | null;
+  ferien: Ferienzeitraum[];
 }) {
   const [fehler, setFehler] = useState<string | null>(null);
   const [von, setVon] = useState(vorschlag.von);
@@ -102,6 +105,22 @@ export function ZyklenManager({
   const [laeuft, starte] = useTransition();
 
   const offeneLuecke = luecke(letztesEnde, von);
+
+  // Die Rechnung gehört zum **eingetippten** Beginn, nicht zum Vorschlag, mit
+  // dem die Seite geladen wurde. Sonst erklärt sie ein Ende, das längst nicht
+  // mehr gilt — am 2026-11-17 genau so gemeldet: Vorgeschlagen war „heute bis
+  // in vier Wochen", und wer den Beginn auf den 30.11. setzte, behielt das
+  // alte Ende.
+  const gueltigerBeginn = /^\d{4}-\d{2}-\d{2}$/.test(von);
+  const rechnung = gueltigerBeginn ? endeZu(von, ferien) : null;
+  const abweichend = rechnung !== null && bis !== rechnung.bis;
+
+  function beginnGeaendert(neu: string) {
+    setVon(neu);
+    // Das Ende folgt dem Beginn. Wer es danach von Hand ändert, behält seine
+    // Eingabe — bis er den Beginn wieder anfasst.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(neu)) setBis(endeZu(neu, ferien).bis);
+  }
 
   function anlegen(formData: FormData) {
     setFehler(null);
@@ -178,7 +197,7 @@ export function ZyklenManager({
               name="starts_on"
               type="date"
               value={von}
-              onChange={(e) => setVon(e.target.value)}
+              onChange={(e) => beginnGeaendert(e.target.value)}
               required
             />
           </div>
@@ -200,12 +219,20 @@ export function ZyklenManager({
 
         {/* Die Rechnung offengelegt: Wer sie nachvollziehen kann, kann sie auch
             überschreiben. */}
-        <p className="text-sm text-muted-foreground" data-testid="zyklus-rechnung">
-          Vorgeschlagen: vier Kurswochen wären der {formatDate(vorschlag.ohneSchliesstage)}
-          {vorschlag.schliesstage > 0
-            ? `, dazu ${vorschlag.schliesstage} eingetragene Schließtage — also der ${formatDate(vorschlag.bis)}.`
-            : " — es sind keine Schließtage eingetragen."}
-        </p>
+        {rechnung && (
+          <p className="text-sm text-muted-foreground" data-testid="zyklus-rechnung">
+            Vorgeschlagen: vier Kurswochen wären der {formatDate(rechnung.ohneSchliesstage)}
+            {rechnung.schliesstage > 0
+              ? `, dazu ${rechnung.schliesstage} eingetragene Schließtage — also der ${formatDate(rechnung.bis)}.`
+              : " — in diesem Zeitraum sind keine Schließtage eingetragen."}
+            {abweichend && (
+              <span className="block font-medium text-amber-700 dark:text-amber-500">
+                Dein Ende weicht davon ab: {formatDate(bis)}. Gewollt, wenn du es selbst gesetzt
+                hast.
+              </span>
+            )}
+          </p>
+        )}
 
         {offeneLuecke > 0 && (
           <Alert data-testid="zyklus-luecke-warnung">

@@ -84,6 +84,7 @@ export default async function ZyklenPage() {
       vorschlag={vorschlag}
       letztesEnde={letztesEnde}
       vorlaufTage={vorlaufTage}
+      ferien={ferien}
     />
   );
 }
