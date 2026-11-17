@@ -86,7 +86,9 @@ test.describe("PROJ-49: Eigener Bereich für Lehrer", () => {
     await page.waitForTimeout(1200);
 
     await page.getByRole("link", { name: "Anwesenheit", exact: true }).first().click();
-    await page.waitForTimeout(2000);
+    // Auf die Navigation warten, nicht auf eine Dauer — sonst entscheidet die
+    // Wartezeit über das Ergebnis (siehe PROJ-70, 2026-11-17).
+    await page.waitForURL(/\/lehrer\//, { timeout: 30_000 });
     expect(page.url()).toContain("/lehrer/");
   });
 

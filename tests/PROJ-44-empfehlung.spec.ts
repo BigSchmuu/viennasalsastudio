@@ -161,16 +161,44 @@ test.describe("PROJ-44: Empfehlungsprogramm", () => {
     await page.locator("#referral-reward-referrer").fill("0");
     await page.locator("#referral-reward-referee").fill("0");
     await page.getByRole("button", { name: "Speichern" }).first().click();
-    await page.waitForTimeout(2000);
-    const { data: aus } = await svc.from("dropin_pricing").select("referral_reward_referrer").limit(1).single();
-    expect(Number(aus!.referral_reward_referrer)).toBe(0);
+    // Auf den Zustand warten, nicht auf eine Dauer: `expect.poll` fragt die
+    // Datenbank, bis sie den erwarteten Wert zeigt. Eine feste Wartezeit
+    // davor entschied über das Ergebnis — wer langsamer speicherte, galt als
+    // gescheitert. Muster wie in PROJ-63.
+    await expect
+      .poll(
+        async () => {
+          const { data } = await svc
+            .from("dropin_pricing")
+            .select("referral_reward_referrer")
+            .limit(1)
+            .single();
+          return Number(data!.referral_reward_referrer);
+        },
+        { timeout: 30_000 }
+      )
+      .toBe(0);
 
     await page.locator("#referral-reward-referrer").fill("15");
     await page.locator("#referral-reward-referee").fill("15");
     await page.getByRole("button", { name: "Speichern" }).first().click();
-    await page.waitForTimeout(2000);
-    const { data: an } = await svc.from("dropin_pricing").select("referral_reward_referrer").limit(1).single();
-    expect(Number(an!.referral_reward_referrer)).toBe(15);
+    // Auf den Zustand warten, nicht auf eine Dauer: `expect.poll` fragt die
+    // Datenbank, bis sie den erwarteten Wert zeigt. Eine feste Wartezeit
+    // davor entschied über das Ergebnis — wer langsamer speicherte, galt als
+    // gescheitert. Muster wie in PROJ-63.
+    await expect
+      .poll(
+        async () => {
+          const { data } = await svc
+            .from("dropin_pricing")
+            .select("referral_reward_referrer")
+            .limit(1)
+            .single();
+          return Number(data!.referral_reward_referrer);
+        },
+        { timeout: 30_000 }
+      )
+      .toBe(15);
   });
 });
 

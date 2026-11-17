@@ -101,7 +101,13 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     await page.waitForTimeout(1200);
     await (await navBereich(page)).getByRole("group", { name: /Sprache|Language/ })
       .getByRole("button", { name: "EN" }).click();
-    await page.waitForTimeout(2000);
+    // Gewartet wird auf den Wechsel der Adresse, nicht auf eine Dauer: Nach
+    // einem Klick entscheidet eine feste Wartezeit über das Ergebnis, und wer
+    // langsamer ist als sie, gilt als gescheitert. Am 2026-11-17 war genau das
+    // in PROJ-70 und PROJ-103 die Ursache für Fehlschläge, die nach einem
+    // Fehler im Code aussahen. Die Wartezeiten nach einem `goto` bleiben: Dort
+    // steht die Adresse schon, sie beruhigen nur.
+    await page.waitForURL((u) => u.pathname === "/en/stundenplan", { timeout: 30_000 });
     expect(new URL(page.url()).pathname).toBe("/en/stundenplan");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
@@ -133,12 +139,12 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
       (await navBereich(page)).getByRole("group", { name: /Sprache|Language/ });
 
     (await umschalter()).getByRole("button", { name: "EN" }).click();
-    await page.waitForTimeout(2500);
+    await page.waitForURL((u) => u.pathname === "/en/stundenplan", { timeout: 30_000 });
     expect(new URL(page.url()).pathname, "DE → EN").toBe("/en/stundenplan");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
     await (await umschalter()).getByRole("button", { name: "DE" }).click();
-    await page.waitForTimeout(2500);
+    await page.waitForURL((u) => u.pathname === "/stundenplan", { timeout: 30_000 });
     expect(new URL(page.url()).pathname, "EN → DE").toBe("/stundenplan");
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
 
@@ -172,7 +178,7 @@ test.describe("PROJ-43: Englische Sprachvariante", () => {
     await page.getByRole("button", { name: /Menü öffnen|Open menu/ }).click();
     await page.waitForTimeout(500);
     await page.getByRole("group", { name: /Sprache|Language/ }).getByRole("button", { name: "DE" }).click();
-    await page.waitForTimeout(2500);
+    await page.waitForURL((u) => u.pathname === "/stundenplan", { timeout: 30_000 });
     expect(new URL(page.url()).pathname, "am Handy zurück auf Deutsch").toBe("/stundenplan");
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
   });
