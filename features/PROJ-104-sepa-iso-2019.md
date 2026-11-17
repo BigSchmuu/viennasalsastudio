@@ -1,6 +1,6 @@
 # PROJ-104: Die Lastschriftdatei im Format ISO-2019 (pain.008.001.08)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-17
 **Last Updated:** 2026-11-17
 
@@ -296,5 +296,42 @@ Keine Migration, keine Datenbankänderung, keine Änderung an Zugriffsregeln, ke
 Abhängigkeit. Sechs neue Konfigurationswerte, alle optional — bleiben sie leer, entsteht eine
 gültige Datei ohne Adresse.
 
-## Deployment
-_To be added_
+## Deployment (2026-11-17)
+
+| | |
+| --- | --- |
+| Produktion | https://app.viennasalsastudio.at |
+| Commits | `feat(PROJ-104)`, `deploy(PROJ-104)` |
+| Tag | `v1.104.0-PROJ-104` |
+| Migration | **keine** |
+| Konfiguration | sechs neue Werte, vor dem Ausliefern in Vercel gesetzt (Production und Preview, Typ Config) |
+
+### Vor dem Ausliefern
+
+- `npm run build`, `eslint .`, `tsc --noEmit` ohne Beanstandung
+- Einheiten- und Datenbanksuite: 1619 bestanden, 121 Dateien
+- PROJ-104 im Browser: 1/1 an der heruntergeladenen Datei
+- Regression PROJ-7, PROJ-47, PROJ-10: 40/40
+- Die Konfigurationswerte **zuerst**: Umgebungsvariablen greifen erst mit der nächsten
+  Auslieferung („Changes to environment variables are not applied to previous deployments"),
+  also gesetzt und dann ausgeliefert — eine Runde statt zwei.
+
+## Für den Betrieb
+
+**Der nächste Upload ist die Probe.** Bleibt die Warnung aus, war die Umstellung richtig.
+Kommt eine Ablehnung, ist der Rückweg ein Klick in Vercel auf die vorige Auslieferung — die
+alte Datei bleibt bis dahin erzeugbar, weil sie bei jedem Abruf neu entsteht.
+
+**An den Mandaten ändert sich nichts.** Gleiche Referenz, gleiches Unterschriftsdatum, keine
+neue Zustimmung. Die Umstellung betrifft nur, wie die Datei für die Bank aussieht.
+
+**Zwei Dinge, die auffallen könnten:**
+
+| Fall | Was zu tun ist |
+| --- | --- |
+| Die Bank stößt sich am „ß" in „Große Schiffgasse" | `SEPA_CREDITOR_STREET` auf „Grosse Schiffgasse" ändern — eine Variable, kein neues Ausliefern des Codes nötig, nur eine erneute Auslieferung |
+| Die Bank verlangt die österreichische Variante | Offene Frage, siehe oben; die PSA-Seiten waren nicht erreichbar |
+
+**Wenn die Adresse einmal falsch dasteht:** Sie kommt aus der Konfiguration, nicht aus der
+Datenbank. Ändern heißt: Wert in Vercel ändern und neu ausliefern. Leeren heißt: alle sechs
+Werte leeren — vier von sechs lässt der Download mit einer Meldung abbrechen.
