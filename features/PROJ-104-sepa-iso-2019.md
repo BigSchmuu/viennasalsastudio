@@ -305,6 +305,7 @@ gültige Datei ohne Adresse.
 | Tag | `v1.104.0-PROJ-104` |
 | Migration | **keine** |
 | Konfiguration | sechs neue Werte, vor dem Ausliefern in Vercel gesetzt (Production und Preview, Typ Config) |
+| Nachtrag | `SEPA_CREDITOR_STREET` auf „Grosse Schiffgasse" geändert (ohne „ß", auf Wunsch des Betreibers) und erneut ausgeliefert |
 
 ### Vor dem Ausliefern
 
@@ -325,12 +326,18 @@ alte Datei bleibt bis dahin erzeugbar, weil sie bei jedem Abruf neu entsteht.
 **An den Mandaten ändert sich nichts.** Gleiche Referenz, gleiches Unterschriftsdatum, keine
 neue Zustimmung. Die Umstellung betrifft nur, wie die Datei für die Bank aussieht.
 
-**Zwei Dinge, die auffallen könnten:**
+**Die Straße steht ohne „ß" in der Datei.** Der Betreiber hat sich am 2026-11-17 für
+„Grosse Schiffgasse" entschieden, noch bevor eine Bank daran Anstoß nehmen konnte. Erlaubt
+wäre beides: Die Richtlinie deckt den national gebräuchlichen Zeichensatz ab (Abschnitt 1.4),
+aber die Schreibweise ohne Sonderzeichen kommt durch jede Prüfung. Der Wert steht in
+`SEPA_CREDITOR_STREET`.
+
+**Was noch auffallen könnte:**
 
 | Fall | Was zu tun ist |
 | --- | --- |
-| Die Bank stößt sich am „ß" in „Große Schiffgasse" | `SEPA_CREDITOR_STREET` auf „Grosse Schiffgasse" ändern — eine Variable, kein neues Ausliefern des Codes nötig, nur eine erneute Auslieferung |
 | Die Bank verlangt die österreichische Variante | Offene Frage, siehe oben; die PSA-Seiten waren nicht erreichbar |
+| Die Adresse soll sich ändern | Wert in Vercel ändern **und** neu ausliefern — eine Variable allein wirkt nicht auf bestehende Auslieferungen |
 
 **Wenn die Adresse einmal falsch dasteht:** Sie kommt aus der Konfiguration, nicht aus der
 Datenbank. Ändern heißt: Wert in Vercel ändern und neu ausliefern. Leeren heißt: alle sechs
