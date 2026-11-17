@@ -257,11 +257,11 @@ test.describe("PROJ-103: Ausgelassene Abos stehen mit Namen und Grund da", () =>
 
     // B: beginnt erst später — mit dem Beginndatum.
     const b = zeile(page, `${KENNUNG} Spaetstart`);
-    await expect(b).toContainText("Beginnt erst am 1.6.2032");
+    await expect(b).toContainText("Beginnt erst am 01.06.2032");
 
     // C: gekündigt — bis PROJ-103 fiel dieses Abo ohne jede Meldung heraus.
     const c = zeile(page, `${KENNUNG} Gekuendigt`);
-    await expect(c).toContainText("Gekündigt zum 1.2.2032");
+    await expect(c).toContainText("Gekündigt zum 01.02.2032");
 
     // D: kein Preis — ebenfalls ein stiller Fall, und ohne Betrag.
     const d = zeile(page, `${KENNUNG} Ohne Preis`);

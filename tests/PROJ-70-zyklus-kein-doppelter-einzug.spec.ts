@@ -197,7 +197,25 @@ async function legeLaufAn(page: Page, datum: string): Promise<boolean> {
   await page.waitForTimeout(400);
   await page.locator("#due-date").fill(datum);
   await page.getByRole("button", { name: "Lauf erstellen" }).click();
-  await page.waitForTimeout(2500);
+
+  // Gewartet wird auf die Navigation, nicht auf eine Frist.
+  //
+  // Hier standen feste 2500 Millisekunden, und darunter litt diese Suite
+  // sichtbar: Am 2026-11-17 fielen in zwei Durchgängen **verschiedene**
+  // Prüfungen aus — das Kennzeichen einer Zeitabhängigkeit, nicht eines
+  // Fehlers im Code. Die Ursache: Beim ersten Aufruf übersetzt der
+  // Entwicklungsserver die Serveraktion erst, das dauert länger als die
+  // Wartezeit, und der Test hielt die Verzögerung für eine Ablehnung.
+  //
+  // Dieselbe Stelle war in PROJ-103 derselbe Fehlschluss und wurde dort am
+  // 2026-11-17 so behoben. Wo kein Lauf entsteht, wartet die Prüfung einmal
+  // die volle Frist ab — das ist der Preis dafür, dass ein Fehlschlagen hier
+  // etwas bedeutet.
+  try {
+    await page.waitForURL(/\/admin\/lastschriften\/[0-9a-f-]{36}/, { timeout: 45_000 });
+  } catch {
+    // Kein Lauf entstanden — in mehreren Prüfungen das erwartete Ergebnis.
+  }
   return /\/admin\/lastschriften\/[0-9a-f-]{36}/.test(page.url());
 }
 
@@ -216,6 +234,12 @@ async function positionenZu(datum: string, abo: string = aboId): Promise<number>
     .eq("subscription_id", abo);
   return count ?? 0;
 }
+
+// Die Prüfungen legen Läufe über die Oberfläche an und warten dabei auf ein
+// Ergebnis statt auf eine Frist (siehe `legeLaufAn`). Dafür reichen die 60
+// Sekunden der Voreinstellung nicht; und seriell, weil sie aufeinander
+// aufbauen — der erste Lauf ist die Vorbedingung des zweiten.
+test.describe.configure({ mode: "serial", timeout: 180_000 });
 
 test.describe("PROJ-70: Kein zweiter Einzug im selben Zyklus", () => {
   test("Der erste Lauf nimmt das Abo mit", async ({ page }) => {
