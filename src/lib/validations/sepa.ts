@@ -32,6 +32,10 @@ export const collectionRunSchema = z.object({
     .min(1, "Fälligkeitsdatum ist erforderlich")
     .refine((value) => !Number.isNaN(new Date(value).getTime()), "Ungültiges Datum"),
   confirm_duplicate: z.enum(["true", "false"]).optional(),
+  // PROJ-107: Der Zyklus, für den eingezogen wird. Optional, weil das Formular
+  // ihn erst nach der Umstellung mitschickt — und weil ein Fälligkeitstag ohne
+  // eingetragenen Zyklus auf die Vier-Wochen-Rechnung zurückfällt.
+  cycle_id: z.string().uuid("Ungültiger Zyklus").optional(),
 });
 
 export type CollectionRunInput = z.infer<typeof collectionRunSchema>;

@@ -180,6 +180,30 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_cycles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ends_on: string
+          id: string
+          starts_on: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ends_on: string
+          id?: string
+          starts_on: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ends_on?: string
+          id?: string
+          starts_on?: string
+        }
+        Relationships: []
+      }
       cash_cycle_entries: {
         Row: {
           amount_due: number
@@ -2063,6 +2087,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          cycle_id: string | null
           due_date: string
           id: string
           released_at: string | null
@@ -2071,6 +2096,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          cycle_id?: string | null
           due_date: string
           id?: string
           released_at?: string | null
@@ -2079,12 +2105,20 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          cycle_id?: string | null
           due_date?: string
           id?: string
           released_at?: string | null
           released_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sepa_collection_runs_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "billing_cycles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sepa_collection_runs_created_by_fkey"
             columns: ["created_by"]

@@ -6,6 +6,7 @@ import {
   type CollectionItemRow,
 } from "@/components/admin/sepa/collection-run-detail";
 import type { OffenePosition } from "@/components/admin/sepa/positions-dialoge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +22,9 @@ import {
   auslassText,
   istDatenfehler,
   type AuslassArt,
+  type Zyklus,
 } from "@/lib/sepa/ausgelassen";
+import { ladeZyklus, einzuegeJeAbo } from "@/lib/sepa/zyklus";
 import {
   AusgelasseneAbos,
   type AusgelassenesAbo,
@@ -51,14 +54,22 @@ import {
  * deshalb **nicht** im Dialog: Sie haben in der Zeile oben ihren eigenen Weg,
  * mit dem Grund daneben.
  */
-const NACHTRAGBAR = new Set<AuslassArt>(["beginnt_spaeter", "zyklus_offen", "zyklus_vorgemerkt"]);
+const NACHTRAGBAR = new Set<AuslassArt>([
+  "beginnt_spaeter",
+  "zyklus_offen",
+  "zyklus_vorgemerkt",
+  // PROJ-107: Nach einer Rücklastschrift muss ein Abo auch innerhalb seines
+  // Zyklus ein zweites Mal eingezogen werden können.
+  "zyklus_eingezogen",
+]);
 
 type Luecken = { offene: OffenePosition[]; ausgelassen: AusgelassenesAbo[] };
 
 async function laufLuecken(
   supabase: Awaited<ReturnType<typeof createClient>>,
   runId: string,
-  dueDate: string
+  dueDate: string,
+  zyklus: Zyklus | null
 ): Promise<Luecken> {
   const [abosRes, ticketsRes, eingezogenRes, imLaufRes, mandateRes, profileRes, frühereRes, ferien] =
     await Promise.all([
@@ -80,7 +91,7 @@ async function laufLuecken(
     // der Betreiber trüge sie gutgläubig nach.
     supabase
       .from("sepa_collection_items")
-      .select("subscription_id, sepa_collection_runs(due_date)")
+      .select("subscription_id, sepa_collection_runs(due_date, cycle_id)")
       .not("subscription_id", "is", null)
       .neq("run_id", runId),
     ladeFerien(supabase),
@@ -93,15 +104,7 @@ async function laufLuecken(
     (imLaufRes.data ?? []).flatMap((i) => [i.subscription_id, i.event_ticket_id].filter(Boolean))
   );
 
-  const einzuegeJeAbo = new Map<string, string[]>();
-  for (const zeile of frühereRes.data ?? []) {
-    const abo = zeile.subscription_id;
-    const faellig = zeile.sepa_collection_runs?.due_date;
-    if (!abo || !faellig) continue;
-    const bisher = einzuegeJeAbo.get(abo) ?? [];
-    bisher.push(faellig);
-    einzuegeJeAbo.set(abo, bisher);
-  }
+  const einzuege = einzuegeJeAbo(frühereRes.data);
 
   const offeneAbos: OffenePosition[] = [];
   const ausgelassen: AusgelassenesAbo[] = [];
@@ -113,7 +116,7 @@ async function laufLuecken(
 
     const kundenname = nameJeKunde.get(s.customer_id) ?? "Unbenannt";
     const bezeichnung = s.name ?? "Abo";
-    const grund = auslassGrund(s, dueDate, einzuegeJeAbo.get(s.id), ferien);
+    const grund = auslassGrund(s, dueDate, einzuege.get(s.id), ferien, zyklus);
 
     if (grund) {
       ausgelassen.push({
@@ -172,7 +175,7 @@ export default async function LastschriftDetailPage({
 
   const { data: run } = await supabase
     .from("sepa_collection_runs")
-    .select("id, due_date, released_at, released_by")
+    .select("id, due_date, released_at, released_by, cycle_id")
     .eq("id", id)
     .single();
   if (!run) {
@@ -203,8 +206,12 @@ export default async function LastschriftDetailPage({
   const entwurf = run.released_at === null;
   // Nach der Freigabe ist am Lauf nichts mehr zu entscheiden — dann gibt es
   // weder den Dialog noch den Hinweis auf ausgelassene Abos.
+  // PROJ-107: Der Zyklus, an dem der Lauf hängt — nicht der zum heutigen Tag.
+  // Sonst beurteilte die Seite einen Entwurf nach einem Zeitraum, für den er
+  // nie gedacht war.
+  const zyklus = entwurf ? await ladeZyklus(supabase, run.cycle_id) : null;
   const { offene, ausgelassen } = entwurf
-    ? await laufLuecken(supabase, id, run.due_date)
+    ? await laufLuecken(supabase, id, run.due_date, zyklus)
     : { offene: [], ausgelassen: [] };
 
   // Der Name des Freigebenden steht in den Anmeldedaten, nicht im Profil.
@@ -241,6 +248,20 @@ export default async function LastschriftDetailPage({
           PROJ-103: Und eine Zahl ohne Namen lässt sich nicht beurteilen. Der
           Kasten rechnet sich aus dem Lauf, nicht aus der Adresse — er ist
           nach dem Neuladen und an jedem älteren Entwurf noch da. */}
+      {/* PROJ-107: Ein Fälligkeitstag ohne eingetragenen Zyklus fällt auf die
+          Vier-Wochen-Rechnung zurück. Das ist erlaubt — still darf es nicht
+          sein, sonst beurteilt der Betreiber einen Lauf nach einer Regel, von
+          der er nicht weiß, dass sie gilt. */}
+      {entwurf && !zyklus && (
+        <Alert>
+          <AlertDescription>
+            Für den {new Date(`${run.due_date}T00:00:00`).toLocaleDateString("de-AT")} ist kein
+            Zahlungszyklus eingetragen. Dieser Lauf wurde deshalb nach der alten Regel
+            zusammengestellt: vier Wochen Abstand zum letzten Einzug je Abo, Ferientage
+            mitgerechnet. Trage den Zyklus ein, wenn dieser Lauf zu einem Zeitraum gehören soll.
+          </AlertDescription>
+        </Alert>
+      )}
       <AusgelasseneAbos runId={run.id} abos={ausgelassen} />
       <CollectionRunDetail
         runId={run.id}

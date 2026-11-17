@@ -12,7 +12,9 @@ import {
   auslassGrund,
   auslassZusammenfassung,
   type AuslassGrund,
+  type Zyklus,
 } from "@/lib/sepa/ausgelassen";
+import { ladeZyklus, ladeZyklusFuer, einzuegeJeAbo } from "@/lib/sepa/zyklus";
 import type { ActionResult } from "@/lib/actions/types";
 
 import { sepaKennung } from "@/lib/sepa/kennungen";
@@ -25,6 +27,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   const parsed = collectionRunSchema.safeParse({
     due_date: formData.get("due_date"),
     confirm_duplicate: formData.get("confirm_duplicate"),
+    cycle_id: formData.get("cycle_id") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" };
@@ -42,6 +45,28 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     if (count && count > 0) {
       return { duplicate: true, existingCount: count };
     }
+  }
+
+  // PROJ-107: Der Zyklus, für den eingezogen wird. Schickt das Formular ihn
+  // mit, gilt seine Wahl — der Fälligkeitstag ist ein Bankdatum und darf einen
+  // Tag über die Zyklusgrenze verschoben sein, ohne den Zeitraum zu wechseln.
+  // Sonst wird er aus dem Fälligkeitstag gesucht.
+  //
+  // Kein Zyklus ist erlaubt und heißt: Es gilt die Vier-Wochen-Rechnung aus
+  // PROJ-70. Gesagt wird es trotzdem — aber auf der Seite des Laufs, aus
+  // `cycle_id is null` gerechnet. Ein Hinweis im Ergebnis dieser Aktion
+  // überlebte das Neuladen nicht und fehlte an jedem älteren Entwurf; das war
+  // die Lehre aus PROJ-103.
+  let zyklus: Zyklus | null;
+  try {
+    zyklus = parsed.data.cycle_id
+      ? await ladeZyklus(supabase, parsed.data.cycle_id)
+      : await ladeZyklusFuer(supabase, dueDate);
+  } catch {
+    return { error: "Die Zahlungszyklen konnten nicht gelesen werden. Bitte erneut versuchen." };
+  }
+  if (parsed.data.cycle_id && !zyklus) {
+    return { error: "Diesen Zahlungszyklus gibt es nicht (mehr)." };
   }
 
   const [subscriptionsRes, ticketsRes, collectedTicketIdsRes, letzteEinzuegeRes, mandatesRes, ferien] = await Promise.all([
@@ -62,7 +87,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     // sobald beide bestätigt werden.
     supabase
       .from("sepa_collection_items")
-      .select("subscription_id, sepa_collection_runs(due_date)")
+      .select("subscription_id, sepa_collection_runs(due_date, cycle_id)")
       .not("subscription_id", "is", null),
     supabase
       .from("sepa_mandates")
@@ -80,15 +105,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     console.error("Frühere Einzüge nicht lesbar", letzteEinzuegeRes.error);
     return { error: "Frühere Einzüge konnten nicht geprüft werden. Bitte erneut versuchen." };
   }
-  const einzuegeJeAbo = new Map<string, string[]>();
-  for (const zeile of letzteEinzuegeRes.data ?? []) {
-    const abo = zeile.subscription_id;
-    const faellig = zeile.sepa_collection_runs?.due_date;
-    if (!abo || !faellig) continue;
-    const bisher = einzuegeJeAbo.get(abo) ?? [];
-    bisher.push(faellig);
-    einzuegeJeAbo.set(abo, bisher);
-  }
+  const einzuege = einzuegeJeAbo(letzteEinzuegeRes.data);
 
   // PROJ-103: Was dieser Lauf auslässt, und warum. Die Regel steht in
   // `auslassGrund` — einmal, für das Anlegen hier und für den Hinweis auf der
@@ -102,7 +119,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
     // er bei jedem Lauf und gäbe nichts zu beurteilen.
     .filter((s) => mandateByCustomer.has(s.customer_id))
     .filter((s) => {
-      const grund = auslassGrund(s, dueDate, einzuegeJeAbo.get(s.id), ferien);
+      const grund = auslassGrund(s, dueDate, einzuege.get(s.id), ferien, zyklus);
       if (!grund) return true;
       ausgelassen.push(grund);
       return false;
@@ -154,7 +171,7 @@ export async function createCollectionRun(formData: FormData): Promise<CreateRun
   // gibt es erst mit der Freigabe -- bis dahin ist eine Korrektur folgenlos.
   const { data: run, error: runError } = await supabase
     .from("sepa_collection_runs")
-    .insert({ due_date: dueDate, created_by: user.id })
+    .insert({ due_date: dueDate, created_by: user.id, cycle_id: zyklus?.id ?? null })
     .select("id")
     .single();
 
