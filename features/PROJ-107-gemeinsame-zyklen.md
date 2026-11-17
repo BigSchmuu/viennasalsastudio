@@ -2,7 +2,7 @@
 
 ## Status: Planned
 **Created:** 2026-11-17
-**Last Updated:** 2026-11-17
+**Last Updated:** 2026-11-17 (Architektur)
 
 ## Dependencies
 - Requires: PROJ-7 (SEPA-Lastschrift) — der Lauf, der künftig am Zyklus hängt
@@ -57,9 +57,15 @@ nicht will, bucht bis zum nächsten Zyklus Einzelstunden (`dropin_pricing` gibt 
 und startet das Abo dann. Es gibt keine Teilbeträge — das ist die Entscheidung, die dieses
 Vorhaben überhaupt klein hält.
 
-**Der erste Zyklus im System beginnt am 30.11.2026.** Es gibt nichts zu überbrücken: Der
-laufende Zyklus wird noch mit dem bestehenden Verfahren eingezogen, und ab dem 30.11.
-starten alle Abos gemeinsam.
+**Der erste Zyklus im System ist 30.11.2026 bis 10.01.2027.** 42 Kalendertage: vier
+Kurswochen (28 Tage) plus die zweiwöchige Weihnachtspause. Es gibt nichts zu überbrücken —
+der laufende Zyklus wird noch mit dem bestehenden Verfahren eingezogen, ab dem 30.11. starten
+alle Abos gemeinsam. Der Folgezyklus beginnt am 11.01.2027.
+
+Diese Angaben des Betreibers stimmen auf den Tag mit der bestehenden Rechnung überein
+(30.11. + 28 Tage = 28.12., plus 14 Schließtage = 11.01.2027 als erster Tag des Folgezyklus).
+**Die Formel war nie falsch — nur ihr Anker.** Jedes Abo hing an seiner eigenen letzten
+Abbuchung statt am Zyklus des Studios.
 
 ## User Stories
 
@@ -105,6 +111,7 @@ starten alle Abos gemeinsam.
 
 - [ ] Angenommen es gibt noch keinen Zyklus, wenn der Betreiber einen anlegt, dann gibt er ersten und letzten Tag ein und die Liste zeigt ihn an
 - [ ] Angenommen ein Zyklus ist angelegt, wenn der Betreiber den nächsten anlegt, dann sind erster Tag (Tag nach dem Vorgänger) und letzter Tag (vier Wochen später) vorgeschlagen und beide änderbar
+- [ ] Angenommen für den Zeitraum sind Schließungen eingetragen, wenn der Betreiber das Formular öffnet, dann enthält der vorgeschlagene letzte Tag diese Schließtage und die Rechnung dazu ist sichtbar
 - [ ] Angenommen der Betreiber ändert das vorgeschlagene Ende, wenn er speichert, dann gilt sein Datum
 - [ ] Angenommen ein Zyklus würde sich mit einem bestehenden überschneiden oder eine Lücke lassen, wenn der Betreiber speichert, dann wird es abgelehnt und der Grund genannt
 - [ ] Angenommen in einem Zyklus wurde schon eingezogen, wenn der Betreiber ihn ändern oder löschen will, dann wird es abgelehnt
@@ -166,9 +173,21 @@ starten alle Abos gemeinsam.
 - [ ] Was wird aus `next_cycle_end`? Nach Stufe 2 hat es keine Aufrufer mehr. Vorschlag:
       stehen lassen und den Kommentar auf „ohne Aufrufer" setzen, wie PROJ-96 es schon
       einmal getan hat.
+- [ ] **Die Frist fällt jetzt mit dem Zyklusende zusammen.** Alle Zyklen beginnen montags und
+      enden sonntags, also ist „letzter Sonntag am oder vor dem Zyklusende" genau der letzte
+      Tag des Zyklus — und damit hat der Betreiber **null Tage** Vorlauf. Genau das war der
+      Anlass von PROJ-96 („Es erfährt am Tag des Zyklusendes, dass ein Platz frei wird — zu
+      spät"). Vorschlag: Frist eine Woche vor Zyklusende, also am Sonntag der vorletzten
+      Kurswoche. Entscheidung offen, gehört in Stufe 2.
 - [ ] Soll die Kündigungsfrist weiter der letzte Sonntag sein, wenn sie ohnehin für alle
       gilt? Vorschlag: ja, unverändert — ein bekannter Mechanismus, und PROJ-96 hat ihn
       gerade erst in den AGB verankert.
+- [ ] Sollen vergangene Läufe rückwirkend einem Zyklus zugeordnet werden? Vorschlag: nein,
+      erst ab dem 30.11.2026 — ein nachträglich erfundener Zyklus wäre eine Behauptung über
+      einen Zeitraum, für den niemand so abgerechnet hat.
+- [ ] Soll die Zyklen-Seite auch die Ferien anzeigen, damit beim Verschieben eines Endes
+      sichtbar ist, welche Schließung dahintersteckt? Vorschlag: ja, als Lesehilfe ohne
+      Bearbeitung — aber erst in Stufe 2.
 - [ ] Bis wann sind Zyklen im Voraus einzutragen, und soll das System warnen, wenn der
       letzte eingetragene Zyklus näher als vier Wochen rückt? Vorschlag: ja, als Hinweis im
       Dashboard.
@@ -190,13 +209,145 @@ starten alle Abos gemeinsam.
 
 ### Technical Decisions
 
-_To be added by /architecture_
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Zyklen als eigene Liste, kein Datum am Abo | Ein Datum je Abo müsste bei jedem Wechsel für jeden Kunden fortgeschrieben werden, und einzelne Schreibvorgänge können scheitern; eine Liste gilt für alle gleichzeitig, auch für künftige Abos | 2026-11-17 |
+| Lückenlosigkeit und Eindeutigkeit des Endes in der Datenbank | Vorbild PROJ-98; eine Prüfung nur im Formular ist wirkungslos, sobald Zyklen aus Skript, Import oder Reparatur entstehen | 2026-11-17 |
+| Der Lauf verweist auf den Zyklus, statt ihn aus dem Fälligkeitstag abzuleiten | Ein um einen Tag verschobener Bankeinzug soll den gemeinten Zyklus nicht wechseln | 2026-11-17 |
+| Am Abo wird kein Zyklus und kein „bezahlt bis" gespeichert | Jede zweite Wahrheit über Geld ist das Problem, das dieses Vorhaben beseitigt; die Antwort steht in den Positionen der Läufe | 2026-11-17 |
+| Entwürfe zählen weiterhin als Einzug | Zwei Entwürfe zum selben Zyklus wären zwei Abbuchungen, sobald beide bestätigt werden (unverändert aus PROJ-70) | 2026-11-17 |
+| Alte Vier-Wochen-Rechnung bleibt als Rückfallebene, mit Hinweis | Die Vergangenheit hat keine Zyklen, und ein verschobener Umstieg darf nichts brechen; stillschweigend zurückfallen darf sie nicht | 2026-11-17 |
+| Stufe 1 lässt das Kündigungsfenster unberührt | In der Übergangszeit ergeben alte Rechnung und Zyklusgrenze dasselbe Datum; so gilt pro Frage eine Regel, und vor dem 30.11. wird nicht an Zusagen an Kunden gebaut | 2026-11-17 |
+| Der Zustand einer Zyklus-Zeile wird abgeleitet, nicht gespeichert | Eine gespeicherte Markierung könnte veralten | 2026-11-17 |
+| Eigene Seite „Zyklen", Vorschau auf der Lastschriften-Seite; Lauf anlegen über Zyklus-Auswahl mit vorbelegtem, änderbarem Fälligkeitstag | Betreiberentscheidung 2026-11-17: Der Zyklus trägt auch Fristen und Preisankündigungen, gehört also nicht unter „Lastschriften"; der Fälligkeitstag ist ein Bankdatum und muss um einen Tag verschiebbar bleiben | 2026-11-17 |
+| Keine neuen Fremdpakete | Liste, Formular und Auswahl entstehen aus vorhandenen Bausteinen; Vorbild ist die Ferien-Verwaltung | 2026-11-17 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+_Erstellt 2026-11-17. Beschreibt **Stufe 1** im Detail — das, was der Umstieg am 30.11.2026
+braucht — und skizziert Stufe 2 nur so weit, dass Stufe 1 ihr nicht im Weg steht._
+
+### A) Was an Oberfläche entsteht
+
+```
+Verwaltung
+├── Zyklen  (neue Seite, wie „Ferien")
+│   ├── Liste: erster Tag · letzter Tag · Dauer · Zustand
+│   │        Zustand ist eine von drei Auskünften:
+│   │        „abgerechnet"  — in diesem Zyklus wurde schon eingezogen
+│   │        „laufend"      — enthält den heutigen Tag
+│   │        „künftig"      — noch nicht begonnen
+│   ├── Formular „Zyklus anlegen"
+│   │        erster Tag  = Tag nach dem letzten Zyklus (vorbelegt, bei leerer Liste frei)
+│   │        letzter Tag = vier Kurswochen später (vorbelegt, änderbar) —
+│   │                      gerechnet mit den eingetragenen Schließungen und
+│   │                      offengelegt: „27.12.2026 + 14 Schließtage = 10.01.2027"
+│   ├── Ändern und Löschen — nur bei „künftig"
+│   └── Hinweis, wenn der letzte eingetragene Zyklus weniger als vier Wochen Vorlauf hat
+│
+├── Lastschriften  (bestehende Seite)
+│   ├── Die nächsten Zyklen zum Mitlesen (neu) + Verweis auf die Zyklen-Seite
+│   └── Formular „Lauf anlegen"  (geändert)
+│            Zyklus        = Auswahl aus der Liste
+│            Fälligkeitstag = erster Tag des Zyklus (vorbelegt, änderbar)
+│
+└── Lauf-Entwurf  (bestehende Seite)
+    └── „Nicht aufgenommen" — ein Grund wird neu formuliert:
+             statt „keine vier Wochen Abstand"
+             künftig „In diesem Zyklus schon eingezogen am [Datum]"
+```
+
+Neu ist eine Seite und ein Abschnitt. Alles andere sind Änderungen an Formularen und
+Sätzen, die es schon gibt — bewusst: Der Umstieg soll nichts verschieben, was du schon
+kennst.
+
+### B) Welche Angaben gespeichert werden
+
+**Ein Zyklus** besteht aus vier Angaben: erster Tag, letzter Tag, wann angelegt, von wem.
+Keine Nummer und kein Name — das Datum ist der Name. Vier Regeln hängen daran, und sie
+gelten in der Datenbank, nicht im Formular:
+
+1. Der letzte Tag liegt nicht vor dem ersten.
+2. Der erste Tag ist der Tag nach dem letzten Tag des Vorgängers. Damit gibt es weder eine
+   Lücke noch eine Überschneidung — und keinen Tag, der zu zwei Zyklen gehört.
+3. Jedes Ende kommt nur einmal vor. So ist „der jüngste Zyklus" eine eindeutige Zeile und
+   nicht eine Frage der Sortierung.
+4. Ein Zyklus, in dem eingezogen wurde, ist unveränderlich.
+
+**Ein Lastschriftlauf** merkt sich zusätzlich, zu welchem Zyklus er gehört. Heute trägt er
+nur ein Fälligkeitsdatum; der Zyklus daneben macht aus „einmal je Zyklus" eine Nachfrage
+statt einer Rechnung — und erlaubt es später, auf der Rechnung den Zeitraum zu nennen, ohne
+ihn erneut zu ermitteln.
+
+**Am Abo wird nichts gespeichert.** Kein „aktueller Zyklus", kein „bezahlt bis". Das wäre
+ein Zustand, der mit der Zyklusliste synchron gehalten werden müsste — und jede zweite
+Wahrheit über Geld ist genau das, was dieses Vorhaben beseitigen soll. Ob ein Abo in diesem
+Zyklus schon eingezogen wurde, steht in den Positionen der Läufe, dort wo es herkommt.
+
+**Entwürfe zählen mit**, wie bisher: Zwei offene Entwürfe zum selben Zyklus wären sonst zwei
+Abbuchungen, sobald beide bestätigt werden.
+
+**Für Zeiträume ohne eingetragenen Zyklus** gilt weiter die bisherige Vier-Wochen-Rechnung.
+Das ist die Vergangenheit — und die Rückfallebene, falls der Umstieg verschoben werden muss.
+Sie greift nicht stillschweigend: Wer einen Lauf für einen Tag ohne Zyklus anlegt, wird
+darauf hingewiesen.
+
+### C) Entscheidungen und warum
+
+**Zyklen als eigene Liste, nicht als Datum am Abo.** Ein Datum an jedem Abo müsste bei jedem
+Zykluswechsel für jeden Kunden fortgeschrieben werden — und jeder dieser Schreibvorgänge
+kann scheitern, während die anderen gelingen. Eine Liste mit lückenlosen Zeiträumen gilt für
+alle gleichzeitig, auch für Abos, die es heute noch nicht gibt.
+
+**Lückenlosigkeit gehört in die Datenbank.** Bei den Barzahlern (PROJ-98) ist es genauso
+gelöst und hat sich getragen. Eine Prüfung nur im Formular wäre wirkungslos, sobald Zyklen
+einmal anders entstehen — aus einem Skript, einem Import, einer Reparatur von Hand.
+
+**Der Lauf zeigt auf den Zyklus, statt dass man ihn aus dem Datum errät.** Verschiebst du
+einen Fälligkeitstag um einen Tag über die Zyklusgrenze, soll der Lauf trotzdem zum
+gemeinten Zyklus gehören. Ein Datumsvergleich würde das falsch beantworten, ein Verweis
+nicht.
+
+**Stufe 1 lässt das Kündigungsfenster absichtlich unberührt.** Die Rechnung „letzter Einzug
++ vier Wochen" ergibt in der Übergangszeit dasselbe Datum wie die Zyklusgrenze, solange die
+Einzüge auf den Zyklusanfang fallen. Damit gilt pro Frage genau eine Regel — und in der
+Woche vor dem 30.11. wird nicht an dem Teil gebaut, der Kunden etwas zusagt.
+
+**Die Ferienrechnung bleibt im Code, verliert aber ihre Rolle in der Abrechnung.** Gelöscht
+wird sie erst, wenn für alle Zeiträume Zyklen eingetragen sind. Ein Ausbau, der heute nichts
+gewinnt, ist in der Woche vor einem Einzug kein guter Tausch.
+
+**Der vorgeschlagene letzte Tag rechnet die Schließungen mit — und zeigt die Rechnung.**
+Die vorhandene ferienbewusste Rechnung wird nicht abgeschafft, sondern degradiert: vom
+Gesetz zum Vorschlag. Sie liefert den Vorbelegungswert, legt ihre Zwischenschritte offen
+(„vier Wochen wären der 27.12., dazu 14 eingetragene Schließtage"), und der Betreiber
+bestätigt oder überschreibt. Das ist der Unterschied zwischen einer Rechnung, der man
+ausgeliefert ist, und einer, die man prüfen kann.
+
+**Daraus folgt eine Voraussetzung, die nichts mit Code zu tun hat:** Schließungen müssen
+unter „Ferien" eingetragen sein — sonst schlägt das Formular einen zu frühen letzten Tag
+vor. In der Übergangszeit gilt das doppelt, weil bis Stufe 2 auch die Kündigungsdaten noch
+aus dieser Rechnung kommen. Fehlt die Weihnachtspause dort, nennt das Profil einem
+kündigenden Kunden den 28.12.2026 statt des 11.01.2027 — zwei Wochen zu früh.
+
+**Der Zustand einer Zyklus-Zeile wird abgeleitet, nicht gespeichert.** „abgerechnet",
+„laufend", „künftig" ergeben sich aus dem heutigen Tag und den Positionen der Läufe. Eine
+gespeicherte Markierung könnte veralten.
+
+### D) Fremdpakete
+
+Keine. Liste, Formular und Auswahl entstehen aus den vorhandenen Bausteinen; die
+Zyklen-Seite folgt dem Aufbau der Ferien-Verwaltung.
+
+### Was Stufe 2 danach erbt
+
+Kündigungsfenster, Studierendenpreis, Upgrade-Differenz und der Leistungszeitraum auf der
+Rechnung lesen dann dieselbe Liste. Jede dieser Stellen rechnet heute selbst — die Umstellung
+ist also jeweils ein Ersetzen, kein Hinzufügen. Erst danach verschwinden die doppelten
+Fassungen, vor denen die Migration zu PROJ-96 im Kommentar warnt.
 
 ## QA Test Results
 _To be added by /qa_
