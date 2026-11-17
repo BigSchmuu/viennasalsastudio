@@ -9,7 +9,7 @@
  * sich schon bei einem korrigierten Komma und täuschte damit eine Änderung des
  * Rechtsstands vor, die nie stattgefunden hat.
  */
-export const AGB_VERSION = "2026-08";
+export const AGB_VERSION = "2026-11";
 
 /**
  * Der Stand, den die englische Übersetzung wiedergibt (PROJ-43).
@@ -20,7 +20,7 @@ export const AGB_VERSION = "2026-08";
  * falscher Rechtstext in der Sprache des Lesers ist schlimmer als ein
  * aktueller in einer Fremdsprache.
  */
-export const AGB_TRANSLATION_VERSION = "2026-08";
+export const AGB_TRANSLATION_VERSION = "2026-11";
 
 /** Ist die englische Fassung auf dem Stand der deutschen? */
 export function agbTranslationIsCurrent(): boolean {

@@ -23,6 +23,11 @@ try {
  * Datenbanktest die SQL-Fassung vergleicht.
  *
  * Braucht die Migration 20261104160000_proj96_kuendigungsfrist.sql.
+ *
+ * NACHTRAG 2026-11-17 (PROJ-107): Die Frist gilt nur noch im Rückfallweg —
+ * ohne eingetragenen Zahlungszyklus für den heutigen Tag. Mit Zyklus lautet
+ * die Zeile „Kündigung oder Pause bis <Zyklusende> — wirkt dann zum Tag
+ * danach", und der Satz im Profil stimmt für beide Wege unverändert.
  */
 
 const CUSTOMER = { email: "e2e24-customer@viennasalsastudio.test", password: "CorrectPassword123!" };

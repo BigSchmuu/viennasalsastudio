@@ -25,6 +25,13 @@ import type { Ferienzeitraum } from "@/lib/scheduling/dates";
  * nie geprüft. Dieselbe Lehre wie bei PROJ-94 (docs/troubleshooting-tests.md).
  *
  * Braucht die Migration 20261104160000_proj96_kuendigungsfrist.sql.
+ *
+ * NACHTRAG 2026-11-17 (PROJ-107): Diese Rechnung ist der **Rückfallweg**. Liegt
+ * der heutige Tag in einem eingetragenen Zahlungszyklus, kommt das
+ * Kündigungsdatum von dort, und eine Frist gibt es nicht mehr. Geprüft wird
+ * das in tests/PROJ-107-kuendigung-am-zyklus-db.test.ts. Die Prüfungen hier
+ * bleiben gültig, weil der Rückfall lebendiger Code ist — und sie laufen
+ * weiter, weil die Testdatenbank keinen Zyklus über dem heutigen Tag hat.
  */
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;

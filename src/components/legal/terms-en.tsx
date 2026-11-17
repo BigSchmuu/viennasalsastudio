@@ -33,9 +33,9 @@ export function TermsEn() {
         </p>
         <p>
           You pause or cancel yourself in your customer profile; no reason or proof is required. The deciding
-          date is the Sunday of the last class week of the running cycle: a pause or cancellation made up to and
-          including that day takes effect at the end of the running cycle, and after that day at the end of the
-          following cycle. The date that applies to you is shown in your customer profile before you confirm.
+          date is the last day of the running cycle: a pause or cancellation made up to and including that day
+          takes effect at the end of that cycle. The date that applies to you is shown in your customer profile
+          before you confirm.
         </p>
         <p>
           A pause or cancellation you have already scheduled can be undone in your profile at any point before

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { gehZu } from "./navigation";
 import { createClient } from "@supabase/supabase-js";
+import { AGB_VERSION } from "@/lib/legal";
 import { ladeTestUmgebung } from "./env";
 import { zweiteStufeErledigen } from "./zweite-stufe";
 
@@ -28,7 +29,9 @@ const CUSTOMER = { email: "e2e12-a@viennasalsastudio.test", password: "CorrectPa
 // Eigene Fixture-Kurse aus PROJ-41 mitbenutzt: einer ohne eigenen Preis, einer
 // mit. Beide sind Testkurse, an echten Kursen wird nicht gedreht.
 const COURSE = "E2E41 Kurs Standardpreis";
-const AGB_VERSION = "2026-08";
+// Aus der Quelle, nicht kopiert: Beim Hochzählen des AGB-Stands (2026-11-17,
+// PROJ-107) stand hier eine festverdrahtete Fassung und machte diese Prüfung
+// rot, obwohl nichts kaputt war.
 
 const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false, autoRefreshToken: false },

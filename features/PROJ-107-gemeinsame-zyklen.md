@@ -128,8 +128,8 @@ Abbuchung statt am Zyklus des Studios.
 
 ### Stufe 2 — der Rest
 
-- [ ] Angenommen ein Kunde kündigt an einem Tag innerhalb des laufenden Zyklus, wenn er bestätigt, dann wirkt die Kündigung zum Ende genau dieses Zyklus, und dieses Datum steht in der Tabelle der Zyklen
-- [ ] Angenommen ein Kunde kündigt am letzten Tag des Zyklus, wenn er bestätigt, dann wirkt sie noch zum Ende dieses Zyklus
+- [x] Angenommen ein Kunde kündigt an einem Tag innerhalb des laufenden Zyklus, wenn er bestätigt, dann wirkt die Kündigung zum Ende genau dieses Zyklus, und dieses Datum steht in der Tabelle der Zyklen
+- [x] Angenommen ein Kunde kündigt am letzten Tag des Zyklus, wenn er bestätigt, dann wirkt sie noch zum Ende dieses Zyklus
 - [ ] Angenommen im Profil wird die Kündigung angeboten, wenn der Kunde sie öffnet, dann ist von keiner Frist mehr die Rede — genannt wird der letzte Tag des laufenden Zyklus
 - [ ] Angenommen der Betreiber hat für den neuen Zyklus schon einen Lauf angelegt, wenn ein Kunde danach noch rechtzeitig kündigt, dann steht seine Position noch im Entwurf und muss entfernt werden — die Verwaltung weist im Entwurf darauf hin
 - [ ] Angenommen der Betreiber verschiebt ein künftiges Zyklusende, wenn ein Kunde danach kündigt, dann nennt das Profil das verschobene Datum
@@ -241,6 +241,33 @@ Abbuchung statt am Zyklus des Studios.
 
 ---
 <!-- Sections below are added by subsequent skills -->
+
+## Umsetzung — Stufe 2, erster Teil (2026-11-18)
+
+Das Kündigungsfenster liest den eingetragenen Zyklus. Damit steht die
+Zyklusrechnung nur noch einmal im Projekt — die zweite Fassung in SQL, vor der
+die Migration zu PROJ-96 im Kommentar selbst warnte, ist ihre Aufgabe los.
+
+| Teil | Wo |
+|---|---|
+| `abo_kuendigungsfenster` liest `billing_cycles` | `supabase/migrations/20261117230000_proj107_kuendigung_am_zyklus.sql` |
+| AGB in beiden Sprachen, Stand auf 2026-11 | `terms-de.tsx`, `terms-en.tsx`, `src/lib/legal.ts` |
+| Tests | `tests/PROJ-107-kuendigung-am-zyklus-db.test.ts` (4) |
+
+**Keine Änderung an der Oberfläche.** Der Satz im Profil lautet schon
+„Kündigung oder Pause bis {Datum} — wirkt dann zum {Datum}", und beide Angaben
+stimmen im neuen Modell: Das erste ist das Zyklusende, das zweite der Tag
+danach. Die Spalten `frist` und `frist_abgelaufen` bleiben deshalb in der
+Signatur — `frist` trägt das Zyklusende, `frist_abgelaufen` ist mit Zyklus
+immer falsch.
+
+**Der Rückfall bleibt wörtlich erhalten** und ist geprüft: Ohne eingetragenen
+Zyklus für den heutigen Tag gilt die Rechnung aus PROJ-96 unverändert. Deshalb
+laufen deren sechs Browser- und elf Datenbankprüfungen weiter; beide Dateien
+haben einen Nachtrag bekommen, der sie einordnet.
+
+Offen aus Stufe 2: Studierendenpreis (PROJ-102), Upgrade-Differenz
+(PROJ-91/97), Leistungszeitraum auf der Rechnung.
 
 ## Umsetzung — Stufe 1 (2026-11-17)
 

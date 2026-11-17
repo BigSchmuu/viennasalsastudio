@@ -28,10 +28,9 @@ export function TermsDe() {
         </p>
         <p>
           Pausierung und Kündigung nimmst du selbständig im Kundenprofil vor; ein Grund oder Nachweis ist dafür
-          nicht erforderlich. Maßgeblich ist der Sonntag der letzten Kurswoche des laufenden Zyklus: Eine
-          Pausierung oder Kündigung bis einschließlich dieses Tages wird zum Ende des laufenden Zyklus wirksam,
-          danach zum Ende des darauffolgenden Zyklus. Das für dich maßgebliche Datum wird im Kundenprofil
-          angezeigt, bevor du bestätigst.
+          nicht erforderlich. Maßgeblich ist der letzte Tag des laufenden Zyklus: Eine Pausierung oder Kündigung
+          bis einschließlich dieses Tages wird zum Ende des laufenden Zyklus wirksam. Das für dich maßgebliche
+          Datum wird im Kundenprofil angezeigt, bevor du bestätigst.
         </p>
         <p>
           Bereits geplante Pausierungen oder Kündigungen können bis zu ihrem Wirksamwerden im Kundenprofil
