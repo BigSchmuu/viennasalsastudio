@@ -25,6 +25,26 @@ export type AboZumPruefen = {
   pending_effective_date: string | null;
 };
 
+/**
+ * Ein Zahlungszyklus des Studios (PROJ-107).
+ *
+ * Eingetragen, nicht gerechnet: `von` und `bis` sind beides Tage, die zum
+ * Zyklus gehoeren. Liegt der Faelligkeitstag in einem solchen Zyklus, gilt die
+ * neue Sperre; gibt es keinen, gilt weiter die Vier-Wochen-Rechnung aus
+ * PROJ-70.
+ */
+export type Zyklus = { id: string; von: string; bis: string };
+
+/**
+ * Ein fruederer Einzug dieses Abos: der Faelligkeitstag des Laufs und der
+ * Zyklus, fuer den dieser Lauf einzog.
+ *
+ * `zyklusId: null` heisst "Lauf aus der Zeit vor den Zyklen". Ein nackter
+ * String wird genauso gelesen -- deshalb bleiben die aelteren Aufrufe gueltig,
+ * und sie pruefen damit genau den Rueckfallweg.
+ */
+export type FruehererEinzug = { faellig: string; zyklusId: string | null };
+
 export type AuslassGrund =
   /** Kündigung oder Pause wirkt zum Fälligkeitstag oder davor. */
   | { art: "aenderung_wirkt"; was: "paused" | "cancelled" | "unbekannt"; ab: string }
@@ -34,6 +54,8 @@ export type AuslassGrund =
   | { art: "zyklus_offen"; letzterEinzug: string; wiederAb: string }
   /** Ein Einzug mit **späterem** Datum liegt im selben Zyklus (PROJ-70). */
   | { art: "zyklus_vorgemerkt"; kuenftigerEinzug: string }
+  /** In diesem eingetragenen Zyklus wurde schon eingezogen (PROJ-107). */
+  | { art: "zyklus_eingezogen"; am: string; zyklusBis: string }
   /** Am Abo ist kein Preis hinterlegt — bis PROJ-103 fiel es lautlos aus jedem Lauf. */
   | { art: "kein_preis" };
 
@@ -57,8 +79,9 @@ export type AuslassArt = AuslassGrund["art"];
 export function auslassGrund(
   abo: AboZumPruefen,
   faelligkeitsdatum: string,
-  bisherigeEinzuege: string[] | undefined,
+  bisherigeEinzuege: (string | FruehererEinzug)[] | undefined,
   ferien: Ferienzeitraum[],
+  zyklus: Zyklus | null = null,
   zyklusTage: number = ZYKLUS_TAGE
 ): AuslassGrund | null {
   if (abo.pending_effective_date && abo.pending_effective_date <= faelligkeitsdatum) {
@@ -73,9 +96,21 @@ export function auslassGrund(
     return { art: "beginnt_spaeter", beginn: abo.cycle_anchor_date };
   }
 
-  const einzuege = bisherigeEinzuege ?? [];
-  if (!istFaellig(faelligkeitsdatum, einzuege, ferien, zyklusTage)) {
-    return zyklusGrund(faelligkeitsdatum, einzuege, ferien, zyklusTage);
+  const einzuege = alsEinzuege(bisherigeEinzuege);
+  const tage = einzuege.map((e) => e.faellig);
+
+  if (zyklus) {
+    // PROJ-107: Nicht mehr "liegen vier Wochen dazwischen", sondern "ist in
+    // diesem Zyklus schon eingezogen worden". Das ist eine Ja/Nein-Frage ohne
+    // Rechnung -- und sie beantwortet den Umstieg richtig: Ein Einzug zwoelf
+    // Tage vorher, aber im **vorigen** Zyklus, sperrt nicht mehr.
+    const imZyklus = einzuege.filter((e) => imSelbenZyklus(e, zyklus)).map((e) => e.faellig);
+    imZyklus.sort();
+    if (imZyklus[0]) {
+      return { art: "zyklus_eingezogen", am: imZyklus[0], zyklusBis: zyklus.bis };
+    }
+  } else if (!istFaellig(faelligkeitsdatum, tage, ferien, zyklusTage)) {
+    return zyklusGrund(faelligkeitsdatum, tage, ferien, zyklusTage);
   }
 
   if (abo.price === null) {
@@ -83,6 +118,26 @@ export function auslassGrund(
   }
 
   return null;
+}
+
+/** Ein nackter Fälligkeitstag ist ein Einzug ohne Zyklus. */
+function alsEinzuege(einzuege: (string | FruehererEinzug)[] | undefined): FruehererEinzug[] {
+  return (einzuege ?? []).map((e) =>
+    typeof e === "string" ? { faellig: e, zyklusId: null } : e
+  );
+}
+
+/**
+ * Zählt dieser Einzug für diesen Zyklus?
+ *
+ * Zwei Fälle, und der zweite ist der wichtigere: Ein Lauf **ohne** Zyklus,
+ * dessen Fälligkeitstag im Zeitraum liegt, hat für diesen Zeitraum schon
+ * eingezogen — er stammt nur aus der Zeit vor der Umstellung. Ihn zu übergehen
+ * wäre ein Doppeleinzug.
+ */
+function imSelbenZyklus(einzug: FruehererEinzug, zyklus: Zyklus): boolean {
+  if (einzug.zyklusId) return einzug.zyklusId === zyklus.id;
+  return einzug.faellig >= zyklus.von && einzug.faellig <= zyklus.bis;
 }
 
 /**
@@ -159,6 +214,8 @@ export function auslassText(grund: AuslassGrund): string {
       return `Einzug am ${tag(grund.letzterEinzug)} — keine vier Wochen Abstand; wieder möglich ab ${tag(grund.wiederAb)}.`;
     case "zyklus_vorgemerkt":
       return `Für den ${tag(grund.kuenftigerEinzug)} ist schon ein Einzug angelegt — derselbe Zyklus.`;
+    case "zyklus_eingezogen":
+      return `In diesem Zyklus schon eingezogen am ${tag(grund.am)} — der Zyklus läuft bis ${tag(grund.zyklusBis)}.`;
     case "kein_preis":
       return "Kein Preis am Abo hinterlegt — der Lauf kann keinen Betrag abbuchen.";
   }
@@ -179,6 +236,7 @@ const KURZ: Record<AuslassArt, string> = {
   beginnt_spaeter: "beginnt erst später",
   zyklus_offen: "im selben Zyklus schon eingezogen",
   zyklus_vorgemerkt: "im selben Zyklus schon eingezogen",
+  zyklus_eingezogen: "in diesem Zyklus schon eingezogen",
   kein_preis: "ohne hinterlegten Preis",
 };
 

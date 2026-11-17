@@ -5,6 +5,7 @@ import {
   auslassZusammenfassung,
   istDatenfehler,
   type AboZumPruefen,
+  type Zyklus,
 } from "./ausgelassen";
 
 const KEINE_FERIEN: { von: string; bis: string }[] = [];
@@ -211,5 +212,138 @@ describe("PROJ-103: Die Zusammenfassung für den leeren Lauf", () => {
 
   it("bleibt bei nichts leer", () => {
     expect(auslassZusammenfassung([])).toBe("");
+  });
+});
+
+/**
+ * PROJ-107: Die Sperre hängt am Zyklus, nicht am Abstand.
+ *
+ * Gerechnet wird mit dem echten ersten Zyklus des Studios: 30.11.2026 bis
+ * 10.01.2027 — vier Kurswochen plus zwei Wochen Weihnachtspause, also 42
+ * Kalendertage. Gerade dieser Zyklus zeigt beide Richtungen des Unterschieds:
+ * Er ist länger als vier Wochen (die alte Regel würde zu früh freigeben) und
+ * der Einzug für den Zyklus davor liegt zwölf Tage vor seinem Beginn (die alte
+ * Regel würde zu lange sperren).
+ */
+describe("PROJ-107: Ein Einzug je Abo je Zyklus", () => {
+  const ZYKLUS1: Zyklus = { id: "z1", von: "2026-11-30", bis: "2027-01-10" };
+  const BEGINN = "2026-11-30";
+
+  it("sperrt, wenn in diesem Zyklus schon eingezogen wurde", () => {
+    const grund = auslassGrund(
+      abo(),
+      "2026-12-07",
+      [{ faellig: BEGINN, zyklusId: "z1" }],
+      KEINE_FERIEN,
+      ZYKLUS1
+    );
+    expect(grund).toEqual({ art: "zyklus_eingezogen", am: BEGINN, zyklusBis: "2027-01-10" });
+  });
+
+  it("lässt den Umstieg zu: der Einzug davor liegt im vorigen Zeitraum", () => {
+    // Der Lauf zum 18.11.2026 hat den laufenden Zyklus bezahlt, zwölf Tage vor
+    // dem 30.11. Mit Zyklus ist das Abo fällig — ohne Zyklus nicht.
+    const einzuege = [{ faellig: "2026-11-18", zyklusId: null }];
+
+    expect(auslassGrund(abo(), BEGINN, einzuege, KEINE_FERIEN, ZYKLUS1)).toBeNull();
+
+    const ohneZyklus = auslassGrund(abo(), BEGINN, einzuege, KEINE_FERIEN);
+    expect(ohneZyklus).toMatchObject({ art: "zyklus_offen", letzterEinzug: "2026-11-18" });
+  });
+
+  it("sperrt den ganzen langen Zyklus, auch nach mehr als vier Wochen", () => {
+    // 36 Tage nach dem Einzug, aber noch im selben Zyklus. Die alte Regel
+    // hätte hier freigegeben und damit zweimal für dieselbe Zeit abgebucht.
+    const einzuege = [{ faellig: BEGINN, zyklusId: "z1" }];
+
+    expect(auslassGrund(abo(), "2027-01-05", einzuege, KEINE_FERIEN, ZYKLUS1)).toMatchObject({
+      art: "zyklus_eingezogen",
+    });
+    expect(auslassGrund(abo(), "2027-01-05", einzuege, KEINE_FERIEN)).toBeNull();
+  });
+
+  it("rechnet einen Lauf ohne Zyklus mit, wenn sein Tag im Zeitraum liegt", () => {
+    // Ein Entwurf aus der Zeit vor der Umstellung, mitten im neuen Zyklus.
+    // Ihn zu übergehen wäre ein Doppeleinzug.
+    const grund = auslassGrund(
+      abo(),
+      "2026-12-28",
+      [{ faellig: "2026-12-14", zyklusId: null }],
+      KEINE_FERIEN,
+      ZYKLUS1
+    );
+    expect(grund).toMatchObject({ art: "zyklus_eingezogen", am: "2026-12-14" });
+  });
+
+  it("übergeht einen Einzug aus einem anderen Zyklus", () => {
+    const grund = auslassGrund(
+      abo(),
+      "2026-12-07",
+      [{ faellig: "2027-02-01", zyklusId: "z2" }],
+      KEINE_FERIEN,
+      ZYKLUS1
+    );
+    expect(grund).toBeNull();
+  });
+
+  it("nennt den frühesten Einzug des Zyklus, nicht den letzten", () => {
+    const grund = auslassGrund(
+      abo(),
+      "2026-12-28",
+      [
+        { faellig: "2026-12-14", zyklusId: "z1" },
+        { faellig: BEGINN, zyklusId: "z1" },
+      ],
+      KEINE_FERIEN,
+      ZYKLUS1
+    );
+    expect(grund).toMatchObject({ art: "zyklus_eingezogen", am: BEGINN });
+  });
+
+  it("stellt eine wirksame Kündigung vor den Zyklus", () => {
+    const grund = auslassGrund(
+      abo({ pending_status: "cancelled", pending_effective_date: "2026-12-01" }),
+      "2026-12-07",
+      [{ faellig: BEGINN, zyklusId: "z1" }],
+      KEINE_FERIEN,
+      ZYKLUS1
+    );
+    expect(grund).toMatchObject({ art: "aenderung_wirkt" });
+  });
+
+  it("stellt den Zyklus vor den fehlenden Preis", () => {
+    const grund = auslassGrund(
+      abo({ price: null }),
+      "2026-12-07",
+      [{ faellig: BEGINN, zyklusId: "z1" }],
+      KEINE_FERIEN,
+      ZYKLUS1
+    );
+    expect(grund).toMatchObject({ art: "zyklus_eingezogen" });
+  });
+
+  it("nennt im Satz den Einzug und das Ende des Zyklus", () => {
+    const text = auslassText({
+      art: "zyklus_eingezogen",
+      am: BEGINN,
+      zyklusBis: "2027-01-10",
+    });
+    expect(text).toBe(
+      "In diesem Zyklus schon eingezogen am 30.11.2026 — der Zyklus läuft bis 10.1.2027."
+    );
+  });
+
+  it("hält den neuen Grund nicht für einen Datenfehler", () => {
+    expect(istDatenfehler({ art: "zyklus_eingezogen", am: BEGINN, zyklusBis: "2027-01-10" })).toBe(
+      false
+    );
+  });
+
+  it("fasst den neuen Grund in der Zusammenfassung mit", () => {
+    const text = auslassZusammenfassung([
+      { art: "zyklus_eingezogen", am: BEGINN, zyklusBis: "2027-01-10" },
+      { art: "zyklus_eingezogen", am: BEGINN, zyklusBis: "2027-01-10" },
+    ]);
+    expect(text).toBe("2 Abos in diesem Zyklus schon eingezogen");
   });
 });
