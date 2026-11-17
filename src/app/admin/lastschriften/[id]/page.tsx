@@ -185,10 +185,28 @@ export default async function LastschriftDetailPage({
   const { data: rawItems } = await supabase
     .from("sepa_collection_items")
     .select(
-      "id, customer_id, amount, bounced_at, subscription_id, subscriptions(name), tickets(events(name)), profiles(full_name)"
+      "id, customer_id, amount, bounced_at, subscription_id, mandate_reference, subscriptions(name), tickets(events(name)), profiles(full_name)"
     )
     .eq("run_id", id)
     .order("created_at", { ascending: true });
+
+  // PROJ-105: Welche Positionen zeigen auf ein widerrufenes Mandat? Die Sperre
+  // beim Herunterladen nennt die Namen — hier steht sie an der Zeile, damit
+  // der Betreiber weiß, welche er entfernen muss.
+  const widerrufeneRef = new Set<string>();
+  if ((rawItems ?? []).length > 0) {
+    const { data: mandate, error: mandatFehler } = await supabase
+      .from("sepa_mandates")
+      .select("mandate_reference, revoked_at")
+      .in("mandate_reference", [...new Set((rawItems ?? []).map((i) => i.mandate_reference))]);
+    if (mandatFehler) {
+      console.error("PROJ-105: Mandatsstand nicht lesbar", mandatFehler);
+      throw new Error("Der Stand der SEPA-Mandate konnte nicht geprüft werden");
+    }
+    for (const m of mandate ?? []) {
+      if (m.revoked_at !== null) widerrufeneRef.add(m.mandate_reference);
+    }
+  }
 
   const items: CollectionItemRow[] = (rawItems ?? []).map((item) => ({
     id: item.id,
@@ -201,6 +219,7 @@ export default async function LastschriftDetailPage({
       : "—"),
     amount: item.amount,
     bouncedAt: item.bounced_at,
+    mandatWiderrufen: widerrufeneRef.has(item.mandate_reference),
   }));
 
   const entwurf = run.released_at === null;

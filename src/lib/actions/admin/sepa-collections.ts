@@ -8,6 +8,7 @@ import { collectionRunSchema } from "@/lib/validations/sepa";
 import { generateSepaDirectDebitXml, type SepaXmlItem } from "@/lib/sepa/xml";
 import { leseGlaeubigerAdresse } from "@/lib/sepa/glaeubiger-adresse";
 import { POSITION_BETRAG_MAX } from "@/lib/sepa/laeufe";
+import { widerrufeneInhaber, widerrufeneMeldung } from "@/lib/sepa/mandat-sperre";
 import {
   auslassGrund,
   auslassZusammenfassung,
@@ -369,10 +370,23 @@ export async function generateRunXml(runId: string): Promise<RunXmlResult> {
   }
 
   const mandateReferences = [...new Set(einzuziehen.map((i) => i.mandate_reference))];
-  const { data: mandates } = await supabase
+  const { data: mandates, error: mandatFehler } = await supabase
     .from("sepa_mandates")
-    .select("mandate_reference, consented_at")
+    .select("mandate_reference, consented_at, revoked_at")
     .in("mandate_reference", mandateReferences);
+
+  // PROJ-105: Eine Position trägt die Mandatsreferenz vom Anlegen des Laufs.
+  // Wird das Mandat danach widerrufen, stand die Lastschrift bis hierher
+  // trotzdem in der Datei — ein nicht autorisierter Einzug. Ein Lesefehler
+  // darf dabei nicht als „kein Widerruf" durchgehen.
+  if (mandatFehler) {
+    console.error("PROJ-105: Mandatsstand nicht lesbar", mandatFehler);
+    return { error: "Der Stand der SEPA-Mandate konnte nicht geprüft werden. Bitte erneut versuchen." };
+  }
+  const gesperrt = widerrufeneInhaber(einzuziehen, mandates ?? []);
+  if (gesperrt.length > 0) {
+    return { error: widerrufeneMeldung(gesperrt) };
+  }
   const signedDateByReference = new Map(
     (mandates ?? []).map((m) => [m.mandate_reference, m.consented_at.slice(0, 10)])
   );
@@ -751,8 +765,54 @@ const FREIGABE_FEHLER: [string, string][] = [
  * wo eine genügt — und die Ticket-Stornierung aus PROJ-59, die daran ablesen
  * will, ob Geld geflossen ist, wird damit sogar genauer.
  */
+/**
+ * Zeigt eine Position dieses Laufs auf ein widerrufenes Mandat? (PROJ-105)
+ *
+ * Eigene Abfrage und nicht geteilt mit `generateRunXml`: Dort liegen die
+ * Positionen und die Mandate längst vor, weil das Unterschriftsdatum aus
+ * derselben Zeile kommt — eine gemeinsame Hilfsfunktion hieße dort eine
+ * zweite, überflüssige Abfrage. Geteilt ist das, was auseinanderlaufen
+ * könnte: die Regel selbst (`widerrufeneInhaber`).
+ *
+ * Nur Positionen über 0 € zählen: Eine durch Guthaben gedeckte Position steht
+ * in keiner Bankdatei und bucht nichts ab.
+ */
+async function mandatsSperre(
+  supabase: Awaited<ReturnType<typeof requireAdmin>>["supabase"],
+  runId: string
+): Promise<string | null> {
+  const { data: positionen, error: posFehler } = await supabase
+    .from("sepa_collection_items")
+    .select("mandate_reference, account_holder_name")
+    .eq("run_id", runId)
+    .gt("amount", 0);
+  if (posFehler) {
+    console.error("PROJ-105: Positionen nicht lesbar", posFehler);
+    return "Die Positionen konnten nicht geprüft werden. Bitte erneut versuchen.";
+  }
+  if (!positionen || positionen.length === 0) return null;
+
+  const { data: mandate, error: mandatFehler } = await supabase
+    .from("sepa_mandates")
+    .select("mandate_reference, revoked_at")
+    .in("mandate_reference", [...new Set(positionen.map((p) => p.mandate_reference))]);
+  if (mandatFehler) {
+    console.error("PROJ-105: Mandatsstand nicht lesbar", mandatFehler);
+    return "Der Stand der SEPA-Mandate konnte nicht geprüft werden. Bitte erneut versuchen.";
+  }
+
+  const gesperrt = widerrufeneInhaber(positionen, mandate ?? []);
+  return gesperrt.length > 0 ? widerrufeneMeldung(gesperrt) : null;
+}
+
 export async function bestaetigeBankupload(runId: string): Promise<ActionResult> {
   const { supabase } = await requireAdmin();
+
+  // PROJ-105: Auch hier, nicht nur beim Erzeugen der Datei. Die Bestätigung
+  // macht aus Positionen Rechnungen — eine Rechnung über eine Lastschrift, die
+  // gegen einen Widerruf lief, wäre der schlechtere Zustand von beiden.
+  const sperre = await mandatsSperre(supabase, runId);
+  if (sperre) return { error: sperre };
 
   const { error } = await supabase.rpc("release_collection_run", { p_run_id: runId });
 

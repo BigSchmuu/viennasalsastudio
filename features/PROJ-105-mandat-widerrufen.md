@@ -140,10 +140,35 @@ ist.
 
 ### Die Sperre beim Einzug
 
-- [ ] Angenommen zu einer Position im Entwurf ist das Mandat widerrufen, wenn der Betreiber die SEPA-Datei herunterladen will, dann entsteht keine Datei und die Meldung nennt die betroffenen Kunden
-- [ ] Angenommen zu einer Position im Entwurf ist das Mandat widerrufen, wenn der Betreiber den Entwurf ansieht, dann ist diese Position erkennbar gekennzeichnet
-- [ ] Angenommen der Betreiber entfernt diese Position, wenn er die Datei danach erneut anfordert, dann entsteht sie
-- [ ] Angenommen zu allen Positionen sind die Mandate gültig, wenn der Betreiber die Datei anfordert, dann verhält sich alles wie bisher
+- [x] Angenommen zu einer Position im Entwurf ist das Mandat widerrufen, wenn der Betreiber die SEPA-Datei herunterladen will, dann entsteht keine Datei und die Meldung nennt die betroffenen Kunden
+- [x] Angenommen zu einer Position im Entwurf ist das Mandat widerrufen, wenn der Betreiber den Entwurf ansieht, dann ist diese Position erkennbar gekennzeichnet
+- [x] Angenommen der Betreiber entfernt diese Position, wenn er die Datei danach erneut anfordert, dann entsteht sie
+- [x] Angenommen zu allen Positionen sind die Mandate gültig, wenn der Betreiber die Datei anfordert, dann verhält sich alles wie bisher
+- [x] Angenommen zu einer Position ist das Mandat widerrufen, wenn der Betreiber den Upload bestätigen will, dann wird auch das verweigert und der Lauf bleibt Entwurf — beim Bauen ergänzt: Die Bestätigung macht aus Positionen Rechnungen, und eine Rechnung über eine Lastschrift gegen einen Widerruf wäre der schlechtere Zustand von beiden
+- [x] Angenommen eine Position ist durch Guthaben auf 0 € gedeckt, wenn ihr Mandat widerrufen ist, dann sperrt das nicht — sie steht in keiner Bankdatei und bucht nichts ab
+
+## Umsetzung — die Sperre beim Einzug (2026-11-17)
+
+Der zweite, schwerere Fund des Tages ist geschlossen. Die **dritte Liste** („Mandat
+widerrufen, Beitrag offen") steht noch offen — sie verhindert einen Verlust, die Sperre
+verhindert einen unerlaubten Einzug, und letzteres wog schwerer.
+
+| Teil | Wo |
+|---|---|
+| Die Regel, rein und ohne Datenbank prüfbar | `src/lib/sepa/mandat-sperre.ts` |
+| Sperre beim Erzeugen der Datei | `generateRunXml` in `src/lib/actions/admin/sepa-collections.ts` |
+| Sperre beim Bestätigen des Uploads | `bestaetigeBankupload`, über `mandatsSperre` |
+| Kennzeichnung an der Zeile | `src/app/admin/lastschriften/[id]/page.tsx`, `collection-run-detail.tsx` |
+| Tests | `mandat-sperre.test.ts` (7), `tests/PROJ-105-mandat-widerrufen.spec.ts` (5) |
+
+Die Meldung nennt den **richtigen** Weg zurück: Position entfernen und neu eintragen. Dann
+greift ein inzwischen neu erteiltes Mandat, oder das Eintragen lehnt ab und der Betrag gehört
+auf die Barzahlungsliste. Ohne diesen Satz würde der Betreiber den ganzen Entwurf verwerfen —
+und damit Kündigungsdaten verwaisen lassen (der erste Fund desselben Tages).
+
+Der Browsertest geht die Reihenfolge des Betriebs: Lauf anlegen, Datei holen (muss gehen),
+Mandat widerrufen, Datei holen (darf nicht gehen), Position entfernen, Datei holen (muss
+wieder gehen).
 
 ## Edge Cases
 
@@ -176,8 +201,15 @@ ist.
 
 ## Open Questions
 
-- [ ] Soll die Sperre beim Einzug in dieselbe Auslieferung wie die Liste, oder getrennt und
-      zuerst? Sie ist der gravierendere Fund, aber auch der kleinere Eingriff.
+- [x] Soll die Sperre beim Einzug zuerst und getrennt kommen? → **Ja, am 2026-11-17 so
+      ausgeliefert.** Sie ist der gravierendere Fund und der kleinere Eingriff; die dritte
+      Liste folgt.
+- [ ] Eine Position, deren Mandatsreferenz **gar keine** Zeile in `sepa_mandates` hat, läuft
+      weiter durch: Das Unterschriftsdatum wird dann durch den Fälligkeitstag ersetzt
+      (`signedDateByReference.get(...) ?? run.due_date`). Das ist eine zweite, kleinere
+      stille Stelle derselben Art. Bewusst nicht mitgenommen, weil ältere Läufe in der
+      Testdatenbank verwaiste Positionen haben könnten und ein Härten dort unbemerkt eine
+      andere Suite bricht. Eigene Prüfung wert.
 - [ ] Soll eine Position mit widerrufenem Mandat beim Verwerfen/Entfernen zusätzlich
       automatisch auf der Barzahlungsliste landen? Vorschlag: nein — bei Geld entscheidet
       der Betreiber, und ein Klick weiter ist zumutbar.

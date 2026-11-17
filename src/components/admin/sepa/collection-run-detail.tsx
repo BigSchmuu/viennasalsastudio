@@ -43,6 +43,8 @@ export type CollectionItemRow = {
   bezug: string;
   amount: number;
   bouncedAt: string | null;
+  /** PROJ-105: Das Mandat hinter dieser Position wurde widerrufen. */
+  mandatWiderrufen?: boolean;
 };
 
 function formatPrice(price: number): string {
@@ -286,7 +288,15 @@ export function CollectionRunDetail({
                     {item.customerName}
                   </KundenLink>
                 </TableCell>
-                <TableCell>{item.bezug}</TableCell>
+                <TableCell>
+                  {item.bezug}
+                  {item.mandatWiderrufen && (
+                    <span className="block text-sm font-medium text-destructive">
+                      Mandat widerrufen — gegen einen Widerruf darf nicht abgebucht werden.
+                      Entferne diese Position und trage sie neu ein.
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">{formatPrice(item.amount)}</TableCell>
                 {!entwurf && (
                   <TableCell>
