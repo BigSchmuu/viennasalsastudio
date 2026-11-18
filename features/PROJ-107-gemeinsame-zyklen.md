@@ -135,7 +135,7 @@ Abbuchung statt am Zyklus des Studios.
 - [ ] Angenommen der Betreiber verschiebt ein künftiges Zyklusende, wenn ein Kunde danach kündigt, dann nennt das Profil das verschobene Datum
 - [x] Angenommen ein Kunde wird im nächsten Zyklus zu alt für den Studierendenpreis, wenn die Ankündigung erzeugt wird, dann nennt sie denselben Zyklusbeginn, den die Zyklusliste nennt
 - [ ] Angenommen für ein Abo wird eine Upgrade-Differenz berechnet, wenn der Zyklus schon abgebucht ist, dann richtet sich die Rechnung nach dem eingetragenen Zyklus
-- [ ] Angenommen eine Rechnung entsteht für einen Abobeitrag, wenn der Kunde sie öffnet, dann nennt die Position den Zeitraum, für den gezahlt wurde
+- [x] Angenommen eine Rechnung entsteht für einen Abobeitrag, wenn der Kunde sie öffnet, dann nennt die Position den Zeitraum, für den gezahlt wurde
 - [ ] Angenommen das Studio schließt für eine Woche, wenn der Betreiber das Zyklusende entsprechend später ansetzt, dann verschieben sich Einzug und Kündigungsfrist für alle gemeinsam
 - [ ] Angenommen ein Abo wird mitten im Zyklus angelegt und der Betreiber wählt „laufender Zyklus", wenn der Lauf angelegt wird, dann steht der volle Beitrag darin
 - [ ] Angenommen er wählt „nächster Zyklus", wenn der Lauf für den laufenden angelegt wird, dann ist das Abo nicht darin
@@ -241,6 +241,27 @@ Abbuchung statt am Zyklus des Studios.
 
 ---
 <!-- Sections below are added by subsequent skills -->
+
+## Umsetzung — Stufe 2, dritter Teil (2026-11-18)
+
+Die Rechnung nennt den Leistungszeitraum: „Flatrate (30.11.2026 – 10.01.2027)".
+Bei einem Mitgliedsbeitrag ist der Zeitraum die Angabe, auf die es ankommt —
+er beantwortet „wofür war das?" und ist bei einer Rückfrage das Dokument, das
+man vorlegt.
+
+| Teil | Wo |
+|---|---|
+| `create_invoices_for_collection_run` nennt den Zeitraum | `supabase/migrations/20261118100000_proj107_leistungszeitraum.sql` |
+| Tests | `tests/PROJ-107-leistungszeitraum-db.test.ts` (4) |
+
+Drei Grenzen, und die beiden letzten sind wichtiger als die Angabe selbst:
+**nur Abo-Positionen** (ein Ticket gilt für einen Abend), **nur mit Zyklus**
+(lieber keine Angabe als eine erfundene), und **vor den Zusätzen**, weil der
+Zeitraum zum Abo gehört und der Aufschlag zur Abrechnung.
+
+Der Test lief vor der Migration bewusst einmal rot — und zwar nur im ersten
+Fall. Die drei Gegenproben (Ticket, kein Zyklus, fremde Rolle) bestanden schon
+vorher, womit belegt ist, dass die Prüfung etwas misst.
 
 ## Umsetzung — Stufe 2, zweiter Teil (2026-11-18)
 
