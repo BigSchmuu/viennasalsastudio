@@ -665,14 +665,21 @@ test.describe("PROJ-47: Lastschriftlauf vor dem Bankupload korrigieren", () => {
       await expect(page.getByText(anzeige(entwurf.due_date)).first()).toBeVisible();
     }
 
-    // Ein freigegebener Lauf darf hier nicht auftauchen.
+    // Ein freigegebener Lauf darf hier nicht auftauchen. Geprüft wird über
+    // seine Kennung, nicht über sein Datum: Mehrere Läufe teilen sich dasselbe
+    // Fälligkeitsdatum, und am 2026-11-18 ist genau daran diese Prüfung
+    // gescheitert — sie fand „8.11.2026" sechsmal auf der Seite, nämlich an
+    // Entwürfen, die dort hingehören. Ein Datum sagt nichts darüber, *welcher*
+    // Lauf gemeint ist.
     const { data: freigegeben } = await svc
       .from("sepa_collection_runs")
-      .select("due_date")
+      .select("id")
       .not("released_at", "is", null)
       .limit(1);
     if (freigegeben?.length) {
-      await expect(page.getByText(anzeige(freigegeben[0].due_date))).toHaveCount(0);
+      await expect(page.locator(`a[href$="/admin/lastschriften/${freigegeben[0].id}"]`)).toHaveCount(
+        0
+      );
     }
   });
 });

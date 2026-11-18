@@ -114,6 +114,42 @@ test.beforeAll(async () => {
     .maybeSingle();
   if (!entry) await service.from("course_entry_dates").insert({ course_id: courseId, entry_date: ENTRY_DATE });
 
+  // Der Anzeigename, nach dem diese Suite in der Verwaltungsliste filtert
+  // („E2E15 Kunde"). Gesetzt werden **Vor- und Nachname**, nicht `full_name`:
+  // Seit PROJ-94 pflegt ein Trigger `full_name` aus den Teilen, und ein
+  // direktes Schreiben darauf wird überschrieben, sobald Teile vorhanden sind.
+  // Das Konto hieß am 2026-11-18 „ZZ Probe Kunde" — irgendwann umbenannt —, und
+  // deshalb fand der „Voller Ablauf" seine Zeile nicht, obwohl die Buchung
+  // entstanden war. Eine Prüfung soll den Namen mitbringen, nach dem sie sucht.
+  const { error: nameFehler } = await service
+    .from("profiles")
+    .update({ first_name: "E2E15", last_name: "Kunde" })
+    .eq("id", customerId);
+  if (nameFehler) throw new Error(`PROJ-15 Name: ${nameFehler.message}`);
+
+  // Ohne SEPA-Mandat bricht die Buchung ab, bevor eine Anfrage entsteht: Die
+  // Serveraktion antwortet mit `needsMandate`, der Dialog zeigt den Hinweis auf
+  // die Bankdaten, und in der Admin-Liste steht nichts. Genau daran ist der
+  // „Voller Ablauf" am 2026-11-18 in beiden Browsern gescheitert — das Mandat
+  // dieses Testkunden war irgendwann weg, und die Suite hat es nie selbst
+  // angelegt, sondern vorausgesetzt. Jetzt legt sie es an, wie den Kurs und die
+  // Gutscheine auch: Eine Prüfung soll alles mitbringen, was sie braucht.
+  const { data: vorhandenesMandat } = await service
+    .from("sepa_mandates")
+    .select("id, revoked_at")
+    .eq("customer_id", customerId)
+    .is("revoked_at", null)
+    .maybeSingle();
+  if (!vorhandenesMandat) {
+    const { error: mandatFehler } = await service.from("sepa_mandates").insert({
+      customer_id: customerId,
+      iban: "AT611904300234573201",
+      account_holder_name: "E2E15 Kunde",
+      mandate_reference: `E2E15-${Date.now()}`.slice(0, 35),
+    });
+    if (mandatFehler) throw new Error(`PROJ-15 Mandat: ${mandatFehler.message}`);
+  }
+
   // A coupon only attaches for a customer who has NEVER had a subscription,
   // and this suite's own flow creates one — so both must be reset each run.
   await service.from("course_bookings").delete().eq("customer_id", customerId);
@@ -236,7 +272,15 @@ test.describe("PROJ-15: Gutscheine & Rabattcodes", () => {
     // PROJ-42: Das Absenden ist jetzt an die AGB-Zustimmung gebunden.
     await page.locator("#terms-accepted-booking").check();
     await page.getByRole("button", { name: "Rechtlich verbindlich buchen" }).click();
-    await page.waitForTimeout(2000);
+
+    // Erst belegen, dass die Anfrage angekommen ist. Vorher stand hier nur eine
+    // Wartezeit: Scheiterte das Absenden — etwa am fehlenden Mandat —, meldete
+    // die Prüfung „Zeile nicht gefunden" in der Verwaltung und wies damit auf
+    // die falsche Stelle. Ein Fehlschlag soll sagen, was wirklich fehlt.
+    await expect(
+      page.getByText("Deine Buchung ist eingegangen").first(),
+      "Die Buchungsanfrage wurde nicht angenommen — steht im Dialog der Hinweis auf das fehlende SEPA-Mandat?"
+    ).toBeVisible({ timeout: 15000 });
 
     await login(page, ADMIN);
     await page.goto("/admin/buchungen");

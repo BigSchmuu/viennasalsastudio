@@ -29,7 +29,7 @@ import { angemeldetAls } from "./anmeldung";
  * eine lückenlose Kette und hätte für einen Zyklus im Jahr 2032 achtzig Zyklen
  * dazwischen gebraucht.
  *
- * Braucht die Migrationen 20261117140000 und 20261117170000.
+ * Braucht die Migrationen 20261117140000, 20261117170000 und 20261118190000.
  */
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -113,6 +113,47 @@ describe("PROJ-107: Was die Datenbank über Zyklen erzwingt", () => {
     expect(hinten.fehler).toBeUndefined();
     const vorne = await anlegen("2032-04-05", "2032-05-02");
     expect(vorne.fehler).toBeUndefined();
+  });
+
+  it("weist einen Zyklus unter vier Kurswochen ab", async () => {
+    // 21 Tage. Drei Kurswochen sind kein Zyklus — und ein zu kurzer Zyklus
+    // zieht zweimal in einem Monat ein.
+    const ergebnis = await anlegen("2032-10-04", "2032-10-24");
+    expect(ergebnis.fehler).toContain("shorter than four course weeks");
+  });
+
+  it("weist einen Zyklus über zwölf Wochen ab", async () => {
+    // 144 Tage.
+    const ergebnis = await anlegen("2033-02-07", "2033-06-30");
+    expect(ergebnis.fehler).toContain("longer than twelve weeks");
+  });
+
+  it("weist den Fall vom 2026-11-18 ab: 2923 Tage", async () => {
+    // Der wirkliche Vorfall: Im vollen Prüflauf entstand ein Zyklus über 2707
+    // Tage, weil der Beginn auf heute zurückfiel und das Ende im Jahr 2034
+    // stehen blieb. Er deckte damit *heute* — und ab da leitete jede
+    // Kündigungsfrist, jede Einzugssperre und die Preisumstellung daraus ab.
+    // Im Betrieb genügt dafür eine vertippte Jahreszahl.
+    const ergebnis = await anlegen("2034-07-03", "2042-07-03");
+    expect(ergebnis.fehler).toContain("longer than twelve weeks");
+  });
+
+  it("nimmt die Grenzen selbst an: genau 28 und genau 84 Tage", async () => {
+    // Der erste und der letzte Tag zählen beide mit. Wäre hier `< 28` als
+    // `<= 28` geschrieben, fiele der kürzeste wirkliche Zyklus durch — vier
+    // Kurswochen ohne Ferientag.
+    const kurz = await anlegen("2033-07-04", "2033-07-31");
+    expect(kurz.fehler, "genau vier Kurswochen").toBeUndefined();
+    const lang = await anlegen("2033-08-01", "2033-10-23");
+    expect(lang.fehler, "genau zwölf Wochen").toBeUndefined();
+  });
+
+  it("nennt bei einem kurzen Zeitraum in einem bestehenden Zyklus die Überschneidung", async () => {
+    // Die Reihenfolge im Trigger ist entschieden: Wer sich in einen bestehenden
+    // Zyklus hinein verlegt, liest „kein Tag gehört zu zwei Zyklen" — nicht die
+    // Länge. Sonst führte die neue Regel von der wahren Ursache weg.
+    const ergebnis = await anlegen("2033-07-10", "2033-07-16");
+    expect(ergebnis.fehler).toContain("overlaps an existing one");
   });
 
   it("erlaubt eine Lücke — dafür warnt das Formular, nicht die Datenbank", async () => {

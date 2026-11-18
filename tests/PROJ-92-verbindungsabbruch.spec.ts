@@ -81,6 +81,19 @@ test.describe("PROJ-92: Abgebrochene Anfrage", () => {
     await page.getByLabel("Nachname").fill("Abbruch");
     await page.getByLabel("E-Mail").fill(MAIL);
     await page.getByLabel(/^Passwort$/).fill(PASSWORT);
+    // PROJ-101 hat das Geburtsdatum zur Pflicht gemacht — drei Felder, kein
+    // `type=date`. Ohne sie hält die Prüfung im Browser das Formular an, es geht
+    // nie ein POST hinaus, und der abgebrochene POST, um den es hier geht, kann
+    // gar nicht entstehen. Seit dem 2026-11-16 war diese Prüfung deshalb rot;
+    // aufgefallen ist es erst im vollen Lauf am 2026-11-18.
+    // Drei Auswahlfelder, keine Eingabefelder: Der Wert kommt aus einem
+    // verborgenen Feld, das die Auswahl füllt.
+    await page.getByLabel("Tag", { exact: true }).click();
+    await page.getByRole("option", { name: "4", exact: true }).click();
+    await page.getByLabel("Monat", { exact: true }).click();
+    await page.getByRole("option", { name: "Juli", exact: true }).click();
+    await page.getByLabel("Jahr", { exact: true }).click();
+    await page.getByRole("option", { name: "1990", exact: true }).click();
     const wiederholung = page.getByLabel(/Passwort bestätigen|Passwort wiederholen/);
     if (await wiederholung.count()) await wiederholung.first().fill(PASSWORT);
 
