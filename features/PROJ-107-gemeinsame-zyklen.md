@@ -1,8 +1,8 @@
 # PROJ-107: Ein gemeinsamer Zahlungszyklus für alle, eingetragen statt gerechnet
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-11-17
-**Last Updated:** 2026-11-17 (Architektur)
+**Last Updated:** 2026-11-19 (Zykluslänge, in Test und Produktion eingespielt)
 
 ## Dependencies
 - Requires: PROJ-7 (SEPA-Lastschrift) — der Lauf, der künftig am Zyklus hängt
@@ -242,6 +242,59 @@ Abbuchung statt am Zyklus des Studios.
 ---
 <!-- Sections below are added by subsequent skills -->
 
+## Nachtrag aus dem Prüflauf: die Länge eines Zyklus (2026-11-18)
+
+Ein Zyklus ist **28 bis 84 Tage** lang. Vorher gab es keine Längengrenze, und
+das war die einzige echte Lücke, die der volle Prüflauf vom 2026-11-18
+gefunden hat.
+
+**Der Anlass war kein gedachter.** Die Oberfläche hat einen Zyklus
+18.11.2026–16.04.2034 angelegt — 2707 Tage. Die Datenbank nahm ihn
+widerspruchslos an, denn sie prüfte nur zweierlei: Ende nicht vor Beginn, keine
+Überschneidung. Weil der Zyklus **heute** deckte, leitete ab diesem Augenblick
+jede Geldrechnung daraus ab:
+
+- im Profil stand „Kündigung oder Pause bis 16.04.2034"
+- die Sperre „ein Einzug je Abo je Zyklus" ließ keinen weiteren Lastschriftlauf
+  mehr zu, bis 2034
+- die Umstellung des Studierendenpreises (PROJ-102) rechnet ebenso am Zyklus
+
+Im Prüflauf kostete das 25 rote Prüfungen in acht Dateien. Im Betrieb genügte
+dafür **ein vertippter Jahreswert** im Formular.
+
+| Teil | Wo |
+|---|---|
+| Trigger und CHECK, 28 bis 84 Tage | `supabase/migrations/20261118190000_proj107_zykluslaenge_plausibel.sql` |
+| Zwei deutsche Meldungen | `src/lib/actions/admin/zyklen.ts` (`MELDUNGEN`) |
+| Tests | `tests/PROJ-107-zyklen-db.test.ts` (+5), `tests/PROJ-107-zyklen.spec.ts` (+1) |
+
+**Warum 28 bis 84.** Vier Kurswochen sind 28 Tage und damit der kürzeste
+wirkliche Zyklus; der echte erste (30.11.2026–10.01.2027) ist mit 42 Tagen die
+Mitte, weil zwei Ferienwochen darin liegen. Zwölf Wochen lassen Raum für eine
+außergewöhnlich lange Pause und fangen den vertippten Jahreswert trotzdem.
+Festgelegt vom Betreiber am 2026-11-18.
+
+**Die Prüfung steht an zwei Stellen, mit Absicht.** Im Trigger, weil ein
+BEFORE-Trigger vor den CHECK-Bedingungen läuft — sonst wäre die CHECK-Meldung
+nie zu sehen und der Betreiber läse einen Postgres-Code statt eines Satzes. Und
+als CHECK, damit die Regel auch beim Einfügen per SQL gilt.
+
+**Die Reihenfolge im Trigger ist eine Entscheidung über die Meldung:** Ende vor
+Beginn, dann Überschneidung, dann Länge. Umgekehrt bekäme ein kurzer Zeitraum
+mitten in einem bestehenden Zyklus die Längenmeldung statt der wahren Ursache.
+Dieser Fall ist eigens geprüft.
+
+**Geprüft wird beides — die Regel und der Satz.** Fünf Prüfungen in der
+Datenbank (21 Tage, 144 Tage, der echte Fall mit 2923 Tagen, die Grenzen 28 und
+84 selbst, und der Vorrang der Überschneidung) und eine durch das Formular:
+letzter Tag 2042 statt 2034, die Seite nennt die verrutschte Jahreszahl, und
+danach steht nichts in der Datenbank. Die zweite ist die wichtigere — eine
+Grenze, die nur einen SQLSTATE zeigt, hilft im Betrieb nicht.
+
+**Eingespielt:** Test am 2026-11-18, Produktion am 2026-11-19. Die Migration
+nennt vorhandene Zeilen außerhalb der Grenze beim Namen und bricht ab, statt
+halb durchzulaufen.
+
 ## Umsetzung — Stufe 2, vierter Teil: fertig (2026-11-18)
 
 Die Upgrade-Differenz liest die Zyklen. Damit lesen **alle vier**
@@ -356,10 +409,11 @@ Vollständig: Fundament, Regel, Oberfläche, Tests.
 | Aktionen | `src/lib/actions/admin/zyklen.ts` |
 | Seite und Formular | `src/app/admin/zyklen/page.tsx`, `src/components/admin/zyklen/zyklen-manager.tsx` |
 | Lauf hängt am Zyklus | `src/lib/actions/admin/sepa-collections.ts`, `src/app/admin/lastschriften/[id]/page.tsx` |
-| Tests | `ausgelassen.test.ts` (+11), `zyklus-vorschlag.test.ts` (10), `tests/PROJ-107-zyklen-db.test.ts` (11), `tests/PROJ-107-zyklen.spec.ts` (10) |
+| Tests | `ausgelassen.test.ts` (+11), `zyklus-vorschlag.test.ts` (10), `tests/PROJ-107-zyklen-db.test.ts` (16), `tests/PROJ-107-zyklen.spec.ts` (13) |
 
-**Noch nicht in der Produktion.** Beide Migrationen liegen auf dem Testprojekt; die Produktion
-spielt der Betreiber ein.
+**In der Produktion.** Alle Migrationen zu PROJ-107 sind eingespielt — Stufe 1 und 2 vom
+2026-11-17/18, die Längengrenze am 2026-11-19. Eingespielt hat sie der Betreiber im
+SQL-Editor; Claude schreibt die Datei und übergibt das SQL.
 
 **Für den Betrieb:** Der erste Zyklus (30.11.2026–10.01.2027) wird über `/admin/zyklen`
 eingetragen, nicht einmigriert. Damit der Vorschlag stimmt, muss die zweiwöchige
