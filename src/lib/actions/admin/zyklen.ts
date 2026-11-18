@@ -27,6 +27,14 @@ const MELDUNGEN: [string, string][] = [
   ],
   ["ends before it starts", "Der letzte Tag liegt vor dem ersten."],
   [
+    "shorter than four course weeks",
+    "Dieser Zeitraum ist kürzer als vier Kurswochen (28 Tage). Prüfe den letzten Tag.",
+  ],
+  [
+    "longer than twelve weeks",
+    "Dieser Zeitraum ist länger als zwölf Wochen (84 Tage) — meist ist dann die Jahreszahl verrutscht. Prüfe erster und letzter Tag.",
+  ],
+  [
     "has collection runs",
     "Zu diesem Zyklus gibt es schon einen Lastschriftlauf. Verwirf zuerst dessen Entwurf — sonst änderte sich im Nachhinein, wofür jemand bezahlt hat.",
   ],
