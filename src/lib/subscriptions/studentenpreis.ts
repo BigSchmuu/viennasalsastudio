@@ -25,8 +25,19 @@ type ServiceClient = SupabaseClient<Database>;
  * ohne Datenbank prüfbar ist.
  */
 
-/** Ein Abrechnungszyklus — dieselben 28 Tage wie in `next_cycle_end`. */
-export const ZYKLUS_TAGE = 28;
+/**
+ * Der versprochene Mindestvorlauf vor einer Preisumstellung.
+ *
+ * Hiess bis PROJ-107 `ZYKLUS_TAGE` und war dasselbe wie die Zyklusdauer. Seit
+ * ein Zyklus eingetragen wird, stimmt das nicht mehr — der erste Zyklus des
+ * Studios ist 42 Tage lang, weil die Weihnachtspause darin liegt. Geblieben
+ * ist die Zusage: mindestens vier Wochen zwischen Ankündigung und neuem Preis.
+ * Ein Name, der eine Zyklusdauer behauptet, wäre dafür falsch.
+ */
+export const VORLAUF_TAGE = 28;
+
+/** @deprecated Hiess früher so; der Wert ist der Mindestvorlauf, nicht die Zyklusdauer. */
+export const ZYKLUS_TAGE = VORLAUF_TAGE;
 
 /** Centgenauigkeit: Preise sind `numeric`, Vergleiche brauchen eine Toleranz. */
 const CENT = 0.005;
@@ -43,17 +54,52 @@ export type StudentenpreisLaufErgebnis = {
 };
 
 /**
- * Der Tag, an dem der neue Preis beginnt.
+ * Der Tag, an dem der neue Preis beginnt — Rückfallweg ohne eingetragene
+ * Zyklen.
  *
  * `naechstesZyklusende` kommt aus `next_cycle_end` und liegt zwischen einem und
- * 28 Tagen in der Zukunft. Liegt es näher als ein voller Zyklus, wird ein
- * Zyklus weiter gegangen: Versprochen ist ein **voller** Zyklus Vorlauf, damit
- * eine Kündigung noch rechtzeitig wirkt. Lieber einmal zu früh angekündigt als
- * eine Erhöhung, der niemand mehr ausweichen kann.
+ * 28 Tagen in der Zukunft. Liegt es näher als der versprochene Vorlauf, wird
+ * ein Zyklus weiter gegangen: Lieber einmal zu früh angekündigt als eine
+ * Erhöhung, der niemand mehr ausweichen kann.
  */
 export function umstellungsDatum(naechstesZyklusende: string, heute: string): string {
-  if (tageZwischen(heute, naechstesZyklusende) >= ZYKLUS_TAGE) return naechstesZyklusende;
-  return plusTage(naechstesZyklusende, ZYKLUS_TAGE);
+  if (tageZwischen(heute, naechstesZyklusende) >= VORLAUF_TAGE) return naechstesZyklusende;
+  return plusTage(naechstesZyklusende, VORLAUF_TAGE);
+}
+
+/** Ein eingetragener Zahlungszyklus, so weit er hier gebraucht wird. */
+export type ZyklusZeitraum = { von: string; bis: string };
+
+/**
+ * Der Umstellungstag aus den eingetragenen Zyklen (PROJ-107).
+ *
+ * Ein neuer Preis beginnt **mit einem Zyklus**, nie mitten darin — sonst zahlte
+ * jemand für denselben Zeitraum zwei Preise. Also: der Beginn des nächsten
+ * Zyklus, und wenn der näher liegt als der versprochene Vorlauf, der Beginn
+ * des übernächsten.
+ *
+ * Dass dieser Tag für **alle** Abos derselbe ist, ist kein Zufall, sondern der
+ * ganze Zweck: Bis PROJ-107 hing er am Ankerdatum des einzelnen Abos und
+ * zählte Ferien gar nicht mit — von den drei Zyklusrechnungen im Projekt war
+ * das die am weitesten abgedriftete.
+ *
+ * `null` heisst: Für heute oder für den Folgezyklus ist nichts eingetragen.
+ * Dann gilt der Rückfallweg, und der Aufrufer sagt es.
+ */
+export function umstellungAusZyklen(
+  zyklen: ZyklusZeitraum[],
+  heute: string,
+  vorlaufTage: number = VORLAUF_TAGE
+): string | null {
+  const laufend = zyklen.find((z) => z.von <= heute && heute <= z.bis);
+  if (!laufend) return null;
+
+  const naechsterBeginn = plusTage(laufend.bis, 1);
+  if (tageZwischen(heute, naechsterBeginn) >= vorlaufTage) return naechsterBeginn;
+
+  const naechster = zyklen.find((z) => z.von === naechsterBeginn);
+  if (!naechster) return null;
+  return plusTage(naechster.bis, 1);
 }
 
 /** Ist der Kunde am Umstellungstag zu alt für den Studierendenpreis? */
@@ -107,6 +153,32 @@ async function kuendigeUmstellungenAn(
     return;
   }
 
+  // PROJ-107: Der Umstellungstag ist für alle Abos derselbe, also einmal
+  // gerechnet und nicht je Abo. Gelesen werden nur die Zyklen, die noch
+  // kommen — mehr als zwei braucht die Rechnung nie.
+  const { data: zyklusZeilen, error: zyklusLeseFehler } = await service
+    .from("billing_cycles")
+    .select("starts_on, ends_on")
+    .gte("ends_on", heute)
+    .order("starts_on")
+    .limit(3);
+  if (zyklusLeseFehler) {
+    // Kein stiller Rückfall auf die alte Rechnung: Hier wird ein Preis
+    // erhöht, und auf welchen Tag, muss nachvollziehbar sein.
+    console.error("PROJ-107: Zahlungszyklen nicht lesbar", zyklusLeseFehler);
+    return;
+  }
+  const gemeinsamerTag = umstellungAusZyklen(
+    (zyklusZeilen ?? []).map((z) => ({ von: z.starts_on, bis: z.ends_on })),
+    heute
+  );
+  if (!gemeinsamerTag) {
+    console.warn(
+      "PROJ-107: Kein Zyklus für heute oder den Folgezyklus eingetragen — " +
+        "der Studierendenpreis rechnet nach der alten Regel je Abo."
+    );
+  }
+
   for (const abo of abos ?? []) {
     const geburtsdatum = abo.profiles?.birthdate ?? null;
     if (!geburtsdatum) {
@@ -116,15 +188,20 @@ async function kuendigeUmstellungenAn(
       continue;
     }
 
-    const { data: zyklusende, error: zyklusFehler } = await service.rpc("next_cycle_end", {
-      p_anchor: abo.cycle_anchor_date,
-    });
-    if (zyklusFehler || !zyklusende) {
-      console.error(`PROJ-102: Zyklusende zu Abo ${abo.id} nicht errechenbar`, zyklusFehler);
-      continue;
+    let umstellung: string;
+    if (gemeinsamerTag) {
+      umstellung = gemeinsamerTag;
+    } else {
+      // Rückfallweg: die Rechnung aus PROJ-102, am Anker des einzelnen Abos.
+      const { data: zyklusende, error: zyklusFehler } = await service.rpc("next_cycle_end", {
+        p_anchor: abo.cycle_anchor_date,
+      });
+      if (zyklusFehler || !zyklusende) {
+        console.error(`PROJ-102: Zyklusende zu Abo ${abo.id} nicht errechenbar`, zyklusFehler);
+        continue;
+      }
+      umstellung = umstellungsDatum(String(zyklusende), heute);
     }
-
-    const umstellung = umstellungsDatum(String(zyklusende), heute);
     if (!zuAltAm(geburtsdatum, umstellung)) continue;
 
     const { data: normalpreis, error: preisFehler } = await service.rpc("abo_normalpreis", {

@@ -133,7 +133,7 @@ Abbuchung statt am Zyklus des Studios.
 - [ ] Angenommen im Profil wird die Kündigung angeboten, wenn der Kunde sie öffnet, dann ist von keiner Frist mehr die Rede — genannt wird der letzte Tag des laufenden Zyklus
 - [ ] Angenommen der Betreiber hat für den neuen Zyklus schon einen Lauf angelegt, wenn ein Kunde danach noch rechtzeitig kündigt, dann steht seine Position noch im Entwurf und muss entfernt werden — die Verwaltung weist im Entwurf darauf hin
 - [ ] Angenommen der Betreiber verschiebt ein künftiges Zyklusende, wenn ein Kunde danach kündigt, dann nennt das Profil das verschobene Datum
-- [ ] Angenommen ein Kunde wird im nächsten Zyklus zu alt für den Studierendenpreis, wenn die Ankündigung erzeugt wird, dann nennt sie denselben Zyklusbeginn, den die Zyklusliste nennt
+- [x] Angenommen ein Kunde wird im nächsten Zyklus zu alt für den Studierendenpreis, wenn die Ankündigung erzeugt wird, dann nennt sie denselben Zyklusbeginn, den die Zyklusliste nennt
 - [ ] Angenommen für ein Abo wird eine Upgrade-Differenz berechnet, wenn der Zyklus schon abgebucht ist, dann richtet sich die Rechnung nach dem eingetragenen Zyklus
 - [ ] Angenommen eine Rechnung entsteht für einen Abobeitrag, wenn der Kunde sie öffnet, dann nennt die Position den Zeitraum, für den gezahlt wurde
 - [ ] Angenommen das Studio schließt für eine Woche, wenn der Betreiber das Zyklusende entsprechend später ansetzt, dann verschieben sich Einzug und Kündigungsfrist für alle gemeinsam
@@ -241,6 +241,32 @@ Abbuchung statt am Zyklus des Studios.
 
 ---
 <!-- Sections below are added by subsequent skills -->
+
+## Umsetzung — Stufe 2, zweiter Teil (2026-11-18)
+
+Der Studierendenpreis liest die Zyklen. Von den drei Rechnungen war das die am
+weitesten abgedriftete: `next_cycle_end` rechnet Ankerdatum + 28 · k und zählt
+Ferien **gar nicht** mit — sie konnte mitten in einen Zyklus hinein umstellen,
+und dann zahlte jemand für denselben Zeitraum zwei Preise.
+
+| Teil | Wo |
+|---|---|
+| `umstellungAusZyklen`, rein und ohne Datenbank prüfbar | `src/lib/subscriptions/studentenpreis.ts` |
+| Der Lauf lädt die Zyklen einmal statt je Abo | ebenda, `kuendigeUmstellungenAn` |
+| Tests | `studentenpreis.test.ts` (+7), `tests/PROJ-102-studentenpreis-endet-db.test.ts` (+2) |
+
+Der Umstellungstag ist jetzt für **alle** Abos derselbe — das ist kein
+Nebeneffekt, sondern der Zweck. Die Zusage bleibt: mindestens vier Wochen
+zwischen Ankündigung und neuem Preis, sonst einen Zyklus weiter. Die Konstante
+heißt deshalb nicht mehr `ZYKLUS_TAGE`, sondern `VORLAUF_TAGE`: Seit ein Zyklus
+42 Tage lang sein kann, wäre der alte Name eine Behauptung, die nicht stimmt.
+
+Der Rückfallweg bleibt und wird von den unveränderten PROJ-102-Prüfungen
+belegt — sie laufen ohne eingetragenen Zyklus für heute und treffen weiter den
+Tag aus der alten Rechnung.
+
+Offen aus Stufe 2: Upgrade-Differenz (PROJ-91/97), Leistungszeitraum auf der
+Rechnung.
 
 ## Umsetzung — Stufe 2, erster Teil (2026-11-18)
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ZYKLUS_TAGE,
+  umstellungAusZyklen,
   lohntUmstellung,
   umstellungsDatum,
   zuAltAm,
@@ -82,5 +83,59 @@ describe("lohntUmstellung", () => {
   it("zählt einen halben Cent nicht als Erhöhung", () => {
     expect(lohntUmstellung(60, 60.004)).toBe(false);
     expect(lohntUmstellung(60, 60.01)).toBe(true);
+  });
+});
+
+describe("PROJ-107: Der Umstellungstag kommt aus den eingetragenen Zyklen", () => {
+  /** Die echte Lage des Studios: 42 Tage, weil die Weihnachtspause darin liegt. */
+  const ZYKLEN = [
+    { von: "2026-11-30", bis: "2027-01-10" },
+    { von: "2027-01-11", bis: "2027-02-07" },
+    { von: "2027-02-08", bis: "2027-03-07" },
+  ];
+
+  it("nennt den Beginn des nächsten Zyklus", () => {
+    expect(umstellungAusZyklen(ZYKLEN, "2026-12-01")).toBe("2027-01-11");
+  });
+
+  it("geht einen Zyklus weiter, wenn der Vorlauf nicht reicht", () => {
+    // Vier Tage vor dem Zyklusende: Der nächste Beginn liegt zu nah, also
+    // beginnt der neue Preis erst mit dem übernächsten Zyklus.
+    expect(umstellungAusZyklen(ZYKLEN, "2027-01-07")).toBe("2027-02-08");
+  });
+
+  it("nimmt den nächsten Beginn, sobald der Vorlauf genau reicht", () => {
+    // Genau 28 Tage vor dem 11.01. — die Zusage ist eingehalten.
+    expect(umstellungAusZyklen(ZYKLEN, "2026-12-14")).toBe("2027-01-11");
+    expect(umstellungAusZyklen(ZYKLEN, "2026-12-15")).toBe("2027-02-08");
+  });
+
+  it("gibt für alle Abos denselben Tag — das ist der Zweck", () => {
+    // Bis PROJ-107 hing der Tag am Ankerdatum des einzelnen Abos. Jetzt gibt
+    // es nur noch einen, und er hängt an nichts am Abo.
+    expect(umstellungAusZyklen(ZYKLEN, "2026-12-01")).toBe(
+      umstellungAusZyklen(ZYKLEN, "2026-12-02")
+    );
+  });
+
+  it("rechnet die Weihnachtspause mit, weil sie im Zyklus steht", () => {
+    // Der laufende Zyklus ist 42 Tage lang. Die alte Rechnung kannte nur 28
+    // und hätte zwei Wochen zu früh umgestellt — mitten in den Zyklus hinein.
+    const ende = umstellungAusZyklen(ZYKLEN, "2026-12-01");
+    expect(ende).toBe("2027-01-11");
+    expect(ende).not.toBe("2026-12-29");
+  });
+
+  it("liefert nichts, wenn für heute kein Zyklus eingetragen ist", () => {
+    expect(umstellungAusZyklen(ZYKLEN, "2026-11-20")).toBeNull();
+  });
+
+  it("liefert nichts, wenn der Folgezyklus fehlt und der Vorlauf nicht reicht", () => {
+    // Ohne den nächsten Zyklus ist der übernächste Beginn unbekannt. Raten
+    // wäre hier eine Behauptung über ein Datum, an dem ein Preis steigt.
+    const nurEiner = [{ von: "2026-11-30", bis: "2027-01-10" }];
+    expect(umstellungAusZyklen(nurEiner, "2027-01-07")).toBeNull();
+    // Reicht der Vorlauf dagegen, genügt der laufende Zyklus allein.
+    expect(umstellungAusZyklen(nurEiner, "2026-12-01")).toBe("2027-01-11");
   });
 });

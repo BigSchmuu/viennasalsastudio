@@ -192,6 +192,87 @@ afterAll(async () => {
   for (const id of Object.values(konten)) await service.auth.admin.deleteUser(id).catch(() => {});
 });
 
+/**
+ * PROJ-107: Mit eingetragenen Zyklen kommt der Umstellungstag aus der Tabelle.
+ *
+ * Bis dahin rechnete der Lauf `next_cycle_end` je Abo — Ankerdatum plus 28
+ * Tage, **ohne** Ferien. Von den drei Zyklusrechnungen im Projekt war das die
+ * am weitesten abgedriftete: Sie konnte mitten in einen Zyklus hinein
+ * umstellen, und dann zahlte jemand fuer denselben Zeitraum zwei Preise.
+ *
+ * Der Zyklus hier umfasst **heute** und laege damit anderen Pruefungen unter
+ * den Fuessen. Das ist sicher, weil `vitest.config.ts`
+ * `fileParallelism: false` setzt; angelegt wird er in diesem Block und sofort
+ * wieder entfernt. Die Pruefungen darueber und darunter laufen damit weiter
+ * auf dem Rueckfallweg — und belegen ihn.
+ */
+describe("PROJ-107: Der Umstellungstag kommt aus den Zyklen", () => {
+  const zyklen: string[] = [];
+
+  async function legeZyklusAn(von: string, bis: string) {
+    const { data, error } = await service
+      .from("billing_cycles")
+      .insert({ starts_on: von, ends_on: bis })
+      .select("id")
+      .single();
+    if (error) throw new Error(`PROJ-107 Zyklus: ${error.message}`);
+    zyklen.push(data!.id);
+  }
+
+  beforeAll(async () => {
+    // Laufender Zyklus bis in 40 Tagen — laenger als die vier Wochen, wie der
+    // echte Weihnachtszyklus des Studios. Der Folgezyklus muss da sein, sonst
+    // waere der uebernaechste Beginn unbekannt.
+    await legeZyklusAn(datum(-5), datum(40));
+    await legeZyklusAn(datum(41), datum(68));
+    await service
+      .from("subscriptions")
+      .update({
+        pending_price: null,
+        pending_price_old: null,
+        pending_price_date: null,
+        price_notice_sent_at: null,
+      })
+      .not("pending_price_date", "is", null);
+  });
+
+  afterAll(async () => {
+    await service
+      .from("subscriptions")
+      .update({
+        pending_price: null,
+        pending_price_old: null,
+        pending_price_date: null,
+        price_notice_sent_at: null,
+      })
+      .not("pending_price_date", "is", null);
+    await service.from("notification_queue").delete().eq("event_type", "studentenpreis_endet");
+    for (const id of zyklen) await service.from("billing_cycles").delete().eq("id", id);
+  });
+
+  it("kuendigt zum Beginn des naechsten Zyklus an, nicht 28 Tage nach dem Anker", async () => {
+    const ergebnis = await fuehreStudentenpreisLaufDurch(service);
+    expect(ergebnis.angekuendigt).toBeGreaterThanOrEqual(1);
+
+    const zeile = await lies(abos.wirdAlt);
+    // Der erste Tag des Folgezyklus — und ausdruecklich **nicht** der Tag, den
+    // die alte Rechnung genannt haette.
+    expect(zeile.pending_price_date).toBe(datum(41));
+    expect(zeile.pending_price_date).not.toBe(datum(28));
+  });
+
+  it("nennt fuer jedes betroffene Abo denselben Tag", async () => {
+    await fuehreStudentenpreisLaufDurch(service);
+    const { data } = await service
+      .from("subscriptions")
+      .select("pending_price_date")
+      .not("pending_price_date", "is", null);
+    const tage = new Set((data ?? []).map((z) => z.pending_price_date));
+    expect(tage.size).toBe(1);
+    expect([...tage][0]).toBe(datum(41));
+  });
+});
+
 describe("PROJ-102: Ankuendigen", () => {
   it("kuendigt die Umstellung einen vollen Zyklus vorher an", async () => {
     const ergebnis = await fuehreStudentenpreisLaufDurch(service);
