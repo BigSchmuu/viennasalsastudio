@@ -134,7 +134,7 @@ Abbuchung statt am Zyklus des Studios.
 - [ ] Angenommen der Betreiber hat für den neuen Zyklus schon einen Lauf angelegt, wenn ein Kunde danach noch rechtzeitig kündigt, dann steht seine Position noch im Entwurf und muss entfernt werden — die Verwaltung weist im Entwurf darauf hin
 - [ ] Angenommen der Betreiber verschiebt ein künftiges Zyklusende, wenn ein Kunde danach kündigt, dann nennt das Profil das verschobene Datum
 - [x] Angenommen ein Kunde wird im nächsten Zyklus zu alt für den Studierendenpreis, wenn die Ankündigung erzeugt wird, dann nennt sie denselben Zyklusbeginn, den die Zyklusliste nennt
-- [ ] Angenommen für ein Abo wird eine Upgrade-Differenz berechnet, wenn der Zyklus schon abgebucht ist, dann richtet sich die Rechnung nach dem eingetragenen Zyklus
+- [x] Angenommen für ein Abo wird eine Upgrade-Differenz berechnet, wenn der Zyklus schon abgebucht ist, dann richtet sich die Rechnung nach dem eingetragenen Zyklus
 - [x] Angenommen eine Rechnung entsteht für einen Abobeitrag, wenn der Kunde sie öffnet, dann nennt die Position den Zeitraum, für den gezahlt wurde
 - [ ] Angenommen das Studio schließt für eine Woche, wenn der Betreiber das Zyklusende entsprechend später ansetzt, dann verschieben sich Einzug und Kündigungsfrist für alle gemeinsam
 - [ ] Angenommen ein Abo wird mitten im Zyklus angelegt und der Betreiber wählt „laufender Zyklus", wenn der Lauf angelegt wird, dann steht der volle Beitrag darin
@@ -241,6 +241,32 @@ Abbuchung statt am Zyklus des Studios.
 
 ---
 <!-- Sections below are added by subsequent skills -->
+
+## Umsetzung — Stufe 2, vierter Teil: fertig (2026-11-18)
+
+Die Upgrade-Differenz liest die Zyklen. Damit lesen **alle vier**
+Zyklusrechnungen dieselbe Tabelle; die alte Formel lebt nur noch als Rückfall
+für Tage ohne eingetragenen Zyklus.
+
+| Teil | Wo |
+|---|---|
+| `zaehlt_zum_laufenden_zyklus` — die Frage, einmal | `supabase/migrations/20261118110000_proj107_upgrade_am_zyklus.sql` |
+| `flatrate_upgrade_zyklus_wird_abgebucht` und `flatrate_upgrade_anrechnung` rufen sie auf | ebenda |
+| Tests | `tests/PROJ-97-upgrade-ferienbewusst-db.test.ts` (+4) |
+
+Dreimal stand dieselbe Frage da — zweimal für Einzüge, einmal für
+Barzahlungen. Jetzt steht sie einmal da. Der Verweis des Laufs auf seinen
+Zyklus hat Vorrang vor dem Datum, damit ein um einen Tag verschobener
+Bankeinzug nicht den Zeitraum wechselt; dieselbe Regel wie `imSelbenZyklus` in
+`src/lib/sepa/ausgelassen.ts`.
+
+**Zwei Fälle, in denen vorher falsch gerechnet wurde**, beide durch je eine
+Prüfung festgehalten, die vor der Migration rot war:
+
+* Einzug oder Barzahlung am ersten Tag eines 42-Tage-Zyklus galt gegen Ende
+  als abgelaufen — die Anrechnung fiel weg, **zu Lasten des Kunden**.
+* Ein Einzug fünf Tage vor dem Zyklusbeginn wurde angerechnet, obwohl er zum
+  Zyklus davor gehörte — **zu Lasten des Studios**.
 
 ## Umsetzung — Stufe 2, dritter Teil (2026-11-18)
 

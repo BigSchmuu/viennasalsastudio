@@ -450,3 +450,77 @@ describe("PROJ-97: Rechte", () => {
     }
   });
 });
+
+/**
+ * PROJ-107: Mit eingetragenem Zyklus kommt die Zuordnung aus der Tabelle.
+ *
+ * Die Prüfungen oben bleiben gültig — sie laufen ohne Zyklus über dem
+ * heutigen Tag und belegen damit den Rückfallweg. Hier geht es um den Fall,
+ * in dem beide Rechnungen **auseinandergehen**, und zwar zugunsten des
+ * Kunden: Ein Zyklus kann länger sein als vier Unterrichtswochen (der erste
+ * des Studios ist 42 Tage lang). Eine Zahlung vom ersten Tag galt nach der
+ * alten Rechnung gegen Ende als abgelaufen — und die Anrechnung fiel weg.
+ *
+ * Der Zyklus umfasst heute und läge anderen Prüfungen unter den Füßen; sicher
+ * ist das, weil `vitest.config.ts` `fileParallelism: false` setzt.
+ */
+describe("PROJ-107: Die Zuordnung kommt aus den Zyklen", () => {
+  const zyklen: string[] = [];
+
+  async function zyklus(vonVersatz: number, bisVersatz: number) {
+    const { data, error } = await service
+      .from("billing_cycles")
+      .insert({ starts_on: wienTag(vonVersatz), ends_on: wienTag(bisVersatz) })
+      .select("id")
+      .single();
+    if (error) throw new Error(`PROJ-107 Zyklus: ${error.message}`);
+    zyklen.push(data!.id);
+  }
+
+  async function zyklenWeg() {
+    for (const id of zyklen.splice(0)) {
+      await service.from("billing_cycles").delete().eq("id", id);
+    }
+  }
+
+  afterEach(zyklenWeg);
+
+  it("rechnet einen Einzug an, der länger als vier Wochen zurückliegt", async () => {
+    await aufraeumen();
+    // 42 Tage wie die Weihnachtslage, der Einzug am ersten Tag: Die alte
+    // Rechnung hätte ihn nach 28 Tagen fallen lassen.
+    await zyklus(-35, 6);
+    await einzug(wienTag(-35));
+
+    expect(await lage()).toBe(false);
+    expect(await angerechnet()).toBe(KURSPREIS);
+  });
+
+  it("rechnet auch eine Barzahlung den ganzen Zyklus lang an", async () => {
+    await aufraeumen();
+    await zyklus(-35, 6);
+    await barzahlung(wienTag(-35));
+
+    expect(await angerechnet()).toBe(KURSPREIS);
+  });
+
+  it("rechnet nichts an, was aus einem früheren Zyklus stammt", async () => {
+    await aufraeumen();
+    // Der Einzug liegt fünf Tage vor dem Zyklusbeginn — näher als vier
+    // Wochen, aber eben im Zyklus davor.
+    await zyklus(-5, 22);
+    await einzug(wienTag(-10));
+
+    expect(await lage()).toBe(true);
+    expect(await angerechnet()).toBe(0);
+  });
+
+  it("zählt einen Einzug am letzten Tag des Zyklus noch dazu", async () => {
+    await aufraeumen();
+    await zyklus(-20, 0);
+    await einzug(wienTag(0));
+
+    expect(await lage()).toBe(false);
+    expect(await angerechnet()).toBe(KURSPREIS);
+  });
+});
