@@ -449,8 +449,16 @@ Vollständig: Fundament, Regel, Oberfläche, Tests.
 SQL-Editor; Claude schreibt die Datei und übergibt das SQL.
 
 **Für den Betrieb:** Der erste Zyklus (30.11.2026–10.01.2027) wird über `/admin/zyklen`
-eingetragen, nicht einmigriert. Damit der Vorschlag stimmt, muss die zweiwöchige
-Weihnachtspause unter „Ferien" stehen.
+eingetragen, nicht einmigriert — **erledigt am 2026-11-19** (Betreiber, Produktion). Damit der
+Vorschlag für den **Folgezyklus** stimmt, muss die zweiwöchige Weihnachtspause unter „Ferien"
+stehen.
+
+**Und der Lauf wird am ersten Tag des Zyklus angelegt oder später, nie vorher.** Für den
+ersten gemeinsamen Zyklus heißt das: ab dem 30.11.2026. Der Grund steht in der Migration
+20261117230000 und ist leicht zu übersehen: Seit die Frist entfallen ist, wirkt eine Kündigung
+bis zum **letzten Tag** des Zyklus. Wer den Lauf schon am 27.11. anlegt und freigibt, hat eine
+Kündigung vom 28. oder 29.11. nicht darin und zieht für einen Zeitraum ein, den der Kunde
+rechtzeitig gekündigt hat. Dieselbe Regel gilt für jeden weiteren Zyklus.
 
 ## Tech Design (Solution Architect)
 
