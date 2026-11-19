@@ -12,7 +12,7 @@
 - Requires: PROJ-51 (Kurszeitraum und Ferien) — die Schließungen, die künftig beim Anlegen eines Zyklus berücksichtigt werden, nicht beim Rechnen
 - Berührt: PROJ-91 / PROJ-97 (Upgrade-Differenz), PROJ-102 (Studierendenpreis endet mit 28), PROJ-10 (Rechnungsarchiv), PROJ-103 (die Gründe im Lauf)
 - Berührt die AGB in beiden Sprachen (`terms-de.tsx`, `terms-en.tsx`): Der Fristsatz, den PROJ-96 dort verankert hat, wird in Stufe 2 wieder gestrichen. Der ursprüngliche Satz — Kündigung „wird zum Ende des jeweils laufenden 4-Wochen-Zyklus wirksam" — stimmt dann wieder, mit dem Zyklus des Studios statt dem des einzelnen Abos
-- Löst ab: PROJ-106 (Warnung beim Verwerfen) — unnötig, sobald das Zyklusende eine eingetragene Tatsache ist und nicht aus einem Lauf gerechnet wird
+- Löst ab: PROJ-106 (Warnung beim Verwerfen) — unnötig, sobald das Zyklusende eine eingetragene Tatsache ist und nicht aus einem Lauf gerechnet wird. **Am 2026-11-19 geprüft und geschlossen**, siehe den Abschnitt „PROJ-106 entfällt" weiter unten
 
 ## Anlass
 
@@ -242,6 +242,39 @@ Abbuchung statt am Zyklus des Studios.
 ---
 <!-- Sections below are added by subsequent skills -->
 
+## PROJ-106 entfällt (2026-11-19)
+
+**Geprüft, nicht abgeleitet.** PROJ-106 sollte warnen, wenn der Betreiber einen
+Entwurf verwirft, aus dem ein Kündigungsdatum gerechnet wurde. Der Anlass war
+der Fall vom 2026-11-18: Ein Kunde hatte zum 16.12. gekündigt, ein früherer
+Lauf war verworfen worden — und danach stand die Abbuchung nicht mehr im Lauf.
+
+Das waren zwei Hälften, und beide sind mit PROJ-107 erledigt:
+
+| Was schieflief | Warum es nicht mehr schieflaufen kann |
+|---|---|
+| Das Kündigungsdatum verwaiste, weil es aus dem letzten Einzug gerechnet war | `abo_kuendigungsfenster` liest das Zyklusende aus `billing_cycles` und sieht die Läufe gar nicht an |
+| Das Abo fiel aus dem nächsten Lauf, weil die Vier-Wochen-Sperre am letzten Einzug hing | Die Sperre fragt „in **diesem Zyklus** schon eingezogen?" — und das Verwerfen löscht die Positionen, damit fällt sie von selbst weg |
+
+**Die zweite Hälfte ist geprüft, nicht abgeleitet.** `tests/PROJ-107-zyklen.spec.ts`,
+„gibt das Abo nach dem Verwerfen wieder frei — im selben Zyklus": Der Lauf vom
+06.03.2034 wird verworfen, danach steht das Abo in einem neuen Lauf vom
+16.04.2034 — im **selben** Zyklus. Vorher gab es dafür keine Prüfung; PROJ-47
+belegte nur, dass Lauf und Positionen verschwinden, nicht was danach gilt.
+
+**Eine Einschränkung, und sie bleibt bestehen.** Der Rückfall in
+`abo_kuendigungsfenster` rechnet weiter aus `max(due_date)` der Positionen; er
+greift, wenn für heute **kein** Zyklus eingetragen ist. In einer Lücke lebt der
+alte Fehler also weiter. Dagegen steht nicht die Warnung aus PROJ-106, sondern
+etwas Besseres: Das Formular belegt den ersten Tag lückenlos vor und warnt beim
+Anlegen, wenn der Betreiber davon abweicht. Das ist der Zeitpunkt, an dem eine
+Lücke entsteht — und wer eine Lücke hat, hat ohnehin das größere Problem, dass
+die ganze Vier-Wochen-Sperre zurückkommt.
+
+Deshalb wird PROJ-106 nicht gebaut, sondern geschlossen: Eine Warnung für einen
+Zustand, der nur in einer Lücke eintritt, vor der schon an der richtigen Stelle
+gewarnt wird.
+
 ## Nachtrag aus dem Prüflauf: die Länge eines Zyklus (2026-11-18)
 
 Ein Zyklus ist **28 bis 84 Tage** lang. Vorher gab es keine Längengrenze, und
@@ -409,7 +442,7 @@ Vollständig: Fundament, Regel, Oberfläche, Tests.
 | Aktionen | `src/lib/actions/admin/zyklen.ts` |
 | Seite und Formular | `src/app/admin/zyklen/page.tsx`, `src/components/admin/zyklen/zyklen-manager.tsx` |
 | Lauf hängt am Zyklus | `src/lib/actions/admin/sepa-collections.ts`, `src/app/admin/lastschriften/[id]/page.tsx` |
-| Tests | `ausgelassen.test.ts` (+11), `zyklus-vorschlag.test.ts` (10), `tests/PROJ-107-zyklen-db.test.ts` (16), `tests/PROJ-107-zyklen.spec.ts` (13) |
+| Tests | `ausgelassen.test.ts` (+11), `zyklus-vorschlag.test.ts` (10), `tests/PROJ-107-zyklen-db.test.ts` (16), `tests/PROJ-107-zyklen.spec.ts` (14) |
 
 **In der Produktion.** Alle Migrationen zu PROJ-107 sind eingespielt — Stufe 1 und 2 vom
 2026-11-17/18, die Längengrenze am 2026-11-19. Eingespielt hat sie der Betreiber im

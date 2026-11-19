@@ -37,11 +37,13 @@ const Z1_BIS = "2034-04-16";
 const Z2_VON = "2034-04-17";
 const Z2_BIS = "2034-05-14";
 
-/** Drei Läufe: A und B im Zyklus 1, C im Zyklus 2. */
+/** Vier Läufe: A, B und D im Zyklus 1, C im Zyklus 2. */
 const LAUF_A = "2034-03-06";
 const LAUF_B = "2034-04-10";
 const LAUF_C = "2034-04-17";
-const ALLE_LAEUFE = [LAUF_A, LAUF_B, LAUF_C];
+/** Nach dem Verworfenen: noch einmal im Zyklus 1, an seinem letzten Tag. */
+const LAUF_D = "2034-04-16";
+const ALLE_LAEUFE = [LAUF_A, LAUF_B, LAUF_C, LAUF_D];
 
 /** Damit Lauf B überhaupt eine Position bekommt: Dieses Abo beginnt erst dazwischen. */
 const BEGINN_DAZWISCHEN = "2034-04-01";
@@ -273,6 +275,17 @@ async function legeLaufAn(page: Page, datum: string): Promise<boolean> {
   }
 }
 
+async function laufIdZu(datum: string): Promise<string> {
+  const { data: lauf, error } = await svc
+    .from("sepa_collection_runs")
+    .select("id")
+    .eq("due_date", datum)
+    .maybeSingle();
+  if (error) throw new Error(`PROJ-107 Lauf lesen (${datum}): ${error.message}`);
+  if (!lauf) throw new Error(`PROJ-107: Zum ${datum} gibt es keinen Lauf.`);
+  return lauf.id;
+}
+
 async function positionenZu(datum: string, rolle: string): Promise<number> {
   const { data: lauf } = await svc
     .from("sepa_collection_runs")
@@ -472,5 +485,34 @@ test.describe("PROJ-107: Zahlungszyklen verwalten", () => {
     const zeile = page.getByTestId("zyklen-liste").locator("tr", { hasText: "06.03.2034" });
     await expect(zeile).toContainText("abgerechnet");
     await expect(zeile.getByRole("button", { name: "Ändern" })).toHaveCount(0);
+  });
+
+  test("gibt das Abo nach dem Verwerfen wieder frei — im selben Zyklus", async ({ page }) => {
+    test.slow();
+    await anmelden(page);
+    // Der gemeldete Vorfall, von der anderen Seite her: Der Betreiber hatte
+    // einen Lauf verworfen, danach fehlte die Abbuchung eines Kunden im
+    // naechsten Lauf. Richtig ist das Gegenteil -- die Sperre "in diesem
+    // Zyklus schon eingezogen" haengt an den Positionen, und das Verwerfen
+    // loescht sie. Also muss das Abo wieder hineingehoeren.
+    //
+    // Das war der Anlass fuer PROJ-106 (Warnung beim Verwerfen). Diese
+    // Pruefung ist der Grund, warum PROJ-106 entfaellt: Es gibt nichts zu
+    // warnen, wenn sich die Sperre von selbst zurueckgibt.
+    await gehZu(page, `/admin/lastschriften/${await laufIdZu(LAUF_A)}`);
+    await page.getByRole("button", { name: "Entwurf verwerfen" }).click();
+    await page.getByRole("button", { name: "Verwerfen", exact: true }).last().click();
+    // Auf das Ergebnis warten, nicht auf eine Dauer: Nach dem Verwerfen gibt
+    // es die Seite des Laufs nicht mehr.
+    await expect(page).toHaveURL(/\/admin\/lastschriften$/, { timeout: 45_000 });
+
+    expect(await positionenZu(LAUF_A, "haupt"), "Die Position des verworfenen Laufs").toBe(0);
+
+    // Und jetzt noch einmal ein Lauf im **selben** Zyklus 1.
+    expect(await legeLaufAn(page, LAUF_D)).toBe(true);
+    expect(
+      await positionenZu(LAUF_D, "haupt"),
+      "Nach dem Verwerfen ist das Abo im selben Zyklus wieder einzuziehen"
+    ).toBe(1);
   });
 });

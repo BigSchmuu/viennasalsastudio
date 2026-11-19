@@ -106,7 +106,9 @@ ist.
   Migration (`notification_queue.event_type` hat eine CHECK-Liste); dafür ist der Nutzen zu
   klein, solange die Liste existiert.
 - **Keine Warnung beim Verwerfen** eines Entwurfs, aus dem ein Kündigungsdatum gerechnet
-  wurde → **PROJ-106**.
+  wurde → war **PROJ-106**, ist mit PROJ-107 **entfallen** (2026-11-19): Das Kündigungsdatum
+  wird nicht mehr aus einem Lauf gerechnet, sondern aus dem eingetragenen Zyklus gelesen.
+  Begründung in [PROJ-107](PROJ-107-gemeinsame-zyklen.md).
 - **Der Fall „es entsteht gar kein Lauf"** bleibt wie in PROJ-103: dort gibt es keine Seite,
   nur die zusammenfassende Zeile.
 - **Keine Mahnung und keine Rechnung ohne Einzug.** Offene Posten bleiben, was sie sind:
