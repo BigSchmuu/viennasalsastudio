@@ -1,8 +1,8 @@
 # PROJ-105: Ein widerrufenes Mandat bleibt sichtbar — und zieht nicht mehr ein
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-11-17
-**Last Updated:** 2026-11-17
+**Last Updated:** 2026-11-20 (alle Abnahmekriterien belegt)
 
 ## Dependencies
 - Requires: PROJ-7 (SEPA-Lastschrift und Mandate) — `sepa_mandates`, `revoked_at`, `generateRunXml`
@@ -124,12 +124,12 @@ ist.
 
 - [x] Angenommen ein aktives Abo hätte an diesem Fälligkeitstag einen Beitrag offen und sein Mandat wurde widerrufen, wenn der Betreiber den Entwurf öffnet, dann steht es unter „Mandat widerrufen, Beitrag offen" mit Kundenname, Bezeichnung und Betrag
 - [x] Angenommen dieses Abo wurde früher schon eingezogen, wenn die Zeile erscheint, dann nennt sie das Datum des letzten Einzugs
-- [ ] Angenommen dieses Abo ist zusätzlich gekündigt und das Enddatum liegt in der Zukunft, wenn die Zeile erscheint, dann nennt sie das Enddatum und dass ab diesem Tag kein Einzug mehr möglich ist
+- [x] Angenommen dieses Abo ist zusätzlich gekündigt und das Enddatum liegt in der Zukunft, wenn die Zeile erscheint, dann nennt sie das Enddatum und dass ab diesem Tag kein Einzug mehr möglich ist — belegt im Browser am 2026-11-20 (Die Zeile nennt das Enddatum einer Kündigung); der Satz selbst war schon durch `ohne-mandat.test.ts` gedeckt — dass er **ankommt**, stand nirgends
 - [x] Angenommen der Kunde hat nie ein SEPA-Mandat erteilt, wenn der Entwurf geöffnet wird, dann steht sein Abo in keiner der drei Listen
-- [ ] Angenommen das alte Mandat wurde durch ein neues ersetzt, wenn der Entwurf geöffnet wird, dann steht das Abo nicht in dieser Liste, sondern wird normal eingezogen
+- [x] Angenommen das alte Mandat wurde durch ein neues ersetzt, wenn der Entwurf geöffnet wird, dann steht das Abo nicht in dieser Liste, sondern wird normal eingezogen — belegt am 2026-11-20 (Ein neues Mandat holt das Abo zurück in den Lauf): neues Mandat erteilt, neuer Lauf, Abo nicht mehr unter den Widerrufen und die Position trägt die **neue** Mandatsreferenz
 - [x] Angenommen ein Abo mit widerrufenem Mandat wurde im selben Zyklus schon eingezogen, wenn der Entwurf geöffnet wird, dann steht es nicht in dieser Liste
 - [x] Angenommen ein Abo mit widerrufenem Mandat ist zum Fälligkeitstag gekündigt oder pausiert, wenn der Entwurf geöffnet wird, dann steht es nicht in dieser Liste
-- [~] Angenommen ein Abo mit widerrufenem Mandat hat keinen Preis hinterlegt, wenn der Entwurf geöffnet wird, dann steht es mit „—" als Betrag in dieser Liste und der fehlende Preis wird benannt — **gebaut, aber nicht durch einen Test belegt**: Dafür bräuchte der Browsertest einen vierten Kunden. Die Regel dahinter (ein Abo ohne Preis gehört in die Liste) ist durch einen Einheitentest gedeckt
+- [x] Angenommen ein Abo mit widerrufenem Mandat hat keinen Preis hinterlegt, wenn der Entwurf geöffnet wird, dann steht es mit „—" als Betrag in dieser Liste und der fehlende Preis wird benannt — am 2026-11-20 nachgeholt. Der Browsertest hat jetzt den fünften Kunden, den es dafür braucht
 - [x] Angenommen es gibt kein solches Abo, wenn der Entwurf geöffnet wird, dann erscheint die Liste nicht
 - [x] Angenommen die Mandate lassen sich nicht lesen, wenn der Entwurf geöffnet wird, dann erscheint ein Fehler und nicht eine leere Liste
 
@@ -138,7 +138,7 @@ ist.
 - [x] Angenommen eine Zeile dieser Liste ist zu sehen, wenn der Betreiber „Auf die Barzahlungsliste" wählt und den vorgeschlagenen Betrag bestätigt, dann entsteht ein Eintrag in der Barzahlungsliste für dieses Abo
 - [x] Angenommen der Betrag ist vorbelegt, wenn der Betreiber ihn ändert, dann gilt der geänderte Betrag
 - [x] Angenommen für dieses Abo steht schon ein Eintrag auf der Barzahlungsliste, wenn der Entwurf geöffnet wird, dann sagt die Zeile das und bietet es nicht erneut an
-- [ ] Angenommen der Betreiber versucht ein Abo ohne gültiges Mandat über „Trotzdem aufnehmen" in den Lauf zu holen, wenn er bestätigt, dann lehnt die App es mit der bestehenden Meldung ab
+- [x] Angenommen der Betreiber versucht ein Abo ohne gültiges Mandat über „Trotzdem aufnehmen" in den Lauf zu holen, wenn er bestätigt, dann lehnt die App es mit der bestehenden Meldung ab — belegt am 2026-11-20. Geprüft auf dem **einzigen** Weg, auf dem das im Betrieb vorkommt: Die Seite ist geladen, dann wird das Mandat widerrufen, dann klickt der Betreiber
 
 ### Die Sperre beim Einzug
 
@@ -148,6 +148,33 @@ ist.
 - [x] Angenommen zu allen Positionen sind die Mandate gültig, wenn der Betreiber die Datei anfordert, dann verhält sich alles wie bisher
 - [x] Angenommen zu einer Position ist das Mandat widerrufen, wenn der Betreiber den Upload bestätigen will, dann wird auch das verweigert und der Lauf bleibt Entwurf — beim Bauen ergänzt: Die Bestätigung macht aus Positionen Rechnungen, und eine Rechnung über eine Lastschrift gegen einen Widerruf wäre der schlechtere Zustand von beiden
 - [x] Angenommen eine Position ist durch Guthaben auf 0 € gedeckt, wenn ihr Mandat widerrufen ist, dann sperrt das nicht — sie steht in keiner Bankdatei und bucht nichts ab
+
+## Nachtrag (2026-11-20): die vier offenen Kriterien belegt
+
+Alle vier waren **gebaut** — keines war ein fehlendes Feature. Was fehlte, war der Beweis, dass
+die Regel auch ankommt. Das ist hier kein formaler Mangel: Eine Zeile, die ihren Satz nie
+erzeugt, und eine Liste, die ein gelöstes Problem weiter anzeigt, fallen beide nicht auf — sie
+sehen aus wie „nichts offen".
+
+| Kriterium | Was der Test zeigt |
+|---|---|
+| Das Enddatum in der Zeile | Kündigung zum 02.03.2035 gesetzt, Fälligkeit 05.02.2035: Die Zeile nennt „Ab dem 02.03.2035 wird ohnehin nicht mehr eingezogen" und steht weiter in der Liste — der Beitrag für diesen Zeitraum ist offen |
+| Neues Mandat statt des widerrufenen | Neues Mandat erteilt, neuer Lauf vier Wochen später: nicht mehr unter den Widerrufen, sondern als Position mit der **neuen** Mandatsreferenz |
+| „Trotzdem aufnehmen" ohne Mandat | Seite geladen, dann Mandat widerrufen, dann geklickt: „Für diesen Kunden gibt es kein gültiges SEPA-Mandat mehr", und es entsteht keine Position |
+| Abo ohne Preis | Steht mit „—" in der Liste und nennt „Kein Preis am Abo hinterlegt" |
+
+**Der dritte brauchte eine Überlegung, keine Mechanik.** Die drei Listen sieben Abos ohne
+gültiges Mandat aus — über die Oberfläche ist „Trotzdem aufnehmen" dafür also gar nicht
+erreichbar. Der Riegel in `fuegeLaufPositionHinzu` ist deshalb kein doppelter Zaun, sondern
+der einzige an genau einer Stelle: Die Seite war geladen, als das Mandat noch galt. Genau so
+prüft der Test es.
+
+**Zwei Kunden mehr im Fixture** (fünf statt drei): einer, dessen Abo später beginnt — nur ein
+nachtragbares Abo steht überhaupt im Dialog —, und einer ohne Preis.
+
+**Geprüft:** `tests/PROJ-105-mandat-widerrufen.spec.ts` 11/11 in Chromium **und** in Mobile
+Safari (2026-11-20). Beide Fälligkeitstage stehen im Aufräumen; ein stehengelassener Lauf
+verdirbt die Sperren der nächsten Suite.
 
 ## Umsetzung (2026-11-17)
 
@@ -227,12 +254,25 @@ wieder gehen).
 - [ ] Eine Position, deren Mandatsreferenz **gar keine** Zeile in `sepa_mandates` hat, läuft
       weiter durch: Das Unterschriftsdatum wird dann durch den Fälligkeitstag ersetzt
       (`signedDateByReference.get(...) ?? run.due_date`). Das ist eine zweite, kleinere
-      stille Stelle derselben Art. Bewusst nicht mitgenommen, weil ältere Läufe in der
-      Testdatenbank verwaiste Positionen haben könnten und ein Härten dort unbemerkt eine
-      andere Suite bricht. Eigene Prüfung wert.
-- [ ] Soll eine Position mit widerrufenem Mandat beim Verwerfen/Entfernen zusätzlich
-      automatisch auf der Barzahlungsliste landen? Vorschlag: nein — bei Geld entscheidet
-      der Betreiber, und ein Klick weiter ist zumutbar.
+      stille Stelle derselben Art.
+
+      **Am 2026-11-20 nachgemessen, und das Ergebnis dreht die Einschätzung:** In der
+      Testdatenbank haben **4 von 25** Positionen keine Mandatszeile — die Sorge war also
+      berechtigt. Sie stammen aber **ausschließlich aus Testaufräumungen**: Sieben Suiten
+      löschen Mandate mit `delete()` (PROJ-7, PROJ-93, PROJ-103, PROJ-104, PROJ-105 …),
+      während ihre Läufe teils stehen bleiben. Der **Anwendungscode löscht nie** ein Mandat —
+      `mandate.ts` setzt ausschließlich `revoked_at`, weil SEPA die Aufbewahrung verlangt.
+      In der Produktion kann dieser Fall also gar nicht entstehen, solange niemand von Hand
+      im SQL-Editor löscht.
+
+      **Empfehlung:** härten und den Fall laut machen (eine Position ohne Mandatszeile
+      sperrt wie ein Widerruf, mit eigener Meldung). Das ist eine Änderung am Geldweg und
+      braucht die Zustimmung des Betreibers; dazu müssten die sieben Suiten ihre Läufe vor
+      den Mandaten aufräumen — sonst scheitern sie an genau diesem neuen Riegel.
+- [x] Soll eine Position mit widerrufenem Mandat beim Verwerfen/Entfernen zusätzlich
+      automatisch auf der Barzahlungsliste landen? → **Nein** (Betreiber, 2026-11-20: ein
+      Klick mehr ist kein Problem). Bei Geld entscheidet der Betreiber selbst; ein
+      automatischer Eintrag wäre eine Geldforderung, die niemand geprüft hat.
 
 ## Decision Log
 
@@ -246,6 +286,7 @@ wieder gehen).
 | Kein Einzug gegen ein widerrufenes Mandat, Datei verweigert statt Position stillschweigend ausgelassen | Die Freigabe macht aus Positionen Rechnungen; eine ausgelassene Position wäre eine Rechnung über nie geflossenes Geld. Und ein Einzug nach Widerruf ist nicht autorisiert | 2026-11-17 |
 | Betrag auf die Barzahlungsliste nur auf Bestätigung, vorbelegt mit dem Abopreis | Bei Geld entscheidet der Betreiber selbst; ein vorbelegtes Feld ist ein Rat, der stimmen muss | 2026-11-17 |
 | Das Kündigungsdatum wird nicht rückdatiert | Dem Kunden wurde ein Datum genannt. Es nachträglich zu verschieben wäre ein Wortbruch, auch wenn die Abbuchung dazu fehlt | 2026-11-17 |
+| Kein automatischer Eintrag auf der Barzahlungsliste beim Entfernen einer Position | Betreiber am 2026-11-20: ein Klick mehr ist kein Problem. Ein automatischer Eintrag wäre eine Geldforderung, die niemand geprüft hat — und die Zeile bietet den Weg ohnehin an | 2026-11-20 |
 
 ### Technical Decisions
 
